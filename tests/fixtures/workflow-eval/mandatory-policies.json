@@ -4,11 +4,11 @@
   "ceilings": {
     "quick": 16382,
     "standard-ui": 15282,
-    "proven-backfill": 23318,
+    "proven-backfill": 23372,
     "equivalent-commit": 12676,
     "reverify-c": 15463,
     "missing-receipt": 5627,
-    "stale-delta": 12818,
+    "stale-delta": 12872,
     "multi-change": 12676
   },
   "policies": {

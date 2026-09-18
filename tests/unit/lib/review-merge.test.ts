@@ -7,9 +7,16 @@ import {
   renderReviewDocument,
   parseReviewDocument,
   parseReviewMetrics,
+  parseReviewMetricsStrict,
+  readTestFailureStreak,
+  reduceTestFailureStreak,
+  renderReviewMetricsComment,
+  replaceReviewMetrics,
   escapedCellsFor,
   type ReviewRow,
 } from '../../../src/lib/review-merge.js';
+import { EMPTY_TEST_FAILURE_STREAK } from '../../../src/types/cascade.js';
+import { PrerequisiteError } from '../../../src/types/errors.js';
 import type { ReviewFinding } from '../../../src/types/station.js';
 
 const finding = (over: Partial<ReviewFinding> & Pick<ReviewFinding, 'location' | 'summary'>): ReviewFinding => ({
@@ -639,5 +646,117 @@ describe('escapedCellsFor (REQ-LIB-078) — counts the rendered cells of rows th
     const merged = mergeFindings(existing, incoming);
     expect(merged[0]!.lens).toBe('correctness');
     expect(escapedCellsFor(merged, incoming)).toBe(1);
+  });
+});
+
+describe('test-failure metrics in review.md (REQ-SERVICES-098, REQ-SERVICES-086, REQ-TYPES-086)', () => {
+  it('legacy metrics without the test fields read as the empty streak', () => {
+    const doc = '<!-- prospec:review-metrics round="2" cumulative_spend="4000" -->\n# R\n';
+    expect(readTestFailureStreak(parseReviewMetricsStrict(doc))).toEqual(EMPTY_TEST_FAILURE_STREAK);
+    expect(readTestFailureStreak(parseReviewMetrics(''))).toEqual(EMPTY_TEST_FAILURE_STREAK);
+  });
+
+  it('round-trips the bounded streak through the metrics comment beside the existing fields', () => {
+    const doc = renderReviewDocument('', [], 'c', {
+      round: 2,
+      cumulativeSpend: 10,
+      lenses: ['a'],
+      testFailureAttemptIds: ['id-1', 'id,2'],
+      consecutiveTestFailures: 2,
+    });
+    expect(doc).toContain('test_failures="2"');
+    expect(doc).toContain('test_failure_ids="id-1,id%2C2"');
+    const parsed = parseReviewMetricsStrict(doc);
+    expect(parsed).toMatchObject({ round: 2, cumulativeSpend: 10, lenses: ['a'], consecutiveTestFailures: 2, testFailureAttemptIds: ['id-1', 'id,2'] });
+  });
+
+  it('omits the test fields entirely when the streak is empty (a green reset leaves no trace)', () => {
+    const comment = renderReviewMetricsComment({ round: 1, consecutiveTestFailures: 0, testFailureAttemptIds: [] });
+    expect(comment).toBe('<!-- prospec:review-metrics round="1" -->\n');
+  });
+
+  it.each([
+    ['a non-integer count', '<!-- prospec:review-metrics round="1" test_failures="x" -->\n'],
+    ['a negative count', '<!-- prospec:review-metrics round="1" test_failures="-1" -->\n'],
+    ['a fractional count', '<!-- prospec:review-metrics round="1" test_failures="1.5" -->\n'],
+    ['an empty id token', '<!-- prospec:review-metrics round="1" test_failures="1" test_failure_ids="a,,b" -->\n'],
+    ['ids without a count', '<!-- prospec:review-metrics round="1" test_failure_ids="a" -->\n'],
+    ['duplicate metrics comments', '<!-- prospec:review-metrics round="1" -->\n# R\n<!-- prospec:review-metrics round="2" -->\n'],
+  ])('the strict parser refuses %s with a repair hint, the lenient one degrades', (_n, doc) => {
+    expect(() => parseReviewMetricsStrict(doc)).toThrow(PrerequisiteError);
+    expect(() => parseReviewMetricsStrict(doc)).toThrow(/review-metrics/);
+    expect(() => parseReviewMetrics(doc)).not.toThrow();
+  });
+
+  describe('reduceTestFailureStreak — distinct observed failed attempts, bounded by the effective threshold', () => {
+    const failed = (attemptId: string) => ({ kind: 'failed' as const, attemptId });
+    it('counts distinct ids up to the default threshold of three and saturates there', () => {
+      let s = EMPTY_TEST_FAILURE_STREAK;
+      s = reduceTestFailureStreak(s, failed('a'), 3);
+      s = reduceTestFailureStreak(s, failed('b'), 3);
+      expect(s).toEqual({ consecutiveTestFailures: 2, testFailureAttemptIds: ['a', 'b'] });
+      s = reduceTestFailureStreak(s, failed('c'), 3);
+      expect(s).toEqual({ consecutiveTestFailures: 3, testFailureAttemptIds: ['a', 'b', 'c'] });
+      s = reduceTestFailureStreak(s, failed('d'), 3);
+      expect(s).toEqual({ consecutiveTestFailures: 3, testFailureAttemptIds: ['b', 'c', 'd'] });
+    });
+
+    it('does not increment on a replayed id, including an older id still retained in the streak', () => {
+      let s = EMPTY_TEST_FAILURE_STREAK;
+      s = reduceTestFailureStreak(s, failed('a'), 3);
+      s = reduceTestFailureStreak(s, failed('b'), 3);
+      const before = s;
+      expect(reduceTestFailureStreak(s, failed('b'), 3)).toEqual(before);
+      expect(reduceTestFailureStreak(s, failed('a'), 3)).toEqual(before);
+    });
+
+    it('uses the effective threshold, not a hardcoded three: four distinct ids reach four', () => {
+      let s = EMPTY_TEST_FAILURE_STREAK;
+      for (const id of ['a', 'b', 'c']) s = reduceTestFailureStreak(s, failed(id), 4);
+      expect(s.consecutiveTestFailures).toBe(3);
+      s = reduceTestFailureStreak(s, failed('d'), 4);
+      expect(s).toEqual({ consecutiveTestFailures: 4, testFailureAttemptIds: ['a', 'b', 'c', 'd'] });
+    });
+
+    it('a fresh certified green clears the streak; a non-failure observation leaves it alone', () => {
+      let s = EMPTY_TEST_FAILURE_STREAK;
+      s = reduceTestFailureStreak(s, failed('a'), 3);
+      expect(reduceTestFailureStreak(s, { kind: 'none' }, 3)).toEqual(s);
+      expect(reduceTestFailureStreak(s, { kind: 'green' }, 3)).toEqual(EMPTY_TEST_FAILURE_STREAK);
+    });
+  });
+
+  describe('replaceReviewMetrics — the one metrics splice both paths share', () => {
+    // A hand-written legacy table the canonical renderer would normalize: a whole-file
+    // rebuild changes these bytes, an in-place splice must not.
+    const legacy = '<!-- prospec:review-metrics round="1" cumulative_spend="7" lenses="x" -->\n# Review Findings: c\n\nprose   with   odd spacing\n\n| Location | Severity |   Lens | Status | Summary |\n|---|---|---|---|---|\n| a.ts:1 |   critical | correctness | open | bug |\n\ntrailing note\n';
+
+    it('rewrites only the metrics comment: bytes outside it and the non-test metric values are preserved', () => {
+      const out = replaceReviewMetrics(legacy, { consecutiveTestFailures: 1, testFailureAttemptIds: ['a'] });
+      const [commentOut, ...restOut] = out.split('\n');
+      const [, ...restIn] = legacy.split('\n');
+      expect(restOut).toEqual(restIn);
+      expect(commentOut).toContain('round="1"');
+      expect(commentOut).toContain('cumulative_spend="7"');
+      expect(commentOut).toContain('lenses="x"');
+      expect(commentOut).toContain('test_failures="1"');
+      expect(renderReviewDocument(legacy, parseReviewDocument(legacy).rows, 'c')).not.toBe(legacy);
+    });
+
+    it('creates a metrics-only document when review.md is absent, which a later merge parses as its first round', () => {
+      const created = replaceReviewMetrics('', { consecutiveTestFailures: 1, testFailureAttemptIds: ['a'] });
+      expect(created).toBe('<!-- prospec:review-metrics test_failures="1" test_failure_ids="a" -->\n');
+      expect(parseReviewMetricsStrict(created).round).toBeUndefined();
+      expect(parseReviewDocument(created).rows).toEqual([]);
+      const merged = renderReviewDocument(created, mergeFindings([], [finding({ id: 'F-1', location: 'a.ts:1', summary: 's' })], 1), 'c', { round: 1, consecutiveTestFailures: 0, testFailureAttemptIds: [] });
+      expect(merged).toContain('round="1"');
+      expect(merged).not.toContain('test_failures');
+    });
+
+    it('prepends a comment to a document that never had one without touching its bytes', () => {
+      const plain = '# Review Findings: c\n\nprose\n';
+      const out = replaceReviewMetrics(plain, { consecutiveTestFailures: 2, testFailureAttemptIds: ['a', 'b'] });
+      expect(out).toBe('<!-- prospec:review-metrics test_failures="2" test_failure_ids="a,b" -->\n' + plain);
+    });
   });
 });

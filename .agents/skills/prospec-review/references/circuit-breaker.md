@@ -38,6 +38,11 @@ Unattended autonomous execution carries the risk of runaway token consumption, i
 - **Suite Regression**: A fix for a critical defect turns previously passing unrelated tests red (immediately reverted).
 - **Per-Critical Regression Pin Gate**: Confirmed criticals require a fail-then-pass mutation-verified test pin before fix application to guard against subsequent regressions.
 
+### 6. Persistent Test Failure (`persistent_test_failure`)
+- **Mechanism**: CLI-owned. `prospec review merge` requires the change's fresh green `test_attempt` (recorded by `prospec check --record-tests --change <name>` with the project's own test command); a refusal on a failed attempt with a non-zero exit counts once per distinct attempt id in `review.md`'s metrics (a replayed id never counts twice), and a fresh green resets the streak.
+- **Rule**: streak ≥ threshold (default **3**, independent of the round and flip caps) trips `persistent_test_failure` on that refusal.
+- **Action**: the merge exits non-zero printing `ESCALATE_TO_HUMAN` with `count / threshold`; stop automated retries and record no review round.
+
 ---
 
 ## Escalation Protocol (Human Hand-off)

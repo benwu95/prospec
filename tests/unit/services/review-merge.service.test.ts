@@ -1,25 +1,98 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { vol } from 'memfs';
 import { execute } from '../../../src/services/review-merge.service.js';
-import { PrerequisiteError } from '../../../src/types/errors.js';
-import { RELAYED_FIELD_MAX_CHARS } from '../../../src/types/station.js';
+import { PrerequisiteError, ProspecError, TestGateError } from '../../../src/types/errors.js';
+import { RELAYED_FIELD_MAX_CHARS, TEST_GATE_NOT_ADJUDICATED, TEST_GATE_PRODUCER } from '../../../src/types/station.js';
 
 vi.mock('node:fs', async () => {
   const memfs = await import('memfs');
   return { ...memfs.fs, default: memfs.fs };
 });
 
+// memfs is invisible to git, so the whole-tree snapshot is injected: the gate's
+// freshness rule is what these tests pin, not Git's capture.
+const snapshot = vi.hoisted(() => ({ digest: 'D' as string | null, sequence: [] as Array<string | null> }));
+vi.mock('../../../src/lib/drift-sources.js', async (original) => {
+  const actual = await original<typeof import('../../../src/lib/drift-sources.js')>();
+  return {
+    ...actual,
+    computeChangeState: () => {
+      if (snapshot.sequence.length > 1) snapshot.digest = snapshot.sequence.shift()!;
+      else if (snapshot.sequence.length === 1) snapshot.digest = snapshot.sequence[0]!;
+      return snapshot.digest === null
+        ? { digest: null, clean: null, reason: 'not a git repository' }
+        : { digest: snapshot.digest, clean: true };
+    },
+  };
+});
+const writes = vi.hoisted(() => ({
+  failNext: false,
+  /** Fail the write whose path matches (once). */
+  failOn: null as ((filePath: string) => boolean) | null,
+  /** Runs after a successful write — the seam for a concurrent edit between the
+   *  exemption WARN landing and the merge's revalidation. */
+  afterWrite: null as ((filePath: string) => void) | null,
+}));
+vi.mock('../../../src/lib/fs-utils.js', async (original) => {
+  const actual = await original<typeof import('../../../src/lib/fs-utils.js')>();
+  return {
+    ...actual,
+    atomicWrite: async (filePath: string, content: string) => {
+      if (writes.failNext || writes.failOn?.(filePath)) {
+        writes.failNext = false;
+        writes.failOn = null;
+        throw new Error('disk full (injected)');
+      }
+      await actual.atomicWrite(filePath, content);
+      const hook = writes.afterWrite;
+      writes.afterWrite = null;
+      hook?.(filePath);
+    },
+  };
+});
+
 beforeEach(() => {
   vol.reset();
+  snapshot.digest = 'D';
+  snapshot.sequence = [];
+  writes.failNext = false;
+  writes.failOn = null;
+  writes.afterWrite = null;
 });
 
 const CWD = '/repo';
 const REVIEW = '/repo/.prospec/changes/add-widget/review.md';
+const METADATA = '/repo/.prospec/changes/add-widget/metadata.yaml';
+const CONFIG = '/repo/.prospec.yaml';
 const FINDINGS = '/repo/round.json';
+const WITH_COMMAND = 'version: "1.0"\nproject:\n  name: t\ntech_stack:\n  test_command: node -e 0\n';
+const NO_COMMAND = 'version: "1.0"\nproject:\n  name: t\n';
 
-function seed(findings: unknown, review?: string): void {
+/** A certified fresh green record against snapshot digest `D`. */
+const FRESH_GREEN = `test_provenance:
+  fingerprint_version: snapshot-v2
+  scope: repository-inputs-v2
+  attempt_id: a1
+  command: node -e 0
+  exit_code: 0
+  digest: D
+  date: "2026-09-01"
+test_attempt:
+  id: a1
+  outcome: passed
+  command: node -e 0
+  exit_code: 0
+  before_digest: D
+  after_digest: D
+`;
+/** The latest attempt failed with an actual non-zero exit (superseding the record). */
+const FAILED = (id: string) => FRESH_GREEN.replace(/test_attempt:[\s\S]*$/, `test_attempt:\n  id: ${id}\n  outcome: failed\n  command: node -e 1\n  exit_code: 1\n`);
+const META_HEAD = 'name: add-widget\ncreated_at: 2026-08-28\nstatus: implemented\n';
+
+function seed(findings: unknown, review?: string, evidence: string = FRESH_GREEN, config: string = WITH_COMMAND): void {
   const files: Record<string, string> = {
-    '/repo/.prospec/changes/add-widget/metadata.yaml': 'name: add-widget\ncreated_at: 2026-08-28\nstatus: implemented\n',
+    [CONFIG]: config,
+    [METADATA]: META_HEAD + evidence,
     [FINDINGS]: JSON.stringify(findings),
   };
   if (review !== undefined) files[REVIEW] = review;
@@ -307,7 +380,8 @@ quality_log:
     date: '2026-08-28'
     round: 2
     result: PASS
-`,
+${FRESH_GREEN}`,
+      [CONFIG]: WITH_COMMAND,
       [REVIEW]: '<!-- prospec:review-metrics round="2" provenance="old-digest-123" -->\n# Review Findings: add-widget\n\n| ID | Location | Severity | Lens | Status | Origin | Summary | Repro |\n|---|---|---|---|---|---|---|---|\n| F-1 | src/a.ts:1 | critical | correctness | fixed | 1 | bug1 |  |\n',
       [FINDINGS]: JSON.stringify([
         { id: 'F-1', location: 'src/a.ts:1', severity: 'critical', lens: 'correctness', status: 'fixed', summary: 'bug1', repro: 'pnpm a' },
@@ -335,7 +409,7 @@ quality_log:
     date: '2026-08-28'
     round: 2
     result: PASS
-`,
+${FRESH_GREEN}`,
     );
 
     const res = await execute({
@@ -397,7 +471,8 @@ quality_log:
     date: '2026-08-28'
     round: 2
     result: PASS
-`,
+${FRESH_GREEN}`,
+      [CONFIG]: WITH_COMMAND,
       [REVIEW]: '<!-- prospec:review-metrics round="2" provenance="old-digest-000" loop_base="0" -->\n# Review Findings: add-widget\n\n| ID | Location | Severity | Lens | Status | Origin | Summary | Repro |\n|---|---|---|---|---|---|---|---|\n| F-1 | src/a.ts:1 | critical | correctness | fixed | 1 | bug1 |  |\n',
       [FINDINGS]: JSON.stringify([
         { id: 'F-1', location: 'src/a.ts:1', severity: 'critical', lens: 'correctness', status: 'fixed', summary: 'bug1', repro: 'pnpm a' },
@@ -430,7 +505,8 @@ quality_log:
     date: '2026-08-28'
     round: 1
     result: WARN
-`,
+${FRESH_GREEN}`,
+      [CONFIG]: WITH_COMMAND,
       [REVIEW]: '<!-- prospec:review-metrics round="1" cumulative_spend="4000" -->\n# Review Findings: add-widget\n\n| ID | Location | Severity | Lens | Status | Origin | Summary | Repro |\n|---|---|---|---|---|---|---|---|\n| F-1 | src/a.ts:1 | critical | correctness | open | 1 | bug1 |  |\n',
       [FINDINGS]: JSON.stringify([
         { id: 'F-1', location: 'src/a.ts:1', severity: 'critical', lens: 'correctness', status: 'fixed', summary: 'bug1', repro: 'pnpm a' },
@@ -494,7 +570,8 @@ quality_log:
     date: '2026-08-28'
     round: 2
     result: PASS
-`,
+${FRESH_GREEN}`,
+      [CONFIG]: WITH_COMMAND,
       [REVIEW]: '<!-- prospec:review-metrics round="2" spend_before="4000" round_spend="5000" cumulative_spend="9000" provenance="old-digest-xyz" signatures="F-1:FP" -->\n# Review Findings: add-widget\n\n| ID | Location | Severity | Lens | Status | Origin | Summary | Repro |\n|---|---|---|---|---|---|---|---|\n| F-1 | src/a.ts:1 | critical | correctness | fixed | 1 | bug1 |  |\n',
       [FINDINGS]: JSON.stringify([
         { id: 'F-1', location: 'src/a.ts:1', severity: 'critical', lens: 'correctness', status: 'fixed', summary: 'bug1', repro: 'pnpm a' },
@@ -537,7 +614,7 @@ quality_log:
     await execute({ cwd: CWD, findingsPath: FINDINGS, spend: 4000, budget: 6000 });
     vol.writeFileSync(
       '/repo/.prospec/changes/add-widget/metadata.yaml',
-      "name: add-widget\ncreated_at: 2026-08-28\nstatus: implemented\nquality_log:\n  - skill: prospec-review\n    date: '2026-08-28'\n    round: 1\n    result: WARN\n",
+      META_HEAD + "quality_log:\n  - skill: prospec-review\n    date: '2026-08-28'\n    round: 1\n    result: WARN\n" + FRESH_GREEN,
     );
     const r2 = await execute({ cwd: CWD, findingsPath: FINDINGS, spend: 3000, budget: 6000 });
     expect(r2.round.roundNumber).toBe(2);
@@ -601,3 +678,313 @@ quality_log:
   });
 });
 
+
+describe('review-merge test gate — fresh green before any merge (REQ-CLI-028, REQ-SERVICES-098, REQ-SERVICES-086)', () => {
+  const critical = { id: 'F-1', location: 'src/a.ts:1', severity: 'critical', lens: 'correctness', summary: 'bug', repro: 'pnpm a' };
+  const readReview = () => vol.readFileSync(REVIEW, 'utf-8') as string;
+  const readMeta = () => vol.readFileSync(METADATA, 'utf-8') as string;
+  const metricsLine = (doc: string) => doc.split('\n')[0]!;
+  const bodyOf = (doc: string) => doc.split('\n').slice(1).join('\n');
+
+  describe('pre-existing refusals stay first and write nothing, whatever the test evidence', () => {
+    it.each([
+      ['invalid findings payload', [{ location: 'a', severity: 'blocker', lens: 'x', summary: 's' }], /validation/],
+      ['unsafe evidence marker', [{ id: 'X --> <!-- prospec:evidence V', location: 'a', severity: 'major', lens: 'x', summary: 's', evidence: 'p' }], /in its id/],
+    ] as Array<[string, unknown, RegExp]>)('%s with a red suite: PrerequisiteError, no metrics-only file', async (_n, findings, message) => {
+      seed(findings, undefined, FAILED('a2'));
+      await expect(execute({ cwd: CWD, findingsPath: FINDINGS })).rejects.toThrow(message);
+      expect(vol.existsSync(REVIEW)).toBe(false);
+    });
+
+    it('an out-of-sequence --round with a red suite refuses before any write', async () => {
+      seed([critical], '<!-- prospec:review-metrics round="2" -->\n# Review Findings: add-widget\n', FAILED('a2'));
+      const before = readReview();
+      await expect(execute({ cwd: CWD, findingsPath: FINDINGS, round: 4 })).rejects.toThrow(/out of sequence/);
+      expect(readReview()).toBe(before);
+    });
+
+    it('malformed or duplicate metrics comments refuse with a repair hint before any write', async () => {
+      seed([critical], '<!-- prospec:review-metrics round="1" test_failures="x" -->\n# R\n');
+      await expect(execute({ cwd: CWD, findingsPath: FINDINGS })).rejects.toThrow(/malformed test-failure metrics/);
+      vol.writeFileSync(REVIEW, '<!-- prospec:review-metrics round="1" -->\n# R\n<!-- prospec:review-metrics round="1" -->\n');
+      const before = readReview();
+      await expect(execute({ cwd: CWD, findingsPath: FINDINGS })).rejects.toThrow(/exactly one/);
+      expect(readReview()).toBe(before);
+    });
+  });
+
+  it.each([
+    ['missing evidence', '', /no test run recorded/],
+    ['stale evidence', FRESH_GREEN.replaceAll('digest: D', 'digest: OLD'), /stale test run/],
+    ['a running attempt', FRESH_GREEN.replace('outcome: passed', 'outcome: running'), /uncertified test attempt \(running\)/],
+  ])('refuses %s with remediation, creating no review.md and leaving metadata byte-identical', async (_n, evidence, reason) => {
+    seed([critical], undefined, evidence);
+    const meta = readMeta();
+    let caught: unknown;
+    try {
+      await execute({ cwd: CWD, findingsPath: FINDINGS });
+    } catch (err) {
+      caught = err;
+    }
+    expect(caught).toBeInstanceOf(TestGateError);
+    expect((caught as TestGateError).entrance).toBe('review merge');
+    expect((caught as TestGateError).reason).toMatch(reason);
+    expect((caught as TestGateError).suggestion).toContain('prospec check --record-tests --change add-widget');
+    expect((caught as TestGateError).circuitBreaker).toBeUndefined();
+    expect(vol.existsSync(REVIEW)).toBe(false);
+    expect(readMeta()).toBe(meta);
+  });
+
+  it('a newly observed failed attempt is refused and counted in a metrics-only review.md; the same id is not counted twice', async () => {
+    seed([critical], undefined, FAILED('a2'));
+    const meta = readMeta();
+    await expect(execute({ cwd: CWD, findingsPath: FINDINGS })).rejects.toBeInstanceOf(TestGateError);
+    const created = readReview();
+    expect(created).toBe('<!-- prospec:review-metrics test_failures="1" test_failure_ids="a2" -->\n');
+    expect(readMeta()).toBe(meta);
+    await expect(execute({ cwd: CWD, findingsPath: FINDINGS })).rejects.toBeInstanceOf(TestGateError);
+    expect(readReview()).toBe(created);
+  });
+
+  it('three distinct failed attempts trip persistent_test_failure on the refusal, and the blocked call keeps reporting it', async () => {
+    seed([critical], undefined, FAILED('a2'));
+    await expect(execute({ cwd: CWD, findingsPath: FINDINGS })).rejects.toBeInstanceOf(TestGateError);
+    vol.writeFileSync(METADATA, META_HEAD + FAILED('a3'));
+    const second = await execute({ cwd: CWD, findingsPath: FINDINGS }).catch((e: unknown) => e);
+    expect((second as TestGateError).circuitBreaker).toBeUndefined();
+    vol.writeFileSync(METADATA, META_HEAD + FAILED('a4'));
+    const third = await execute({ cwd: CWD, findingsPath: FINDINGS }).catch((e: unknown) => e);
+    expect(third).toBeInstanceOf(TestGateError);
+    const breaker = (third as TestGateError).circuitBreaker;
+    expect(breaker?.tripped).toBe(true);
+    expect(breaker?.escalationReport?.type).toBe('persistent_test_failure');
+    expect(breaker?.escalationReport?.diagnostics).toEqual({ count: 3, threshold: 3, attemptIds: ['a2', 'a3', 'a4'] });
+    expect(readReview()).toContain('test_failures="3"');
+    // a replayed blocked call: still tripped, bytes unchanged
+    const doc = readReview();
+    const again = await execute({ cwd: CWD, findingsPath: FINDINGS }).catch((e: unknown) => e);
+    expect((again as TestGateError).circuitBreaker?.escalationReport?.type).toBe('persistent_test_failure');
+    expect(readReview()).toBe(doc);
+  });
+
+  it('a test refusal attaches a breaker only for persistent_test_failure — stale rounds/findings never re-trip max_rounds or fix-induced (F-3)', async () => {
+    // Three recorded in-loop rounds with an open critical: the max_rounds axis would trip
+    // on the stale table if the refusal path fed it rows and the previous round.
+    seed(
+      [critical],
+      '<!-- prospec:review-metrics round="3" -->\n# Review Findings: add-widget\n\n| ID | Location | Severity | Lens | Status | Origin | Summary | Repro |\n|---|---|---|---|---|---|---|---|\n| F-1 | src/a.ts:1 | critical | correctness | open | 1 | bug | pnpm a |\n| F-2 | src/b.ts:1 | critical | correctness | open | 3 | new | pnpm b |\n',
+      FAILED('a2'),
+    );
+    const err = await execute({ cwd: CWD, findingsPath: FINDINGS, maxRounds: 3 }).catch((e: unknown) => e);
+    expect(err).toBeInstanceOf(TestGateError);
+    expect((err as TestGateError).circuitBreaker).toBeUndefined();
+  });
+
+  it('a counted refusal splices ONLY the test attributes: findings, evidence, prose, round and spend are byte-identical', async () => {
+    seed([critical]);
+    await execute({ cwd: CWD, findingsPath: FINDINGS, round: 1, spend: 100, budget: 1000, lenses: ['correctness'] });
+    const annotated = readReview() + '\nhuman note below the evidence\n';
+    vol.writeFileSync(REVIEW, annotated);
+    vol.writeFileSync(METADATA, META_HEAD + FAILED('a2'));
+    vol.writeFileSync(FINDINGS, JSON.stringify([{ ...critical, status: 'fixed' }, { id: 'F-9', location: 'z', severity: 'major', lens: 'x', summary: 'new' }]));
+    await expect(execute({ cwd: CWD, findingsPath: FINDINGS, round: 2, spend: 999 })).rejects.toBeInstanceOf(TestGateError);
+    const after = readReview();
+    expect(bodyOf(after)).toBe(bodyOf(annotated));
+    expect(metricsLine(after)).toContain('round="1"');
+    expect(metricsLine(after)).toContain('cumulative_spend="100"');
+    expect(metricsLine(after)).toContain('lenses="correctness"');
+    expect(metricsLine(after)).toContain('test_failures="1"');
+    expect(after).not.toContain('F-9');
+  });
+
+  it('a fresh certified green merges normally, clears the streak and writes no test attributes', async () => {
+    seed([critical], undefined, FAILED('a2'));
+    await expect(execute({ cwd: CWD, findingsPath: FINDINGS })).rejects.toBeInstanceOf(TestGateError);
+    vol.writeFileSync(METADATA, META_HEAD + FRESH_GREEN);
+    const result = await execute({ cwd: CWD, findingsPath: FINDINGS });
+    expect(result.round.roundNumber).toBe(1);
+    expect(result.totalRows).toBe(1);
+    expect(result.testGate).toEqual({ verdict: 'pass', warningRecorded: false });
+    expect(result.circuitBreaker?.tripped).toBe(false);
+    const doc = readReview();
+    expect(doc).toContain('round="1"');
+    expect(doc).not.toContain('test_failures');
+    expect(doc).toContain('| F-1 |');
+  });
+
+  it('a change directory with no metadata.yaml is refused as a classified ProspecError with remediation, never a generic ENOENT (F-6)', async () => {
+    vol.fromJSON({ [CONFIG]: WITH_COMMAND, [FINDINGS]: JSON.stringify([critical]), '/repo/.prospec/changes/add-widget/proposal.md': '# p\n' });
+    const err = await execute({ cwd: CWD, findingsPath: FINDINGS }).catch((e: unknown) => e);
+    // classified (so `handleError` prints the message + remediation) rather than a
+    // bare Node error, which reaches the CLI as "An unexpected error occurred"
+    expect(err).toBeInstanceOf(ProspecError);
+    expect((err as ProspecError).code).toBe('PREREQUISITE_ERROR');
+    expect((err as Error).message).toContain('add-widget');
+    expect((err as ProspecError).suggestion).toContain('metadata.yaml');
+    expect(vol.existsSync(REVIEW)).toBe(false);
+  });
+
+  it('a metrics write failure is reported as the I/O error, never as a recorded count', async () => {
+    seed([critical], undefined, FAILED('a2'));
+    writes.failNext = true;
+    const err = await execute({ cwd: CWD, findingsPath: FINDINGS }).catch((e: unknown) => e);
+    expect(err).not.toBeInstanceOf(TestGateError);
+    expect((err as Error).message).toMatch(/disk full/);
+    expect(vol.existsSync(REVIEW)).toBe(false);
+  });
+
+  it('refuses when the snapshot moves between observation and the metrics-only write (zero write)', async () => {
+    seed([critical], undefined, FAILED('a2'));
+    snapshot.sequence = ['D', 'MOVED'];
+    await expect(execute({ cwd: CWD, findingsPath: FINDINGS })).rejects.toThrow(/changed before the write/);
+    expect(vol.existsSync(REVIEW)).toBe(false);
+  });
+
+  it('refuses when the snapshot moves before an accepted round is written (zero write)', async () => {
+    seed([critical]);
+    snapshot.sequence = ['D', 'MOVED'];
+    await expect(execute({ cwd: CWD, findingsPath: FINDINGS })).rejects.toThrow(/changed before the write/);
+    expect(vol.existsSync(REVIEW)).toBe(false);
+  });
+
+  it('a no-command project is exempt: the merge lands, and the WARN lands once under the test-gate producer, never as a review round', async () => {
+    seed([critical], undefined, '', NO_COMMAND);
+    snapshot.digest = null;
+    const first = await execute({ cwd: CWD, findingsPath: FINDINGS });
+    expect(first.testGate).toMatchObject({ verdict: 'exempt', exemption: 'no-command', warningRecorded: true });
+    expect(first.round.roundNumber).toBe(1);
+    const meta = readMeta();
+    expect(meta).toContain(`skill: ${TEST_GATE_PRODUCER}`);
+    expect(meta).toContain(`${TEST_GATE_NOT_ADJUDICATED} (review merge)`);
+    expect(meta).not.toContain('skill: prospec-review');
+    // replay: deduplicated, and the exemption never counted as a completed review round
+    const second = await execute({ cwd: CWD, findingsPath: FINDINGS });
+    expect(second.testGate).toMatchObject({ verdict: 'exempt', warningRecorded: false });
+    expect(second.round.roundNumber).toBe(1);
+    expect(readMeta()).toBe(meta);
+  });
+
+  it('an exemption never resets a recorded failure streak (loop rollover does not either)', async () => {
+    seed([critical], undefined, FAILED('a2'));
+    await expect(execute({ cwd: CWD, findingsPath: FINDINGS })).rejects.toBeInstanceOf(TestGateError);
+    vol.writeFileSync(CONFIG, NO_COMMAND);
+    vol.writeFileSync(METADATA, META_HEAD);
+    snapshot.digest = null;
+    const result = await execute({ cwd: CWD, findingsPath: FINDINGS });
+    expect(result.testGate?.verdict).toBe('exempt');
+    expect(readReview()).toContain('test_failures="1"');
+  });
+});
+
+describe('review-merge exemption WARN-first path — failure injection (REQ-SERVICES-098, REQ-SERVICES-086, REQ-LIB-080)', () => {
+  const critical = { id: 'F-1', location: 'src/a.ts:1', severity: 'critical', lens: 'correctness', summary: 'bug', repro: 'pnpm a' };
+  const readMeta = () => vol.readFileSync(METADATA, 'utf-8') as string;
+  const warnCount = () => (readMeta().match(new RegExp(`skill: ${TEST_GATE_PRODUCER}`, 'g')) ?? []).length;
+  const seedExempt = () => {
+    seed([critical], undefined, '', NO_COMMAND);
+    snapshot.digest = null;
+  };
+  const onMetadataWrite = (mutate: () => void) => {
+    writes.afterWrite = (filePath) => {
+      if (filePath.endsWith('metadata.yaml')) mutate();
+    };
+  };
+
+  it.each([
+    ['config: a test command appears', () => vol.writeFileSync(CONFIG, WITH_COMMAND)],
+    ['attempt: a concurrent record-tests lands a red attempt', () => vol.writeFileSync(METADATA, readMeta() + FAILED('a9'))],
+    ['review.md: someone edits the artifact', () => vol.writeFileSync(REVIEW, '# hand-written while merging\n')],
+  ])('post-WARN %s → refuses with the warning-only outcome, keeps the WARN, does not roll back the concurrent edit, writes no review', async (_n, mutate) => {
+    seedExempt();
+    onMetadataWrite(mutate);
+    let caught: unknown;
+    try {
+      await execute({ cwd: CWD, findingsPath: FINDINGS });
+    } catch (err) {
+      caught = err;
+    }
+    expect(caught).toBeInstanceOf(TestGateError);
+    const err = caught as TestGateError;
+    expect(err.warningRecorded).toBe(true);
+    expect(err.suggestion).toContain('warning was recorded');
+    expect(err.suggestion).toContain('merge was not completed');
+    expect(warnCount()).toBe(1);
+    const review = vol.existsSync(REVIEW) ? (vol.readFileSync(REVIEW, 'utf-8') as string) : undefined;
+    expect(review === undefined || review === '# hand-written while merging\n').toBe(true);
+    if (review !== undefined) expect(review).not.toContain('| F-1 |');
+    expect(readMeta()).not.toContain('skill: prospec-review');
+  });
+
+  it('post-WARN draft removal on a proven backfill → warning-only refusal', async () => {
+    vol.fromJSON({
+      [CONFIG]: WITH_COMMAND,
+      [METADATA]: 'name: add-widget\ncreated_at: 2026-08-28\nstatus: implemented\nscale: backfill\n',
+      '/repo/.prospec/changes/add-widget/backfill-draft.md': '# draft\n',
+      [FINDINGS]: JSON.stringify([critical]),
+    });
+    onMetadataWrite(() => vol.unlinkSync('/repo/.prospec/changes/add-widget/backfill-draft.md'));
+    const err = await execute({ cwd: CWD, findingsPath: FINDINGS }).catch((e: unknown) => e);
+    expect(err).toBeInstanceOf(TestGateError);
+    expect((err as TestGateError).warningRecorded).toBe(true);
+    expect(warnCount()).toBe(1);
+    expect(vol.existsSync(REVIEW)).toBe(false);
+  });
+
+  it('post-WARN observation failure (config vanishes) → warning-only refusal naming the failure, not a bare config error', async () => {
+    seedExempt();
+    onMetadataWrite(() => vol.unlinkSync(CONFIG));
+    const err = await execute({ cwd: CWD, findingsPath: FINDINGS }).catch((e: unknown) => e);
+    expect(err).toBeInstanceOf(TestGateError);
+    expect((err as TestGateError).warningRecorded).toBe(true);
+    expect((err as TestGateError).reason).toMatch(/Config file/);
+    expect(warnCount()).toBe(1);
+    expect(vol.existsSync(REVIEW)).toBe(false);
+  });
+
+  it('post-WARN review write failure → warning-only refusal disclosing the I/O failure; the WARN stays', async () => {
+    seedExempt();
+    writes.failOn = (p) => p.endsWith('review.md');
+    const err = await execute({ cwd: CWD, findingsPath: FINDINGS }).catch((e: unknown) => e);
+    expect(err).toBeInstanceOf(TestGateError);
+    expect((err as TestGateError).warningRecorded).toBe(true);
+    expect((err as TestGateError).reason).toMatch(/disk full/);
+    expect(warnCount()).toBe(1);
+    expect(vol.existsSync(REVIEW)).toBe(false);
+  });
+
+  it('a metadata write failure BEFORE the WARN lands propagates as itself and records nothing', async () => {
+    seedExempt();
+    writes.failOn = (p) => p.endsWith('metadata.yaml');
+    const err = await execute({ cwd: CWD, findingsPath: FINDINGS }).catch((e: unknown) => e);
+    expect(err).not.toBeInstanceOf(TestGateError);
+    expect(warnCount()).toBe(0);
+    expect(vol.existsSync(REVIEW)).toBe(false);
+  });
+
+  it('after a warning-only outcome the retry deduplicates the WARN, opens round 1, and counts no prior review round', async () => {
+    seedExempt();
+    onMetadataWrite(() => vol.writeFileSync(REVIEW, '# hand-written while merging\n'));
+    await expect(execute({ cwd: CWD, findingsPath: FINDINGS })).rejects.toBeInstanceOf(TestGateError);
+    const result = await execute({ cwd: CWD, findingsPath: FINDINGS });
+    expect(result.testGate).toMatchObject({ verdict: 'exempt', warningRecorded: false });
+    expect(result.round.roundNumber).toBe(1);
+    expect(result.circuitBreaker?.reviewRounds).toBe(1);
+    expect(warnCount()).toBe(1);
+    expect(vol.readFileSync(REVIEW, 'utf-8')).toContain('| F-1 |');
+  });
+
+  it('the two entrances record distinct WARN lines under one producer, each deduplicated on replay', async () => {
+    seedExempt();
+    await execute({ cwd: CWD, findingsPath: FINDINGS });
+    const { execute: status } = await import('../../../src/services/change-status.service.js');
+    vol.writeFileSync(METADATA, readMeta().replace('status: implemented', 'status: tasks'));
+    const advanced = await status({ cwd: CWD, to: 'implemented' });
+    expect(advanced.testGate).toMatchObject({ verdict: 'exempt', warningRecorded: true });
+    expect(warnCount()).toBe(2);
+    expect(readMeta()).toContain('(implemented)');
+    expect(readMeta()).toContain('(review merge)');
+    const again = await execute({ cwd: CWD, findingsPath: FINDINGS });
+    expect(again.testGate?.warningRecorded).toBe(false);
+    expect(warnCount()).toBe(2);
+  });
+});

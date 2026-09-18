@@ -8,6 +8,11 @@ import {
   type NewQualityLogEntry,
 } from '../types/change.js';
 import { MetadataValidationError } from '../types/errors.js';
+import {
+  TEST_GATE_NOT_ADJUDICATED,
+  TEST_GATE_PRODUCER,
+  type TestGateEntrance,
+} from '../types/station.js';
 import { atomicWrite } from './fs-utils.js';
 import { parseYamlDocument, stringifyYaml, stringifyYamlDocument } from './yaml-utils.js';
 import { collapseWhitespace } from './text-lines.js';
@@ -150,6 +155,39 @@ export function appendQualityLogEntry(doc: Document, entry: NewQualityLogEntry):
   } else {
     doc.set('quality_log', doc.createNode([ordered]));
   }
+}
+
+/** The one WARN line a test-gate exemption records: prefix, entrance, reason. */
+export function testGateWarning(entrance: TestGateEntrance, reason: string): string {
+  return `${TEST_GATE_NOT_ADJUDICATED} (${entrance}): ${collapseWhitespace(reason)}`;
+}
+
+/**
+ * Append the test-gate exemption WARN for one entrance and reason — under the
+ * producer label `prospec-test-gate`, never `prospec-review` (which the review
+ * round count would read as a completed round). Deduplicated: the same entrance
+ * and reason already recorded appends nothing, so a retry never stacks
+ * warnings. Returns whether the document changed. The caller still writes it
+ * through `writeChangeMetadataDoc`.
+ */
+export function appendTestGateWarning(
+  doc: Document,
+  metadata: ChangeMetadata,
+  entrance: TestGateEntrance,
+  reason: string,
+): boolean {
+  const warning = testGateWarning(entrance, reason);
+  const recorded = (metadata.quality_log ?? []).some(
+    (entry) => entry.skill === TEST_GATE_PRODUCER && (entry.warnings ?? []).includes(warning),
+  );
+  if (recorded) return false;
+  appendQualityLogEntry(doc, {
+    skill: TEST_GATE_PRODUCER,
+    date: new Date().toISOString().slice(0, 10),
+    result: 'WARN',
+    warnings: [warning],
+  });
+  return true;
 }
 
 /**

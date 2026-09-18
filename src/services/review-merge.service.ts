@@ -1,11 +1,13 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
-import { PrerequisiteError } from '../types/errors.js';
+import { PrerequisiteError, TestGateError } from '../types/errors.js';
 import {
   ReviewFindingsInputSchema,
   REVIEW_RESOLVED_STATUSES,
   hasReviewStatus,
   type ReviewFinding,
+  type TestEvidenceDecision,
+  type TestGateOutcome,
 } from '../types/station.js';
 import { atomicWrite, readFileIfExists } from '../lib/fs-utils.js';
 import {
@@ -18,12 +20,22 @@ import {
   roundCounts,
   escapedCellsFor,
   renderReviewDocument,
-  parseReviewMetrics,
+  parseReviewMetricsStrict,
+  readTestFailureStreak,
+  reduceTestFailureStreak,
+  replaceReviewMetrics,
   evidenceBlocksFor,
   type ReviewRoundCounts,
+  type TestFailureObservation,
 } from '../lib/review-merge.js';
-import { readChangeMetadata } from '../lib/change-metadata.js';
+import {
+  appendTestGateWarning,
+  readChangeMetadata,
+  writeChangeMetadataDoc,
+} from '../lib/change-metadata.js';
+import { assessCurrentTestEvidence } from '../lib/drift-assessment.js';
 import { ReviewCircuitBreaker } from '../lib/review-circuit-breaker.js';
+import type { Document } from 'yaml';
 import type { CircuitBreakerState } from '../types/cascade.js';
 import type { ChangeMetadata } from '../types/change.js';
 import { resolveChange } from './change-resolver.js';
@@ -90,6 +102,21 @@ export interface ReviewMergeResult {
   escapedCells: number;
   /** Dual-axis circuit breaker evaluation state. */
   circuitBreaker?: CircuitBreakerState;
+  /** How the fresh-test gate admitted this merge. */
+  testGate: TestGateOutcome;
+}
+
+/** What the gate's decision means for the observed failure streak. */
+function observationOf(decision: TestEvidenceDecision): TestFailureObservation {
+  if (decision.verdict === 'pass') return { kind: 'green' };
+  if (decision.verdict === 'refuse' && decision.failedAttemptId !== undefined) {
+    return { kind: 'failed', attemptId: decision.failedAttemptId };
+  }
+  return { kind: 'none' };
+}
+
+function sameExemption(a: TestEvidenceDecision, b: TestEvidenceDecision): boolean {
+  return a.verdict === 'exempt' && b.verdict === 'exempt' && a.exemption === b.exemption && a.reason === b.reason;
 }
 
 /**
@@ -156,10 +183,16 @@ export async function execute(options: ReviewMergeOptions): Promise<ReviewMergeR
   const metadataPath = path.join(cwd, '.prospec', 'changes', changeName, 'metadata.yaml');
   let priorReviewRounds = 0;
   let metadata: ChangeMetadata | undefined;
+  let metadataDoc: Document | undefined;
+  let metadataBytes: Buffer | undefined;
   if (fs.existsSync(metadataPath)) {
     try {
+      metadataBytes = fs.readFileSync(metadataPath);
       const read = readChangeMetadata(metadataPath, changeName);
       metadata = read.metadata;
+      metadataDoc = read.doc;
+      // Only completed review rounds count — the test gate's exemption WARN is
+      // written under its own producer label precisely so it never lands here.
       const reviewEntries = (metadata.quality_log ?? []).filter((e) => e.skill === 'prospec-review');
       priorReviewRounds = reviewEntries.length;
     } catch (err: unknown) {
@@ -170,7 +203,9 @@ export async function execute(options: ReviewMergeOptions): Promise<ReviewMergeR
   }
 
   const existingContent = await readFileIfExists(reviewPath);
-  const docMetrics = parseReviewMetrics(existingContent);
+  // Strict: a duplicate or malformed metrics comment is refused before the first
+  // byte — a corrupt streak must never read as zero.
+  const docMetrics = parseReviewMetricsStrict(existingContent);
   const { rows } = parseReviewDocument(existingContent);
 
   const provenanceDigest = metadata?.review_provenance?.digest;
@@ -192,6 +227,92 @@ export async function execute(options: ReviewMergeOptions): Promise<ReviewMergeR
       );
     }
   }
+  // Test gate (REQ-LIB-080 / REQ-CLI-028) — after every pre-existing input and
+  // round refusal (those write nothing), before any merge. The TARGET's live
+  // facts decide; a refusal's only permitted write is the bounded test-failure
+  // metrics splice (REQ-SERVICES-098/086), never a findings merge.
+  const breaker = new ReviewCircuitBreaker({
+    maxReviewRounds: options.maxRounds,
+    maxOscillationFlips: options.maxFlips,
+    maxFixInducedRatio: options.maxFixInducedRatio,
+    maxSpend: options.budget,
+  });
+  const threshold = breaker.getMaxConsecutiveTestFailures();
+  let assessment = await assessCurrentTestEvidence(cwd, changeName);
+  const decision = assessment.decision;
+  const streak = readTestFailureStreak(docMetrics);
+  const nextStreak = reduceTestFailureStreak(streak, observationOf(decision), threshold);
+  breaker.setTestFailureStreak(nextStreak);
+
+  const reviewBytesStable = async (): Promise<boolean> => (await readFileIfExists(reviewPath)) === existingContent;
+  const metadataBytesStable = (): boolean =>
+    metadataBytes === undefined ? !fs.existsSync(metadataPath) : fs.existsSync(metadataPath) && metadataBytes.equals(fs.readFileSync(metadataPath));
+  const unstable = (warningRecorded: boolean): TestGateError =>
+    new TestGateError({
+      changeName,
+      entrance: 'review merge',
+      reason: 'test evidence, configuration, metadata or review.md changed before the write — nothing further was written',
+      warningRecorded,
+    });
+
+  if (decision.verdict === 'refuse') {
+    if (!assessment.recheck() || !(await reviewBytesStable()) || !metadataBytesStable()) throw unstable(false);
+    // Only the test axis is judged on a refusal: the findings axes were reported
+    // when their round merged, and re-feeding the stale table would re-trip them
+    // under a test-refusal label.
+    const blocked = breaker.checkCircuitBreaker();
+    const streakChanged =
+      nextStreak.consecutiveTestFailures !== streak.consecutiveTestFailures ||
+      nextStreak.testFailureAttemptIds.join('\0') !== streak.testFailureAttemptIds.join('\0');
+    if (streakChanged) {
+      // A write failure propagates as itself: the count was NOT recorded.
+      await atomicWrite(reviewPath, replaceReviewMetrics(existingContent, nextStreak));
+    }
+    throw new TestGateError({
+      changeName,
+      entrance: 'review merge',
+      reason: decision.reason,
+      ...(blocked.tripped ? { circuitBreaker: blocked } : {}),
+    });
+  }
+
+  // Exemption: the WARN lands FIRST through the metadata owner, then the facts are
+  // re-assessed and the review bytes re-read; a refusal after that point keeps the
+  // truthful warning (the one disclosed metadata exception) and writes nothing else.
+  let testGate: TestGateOutcome = { verdict: 'pass', warningRecorded: false };
+  if (decision.verdict === 'exempt') {
+    // An exemption ALWAYS persists its WARN: `assessCurrentTestEvidence` above
+    // refuses an unreadable target record, so a document is always in hand here.
+    // Asserting that keeps "no exemption merges without its audit trail" a
+    // structural guarantee rather than a fall-through branch that would merge
+    // with no `tests: not-adjudicated` entry at all.
+    if (metadataDoc === undefined || metadata === undefined) {
+      throw new PrerequisiteError(
+        `metadata.yaml for change "${changeName}" is unavailable for the test-gate exemption warning`,
+        `Restore .prospec/changes/${changeName}/metadata.yaml — an exemption is recorded in metadata or it is not granted`,
+      );
+    }
+    const warningRecorded = appendTestGateWarning(metadataDoc, metadata, 'review merge', decision.reason);
+    if (warningRecorded) {
+      if (!assessment.recheck() || !(await reviewBytesStable()) || !metadataBytesStable()) throw unstable(false);
+      await writeChangeMetadataDoc(metadataPath, metadataDoc, changeName);
+      metadataBytes = fs.readFileSync(metadataPath);
+      try {
+        assessment = await assessCurrentTestEvidence(cwd, changeName);
+      } catch (err) {
+        throw new TestGateError({
+          changeName,
+          entrance: 'review merge',
+          reason: `revalidation after the exemption warning failed: ${err instanceof Error ? err.message : String(err)}`,
+          warningRecorded: true,
+        });
+      }
+      if (!sameExemption(decision, assessment.decision) || !(await reviewBytesStable())) throw unstable(true);
+    }
+    testGate = { verdict: 'exempt', exemption: decision.exemption, reason: decision.reason, warningRecorded };
+  }
+  const warningRecorded = testGate.warningRecorded;
+
   let roundNumber: number;
   if (options.round !== undefined) {
     roundNumber = loopBase + options.round;
@@ -247,12 +368,6 @@ export async function execute(options: ReviewMergeOptions): Promise<ReviewMergeR
   }
 
   // Evaluate Circuit Breaker
-  const breaker = new ReviewCircuitBreaker({
-    maxReviewRounds: options.maxRounds,
-    maxOscillationFlips: options.maxFlips,
-    maxFixInducedRatio: options.maxFixInducedRatio,
-    maxSpend: options.budget,
-  });
   breaker.setReviewRound(inLoopRound);
   if (cumulativeSpend !== undefined && cumulativeSpend > 0) {
     breaker.recordSpend(cumulativeSpend);
@@ -275,9 +390,10 @@ export async function execute(options: ReviewMergeOptions): Promise<ReviewMergeR
       ? docMetrics.lenses
       : Array.from(new Set([...(docMetrics.lenses ?? []), ...options.lenses]));
 
-  await atomicWrite(
-    reviewPath,
-    renderReviewDocument(existingContent, merged, changeName, {
+  // Pre-write fence: the verdict, the target's metadata and review.md must be the
+  // ones observed. After an exemption WARN the assessment is the re-obtained one.
+  if (!assessment.recheck() || !(await reviewBytesStable()) || !metadataBytesStable()) throw unstable(warningRecorded);
+  const rendered = renderReviewDocument(existingContent, merged, changeName, {
       round: finalRoundNumber,
       spendBefore: hasSpendTracking ? spendBefore : undefined,
       lastRoundSpend: roundSpend,
@@ -286,8 +402,24 @@ export async function execute(options: ReviewMergeOptions): Promise<ReviewMergeR
       provenanceDigest: provenanceDigest ?? docMetrics.provenanceDigest,
       lenses: combinedLenses && combinedLenses.length > 0 ? combinedLenses : undefined,
       trials,
-    }),
-  );
+      // A green merge clears the streak (rendered as absent); an exemption carries
+      // the observed streak forward untouched — it never resets it.
+      consecutiveTestFailures: nextStreak.consecutiveTestFailures,
+      testFailureAttemptIds: nextStreak.testFailureAttemptIds,
+    });
+  try {
+    await atomicWrite(reviewPath, rendered);
+  } catch (err) {
+    // After a persisted exemption WARN the outcome is warning-only and must say so;
+    // otherwise the I/O failure is reported as itself.
+    if (!warningRecorded) throw err;
+    throw new TestGateError({
+      changeName,
+      entrance: 'review merge',
+      reason: `review.md write failed after the exemption warning was recorded: ${err instanceof Error ? err.message : String(err)}`,
+      warningRecorded: true,
+    });
+  }
 
   return {
     changeName,
@@ -313,5 +445,6 @@ export async function execute(options: ReviewMergeOptions): Promise<ReviewMergeR
     },
     escapedCells: escapedCellsFor(merged, findings),
     circuitBreaker,
+    testGate,
   };
 }

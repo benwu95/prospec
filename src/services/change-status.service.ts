@@ -7,8 +7,14 @@ import {
   isStatusBefore,
   type ChangeStatus,
 } from '../types/change.js';
-import { InvalidTransitionError, PrerequisiteError } from '../types/errors.js';
-import { readChangeMetadata, writeChangeMetadataDoc } from '../lib/change-metadata.js';
+import { InvalidTransitionError, PrerequisiteError, TestGateError } from '../types/errors.js';
+import type { TestGateOutcome } from '../types/station.js';
+import {
+  appendTestGateWarning,
+  readChangeMetadata,
+  writeChangeMetadataDoc,
+} from '../lib/change-metadata.js';
+import { assessCurrentTestEvidence } from '../lib/drift-assessment.js';
 import { resolveChange } from './change-resolver.js';
 import { execute as reportChangeProgress } from './change-progress.service.js';
 
@@ -26,12 +32,16 @@ export interface ChangeStatusOptions {
   to: ChangeStatus;
 }
 
+export type { TestGateOutcome } from '../types/station.js';
+
 export interface ChangeStatusResult {
   changeName: string;
   from: ChangeStatus;
   to: ChangeStatus;
   /** false when the change was already at the target (idempotent no-op). */
   changed: boolean;
+  /** Present only on a real transition into `implemented`. */
+  testGate?: TestGateOutcome;
 }
 
 /**
@@ -61,6 +71,7 @@ export async function execute(options: ChangeStatusOptions): Promise<ChangeStatu
   }
 
   const metadataPath = path.join(cwd, '.prospec', 'changes', changeName, 'metadata.yaml');
+  const metadataBytes = fs.readFileSync(metadataPath);
   const { doc, metadata } = readChangeMetadata(metadataPath, changeName);
   const from = metadata.status;
 
@@ -103,7 +114,34 @@ export async function execute(options: ChangeStatusOptions): Promise<ChangeStatu
     }
   }
 
+  // Test gate (REQ-LIB-080 / REQ-SERVICES-103) — independent of tasks.md: a
+  // checkbox-only completion never certifies tests. Judged against the TARGET's
+  // live facts through the shared policy; an exemption lands its WARN in the
+  // same metadata write as the status, and the observed facts are rechecked
+  // right before that write so a verdict never lands on inputs that moved.
+  let testGate: TestGateOutcome | undefined;
+  if (options.to === 'implemented') {
+    const assessment = await assessCurrentTestEvidence(cwd, changeName);
+    const { decision } = assessment;
+    if (decision.verdict === 'refuse') {
+      throw new TestGateError({ changeName, entrance: 'implemented', reason: decision.reason });
+    }
+    if (decision.verdict === 'exempt') {
+      const warningRecorded = appendTestGateWarning(doc, metadata, 'implemented', decision.reason);
+      testGate = { verdict: 'exempt', exemption: decision.exemption, reason: decision.reason, warningRecorded };
+    } else {
+      testGate = { verdict: 'pass', warningRecorded: false };
+    }
+    if (!assessment.recheck() || !metadataBytes.equals(fs.readFileSync(metadataPath))) {
+      throw new TestGateError({
+        changeName,
+        entrance: 'implemented',
+        reason: 'test evidence, configuration or metadata changed before the write — nothing was written',
+      });
+    }
+  }
+
   doc.set('status', options.to);
   await writeChangeMetadataDoc(metadataPath, doc, changeName);
-  return { changeName, from, to: options.to, changed: true };
+  return { changeName, from, to: options.to, changed: true, ...(testGate ? { testGate } : {}) };
 }

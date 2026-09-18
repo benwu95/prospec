@@ -17,6 +17,8 @@ import {
   type FindTableOptions,
 } from './markdown-table.js';
 import { trimTrailingNewlines } from './markdown-fences.js';
+import { EMPTY_TEST_FAILURE_STREAK, type TestFailureStreak } from '../types/cascade.js';
+import { PrerequisiteError } from '../types/errors.js';
 
 /**
  * Deterministic bookkeeping for the prospec-review cumulative findings table
@@ -347,16 +349,32 @@ export interface ReviewMetrics {
   provenanceDigest?: string;
   lenses?: string[];
   trials?: Record<string, (boolean | undefined)[]>;
+  /** Distinct failed test attempts `review merge` observed in a row (bounded). */
+  consecutiveTestFailures?: number;
+  /** The ids retained for that streak, at most the effective threshold. */
+  testFailureAttemptIds?: string[];
 }
 
-/** Parse cumulative review metrics embedded in review.md comments. */
-export function parseReviewMetrics(content: string): ReviewMetrics {
-  const match = content.match(/<!--\s*prospec:review-metrics\s+((?:\w+="[^"]*"\s*)*)-->/);
-  if (!match) return {};
-  const attrs = Object.fromEntries(
-    [...match[1]!.matchAll(/(\w+)="([^"]*)"/g)].map(([, k, v]) => [k!, v!]),
-  );
+const METRICS_COMMENT = /<!--\s*prospec:review-metrics\s+((?:\w+="[^"]*"\s*)*)-->/g;
 
+function metricsAttributes(content: string): Array<Record<string, string>> {
+  return [...content.matchAll(METRICS_COMMENT)].map((match) =>
+    Object.fromEntries([...match[1]!.matchAll(/(\w+)="([^"]*)"/g)].map(([, k, v]) => [k!, v!])),
+  );
+}
+
+/** Strict read of the test-failure attributes; `null` when they are malformed. */
+function readTestFailureAttributes(attrs: Record<string, string>): Pick<ReviewMetrics, 'consecutiveTestFailures' | 'testFailureAttemptIds'> | null {
+  if (attrs.test_failures === undefined && attrs.test_failure_ids === undefined) return {};
+  if (attrs.test_failures === undefined || !/^\d+$/.test(attrs.test_failures)) return null;
+  const ids = attrs.test_failure_ids === undefined || attrs.test_failure_ids === ''
+    ? []
+    : attrs.test_failure_ids.split(',').map((s) => decodeToken(s.trim()));
+  if (ids.some((id) => id === '')) return null;
+  return { consecutiveTestFailures: parseInt(attrs.test_failures, 10), testFailureAttemptIds: ids };
+}
+
+function metricsFromAttributes(attrs: Record<string, string>): ReviewMetrics {
   let trials: Record<string, (boolean | undefined)[]> | undefined;
   if (attrs.signatures) {
     trials = {};
@@ -401,7 +419,144 @@ export function parseReviewMetrics(content: string): ReviewMetrics {
     provenanceDigest,
     lenses,
     trials,
+    // Lenient: a malformed test field reads as absent here; the strict parser
+    // the merge writes through refuses it instead.
+    ...(readTestFailureAttributes(attrs) ?? {}),
   };
+}
+
+/** Parse cumulative review metrics embedded in review.md comments (lenient — for
+ *  read-only consumers such as `learn yield`, which must not choke on a hand-edited
+ *  archived review). The first comment wins; malformed fields read as absent. */
+export function parseReviewMetrics(content: string): ReviewMetrics {
+  const [attrs] = metricsAttributes(content);
+  return attrs ? metricsFromAttributes(attrs) : {};
+}
+
+/**
+ * The parse `review merge` writes through: a document with two metrics comments
+ * or with malformed test-failure fields is refused with a repair hint BEFORE any
+ * byte is written, so a corrupt streak is never silently read as zero.
+ */
+export function parseReviewMetricsStrict(content: string): ReviewMetrics {
+  const all = metricsAttributes(content);
+  if (all.length > 1) {
+    throw new PrerequisiteError(
+      `review.md carries ${all.length} \`prospec:review-metrics\` comments; exactly one is allowed`,
+      'Delete the stale review-metrics comment(s) by hand so one remains, then re-run the merge',
+    );
+  }
+  const attrs = all[0];
+  if (!attrs) return {};
+  if (readTestFailureAttributes(attrs) === null) {
+    throw new PrerequisiteError(
+      'review.md carries malformed test-failure metrics (`test_failures` must be a non-negative integer and every `test_failure_ids` token non-empty) in its `prospec:review-metrics` comment',
+      'Repair or remove the `test_failures` / `test_failure_ids` attributes by hand, then re-run the merge',
+    );
+  }
+  return metricsFromAttributes(attrs);
+}
+
+/** The bounded streak a metrics record carries; legacy records read as empty. */
+export function readTestFailureStreak(metrics: ReviewMetrics): TestFailureStreak {
+  return {
+    consecutiveTestFailures: metrics.consecutiveTestFailures ?? 0,
+    testFailureAttemptIds: metrics.testFailureAttemptIds ?? [],
+  };
+}
+
+/** What one `review merge` observed about the target's latest test attempt. */
+export type TestFailureObservation =
+  | { kind: 'failed'; attemptId: string }
+  | { kind: 'green' }
+  | { kind: 'none' };
+
+/**
+ * Fold one observation into the streak. Only a NEW failed attempt id counts — a
+ * replayed id (including an older one still retained) never increments, so a
+ * CLI retry is not a new failure; the count saturates at the effective
+ * threshold and the retained ids are bounded to it (the most recent ones). A
+ * fresh certified green clears everything; any other observation (missing,
+ * running, exemptions) changes nothing.
+ */
+export function reduceTestFailureStreak(
+  streak: TestFailureStreak,
+  observation: TestFailureObservation,
+  threshold: number,
+): TestFailureStreak {
+  if (observation.kind === 'green') return EMPTY_TEST_FAILURE_STREAK;
+  if (observation.kind === 'none') return streak;
+  if (streak.testFailureAttemptIds.includes(observation.attemptId)) return streak;
+  return {
+    consecutiveTestFailures: Math.min(streak.consecutiveTestFailures + 1, threshold),
+    testFailureAttemptIds: [...streak.testFailureAttemptIds, observation.attemptId].slice(-threshold),
+  };
+}
+
+/** Render the one metrics comment (with its trailing newline), or '' when there
+ *  is nothing to record. The ONLY writer of that comment's attributes. */
+export function renderReviewMetricsComment(metrics: ReviewMetrics): string {
+  const attrs: string[] = [];
+  if (metrics.round !== undefined) {
+    attrs.push(`round="${metrics.round}"`);
+  }
+  if (metrics.spendBefore !== undefined) {
+    attrs.push(`spend_before="${metrics.spendBefore}"`);
+  }
+  if (metrics.lastRoundSpend !== undefined) {
+    attrs.push(`round_spend="${metrics.lastRoundSpend}"`);
+  }
+  if (metrics.cumulativeSpend !== undefined) {
+    attrs.push(`cumulative_spend="${metrics.cumulativeSpend}"`);
+  }
+  if (metrics.loopBase !== undefined && metrics.loopBase > 0) {
+    attrs.push(`loop_base="${metrics.loopBase}"`);
+  }
+  if (metrics.provenanceDigest) {
+    attrs.push(`provenance="${metrics.provenanceDigest}"`);
+  }
+  if (metrics.lenses && metrics.lenses.length > 0) {
+    attrs.push(`lenses="${metrics.lenses.map(encodeToken).join(',')}"`);
+  }
+  if (metrics.trials && Object.keys(metrics.trials).length > 0) {
+    const sigStr = Object.entries(metrics.trials)
+      .filter(([, hist]) => hist.length > 0)
+      .map(
+        ([id, hist]) =>
+          `${encodeToken(id)}:${Array.from(hist).map((p) => (p === true ? 'P' : p === false ? 'F' : '_')).join('')}`,
+      )
+      .join(',');
+    if (sigStr) {
+      attrs.push(`signatures="${sigStr}"`);
+    }
+  }
+  const streak = readTestFailureStreak(metrics);
+  if (streak.consecutiveTestFailures > 0 || streak.testFailureAttemptIds.length > 0) {
+    attrs.push(`test_failures="${streak.consecutiveTestFailures}"`);
+    if (streak.testFailureAttemptIds.length > 0) {
+      attrs.push(`test_failure_ids="${streak.testFailureAttemptIds.map(encodeToken).join(',')}"`);
+    }
+  }
+  return attrs.length > 0 ? `<!-- prospec:review-metrics ${attrs.join(' ')} -->\n` : '';
+}
+
+/**
+ * Splice ONLY the test-failure attributes into a document's metrics comment,
+ * preserving every byte outside that comment and every non-test metric value —
+ * the refusal-path write, which must never rebuild findings or evidence. An
+ * absent document becomes a metrics-only file; a document without a comment
+ * gets one prepended.
+ */
+export function replaceReviewMetrics(content: string, streak: TestFailureStreak): string {
+  const existing = parseReviewMetricsStrict(content);
+  const comment = renderReviewMetricsComment({ ...existing, ...streak });
+  const match = new RegExp(METRICS_COMMENT.source).exec(content);
+  if (match) {
+    const end = match.index + match[0].length;
+    const newlineAfter = content[end] === '\n' ? 1 : 0;
+    return content.slice(0, match.index) + comment + content.slice(end + newlineAfter);
+  }
+  return comment + content;
 }
 
 /**
@@ -433,46 +588,13 @@ export function renderReviewDocument(
         provenanceDigest: metrics.provenanceDigest ?? existingMetrics.provenanceDigest,
         lenses: metrics.lenses ?? existingMetrics.lenses,
         trials: metrics.trials ?? existingMetrics.trials,
+        consecutiveTestFailures: metrics.consecutiveTestFailures ?? existingMetrics.consecutiveTestFailures,
+        testFailureAttemptIds: metrics.testFailureAttemptIds ?? existingMetrics.testFailureAttemptIds,
       }
     : existingMetrics;
   const cleanedBefore = before.replace(/<!--\s*prospec:review-metrics[\s\S]*?-->\n?/g, '');
 
-  const attrs: string[] = [];
-  if (effectiveMetrics.round !== undefined) {
-    attrs.push(`round="${effectiveMetrics.round}"`);
-  }
-  if (effectiveMetrics.spendBefore !== undefined) {
-    attrs.push(`spend_before="${effectiveMetrics.spendBefore}"`);
-  }
-  if (effectiveMetrics.lastRoundSpend !== undefined) {
-    attrs.push(`round_spend="${effectiveMetrics.lastRoundSpend}"`);
-  }
-  if (effectiveMetrics.cumulativeSpend !== undefined) {
-    attrs.push(`cumulative_spend="${effectiveMetrics.cumulativeSpend}"`);
-  }
-  if (effectiveMetrics.loopBase !== undefined && effectiveMetrics.loopBase > 0) {
-    attrs.push(`loop_base="${effectiveMetrics.loopBase}"`);
-  }
-  if (effectiveMetrics.provenanceDigest) {
-    attrs.push(`provenance="${effectiveMetrics.provenanceDigest}"`);
-  }
-  if (effectiveMetrics.lenses && effectiveMetrics.lenses.length > 0) {
-    attrs.push(`lenses="${effectiveMetrics.lenses.map(encodeToken).join(',')}"`);
-  }
-  if (effectiveMetrics.trials && Object.keys(effectiveMetrics.trials).length > 0) {
-    const sigStr = Object.entries(effectiveMetrics.trials)
-      .filter(([, hist]) => hist.length > 0)
-      .map(
-        ([id, hist]) =>
-          `${encodeToken(id)}:${Array.from(hist).map((p) => (p === true ? 'P' : p === false ? 'F' : '_')).join('')}`,
-      )
-      .join(',');
-    if (sigStr) {
-      attrs.push(`signatures="${sigStr}"`);
-    }
-  }
-
-  const metricsComment = attrs.length > 0 ? `<!-- prospec:review-metrics ${attrs.join(' ')} -->\n` : '';
+  const metricsComment = renderReviewMetricsComment(effectiveMetrics);
   const table = replaceTableInDocument(cleanedBefore, renderReviewTable(rows), {
     ...FINDINGS_TABLE,
     scaffoldTitle: `# Review Findings: ${changeName}`,

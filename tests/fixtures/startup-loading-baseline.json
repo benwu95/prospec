@@ -64,7 +64,7 @@
         "{{knowledge_base_path}}/_playbook.md"
       ],
       "mandatory": 2,
-      "mandatory_context_tokens": 4513
+      "mandatory_context_tokens": 4538
     },
     "prospec-knowledge-generate": {
       "items": [
@@ -147,7 +147,7 @@
         "{{knowledge_base_path}}/_conventions.md"
       ],
       "mandatory": 1,
-      "mandatory_context_tokens": 7847
+      "mandatory_context_tokens": 7926
     },
     "prospec-tasks": {
       "items": [
@@ -177,7 +177,7 @@
       "mandatory_context_tokens": 10497
     }
   },
-  "reference_ceiling_tokens": 46365,
+  "reference_ceiling_tokens": 46639,
   "references": {
     "adapter-figma": 589,
     "adapter-html": 663,
@@ -186,7 +186,7 @@
     "archive-format": 1211,
     "candidate-evaluation": 2211,
     "cascade-protocol": 2137,
-    "circuit-breaker": 1150,
+    "circuit-breaker": 1331,
     "debug-recovery-format": 1307,
     "delegated-evidence-format": 2849,
     "delta-spec-format": 2017,
@@ -203,7 +203,7 @@
     "project-test-runner": 799,
     "promotion-format": 1622,
     "proposal-format": 1098,
-    "review-format": 2494,
+    "review-format": 2589,
     "review-lenses-content": 2863,
     "spec-graduation": 892,
     "tasks-format": 1549,

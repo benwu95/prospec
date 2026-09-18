@@ -3,6 +3,7 @@ import type { LogLevel } from '../../types/config.js';
 import type { ReviewMergeResult } from '../../services/review-merge.service.js';
 import { sanitizeTerminal } from './sanitize.js';
 import { formatEscapingNotice } from './escaping-notice.js';
+import { formatTestGateWarning } from './test-gate-output.js';
 
 /**
  * Format the ReviewMergeResult: where the round landed, this round's counts, and
@@ -74,6 +75,8 @@ export function formatReviewMergeOutput(
     }
   }
 
+  const warning = formatTestGateWarning(result.testGate);
+  if (warning !== undefined) lines.push(warning);
   const notice = formatEscapingNotice(result.escapedCells);
   if (notice !== undefined) lines.push(notice);
   lines.push(

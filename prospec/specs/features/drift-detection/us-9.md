@@ -40,6 +40,9 @@ so that verify's test dimension is a machine verdict instead of an agent's self-
 - WHEN a run exits zero but before/after effective inputs differ or either capture is unprovable, THEN its outcome is unprovable and it never certifies the post-run tree; successful capture equality certifies the observed boundaries only, not isolation from a transient modification that was fully restored
 - WHEN a current test record lacks a recognized fingerprint version/scope or its linked latest passed attempt, THEN require normal revalidation; legacy records remain readable and known non-zero failures are never suppressed
 - WHEN an actual non-zero result was persisted and a later attempt is running, unavailable, timed out or unprovable, THEN the durable failed test_provenance still yields FAIL before any skip or old PASS; only a later certified stable successful run supersedes that failure
+- WHEN lifecycle entry gates adjudicate a target, THEN they call the shared status-independent single-change policy directly; the normal drift evaluator retains PROVENANCE_AUDITED_STATUSES and its existing backfill and skipped output mapping.
+- WHEN the policy is reused by a station, THEN an explicit exemption is surfaced as not-adjudicated rather than certified green, while known non-zero failures still take precedence.
+- WHEN collecting target facts for a station outside Git, THEN validate metadata and command policy before deciding an explicit exemption; unavailable required observations are not silently converted into a no-command fact.
 
 #### REQ-SERVICES-068: check.service collector injection + the --record-tests write path
 `check.service.execute` injects test-provenance and Constitution collectors through the shared read-only assessment owner and remains read-only without an explicit side-effect flag. Its sole `--record-tests` writer persists a running attempt before execution and certifies only an unchanged, provable effective-input snapshot.

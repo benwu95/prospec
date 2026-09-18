@@ -23,11 +23,13 @@ import {
   evaluateSpecCounters,
   evaluateTaskCompletion,
   evaluateTestProvenance,
+  evaluateChangeTestEvidence,
   evaluateCanonicalDocDrift,
   runChecks,
   type DriftCheckInputs,
 } from '../../../src/lib/drift-checker.js';
 import { DRIFT_CHECK_IDS, DRIFT_CHECK_SCOPES } from '../../../src/types/drift-report.js';
+import type { TestEvidenceFacts } from '../../../src/types/station.js';
 import { parseConstitutionRules } from '../../../src/lib/constitution-parser.js';
 import { exampleRulesFor } from '../../../src/lib/constitution-rules.js';
 import type { TechStackResult } from '../../../src/lib/detector.js';
@@ -1572,7 +1574,7 @@ describe('change-scoped evaluators enumerate their subjects under the change dir
     expect(r.findings.every((f) => f.source_path.startsWith('.prospec/changes/broken/'))).toBe(true);
   });
   it('test-provenance', () => {
-    const base = { source_path: '', status: 'implemented', scale: 'standard', recorded_digest: 'CUR', version_supported: true, attempt_matches: true, recorded_exit_code: 0, recorded_command: 'pnpm test', backfill_draft_present: false };
+    const base = { source_path: '', status: 'implemented', scale: 'standard', recorded_digest: 'CUR', version_supported: true, recorded_attempt_id: 'a1', attempt_id: 'a1', attempt_outcome: 'passed', attempt_exit_code: 0, attempt_before_digest: 'CUR', attempt_after_digest: 'CUR', recorded_exit_code: 0 as number, recorded_command: 'pnpm test', backfill_draft_present: false };
     const r = evaluateTestProvenance({ available: true, command_unavailable_reason: null, current_digest: 'CUR', working_tree_clean: true, changes: [
       { ...base, name: 'ok', source_path: '.prospec/changes/ok/metadata.yaml' },
       { ...base, name: 'red', source_path: '.prospec/changes/red/metadata.yaml', recorded_exit_code: 1 },
@@ -1679,6 +1681,32 @@ describe('evaluateMetadataCompleteness', () => {
 });
 
 describe('evaluateTestProvenance (REQ-LIB-033)', () => {
+  /** A change whose DECLARED linked attempt certifies its record: the attempt's
+   *  before/after digests follow `recorded_digest`, so an override that stales the
+   *  record stays a stale-evidence case instead of silently becoming an unlinked one. */
+  const certifiedChange = (over: Partial<TestProvenanceSource['changes'][number]>) => {
+    const c = {
+      name: 'c1',
+      source_path: '.prospec/changes/c1/metadata.yaml',
+      status: 'implemented',
+      scale: 'standard',
+      recorded_digest: 'CUR' as string | null,
+      version_supported: true,
+      recorded_attempt_id: 'a1',
+      attempt_id: 'a1',
+      attempt_outcome: 'passed',
+      attempt_exit_code: 0 as number | undefined,
+      recorded_exit_code: 0 as number | null,
+      recorded_command: 'pnpm test',
+      backfill_draft_present: false,
+      ...over,
+    };
+    return {
+      ...c,
+      attempt_before_digest: c.attempt_before_digest ?? c.recorded_digest ?? undefined,
+      attempt_after_digest: c.attempt_after_digest ?? c.recorded_digest ?? undefined,
+    };
+  };
   const src = (
     over: Partial<TestProvenanceSource['changes'][number]>,
     current = 'CUR',
@@ -1688,21 +1716,7 @@ describe('evaluateTestProvenance (REQ-LIB-033)', () => {
     command_unavailable_reason: null,
     current_digest: current,
     working_tree_clean: workingTreeClean,
-    changes: [
-      {
-        name: 'c1',
-        source_path: '.prospec/changes/c1/metadata.yaml',
-        status: 'implemented',
-        scale: 'standard',
-        recorded_digest: 'CUR',
-        version_supported: true,
-        attempt_matches: true,
-        recorded_exit_code: 0,
-        recorded_command: 'pnpm test',
-        backfill_draft_present: false,
-        ...over,
-      },
-    ],
+    changes: [certifiedChange(over)],
   });
 
   // Review pin (Q-1): an `unavailable` attempt is a per-change skip, not a
@@ -2400,5 +2414,244 @@ describe('evaluateDeltaSpecLandingFidelity (REQ-LIB-061)', () => {
     expect(r.result.status).toBe('fail');
     expect(r.findings).toHaveLength(1);
     expect(r.findings[0]!.detail).toContain('archive-service');
+  });
+});
+
+describe('evaluateChangeTestEvidence — status-independent per-change policy (REQ-LIB-080, REQ-LIB-033)', () => {
+  const passedAttempt = { id: 'a1', outcome: 'passed', command: 'pnpm test', exitCode: 0, beforeDigest: 'CUR', afterDigest: 'CUR' };
+  const facts = (over: Partial<TestEvidenceFacts> = {}): TestEvidenceFacts => ({
+    changeName: 'c1',
+    scale: 'standard',
+    backfillDraftPresent: false,
+    commandUnavailableReason: null,
+    currentDigest: 'CUR',
+    recordedDigest: 'CUR',
+    recordedExitCode: 0,
+    recordedCommand: 'pnpm test',
+    recordedAttemptId: 'a1',
+    versionSupported: true,
+    latestAttempt: passedAttempt,
+    ...over,
+  });
+  const noRecord = { recordedDigest: null, recordedExitCode: null, recordedCommand: '', recordedAttemptId: undefined, latestAttempt: undefined } as const;
+
+  it('certifies fresh green: passed, exit 0, linked id, before=after=provenance=current', () => {
+    expect(evaluateChangeTestEvidence(facts())).toEqual({ verdict: 'pass', attemptId: 'a1' });
+  });
+
+  it('reads no lifecycle status — the facts contract has none, so tasks/story never buy an exemption', () => {
+    const f = facts({ ...noRecord });
+    expect('status' in f).toBe(false);
+    expect(evaluateChangeTestEvidence(f).verdict).toBe('refuse');
+    // The drift evaluator still skips a pre-implemented change (its status filter is untouched)
+    const drift = evaluateTestProvenance({ available: true, command_unavailable_reason: null, current_digest: 'CUR', working_tree_clean: true, changes: [{ name: 'c1', source_path: 'p', status: 'tasks', scale: 'standard', recorded_digest: null, recorded_exit_code: null, recorded_command: '', backfill_draft_present: false }] });
+    expect(drift.result.status).toBe('pass');
+  });
+
+  describe('refusals (three negatives and their kin)', () => {
+    const cases: Array<[string, Partial<TestEvidenceFacts>, RegExp, boolean]> = [
+      ['missing: no run ever recorded', { ...noRecord }, /no test run recorded/, false],
+      ['stale: the record predates the current inputs', { recordedDigest: 'OLD', latestAttempt: { ...passedAttempt, beforeDigest: 'OLD', afterDigest: 'OLD' } }, /stale test run/, false],
+      ['unprovable current snapshot', { currentDigest: null, snapshotReason: 'Input changed during capture: x' }, /stale test run|unprovable/, false],
+      ['legacy record without a recognized fingerprint version', { versionSupported: false }, /legacy or unknown test evidence/, false],
+      ['linked attempt id does not match provenance', { recordedAttemptId: 'other' }, /uncertified test attempt/, false],
+      ['attempt after-digest differs from the record', { latestAttempt: { ...passedAttempt, afterDigest: 'MOVED' } }, /uncertified test attempt/, false],
+      ['latest attempt still running', { latestAttempt: { id: 'a2', outcome: 'running' } }, /uncertified test attempt \(running\)/, false],
+      ['latest attempt timed out', { latestAttempt: { id: 'a2', outcome: 'timeout', reason: 'test run timed out after 1 ms' } }, /uncertified test attempt \(timeout\)/, false],
+      ['latest attempt unprovable', { latestAttempt: { id: 'a2', outcome: 'unprovable' } }, /uncertified test attempt \(unprovable\)/, false],
+      ['latest attempt signal-terminated without an exit code', { latestAttempt: { id: 'a2', outcome: 'failed', signal: 'SIGKILL' } }, /uncertified test attempt \(failed\)/, false],
+      ['durable non-zero provenance', { recordedExitCode: 1 }, /exited 1/, true],
+      ['durable failure recorded without a status', { recordedExitCode: null }, /without a status/, true],
+    ];
+    it.each(cases)('refuses %s', (_name, over, reason, knownFailure) => {
+      const d = evaluateChangeTestEvidence(facts(over));
+      expect(d.verdict).toBe('refuse');
+      if (d.verdict !== 'refuse') return;
+      expect(d.reason).toMatch(reason);
+      expect(d.knownFailure).toBe(knownFailure);
+    });
+
+    it('never surfaces a failed attempt id unless the attempt is failed with an actual non-zero exit', () => {
+      for (const attempt of [
+        { id: 'a2', outcome: 'running' },
+        { id: 'a2', outcome: 'timeout' },
+        { id: 'a2', outcome: 'unprovable' },
+        { id: 'a2', outcome: 'failed', signal: 'SIGKILL' },
+      ]) {
+        const d = evaluateChangeTestEvidence(facts({ latestAttempt: attempt }));
+        expect(d.verdict).toBe('refuse');
+        if (d.verdict === 'refuse') expect(d.failedAttemptId).toBeUndefined();
+      }
+    });
+  });
+
+  describe('known non-zero failure outranks everything', () => {
+    it('latest failed attempt with an actual non-zero exit refuses and names the attempt id even over an older PASS record', () => {
+      const d = evaluateChangeTestEvidence(facts({ latestAttempt: { id: 'a2', outcome: 'failed', exitCode: 1, command: 'pnpm test' } }));
+      expect(d).toMatchObject({ verdict: 'refuse', knownFailure: true, failedAttemptId: 'a2' });
+    });
+
+    it('a durable failure is refused even after the command stopped resolving (known-red no-command)', () => {
+      const d = evaluateChangeTestEvidence(facts({ recordedExitCode: 1, commandUnavailableReason: 'test command unavailable: no test command configured' }));
+      expect(d).toMatchObject({ verdict: 'refuse', knownFailure: true });
+    });
+
+    it('a stale failing record on a proven backfill is refused, never exempted', () => {
+      const d = evaluateChangeTestEvidence(facts({ scale: 'backfill', backfillDraftPresent: true, recordedDigest: 'OLD', recordedExitCode: 3 }));
+      expect(d).toMatchObject({ verdict: 'refuse', knownFailure: true });
+      if (d.verdict === 'refuse') expect(d.reason).toMatch(/exited 3.*stale/);
+    });
+
+    it('a failed attempt with non-zero exit on a proven backfill is refused too', () => {
+      const d = evaluateChangeTestEvidence(facts({ scale: 'backfill', backfillDraftPresent: true, ...noRecord, latestAttempt: { id: 'a9', outcome: 'failed', exitCode: 2 } }));
+      expect(d).toMatchObject({ verdict: 'refuse', knownFailure: true, failedAttemptId: 'a9' });
+    });
+
+    it('a durable failure whose latest attempt is running carries no failed attempt id', () => {
+      const d = evaluateChangeTestEvidence(facts({ recordedExitCode: 1, latestAttempt: { id: 'a2', outcome: 'running' } }));
+      expect(d).toMatchObject({ verdict: 'refuse', knownFailure: true });
+      if (d.verdict === 'refuse') expect(d.failedAttemptId).toBeUndefined();
+    });
+  });
+
+  describe('explicit exemptions surface as not-adjudicated, never certified green', () => {
+    it('no resolvable command with nothing recorded → no-command exemption carrying the actual reason', () => {
+      const reason = 'test command unavailable: no test command configured — set tech_stack.test_command in .prospec.yaml';
+      const d = evaluateChangeTestEvidence(facts({ ...noRecord, commandUnavailableReason: reason, currentDigest: null, snapshotReason: 'not a git repository' }));
+      expect(d).toEqual({ verdict: 'exempt', exemption: 'no-command', reason });
+    });
+
+    it('a stale GREEN record with an unresolvable command is exempt (cannot demand a re-run)', () => {
+      const d = evaluateChangeTestEvidence(facts({ recordedDigest: 'OLD', commandUnavailableReason: 'test command unavailable: x' }));
+      expect(d.verdict).toBe('exempt');
+    });
+
+    it('latest attempt unavailable AGAINST THE CURRENT INPUTS → no-command exemption with the attempt reason', () => {
+      const d = evaluateChangeTestEvidence(facts({ ...noRecord, latestAttempt: { id: 'a2', outcome: 'unavailable', beforeDigest: 'CUR', reason: 'no test command — set tech_stack.test_command in .prospec.yaml' } }));
+      expect(d.verdict).toBe('exempt');
+      if (d.verdict === 'exempt') {
+        expect(d.exemption).toBe('no-command');
+        expect(d.reason).toContain('no test command');
+      }
+    });
+
+    it('a STALE unavailable attempt while the command now resolves is refused, not exempted (F-2): the failure proved nothing about the current environment', () => {
+      for (const attempt of [
+        { id: 'a2', outcome: 'unavailable', beforeDigest: 'OLD', reason: 'spawn ENOENT' },
+        { id: 'a2', outcome: 'unavailable', reason: 'spawn ENOENT' },
+      ]) {
+        const d = evaluateChangeTestEvidence(facts({ ...noRecord, latestAttempt: attempt }));
+        expect(d).toMatchObject({ verdict: 'refuse', knownFailure: false, attemptUnavailable: true });
+        if (d.verdict === 'refuse') expect(d.reason).toMatch(/unavailable/);
+      }
+      // a proven backfill still gets its own exemption, and a machine-wide unavailable command still exempts
+      expect(evaluateChangeTestEvidence(facts({ ...noRecord, scale: 'backfill', backfillDraftPresent: true, latestAttempt: { id: 'a2', outcome: 'unavailable' } })).verdict).toBe('exempt');
+      expect(evaluateChangeTestEvidence(facts({ ...noRecord, commandUnavailableReason: 'unset', latestAttempt: { id: 'a2', outcome: 'unavailable' } }))).toMatchObject({ verdict: 'exempt', exemption: 'no-command' });
+    });
+
+    it.each([
+      ['no record', { ...noRecord }],
+      ['stale green record', { recordedDigest: 'OLD', latestAttempt: { ...passedAttempt, beforeDigest: 'OLD', afterDigest: 'OLD' } }],
+      ['running attempt', { ...noRecord, latestAttempt: { id: 'a2', outcome: 'running' } }],
+      ['unprovable snapshot', { currentDigest: null, snapshotReason: 'x' }],
+    ] as Array<[string, Partial<TestEvidenceFacts>]>)('proven backfill with %s → proven-backfill exemption', (_n, over) => {
+      const d = evaluateChangeTestEvidence(facts({ scale: 'backfill', backfillDraftPresent: true, ...over }));
+      expect(d).toMatchObject({ verdict: 'exempt', exemption: 'proven-backfill' });
+    });
+
+    it('proven backfill with fresh certified evidence passes normally', () => {
+      expect(evaluateChangeTestEvidence(facts({ scale: 'backfill', backfillDraftPresent: true }))).toEqual({ verdict: 'pass', attemptId: 'a1' });
+    });
+
+    it('scale alone buys nothing: an unproven backfill with no record is refused', () => {
+      const d = evaluateChangeTestEvidence(facts({ scale: 'backfill', backfillDraftPresent: false, ...noRecord }));
+      expect(d).toMatchObject({ verdict: 'refuse', knownFailure: false });
+    });
+  });
+
+  // F-5 / F-7 regression pin: certification comes ONLY from the linked attempt the
+  // source DECLARES — there is no derived flag that could overwrite a declared
+  // non-passing outcome with a fabricated `passed` / exit 0, and the link itself
+  // (id + both digests + exit 0) is what certifies, never a second opinion.
+  it('certifies green only from the declared linked attempt, and never overrides a declared non-passing outcome (F-5, F-7)', () => {
+    const certified = {
+      name: 'c1',
+      source_path: '.prospec/changes/c1/metadata.yaml',
+      status: 'implemented',
+      scale: 'standard',
+      recorded_digest: 'CUR',
+      recorded_attempt_id: 'a1',
+      version_supported: true,
+      attempt_id: 'a1',
+      attempt_outcome: 'passed',
+      attempt_exit_code: 0,
+      attempt_before_digest: 'CUR',
+      attempt_after_digest: 'CUR',
+      recorded_exit_code: 0,
+      recorded_command: 'pnpm test',
+      backfill_draft_present: false,
+    };
+    const linked = (over: Record<string, unknown>) => ({
+      available: true as const,
+      command_unavailable_reason: null,
+      current_digest: 'CUR',
+      working_tree_clean: true,
+      changes: [{ ...certified, ...over }],
+    });
+    expect(evaluateTestProvenance(linked({})).result.status).toBe('pass');
+    // a declared non-passing outcome is never certified green
+    for (const outcome of ['failed', 'timeout', 'running', 'unprovable']) {
+      expect(evaluateTestProvenance(linked({ attempt_outcome: outcome })).result.status, outcome).toBe('fail');
+    }
+    // and an unavailable one keeps the honest per-subject skip rather than a pass
+    expect(evaluateTestProvenance(linked({ attempt_outcome: 'unavailable', attempt_before_digest: 'OLD' })).result.status).toBe('skipped');
+    // the LINK is load-bearing: an attempt the record does not name, or whose
+    // boundaries moved, cannot certify — no derived flag can vouch for it
+    expect(evaluateTestProvenance(linked({ attempt_id: 'other' })).result.status).toBe('fail');
+    expect(evaluateTestProvenance(linked({ attempt_after_digest: 'MOVED' })).result.status).toBe('fail');
+    expect(evaluateTestProvenance(linked({ recorded_attempt_id: undefined })).result.status).toBe('fail');
+  });
+
+  // F-4 regression pin: the gate's stale-unavailable refusal (F-2) must not cost the
+  // drift evaluator its historical per-subject skip for a PROVEN BACKFILL — dropping the
+  // name from `subject_skips` turns `adjudicateChangeCheck`'s "not gradeable" into a PASS.
+  it('keeps the attempt-unavailable per-subject skip for a proven backfill, whose exemption must not short-circuit it (F-4)', () => {
+    const unavailableBackfill = {
+      name: 'a',
+      source_path: '.prospec/changes/a/metadata.yaml',
+      status: 'implemented',
+      scale: 'backfill',
+      attempt_outcome: 'unavailable',
+      recorded_digest: null,
+      recorded_exit_code: null,
+      recorded_command: '',
+      backfill_draft_present: true,
+    };
+    const alone = evaluateTestProvenance({ available: true, command_unavailable_reason: null, current_digest: 'd', working_tree_clean: true, changes: [unavailableBackfill] });
+    // alone: the whole check skips with the attempt's own reason (the pre-refactor
+    // shape — a whole-check skip carries the reason, not a per-subject entry)
+    expect(alone.result.status).toBe('skipped');
+    expect(alone.result.reason).toMatch(/^test command unavailable:/);
+    // beside a failing sibling the check FAILs for the sibling and the ungraded
+    // backfill is still NAMED, so a per-change adjudication reads it as skipped
+    const failingSibling = { ...unavailableBackfill, name: 'b', source_path: '.prospec/changes/b/metadata.yaml', scale: 'standard', backfill_draft_present: false, attempt_outcome: 'failed', attempt_exit_code: 1 };
+    const withSibling = evaluateTestProvenance({ available: true, command_unavailable_reason: null, current_digest: 'd', working_tree_clean: true, changes: [unavailableBackfill, failingSibling] });
+    expect(withSibling.result.status).toBe('fail');
+    expect(withSibling.result.subject_skips?.['a']).toMatch(/^test command unavailable:/);
+    expect(withSibling.result.subject_skips?.['b']).toBeUndefined();
+    // a proven backfill with NO attempt at all keeps its ordinary exemption (no skip entry)
+    const noAttempt = evaluateTestProvenance({ available: true, command_unavailable_reason: null, current_digest: 'd', working_tree_clean: true, changes: [{ ...unavailableBackfill, attempt_outcome: undefined }] });
+    expect(noAttempt.result.status).toBe('pass');
+    expect(noAttempt.result.subject_skips?.['a']).toBeUndefined();
+  });
+
+  it('the drift evaluator maps the shared policy onto its existing outcomes (refuse → fail, exemptions → skip / pass)', () => {
+    const change = { name: 'c1', source_path: 'p', status: 'implemented', scale: 'standard', recorded_digest: null, recorded_exit_code: null, recorded_command: '', backfill_draft_present: false };
+    const refused = evaluateTestProvenance({ available: true, command_unavailable_reason: null, current_digest: 'CUR', working_tree_clean: true, changes: [change] });
+    expect(refused.result.status).toBe('fail');
+    const noCommand = evaluateTestProvenance({ available: true, command_unavailable_reason: 'unset', current_digest: 'CUR', working_tree_clean: true, changes: [change] });
+    expect(noCommand.result.status).toBe('skipped');
+    const backfill = evaluateTestProvenance({ available: true, command_unavailable_reason: null, current_digest: 'CUR', working_tree_clean: true, changes: [{ ...change, scale: 'backfill', backfill_draft_present: true }] });
+    expect(backfill.result.status).toBe('pass');
   });
 });

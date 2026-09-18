@@ -320,6 +320,8 @@ Contract tests verify that generated skill templates conform to the Draft-First 
 The types module exports type definitions and Zod schemas for pipeline cascading orchestration, oscillation detection, and circuit breaker states.
 - WHEN cascade types are imported, THEN `CascadeScale`, `CircuitBreakerState`, `OscillationRecord`, and `EscalationReport` are available
 - WHEN validating cascading configuration or state, THEN Zod schemas enforce type constraints and default thresholds (3-5 max rounds)
+- WHEN CircuitBreakerConfigSchema parses configuration without maxConsecutiveTestFailures, THEN default it to three independently of maxReviewRounds and maxOscillationFlips; explicit values must be positive integers.
+- WHEN a test gate refusal carries escalation, THEN its typed error includes the actual reason and CircuitBreakerState without changing the successful ReviewMergeResult contract into a fake success.
 
 ---
 
@@ -327,6 +329,8 @@ The types module exports type definitions and Zod schemas for pipeline cascading
 The lib module provides a `ReviewCircuitBreaker` utility to guard against runaway loops and flip-flop defect oscillations.
 - WHEN a defect or test flips from FAIL to PASS to FAIL, THEN `detectOscillation` returns true and identifies the oscillating signature
 - WHEN the in-loop round count reaches the configured maximum (default 3, max 5) while unresolved criticals remain, or oscillation is detected, THEN `checkCircuitBreaker` trips and returns an `EscalationReport`
+- WHEN observed consecutive test failures reach maxConsecutiveTestFailures, THEN checkCircuitBreaker reports persistent_test_failure with count, threshold and human-escalation diagnostics even when no finding is critical and no review round advanced.
+- WHEN the test gate is blocked and the failure threshold remains reached, THEN continue reporting persistent_test_failure; a fresh certified successful observation resets the test-failure input without resetting unrelated breaker state.
 
 ---
 

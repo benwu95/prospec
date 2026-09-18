@@ -41,6 +41,9 @@ import { ESCAPED_DEFECT_REPORT_FILENAME } from '../types/escaped-defect.js';
 import type { ModuleMap } from '../types/module-map.js';
 import type { FeatureMap } from '../types/feature-map.js';
 import { FINGERPRINT_VERSION, EVIDENCE_SCOPE } from '../types/change.js';
+import type { TestEvidenceFacts } from '../types/station.js';
+import { readChangeMetadata } from './change-metadata.js';
+import { PrerequisiteError } from '../types/errors.js';
 import type { InputSnapshot } from '../types/drift-report.js';
 import { AGENT_CONFIGS, SKILL_DEFINITIONS } from '../types/skill.js';
 import type { KnowledgeSizeBudget, KnowledgeSizeKind, ProspecConfig } from '../types/config.js';
@@ -315,9 +318,13 @@ export interface TestProvenanceChange {
   scale: string;
   /** digest recorded by `--record-tests`; null when no run was ever recorded. */
   recorded_digest: string | null;
+  /** `test_provenance.attempt_id` — the attempt the durable record certifies. */
+  recorded_attempt_id?: string;
   version_supported?: boolean;
+  attempt_id?: string;
   attempt_outcome?: string;
-  attempt_matches?: boolean;
+  attempt_before_digest?: string;
+  attempt_after_digest?: string;
   attempt_command?: string;
   attempt_reason?: string;
   attempt_signal?: string;
@@ -2152,26 +2159,26 @@ export function collectTestProvenance(
   const changes: TestProvenanceChange[] = [];
   for (const entry of enumerateChangeMetadata(changesDir, cwd)) {
     if (entry.meta === null) continue; // unparseable — metadata-completeness owns that finding
-    const prov = entry.meta.test_provenance as
-      | Record<string, unknown>
-      | undefined;
-    const attempt = entry.meta.test_attempt as Record<string, unknown> | undefined;
+    const record = readTestEvidenceRecord(entry.meta);
+    const attempt = record.latestAttempt;
     changes.push({
       name: entry.name,
       source_path: entry.source_path,
       status: readString(entry.meta.status),
       scale: readString(entry.meta.scale),
-      version_supported: prov?.fingerprint_version === FINGERPRINT_VERSION && prov?.scope === EVIDENCE_SCOPE,
-      attempt_outcome: attempt ? readString(attempt.outcome) : '',
-      attempt_command: attempt ? readString(attempt.command) : '',
-      attempt_reason: attempt ? readString(attempt.reason) : '',
-      attempt_signal: attempt ? readString(attempt.signal) : '',
-      attempt_exit_code: typeof attempt?.exit_code === 'number' ? attempt.exit_code : undefined,
-      attempt_matches: attempt?.outcome === 'passed' && typeof attempt.id === 'string' && attempt.id === prov?.attempt_id &&
-        attempt.before_digest === prov?.digest && attempt.after_digest === prov?.digest && attempt.exit_code === 0,
-      recorded_digest: prov && typeof prov.digest === 'string' ? prov.digest : null,
-      recorded_exit_code: prov && typeof prov.exit_code === 'number' ? prov.exit_code : null,
-      recorded_command: prov ? readString(prov.command) : '',
+      version_supported: record.versionSupported,
+      attempt_id: attempt?.id,
+      attempt_outcome: attempt?.outcome ?? '',
+      attempt_command: attempt?.command ?? '',
+      attempt_reason: attempt?.reason ?? '',
+      attempt_signal: attempt?.signal ?? '',
+      attempt_exit_code: attempt?.exitCode,
+      attempt_before_digest: attempt?.beforeDigest,
+      attempt_after_digest: attempt?.afterDigest,
+      recorded_digest: record.recordedDigest,
+      recorded_attempt_id: record.recordedAttemptId,
+      recorded_exit_code: record.recordedExitCode,
+      recorded_command: record.recordedCommand,
       backfill_draft_present: existsSync(
         path.join(changesDir, entry.name, 'backfill-draft.md'),
       ),
@@ -2183,6 +2190,100 @@ export function collectTestProvenance(
     current_digest,
     working_tree_clean: workingTreeClean,
     changes,
+  };
+}
+
+/** The test-evidence half of one change's metadata, read the same way by the
+ *  drift collector and the target gate collector (one mapping, not two). */
+export type TestEvidenceRecord = Pick<
+  TestEvidenceFacts,
+  'recordedDigest' | 'recordedExitCode' | 'recordedCommand' | 'recordedAttemptId' | 'versionSupported' | 'latestAttempt'
+>;
+
+export function readTestEvidenceRecord(meta: Record<string, unknown>): TestEvidenceRecord {
+  const prov = meta.test_provenance as Record<string, unknown> | undefined;
+  const attempt = meta.test_attempt as Record<string, unknown> | undefined;
+  return {
+    recordedDigest: prov && typeof prov.digest === 'string' ? prov.digest : null,
+    recordedExitCode: prov && typeof prov.exit_code === 'number' ? prov.exit_code : null,
+    recordedCommand: prov ? readString(prov.command) : '',
+    recordedAttemptId: prov && typeof prov.attempt_id === 'string' ? prov.attempt_id : undefined,
+    versionSupported: prov?.fingerprint_version === FINGERPRINT_VERSION && prov?.scope === EVIDENCE_SCOPE,
+    latestAttempt: attempt
+      ? {
+          id: readString(attempt.id),
+          outcome: readString(attempt.outcome),
+          command: typeof attempt.command === 'string' ? attempt.command : undefined,
+          exitCode: typeof attempt.exit_code === 'number' ? attempt.exit_code : undefined,
+          signal: typeof attempt.signal === 'string' ? attempt.signal : undefined,
+          reason: typeof attempt.reason === 'string' ? attempt.reason : undefined,
+          beforeDigest: typeof attempt.before_digest === 'string' ? attempt.before_digest : undefined,
+          afterDigest: typeof attempt.after_digest === 'string' ? attempt.after_digest : undefined,
+        }
+      : undefined,
+  };
+}
+
+export interface ChangeTestEvidenceObservation {
+  facts: TestEvidenceFacts;
+  /** The metadata.yaml bytes the facts were read from — the fence a gate compares
+   *  before it writes, so a verdict never lands on a record that moved. */
+  metadataBytes: Buffer;
+}
+
+/**
+ * Collect the test-evidence facts of ONE change for the lifecycle gates
+ * (REQ-LIB-080). Target-scoped: a sibling's missing or red record is not read.
+ * Unlike `collectTestProvenance` this is not a drift source — it reads the
+ * target through the validating metadata owner and THROWS when the record is
+ * unreadable, so an I/O or schema failure is a refusal upstream and never turns
+ * into a no-command fact. Works outside Git: the snapshot is then honestly
+ * unprovable (`currentDigest: null` with its reason) while the metadata and
+ * command-policy facts are still real.
+ */
+export function collectChangeTestEvidence(
+  cwd: string,
+  changeName: string,
+  testCommand: string | null,
+  snapshot: ChangeState,
+  probe: ExecutableProbe = defaultExecutableProbe(process.env, process.platform, cwd),
+): ChangeTestEvidenceObservation {
+  const changeDir = path.join(cwd, '.prospec', 'changes', changeName);
+  const metadataPath = path.join(changeDir, 'metadata.yaml');
+  // A gate reader refuses LOUDLY on an unreadable record — but as a classified
+  // error carrying remediation: a raw ENOENT reaches the CLI as the unclassified
+  // "An unexpected error occurred", with nothing for the caller to act on.
+  // (`readChangeMetadata` already raises YamlParseError / MetadataValidationError
+  // for a record that exists but does not parse or validate.)
+  let metadataBytes: Buffer;
+  try {
+    metadataBytes = readFileSync(metadataPath);
+  } catch (error) {
+    throw new PrerequisiteError(
+      `metadata.yaml for change "${changeName}" cannot be read (${error instanceof Error ? error.message : String(error)})`,
+      `Restore .prospec/changes/${changeName}/metadata.yaml — the test gate adjudicates that record and never substitutes an exemption for an unreadable one`,
+    );
+  }
+  const { metadata } = readChangeMetadata(metadataPath, changeName);
+  let commandUnavailableReason: string | null = null;
+  if (testCommand === null) {
+    commandUnavailableReason =
+      'test command unavailable: no test command configured — set tech_stack.test_command in .prospec.yaml';
+  } else {
+    const unspawnable = unspawnableReason(testCommand, probe);
+    if (unspawnable !== null) commandUnavailableReason = `test command unavailable: ${unspawnable}`;
+  }
+  return {
+    metadataBytes,
+    facts: {
+      changeName,
+      scale: metadata.scale ?? 'standard',
+      backfillDraftPresent: existsSync(path.join(changeDir, 'backfill-draft.md')),
+      commandUnavailableReason,
+      currentDigest: snapshot.digest,
+      ...(snapshot.reason ? { snapshotReason: snapshot.reason } : {}),
+      ...readTestEvidenceRecord(metadata as unknown as Record<string, unknown>),
+    },
   };
 }
 

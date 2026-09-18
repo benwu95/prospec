@@ -4,12 +4,26 @@ import path from 'node:path';
 import os from 'node:os';
 import { execFileSync } from 'node:child_process';
 import { computeChangeState } from '../../../src/lib/drift-sources.js';
-import { assessCurrentDrift } from '../../../src/lib/drift-assessment.js';
+import { assessCurrentDrift, assessCurrentTestEvidence } from '../../../src/lib/drift-assessment.js';
 import { DRIFT_CHECK_IDS } from '../../../src/types/drift-report.js';
-const gitCalls = vi.hoisted(() => ({ count: 0, failConfig: false, addAfterListing: false, observedAddition: false, addOnStatus: 0, statusCount: 0 }));
+const gitCalls = vi.hoisted(() => ({ count: 0, failConfig: false, addAfterListing: false, observedAddition: false, addOnStatus: 0, statusCount: 0, spawns: 0 }));
+const configRace = vi.hoisted(() => ({ onFirstConfigRead: null as (() => void) | null }));
+vi.mock('node:fs', async (original) => {
+  const actual = await original<typeof import('node:fs')>();
+  return { ...actual, readFileSync: ((p: unknown, ...rest: unknown[]) => {
+    const out = (actual.readFileSync as (...a: unknown[]) => unknown)(p, ...rest);
+    if (configRace.onFirstConfigRead && String(p).endsWith('.prospec.yaml')) {
+      const hook = configRace.onFirstConfigRead; configRace.onFirstConfigRead = null; hook();
+    }
+    return out;
+  }) as typeof actual.readFileSync };
+});
 vi.mock('node:child_process', async (original) => {
   const actual = await original<typeof import('node:child_process')>();
-  return { ...actual, execFileSync: ((file: string, args: string[], opts: unknown) => {
+  return { ...actual, spawnSync: ((...args: unknown[]) => {
+    gitCalls.spawns++;
+    return (actual.spawnSync as (...a: unknown[]) => unknown)(...args);
+  }) as typeof actual.spawnSync, execFileSync: ((file: string, args: string[], opts: unknown) => {
     if (file === 'git') gitCalls.count++;
     if (gitCalls.failConfig && args[0] === 'config') throw Error('config unreadable');
     if (args[0] === 'status' && gitCalls.addOnStatus > 0 && ++gitCalls.statusCount === gitCalls.addOnStatus) {
@@ -160,4 +174,85 @@ it('reconciles membership seen during deletion confirmation (F-265-1 sibling)', 
   gitCalls.addOnStatus = 2;
   expect(computeChangeState(root).digest).toBeNull();
   expect(gitCalls.observedAddition).toBe(true);
+});
+
+describe('assessCurrentTestEvidence — narrow target assessment with live recheck (REQ-LIB-080)', () => {
+  const freshMetadata = (digest: string) =>
+    'name: x\ncreated_at: today\nstatus: tasks\nscale: full\n' +
+    `test_provenance:\n  fingerprint_version: snapshot-v2\n  scope: repository-inputs-v2\n  attempt_id: a1\n  command: node -e 0\n  exit_code: 0\n  digest: ${digest}\n  date: "2026-09-01"\n` +
+    `test_attempt:\n  id: a1\n  outcome: passed\n  command: node -e 0\n  exit_code: 0\n  before_digest: ${digest}\n  after_digest: ${digest}\n`;
+  const withCommand = `version: "1.0"\nproject:\n  name: t\ntech_stack:\n  test_command: ${process.execPath} -e 0\n`;
+
+  it('certifies fresh green from live facts, rechecks true, and never spawns the suite or the full collector set', async () => {
+    write('.prospec.yaml', withCommand);
+    const digest = computeChangeState(root).digest!;
+    write('.prospec/changes/x/metadata.yaml', freshMetadata(digest));
+    gitCalls.count = 0; gitCalls.spawns = 0;
+    const a = await assessCurrentTestEvidence(root, 'x');
+    expect(a.decision).toEqual({ verdict: 'pass', attemptId: 'a1' });
+    expect(a.facts.currentDigest).toBe(digest);
+    expect(gitCalls.spawns).toBe(0);
+    // the narrow snapshot only — the full assessment needs four to six subprocesses
+    expect(gitCalls.count).toBeLessThanOrEqual(3);
+    expect(a.recheck()).toBe(true);
+    expect(gitCalls.spawns).toBe(0);
+  });
+
+  it.each([
+    ['config', () => write('.prospec.yaml', withCommand + '# edited\n')],
+    ['metadata (attempt)', () => write('.prospec/changes/x/metadata.yaml', freshMetadata(computeChangeState(root).digest!).replace('outcome: passed', 'outcome: running'))],
+    ['backfill draft', () => write('.prospec/changes/x/backfill-draft.md', '# draft\n')],
+    ['snapshot (source input)', () => write('src/new.ts', 'export const later = 1;\n')],
+  ])('refuses a %s change observed after collection', async (_n, mutate) => {
+    write('.prospec.yaml', withCommand);
+    write('.prospec/changes/x/metadata.yaml', freshMetadata(computeChangeState(root).digest!));
+    const a = await assessCurrentTestEvidence(root, 'x');
+    expect(a.decision.verdict).toBe('pass');
+    mutate();
+    expect(a.recheck()).toBe(false);
+  });
+
+  it('refuses when the resolved command changes even though the config bytes are untouched (package.json test script appears)', async () => {
+    write('.prospec.yaml', 'version: "1.0"\nproject:\n  name: t\ntech_stack:\n  package_manager: pnpm\n');
+    write('.prospec/changes/x/metadata.yaml', 'name: x\ncreated_at: today\nstatus: tasks\nscale: full\n');
+    const a = await assessCurrentTestEvidence(root, 'x');
+    expect(a.decision).toMatchObject({ verdict: 'exempt', exemption: 'no-command' });
+    expect(a.recheck()).toBe(true);
+    write('package.json', JSON.stringify({ scripts: { test: 'vitest' } }));
+    expect(a.recheck()).toBe(false);
+  });
+
+  it('exempts a no-command project outside Git without demanding a snapshot, and still rechecks its metadata facts', async () => {
+    rmSync(path.join(root, '.git'), { recursive: true, force: true });
+    const a = await assessCurrentTestEvidence(root, 'x');
+    expect(a.decision).toMatchObject({ verdict: 'exempt', exemption: 'no-command' });
+    expect(a.facts.currentDigest).toBeNull();
+    expect(a.recheck()).toBe(true);
+    write('.prospec/changes/x/metadata.yaml', 'name: x\ncreated_at: today\nstatus: tasks\nscale: full\ndescription: edited\n');
+    expect(a.recheck()).toBe(false);
+  });
+
+  it('refuses (F-1) when .prospec.yaml is rewritten between the bytes read and the config parse — the verdict never lands on a command the bytes do not prove', async () => {
+    write('.prospec.yaml', withCommand);
+    write('.prospec/changes/x/metadata.yaml', 'name: x\ncreated_at: today\nstatus: tasks\nscale: full\n');
+    configRace.onFirstConfigRead = () => write('.prospec.yaml', 'version: "1.0"\nproject:\n  name: t\n');
+    await expect(assessCurrentTestEvidence(root, 'x')).rejects.toThrow(/\.prospec\.yaml changed/);
+  });
+
+  it('refuses (throws) on unreadable target metadata or missing config rather than fabricating an exemption', async () => {
+    write('.prospec/changes/x/metadata.yaml', 'name: [unclosed\n');
+    await expect(assessCurrentTestEvidence(root, 'x')).rejects.toThrow();
+    write('.prospec/changes/x/metadata.yaml', 'name: x\ncreated_at: today\nstatus: tasks\nscale: full\n');
+    rmSync(path.join(root, '.prospec.yaml'));
+    await expect(assessCurrentTestEvidence(root, 'x')).rejects.toThrow(/Config file/);
+  });
+
+  it('a sibling change with red evidence never enters the target facts', async () => {
+    write('.prospec.yaml', withCommand);
+    write('.prospec/changes/x/metadata.yaml', freshMetadata(computeChangeState(root).digest!));
+    write('.prospec/changes/y/metadata.yaml', 'name: y\ncreated_at: today\nstatus: implemented\nscale: full\ntest_provenance:\n  command: node -e 1\n  exit_code: 1\n  digest: Z\n  date: "2026-09-01"\n');
+    const a = await assessCurrentTestEvidence(root, 'x');
+    expect(a.decision.verdict).toBe('pass');
+    expect(JSON.stringify(a.facts)).not.toContain('"y"');
+  });
 });

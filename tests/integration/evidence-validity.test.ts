@@ -7,6 +7,9 @@ import { execute as check } from '../../src/services/check.service.js';
 import { execute as verify } from '../../src/services/verify-record.service.js';
 import { execute as status } from '../../src/services/status.service.js';
 import { execute as archive } from '../../src/services/archive.service.js';
+import { execute as changeStatus } from '../../src/services/change-status.service.js';
+import { execute as reviewMerge } from '../../src/services/review-merge.service.js';
+import { TestGateError } from '../../src/types/errors.js';
 import type { QualityDimension } from '../../src/types/change.js';
 vi.setConfig({ testTimeout: 30_000 });
 let root: string;
@@ -91,4 +94,86 @@ it('keeps an already stale finding current across an equivalent history amend (F
   expect(before.drift).toMatchObject({ state: 'findings', count: 1 });
   dated(['commit', '--amend', '--no-edit', '--date', '2026-09-04T12:00:00Z'], '2026-09-04T12:00:00Z');
   expect((await status({ cwd: root })).drift).toEqual(before.drift);
+});
+
+describe('fresh-test lifecycle gates over real Git evidence (REQ-LIB-080, REQ-LIB-033, REQ-SERVICES-103, REQ-CLI-028)', () => {
+  const metadataPath = () => path.join(root, '.prospec/changes/x/metadata.yaml');
+  const suiteRuns = () => Number(readFileSync(path.join(root, '.prospec/suite-count'), 'utf8'));
+  const backToTasks = () => writeFileSync(metadataPath(), readFileSync(metadataPath(), 'utf8').replace('status: implemented', 'status: tasks'));
+  const findings = () => {
+    const p = path.join(root, '.prospec/round.json');
+    writeFileSync(p, JSON.stringify([{ id: 'F-1', location: 'suite.cjs:1', severity: 'major', lens: 'correctness', summary: 'fixture finding' }]));
+    return p;
+  };
+  const merge = () => reviewMerge({ cwd: root, change: 'x', quiet: true, findingsPath: findings() });
+
+  it('record-tests → implemented → review merge certifies from the recorded run without spawning the suite again', async () => {
+    const runs = suiteRuns();
+    backToTasks();
+    const status = await changeStatus({ cwd: root, change: 'x', quiet: true, to: 'implemented' });
+    expect(status).toMatchObject({ changed: true, testGate: { verdict: 'pass' } });
+    const merged = await merge();
+    expect(merged.testGate).toEqual({ verdict: 'pass', warningRecorded: false });
+    expect(merged.totalRows).toBe(1);
+    expect(suiteRuns()).toBe(runs);
+    expect(readFileSync(path.join(root, '.prospec/changes/x/review.md'), 'utf8')).not.toContain('test_failures');
+  });
+
+  it('a code change stales the evidence for both entrances and leaves metadata byte-identical', async () => {
+    backToTasks();
+    write('src/feature.ts', 'export const later = true;\n');
+    const before = readFileSync(metadataPath());
+    await expect(changeStatus({ cwd: root, change: 'x', quiet: true, to: 'implemented' })).rejects.toThrow(/stale test run/);
+    await expect(merge()).rejects.toBeInstanceOf(TestGateError);
+    expect(readFileSync(metadataPath())).toEqual(before);
+    expect(readFileSync(metadataPath(), 'utf8')).toContain('status: tasks');
+    // a stale attempt is not a NEW failure: no metrics-only review.md is created
+    expect(readdirSync(path.join(root, '.prospec/changes/x'))).not.toContain('review.md');
+  });
+
+  it('an equivalent commit keeps the evidence fresh — no re-record, no suite run', async () => {
+    const runs = suiteRuns();
+    backToTasks();
+    git('add', '.'); git('commit', '-qm', 'equivalent inputs');
+    const status = await changeStatus({ cwd: root, change: 'x', quiet: true, to: 'implemented' });
+    expect(status.testGate?.verdict).toBe('pass');
+    expect(suiteRuns()).toBe(runs);
+  });
+
+  it('a sibling change with red evidence never touches the target verdict', async () => {
+    write('.prospec/changes/y/metadata.yaml', 'name: y\ncreated_at: "2026-09-05"\nstatus: implemented\nscale: full\ntest_provenance:\n  command: node -e 1\n  exit_code: 1\n  digest: Z\n  date: "2026-09-05"\n');
+    backToTasks();
+    expect((await changeStatus({ cwd: root, change: 'x', quiet: true, to: 'implemented' })).testGate?.verdict).toBe('pass');
+    expect((await merge()).testGate.verdict).toBe('pass');
+  });
+
+  it('the latest recorded failure outranks the older PASS, and review merge counts each distinct failed attempt once', async () => {
+    write('suite.cjs', "const fs=require('fs');const p='.prospec/suite-count';fs.writeFileSync(p,String(Number(fs.existsSync(p)?fs.readFileSync(p,'utf8'):0)+1));process.exitCode=1;");
+    git('add', '.'); git('commit', '-qm', 'break the suite');
+    const first = await check({ cwd: root, change: 'x', recordTests: true });
+    expect(first).toMatchObject({ kind: 'record-tests', recorded: true, exitCode: 1 });
+    backToTasks();
+    const refusal = await changeStatus({ cwd: root, change: 'x', quiet: true, to: 'implemented' }).catch((e: unknown) => e);
+    expect(refusal).toBeInstanceOf(TestGateError);
+    expect((refusal as TestGateError).reason).toMatch(/exited 1/);
+    const runs = suiteRuns();
+    await expect(merge()).rejects.toBeInstanceOf(TestGateError);
+    const review = () => readFileSync(path.join(root, '.prospec/changes/x/review.md'), 'utf8');
+    expect(review()).toMatch(/^<!-- prospec:review-metrics test_failures="1" test_failure_ids="[^"]+" -->\n$/);
+    // same attempt replayed: no increment; a second distinct failed attempt: two
+    await expect(merge()).rejects.toBeInstanceOf(TestGateError);
+    expect(review()).toContain('test_failures="1"');
+    await check({ cwd: root, change: 'x', recordTests: true });
+    await expect(merge()).rejects.toBeInstanceOf(TestGateError);
+    expect(review()).toContain('test_failures="2"');
+    // the gates themselves never ran the suite — only the two record-tests did
+    expect(suiteRuns()).toBe(runs + 1);
+    // a green run supersedes the failure and clears the streak
+    write('suite.cjs', "const fs=require('fs');const p='.prospec/suite-count';fs.writeFileSync(p,String(Number(fs.existsSync(p)?fs.readFileSync(p,'utf8'):0)+1));");
+    git('add', '.'); git('commit', '-qm', 'fix the suite');
+    await check({ cwd: root, change: 'x', recordTests: true });
+    const merged = await merge();
+    expect(merged.testGate.verdict).toBe('pass');
+    expect(review()).not.toContain('test_failures');
+  });
 });

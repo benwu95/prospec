@@ -84,7 +84,7 @@ export const COMMAND_HELP_SPECS: Record<HelpEnrichedCommand, CommandHelpSpec> = 
       'After a review round\'s findings JSON exists, to merge it into the cumulative review.md. Identity is the finding `id` — reuse last round\'s id for the same finding; the CLI never infers identity from the location text. Not for recording the gate (that is `prospec change log --skill prospec-review`).',
     example: 'prospec review merge --findings .tasks/review-round1.json --round 1',
     returns:
-      'Prints the artifact path, cumulative row count, evidence block count, the round counts (`criticals_found=` …) and, per critical, its claim and repro command.',
+      'Prints the artifact path, cumulative row count, evidence block count, the round counts (`criticals_found=` …) and, per critical, its claim and repro command. Every merge first requires the target change\'s fresh green test attempt (`prospec check --record-tests --change <name>`): an input-validation or round-sequence refusal writes nothing, while a test-gate refusal exits 1 with the remediation and may write ONLY the bounded test-failure metrics into review.md\'s metrics comment — never findings. It counts the distinct failed attempts review merge itself observed (default threshold 3, a replayed attempt id never counts twice, a fresh green resets it), not the full suite history, and reports `persistent_test_failure` with ESCALATE_TO_HUMAN at the threshold. A project with no resolvable test command or a proven backfill merges with a `tests: not-adjudicated` WARN.',
     escaping: TABLE_ESCAPING,
   },
   'verify record': {

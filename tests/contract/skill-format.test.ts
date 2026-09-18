@@ -37,7 +37,7 @@ import {
   VALIDATE_KINDS,
   VERIFIER_REPORT_SCHEMAS,
 } from '../../src/types/station.js';
-import { EscalationReportSchema } from '../../src/types/cascade.js';
+import { DEFAULT_CIRCUIT_BREAKER_CONFIG, EscalationReportSchema } from '../../src/types/cascade.js';
 import { planningVerifierContext, renderSkillDescription } from '../../src/services/agent-sync.service.js';
 import { getSkillReferences } from '../../src/services/agent-sync.service.js';
 import {
@@ -4211,8 +4211,13 @@ describe('Startup Loading cache-stable prefix ordering (REQ-TEMPLATES-080/081)',
    * Raised 87_633 → 87_953 when every skill description gained a negative-scope
    * clause and the two finisher skills gained the `skill_exclusions` sentence — a deliberate
    * shipped-instruction cost (one clause per skill), reviewed with that change.
+   *
+   * Reference anchor raised 46_365 → 46_639 when `review-format` gained the CLI-owned
+   * test-failure metrics paragraph and `circuit-breaker` its `persistent_test_failure`
+   * dimension (issue #273) — the two skill bodies shrank their duplicated test-policy
+   * prose to one CLI-refusal sentence each and stayed under the cumulative ceiling.
    */
-  const REFERENCE_CEILING_ANCHOR = 46_365;
+  const REFERENCE_CEILING_ANCHOR = 46_639;
   const CUMULATIVE_CEILING_ANCHOR = 87_953;
 
   const renderSkill = (name: string) => {
@@ -9022,5 +9027,130 @@ describe('root READMEs state the finisher skills\' per-session cost honestly (RE
     expect(en).toContain('excluded from the always-loaded entry config');
     expect(zh).toMatch(/仍會在每個 session 載入/);
     expect(zh).toContain('不列入常駐 entry config');
+  });
+});
+
+describe('fresh-test gate — prose demoted to one CLI-refusal sentence, maps and Gates intact (REQ-TEMPLATES-161/163/203/234)', () => {
+  const IMPLEMENT_PHASES = [
+    '### Phase 1: Read Task List',
+    '### Phase 2: Load Relevant Knowledge',
+    '### Phase 3: Execute Implementation',
+    '### Phase 4: Verify Implementation',
+    '### Phase 5: Mark Complete',
+    '### Phase 6: Move to Next Task',
+  ];
+  const headings = (content: string) => content.split('\n').filter((l) => /^### Phase \d+:/.test(l));
+
+  describe('prospec-implement Phase 4', () => {
+    const skill = () => renderTemplate('skills/prospec-implement.hbs', TEMPLATE_CONTEXT);
+
+    it('keeps the phase map and every Phase 4 Gate item', () => {
+      expect(headings(skill())).toEqual(IMPLEMENT_PHASES);
+      const phase4 = sectionOf(skill(), '### Phase 4: Verify Implementation');
+      const gate = phase4.slice(phase4.indexOf('Phase 4 Gate'));
+      expect(gate).toContain('- [ ] spec compliance, type safety, and error handling checked for the current task');
+      expect(gate).toContain('- [ ] site-specific Constitution rules (TDD / commit) confirmed (any deviation documented)');
+    });
+
+    it('states the test policy as ONE sentence pointing at the CLI refusal and remediation, keeping the runner reference at its load point', () => {
+      const phase4 = sectionOf(skill(), '### Phase 4: Verify Implementation');
+      const testLines = phase4.split('\n').filter((l) => /\btest/i.test(l) && !l.includes('Constitution') && !l.includes('- [ ]'));
+      expect(testLines, 'exactly one test bullet').toHaveLength(1);
+      const sentence = testLines[0]!;
+      expect(sentence).toContain('`prospec change status implemented`');
+      expect(sentence).toMatch(/refuses/);
+      expect(sentence).toMatch(/remediation/);
+      expect(sentence).toContain('[`references/project-test-runner.md`](references/project-test-runner.md)');
+      // the duplicated policy prose is gone, and no repository-specific runner is named
+      expect(phase4).not.toContain("Run the project's test suite");
+      expect(phase4).not.toMatch(/pnpm test|vitest|npm test/);
+    });
+
+    it('the NEVER list forbids a checkbox-only completion bypassing the refusal', () => {
+      const never = sectionOf(skill(), '## NEVER');
+      expect(never).toMatch(/refus(es|al)/);
+      expect(never).toContain('prospec check --record-tests');
+    });
+  });
+
+  describe('prospec-review Loop step 3', () => {
+    const skill = () => renderTemplate('skills/prospec-review.hbs', TEMPLATE_CONTEXT);
+    const loop = () => sectionOf(skill(), '### The Loop');
+    const step = (n: number) => loop().split('\n').find((l) => l.startsWith(`${n}. `))!;
+
+    it('replaces only the duplicated test-policy prose with one CLI-refusal sentence and keeps the runner reference', () => {
+      expect(loop().split('\n').filter((l) => /^\d+\. /.test(l))).toHaveLength(6);
+      const s3 = step(3);
+      expect(s3).toContain('`prospec review merge`');
+      expect(s3).toMatch(/refuses/);
+      expect(s3).toMatch(/remediation/);
+      expect(s3).toContain('[`references/project-test-runner.md`](references/project-test-runner.md)');
+      expect(s3).toContain('ESCALATE_TO_HUMAN');
+      expect(s3).not.toContain('the suite must stay green');
+      expect(s3).not.toMatch(/pnpm test|vitest|npm test/);
+      // steps 2 and 4 keep findings verification / pins and full-lens re-review
+      expect(step(2)).toContain('regression test (pin)');
+      expect(step(4)).toContain('full-lens re-review');
+    });
+
+    it('keeps the reference map and the Gate items around the demoted prose', () => {
+      const content = skill();
+      expect(sectionOf(content, '### Success Criteria')).toContain('project-test-runner');
+      expect(sectionOf(content, '## Entry Gate').trim().length).toBeGreaterThan(0);
+      expect(sectionOf(content, '### Exit Gate (Constitution)').trim().length).toBeGreaterThan(0);
+      expect(sectionOf(content, '## NEVER')).toMatch(/test refusal|refuses .*test|record a completed review round/);
+    });
+  });
+
+  describe('review-format and circuit-breaker references', () => {
+    it('review-format names the bounded test-failure metrics, their legacy default, the green reset and the observed-only limit', () => {
+      const fmt = renderTemplate('skills/references/review-format.hbs', TEMPLATE_CONTEXT);
+      const para = fmt.split('\n\n').find((p) => p.includes('test_failures'));
+      expect(para, 'metrics paragraph naming test_failures').toBeDefined();
+      expect(para).toContain('test_failure_ids');
+      expect(para).toMatch(/[Ll]egacy|absent/);
+      expect(para).toMatch(/fresh (certified )?green/);
+      expect(para).toMatch(/observed by `?prospec review merge`?|review merge (itself )?observed/);
+      expect(para).not.toMatch(/pnpm test|vitest/);
+    });
+
+    it('circuit-breaker documents persistent_test_failure with the independent default threshold, CLI-owned counting, replay dedupe and ESCALATE_TO_HUMAN', () => {
+      const cb = renderTemplate('skills/references/circuit-breaker.hbs', TEMPLATE_CONTEXT);
+      const section = sectionOf(cb, '### 6. Persistent Test Failure');
+      expect(section).toContain('persistent_test_failure');
+      expect(section).toContain(`default **${DEFAULT_CIRCUIT_BREAKER_CONFIG.maxConsecutiveTestFailures}**`);
+      expect(section).toMatch(/CLI/);
+      expect(section).toMatch(/replay|same attempt id|not counted twice/i);
+      expect(section).toContain('ESCALATE_TO_HUMAN');
+      expect(section).toMatch(/independent/i);
+      expect(section).not.toMatch(/pnpm test|vitest/);
+      // the enum line still lists the trigger once
+      expect((cb.match(/persistent_test_failure/g) ?? []).length).toBeGreaterThanOrEqual(2);
+    });
+  });
+
+  describe('status-lifecycle — both copies', () => {
+    const template = () => renderTemplate('init/status-lifecycle.md.hbs', TEMPLATE_CONTEXT);
+    const local = () => fs.readFileSync(path.join(process.cwd(), 'prospec/ai-knowledge/_status-lifecycle.md'), 'utf-8');
+
+    it('the implement Gate requires completed code tasks PLUS fresh green evidence or an explicit WARN exemption', () => {
+      for (const copy of [template(), local()]) {
+        const gates = sectionOf(copy, '## Gates');
+        const bullet = gates.split('\n').find((l) => l.startsWith('- **`prospec-implement`**'))!;
+        expect(bullet).toMatch(/code-task/);
+        expect(bullet).toMatch(/fresh/);
+        expect(bullet).toMatch(/green/);
+        expect(bullet).toContain('prospec check --record-tests');
+        expect(bullet).toContain('not-adjudicated');
+        const review = sectionOf(copy, '## Stations without a status transition').split('\n').find((l) => l.startsWith('- **`prospec-review`**'))!;
+        expect(review).toContain('fresh');
+        expect(review).toContain('persistent_test_failure');
+      }
+    });
+
+    it('the Gates and What-each-gate-checks sections are identical in the shipped template and the local copy', () => {
+      expect(sectionOf(local(), '## Gates')).toBe(sectionOf(template(), '## Gates'));
+      expect(sectionOf(local(), '## What each gate checks')).toBe(sectionOf(template(), '## What each gate checks'));
+    });
   });
 });

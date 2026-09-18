@@ -112,6 +112,11 @@ read foo.ts:38-46 — the `<=` bound overruns when n === len.
   rules are in [`circuit-breaker.md`](circuit-breaker.md); the structured round metrics come from
   the merge command's report (`round`, `criticals_found` / `criticals_fixed` / `majors`, `fix_induced_ratio`, `spend`).
 
+- **Test-failure metrics** (CLI-owned, same comment): `test_failures` + bounded `test_failure_ids` —
+  distinct failed attempts observed by `prospec review merge` in a row (absent = zero; a replayed id
+  never counts twice; a fresh certified green clears both; exemptions and loop rollover do not). Only
+  observed attempts count; a test refusal writes ONLY these two attributes.
+
 ---
 
 ## Reviewer Lenses
