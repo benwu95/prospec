@@ -1,7 +1,7 @@
 ---
 feature: drift-checks
 status: active
-last_updated: 2026-09-01
+last_updated: 2026-09-18
 story_count: 5
 req_count: 5
 ---
@@ -21,9 +21,11 @@ req_count: 5
 ### US-1
 
 #### REQ-LIB-001: Token Budget Override Drift Check
-The drift engine enforces justification for token budget increases.
+The drift engine enforces justification for token budget increases and flags per-project keys that no longer bind. `collectBudgetOverrides` walks `knowledge.token_budget` through the YAML AST: a schema-declared key above its shipped default becomes an override (with its comment status and line); a key named by `SHIPPED_BUDGET_FIELDS` becomes an `ineffective` entry (key and line) and is never compared against a default. `evaluateBudgetOverrides` emits one warn finding per unjustified override and one per ineffective key, both under `unjustified-budget-override`.
 - WHEN a `token_budget` override exceeds its shipped default and lacks an adjacent comment, THEN a drift check warning is emitted
 - WHEN the override has a comment or is <= the default, THEN the check passes
+- WHEN `token_budget` carries `skill_per_file` or `reference_per_file`, THEN a warn finding names that key and its line, states that the budget ships with prospec and is not a per-project setting, and tells the user to remove the line
+- WHEN `token_budget` carries no shipped key, THEN no ineffective finding is emitted and the outcome is byte-identical to the pre-change behavior
 
 ---
 
@@ -99,6 +101,7 @@ _(None)_
 
 | Date | Change | Impact | Stories/REQs |
 |------|--------|--------|-------------|
+| 2026-09-18 | internalize-skill-budgets | MODIFIED REQ-LIB-001 | REQ-LIB-001 |
 | 2026-09-01 | standardize-module-readme-format | MODIFIED REQ-LIB-052 | REQ-LIB-052 |
 | 2026-08-28 | add-req-id-uniqueness-check | ADDED REQ-LIB-068 | REQ-LIB-068 |
 | 2026-08-23 | validate-routing-headers-before-landing | MODIFIED REQ-LIB-061 | REQ-LIB-061 |
