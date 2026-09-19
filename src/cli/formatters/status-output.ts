@@ -58,26 +58,33 @@ export function formatStatusOutput(report: StatusReport, logLevel: LogLevel): vo
     if (change.issue !== undefined) {
       console.log(`  issue:   ${sanitizeTerminal(change.issue)}`);
     }
-    const next =
-      change.next === null
-        ? pc.dim('— terminal (periodic prospec-learn)')
-        : pc.cyan(STATION_SKILLS[change.next]);
-    console.log(`  next:    ${next}`);
-    // Identity first: it is the one target every host can act on — through its
-    // own skill mechanism where it has one, through the fallback file where it
-    // does not. The formatter states neither, because it cannot know which host
-    // is reading; the entry config's Station Transition Protocol does.
-    if (change.nextSkill !== undefined) {
-      console.log(
-        `  action:  invoke skill ${pc.cyan(sanitizeTerminal(change.nextSkill))}` +
-          " — load it the way this host loads skills, before executing station checks",
-      );
-    }
-    if (change.nextSkillPath !== undefined) {
-      console.log(
-        `  fallback: read ${pc.cyan(sanitizeTerminal(change.nextSkillPath))}` +
-          ' when that mechanism is unavailable',
-      );
+    if (change.next === null) {
+      if (change.code === 'ESCALATE_TO_HUMAN') {
+        console.log(`  next:    ${pc.red('— HALT (escalated to human)')}`);
+        console.log(
+          `  action:  ${pc.red('HALT')} — human intervention required; station retry limit exceeded`,
+        );
+      } else {
+        console.log(`  next:    ${pc.dim('— terminal (periodic prospec-learn)')}`);
+      }
+    } else {
+      console.log(`  next:    ${pc.cyan(STATION_SKILLS[change.next])}`);
+      // Identity first: it is the one target every host can act on — through its
+      // own skill mechanism where it has one, through the fallback file where it
+      // does not. The formatter states neither, because it cannot know which host
+      // is reading; the entry config's Station Transition Protocol does.
+      if (change.nextSkill !== undefined) {
+        console.log(
+          `  action:  invoke skill ${pc.cyan(sanitizeTerminal(change.nextSkill))}` +
+            " — load it the way this host loads skills, before executing station checks",
+        );
+      }
+      if (change.nextSkillPath !== undefined) {
+        console.log(
+          `  fallback: read ${pc.cyan(sanitizeTerminal(change.nextSkillPath))}` +
+            ' when that mechanism is unavailable',
+        );
+      }
     }
     // The next station's load points, after the action that names that station:
     // an agent regaining context reads the map here instead of re-deriving it.

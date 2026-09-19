@@ -62,4 +62,14 @@ describe('persistent_test_failure diagnostics (REQ-TYPES-086, REQ-LIB-057)', () 
     });
     expect(report.type).toBe('persistent_test_failure');
   });
+
+  it('accepts station_retry_limit_exceeded in the escalation enum (REQ-TYPES-086)', () => {
+    const report = EscalationReportSchema.parse({
+      type: 'station_retry_limit_exceeded',
+      message: 'the prospec-plan verifier has failed 3 consecutive times',
+      tradeoffOptions: ['fix verifier flaws', 'manual override'],
+    });
+    expect(report.type).toBe('station_retry_limit_exceeded');
+  });
 });
+

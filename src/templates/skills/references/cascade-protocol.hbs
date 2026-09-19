@@ -47,7 +47,7 @@ Every station — whether reached via `prospec status` or by autonomous cascadin
 3. **Step 3 [EXEC]** — Execute the station per its `SKILL.md` and the references it loads on demand; loading a station never means its references arrived.
 {{!-- Single Source of Truth: Full oscillation breaker definition is owned by circuit-breaker.hbs (prospec-ff, prospec-review). Keep the core formula (FAIL → PASS → FAIL >= 2) inlined here. --}}
 4. **Step 4 [GATE]** — Run the station's machine verifiers. On FAIL, apply the Oscillation Breaker (stop if state flips FAIL → PASS → FAIL ≥ 2) — never loop unbounded.
-5. **Step 5 [NEXT]** — Run `prospec status` for the next station, then return to Step 1.
+5. **Step 5 [NEXT]** — Run `prospec status` for the next station. When the route carries `code: ESCALATE_TO_HUMAN`, HALT immediately and emit an `EscalationReport` (`type: station_retry_limit_exceeded`) summarizing the failure streak and reasons — do NOT return to Step 1. Otherwise, return to Step 1.
 
 ---
 

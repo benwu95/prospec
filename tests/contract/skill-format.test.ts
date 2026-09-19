@@ -1678,6 +1678,18 @@ describe('Skill Format Contract', () => {
       for (const t of HARNESS_TOOLS) expect(section).not.toContain(t);
     });
 
+    it('cascade-protocol Step 5 [NEXT] HALTs on ESCALATE_TO_HUMAN and emits EscalationReport (REQ-TEMPLATES-195)', () => {
+      const section = sectionOf(
+        renderTemplate('skills/references/cascade-protocol.hbs', TEMPLATE_CONTEXT),
+        '## Per-Station Execution Loop',
+      );
+      expect(section).toContain('Step 5 [NEXT]');
+      expect(section).toContain('code: ESCALATE_TO_HUMAN');
+      expect(section).toContain('HALT immediately');
+      expect(section).toContain('EscalationReport');
+      expect(section).toContain('type: station_retry_limit_exceeded');
+    });
+
     // issue #271 — the station-transition guidance branches on the host's declared
     // skill content lifecycle: a host whose skill mechanism keeps content alive
     // ENTERS a station by invoking it, every other host (and a render with no
@@ -4216,8 +4228,12 @@ describe('Startup Loading cache-stable prefix ordering (REQ-TEMPLATES-080/081)',
    * test-failure metrics paragraph and `circuit-breaker` its `persistent_test_failure`
    * dimension (issue #273) — the two skill bodies shrank their duplicated test-policy
    * prose to one CLI-refusal sentence each and stayed under the cumulative ceiling.
+   *
+   * Reference anchor raised 46_639 → 46_700 when `cascade-protocol` gained the Step 5
+   * HALT on ESCALATE_TO_HUMAN and `circuit-breaker` its `station_retry_limit_exceeded`
+   * trigger (bound-recovery-loops).
    */
-  const REFERENCE_CEILING_ANCHOR = 46_639;
+  const REFERENCE_CEILING_ANCHOR = 46_700;
   const CUMULATIVE_CEILING_ANCHOR = 87_953;
 
   const renderSkill = (name: string) => {
@@ -8886,7 +8902,8 @@ describe('one verdict vocabulary, one station route (issue #266 — REQ-TEMPLATE
     const facts = (over: Partial<ChangeRouteFacts>): ChangeRouteFacts => ({
       name: 'c', status: 'story', scale: 'standard', hasTasks: true, hasDesignSpec: false, uiScope: null,
       codeTasksTotal: 1, codeTasksDone: 0, hasReviewProvenance: false, lastVerifyGrade: null,
-      lastPlanVerifierResult: null, lastTasksVerifierResult: null, hasKnowledgeSync: true, ...over,
+      lastPlanVerifierResult: null, lastTasksVerifierResult: null, hasKnowledgeSync: true,
+      verifyBelowBarStreak: 0, planFlawsStreak: 0, tasksFlawsStreak: 0, maxStationRetries: 3, ...over,
     });
     const routed = (variants: Partial<ChangeRouteFacts>[]): Set<string> =>
       new Set(variants.map((v) => routeChange(facts(v)).next).filter((n): n is SddStation => n !== null));

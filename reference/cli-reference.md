@@ -232,6 +232,7 @@ Entry Points, Dependencies, and Config Files have no per-language override — t
     - Prints the next station's reference map under `read:` — each load point that station reaches, the deployed path to read, why, and any condition `status` cannot decide. Filtered by the change's known scale and UI scope, resolved under the same configured host the `fallback:` line names; absent for a terminal route or a project with no configured agent, empty for a station that ships no reference. A station's instructions arriving never implies its references arrived.
     - `--json` emits the whole status report (including each change's `nextSkill`, `unresolvedWarnings` and `nextReferenceMap`) to stdout for machine consumption.
     - With nothing in flight, reads `prospec-report.json` and reports its STATE: how many findings `--auto-draft` would draft, or that the report is unreadable or was generated against different code (compared by `change_digest`). A report it cannot trust is reported as such, never as an absence of drift.
+    - When a station recovery loop (verify below-bar, plan verifier flaws, tasks verifier flaws) reaches `workflow.max_station_retries` (default 3), `status` routes to `next: null` with stable code `ESCALATE_TO_HUMAN`, printing a HALT directive and failure summary rather than looping back.
 
 - **`prospec change story <name> [options]`**
   - **Purpose**: Scaffold a new change directory with `proposal.md` and `metadata.yaml` (`status: story`).
@@ -551,6 +552,7 @@ Key configurations you can tweak:
 - **`knowledge.additional_core_conventions`**: Prospec's knowledge system loads `_conventions.md` (and `CONSTITUTION.md`) by default when the Agent starts. If you have other globally shared convention files (e.g., API guidelines, security rules) that you want to be pre-loaded as Core Conventions, you can list them here. These paths are relative to the `ai-knowledge/` directory.
 - **`skill_triggers`**: Allows customizing the activation keywords for specific AI Skills to match your native language.
 - **`skill_exclusions`**: Same shape as `skill_triggers` — native-language phrases naming what a skill is NOT for; `prospec agent sync` renders them as a `Not for:` clause after the skill description (absent = no clause).
+- **`workflow.max_station_retries`**: Bounds consecutive station recovery loops (verify below-bar, plan verifier flaws, tasks verifier flaws) before `status` halts and escalates to human (default 3, constant `DEFAULT_MAX_STATION_RETRIES`).
 
 Example `.prospec.yaml` (for the full annotated reference of every field, run `prospec config example`):
 ```yaml
@@ -569,6 +571,8 @@ exclude:
 agents:
   - claude
   - antigravity
+workflow:
+  max_station_retries: 3
 knowledge:
   base_path: prospec/ai-knowledge
   strategy: domain

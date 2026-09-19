@@ -88,6 +88,7 @@ export const EscalationReportSchema = z.object({
     'persistent_test_failure',
     'fix_induced_threshold_exceeded',
     'spend_budget_exceeded',
+    'station_retry_limit_exceeded',
   ]),
   message: z.string(),
   diagnostics: z.record(z.string(), z.unknown()).optional(),

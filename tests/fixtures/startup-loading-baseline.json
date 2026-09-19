@@ -177,7 +177,7 @@
       "mandatory_context_tokens": 10497
     }
   },
-  "reference_ceiling_tokens": 46639,
+  "reference_ceiling_tokens": 46700,
   "references": {
     "adapter-figma": 589,
     "adapter-html": 663,
@@ -185,8 +185,8 @@
     "adapter-penpot": 490,
     "archive-format": 1211,
     "candidate-evaluation": 2211,
-    "cascade-protocol": 2137,
-    "circuit-breaker": 1331,
+    "cascade-protocol": 2190,
+    "circuit-breaker": 1339,
     "debug-recovery-format": 1307,
     "delegated-evidence-format": 2849,
     "delta-spec-format": 2017,

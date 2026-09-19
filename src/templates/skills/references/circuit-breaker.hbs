@@ -52,7 +52,7 @@ When a circuit breaker trips, the Agent MUST NOT silently fail or hallucinate a 
 ```markdown
 ### 🚨 Circuit Breaker Tripped: Escalation Required
 
-- **Trigger**: [oscillation | max_rounds_exceeded | unrecoverable_critical | persistent_test_failure | fix_induced_threshold_exceeded | spend_budget_exceeded]
+- **Trigger**: [oscillation | max_rounds_exceeded | unrecoverable_critical | persistent_test_failure | fix_induced_threshold_exceeded | spend_budget_exceeded | station_retry_limit_exceeded]
 - **Diagnostic Details**: [Summary of signatures, failing tests, round counts, fix-induced ratio, or spend budget]
 - **Attempted Fixes**: [Brief summary of modifications made in recent rounds]
 

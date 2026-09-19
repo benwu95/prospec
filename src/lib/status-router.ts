@@ -134,6 +134,19 @@ export function routeChange(facts: ChangeRouteFacts): ChangeRoute {
       // anything is built on it. Superseded only by a later PASS or Break-Glass
       // WARN — the service applies that reading, the router just trusts the fact.
       if (facts.lastPlanVerifierResult === 'FAIL') {
+        if (facts.planFlawsStreak >= facts.maxStationRetries) {
+          return {
+            ...base,
+            next: null,
+            code: 'ESCALATE_TO_HUMAN',
+            blockingGates: [
+              `Architecture Verifier PASS/WARN recorded via \`prospec change log --skill prospec-plan --verifier-report <file>\` (or a documented Break-Glass \`--result WARN --warning "${BREAK_GLASS_PREFIX} …"\`)`,
+            ],
+            reasons: [
+              `the prospec-plan verifier has failed ${facts.planFlawsStreak} consecutive times (limit: ${facts.maxStationRetries}) — escalating to human; resolve repeated architecture verifier flaws`,
+            ],
+          };
+        }
         return {
           ...base,
           next: 'plan',
@@ -179,6 +192,19 @@ export function routeChange(facts: ChangeRouteFacts): ChangeRoute {
 
     case 'tasks': {
       if (facts.lastTasksVerifierResult === 'FAIL') {
+        if (facts.tasksFlawsStreak >= facts.maxStationRetries) {
+          return {
+            ...base,
+            next: null,
+            code: 'ESCALATE_TO_HUMAN',
+            blockingGates: [
+              `Task Verifier PASS/WARN recorded via \`prospec change log --skill prospec-tasks --verifier-report <file>\` (or a documented Break-Glass \`--result WARN --warning "${BREAK_GLASS_PREFIX} …"\`)`,
+            ],
+            reasons: [
+              `the prospec-tasks verifier has failed ${facts.tasksFlawsStreak} consecutive times (limit: ${facts.maxStationRetries}) — escalating to human; resolve repeated task verifier flaws`,
+            ],
+          };
+        }
         return {
           ...base,
           next: 'tasks',
@@ -230,6 +256,20 @@ export function routeChange(facts: ChangeRouteFacts): ChangeRoute {
       }
       const belowBar = gradeBelowBar(facts.lastVerifyGrade);
       if (belowBar) {
+        if (facts.verifyBelowBarStreak >= facts.maxStationRetries) {
+          reasons.push(
+            `prospec-verify has produced below-bar grades ${facts.verifyBelowBarStreak} consecutive times (limit: ${facts.maxStationRetries}, latest: ${facts.lastVerifyGrade}) — escalating to human; fix the WARN/FAIL items and re-run prospec-verify`,
+          );
+          return {
+            ...base,
+            next: null,
+            code: 'ESCALATE_TO_HUMAN',
+            blockingGates: [
+              'grade S or A required (no FAIL, ≤ 2 WARN); `prospec verify record` adjudicates machine dimensions from `prospec check` and refuses a non-backfill verdict when review-provenance FAILs',
+            ],
+            reasons,
+          };
+        }
         reasons.push(
           `previous verify grade ${facts.lastVerifyGrade} did not advance the status — fix the WARN/FAIL items and re-run prospec-verify`,
         );
@@ -252,6 +292,19 @@ export function routeChange(facts: ChangeRouteFacts): ChangeRoute {
       // route: a re-verify that landed B/C/D means the change is not archivable
       // until a fresh S/A — say so here, not at the archive refusal.
       if (gradeBelowBar(facts.lastVerifyGrade)) {
+        if (facts.verifyBelowBarStreak >= facts.maxStationRetries) {
+          return {
+            ...base,
+            next: null,
+            code: 'ESCALATE_TO_HUMAN',
+            blockingGates: [
+              'a fresh grade S or A recorded by `prospec verify record` (no FAIL, ≤ 2 WARN)',
+            ],
+            reasons: [
+              `status stays \`verified\` (forward-only) but prospec-verify has produced below-bar grades ${facts.verifyBelowBarStreak} consecutive times (limit: ${facts.maxStationRetries}, latest: ${facts.lastVerifyGrade}) — escalating to human; fix the WARN/FAIL items and re-run prospec-verify before archive`,
+            ],
+          };
+        }
         return {
           ...base,
           next: 'verify',
