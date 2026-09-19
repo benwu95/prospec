@@ -27,7 +27,7 @@ function seed(): void {
 }
 
 describe('change-log service', () => {
-  it('appends a review entry with structured counts and stamps today when no date given', async () => {
+  it('appends a review close entry without count fields and stamps today when no date given', async () => {
     seed();
     const result = await execute({
       cwd: CWD,
@@ -45,7 +45,9 @@ describe('change-log service', () => {
     const written = vol.readFileSync(PATH, 'utf-8') as string;
     expect(written).toContain('# note that must survive');
     expect(written).toContain('skill: prospec-review');
-    expect(written).toContain('criticals_found: 1');
+    expect(written).not.toContain('criticals_found');
+    expect(written).not.toContain('criticals_fixed');
+    expect(written).not.toContain('majors');
   });
 
   it('uses the explicit date and appends after existing entries', async () => {
@@ -181,5 +183,162 @@ describe('change-log service — planning verifier report (REQ-SERVICES-109)', (
     expect((await execute({ cwd: CWD, verifierReport: { skill: 'prospec-tasks', path: REPORT } })).entry.skill).toBe('prospec-tasks');
     vol.writeFileSync(REPORT, JSON.stringify({ verdict: 'PASS', dimensions: dims(), evidence: 'e' }));
     await expect(execute({ cwd: CWD, verifierReport: { skill: 'prospec-tasks', path: REPORT } })).rejects.toThrow(PrerequisiteError);
+  });
+});
+
+describe('change-log service — review round counts audit (REQ-SERVICES-112, REQ-CLI-025, REQ-TESTS-121)', () => {
+  const ROUND_1_COUNTS = `${METADATA}quality_log:
+  - skill: prospec-review
+    date: '2026-09-19'
+    result: PASS
+    warnings: []
+    round: 1
+    criticals_found: 0
+    criticals_fixed: 0
+    majors: 0
+`;
+
+  it('records log_mismatch warning, coerces PASS to WARN, and leaves CLI truth untouched when count flag differs', async () => {
+    vol.fromJSON({ [PATH]: ROUND_1_COUNTS });
+    const result = await execute({
+      cwd: CWD,
+      entry: {
+        skill: 'prospec-review',
+        result: 'PASS',
+        warnings: [],
+        criticals_found: 2,
+        majors: 1,
+      },
+    });
+
+    expect(result.entry.result).toBe('WARN');
+    expect(result.entry.warnings).toEqual([
+      'log_mismatch: criticals_found expected 0 got 2, majors expected 0 got 1',
+    ]);
+    expect(result.entry.criticals_found).toBeUndefined();
+    expect(result.entry.majors).toBeUndefined();
+    expect(result.entry.round).toBeUndefined();
+
+    // Verify truth entry was NOT overwritten
+    const written = vol.readFileSync(PATH, 'utf-8') as string;
+    expect(written).toContain('round: 1\n    criticals_found: 0');
+  });
+
+  it('records no log_mismatch warning and preserves result when supplied count flags match', async () => {
+    vol.fromJSON({
+      [PATH]: `${METADATA}quality_log:
+  - skill: prospec-review
+    date: '2026-09-19'
+    result: WARN
+    warnings: []
+    round: 1
+    criticals_found: 1
+    criticals_fixed: 0
+    majors: 2
+`,
+    });
+    const result = await execute({
+      cwd: CWD,
+      entry: {
+        skill: 'prospec-review',
+        result: 'PASS',
+        warnings: [],
+        criticals_found: 1,
+        criticals_fixed: 0,
+        majors: 2,
+      },
+    });
+
+    expect(result.entry.result).toBe('PASS');
+    expect(result.entry.warnings).toEqual([]);
+    expect(result.entry.criticals_found).toBeUndefined();
+  });
+
+  it('records no log_mismatch warning when count flags are omitted', async () => {
+    vol.fromJSON({ [PATH]: ROUND_1_COUNTS });
+    const result = await execute({
+      cwd: CWD,
+      entry: {
+        skill: 'prospec-review',
+        result: 'PASS',
+        warnings: [],
+      },
+    });
+
+    expect(result.entry.result).toBe('PASS');
+    expect(result.entry.warnings).toEqual([]);
+  });
+
+  it('skips audit when no prior prospec-review counts entry exists', async () => {
+    seed();
+    const result = await execute({
+      cwd: CWD,
+      entry: {
+        skill: 'prospec-review',
+        result: 'PASS',
+        warnings: [],
+        criticals_found: 5,
+      },
+    });
+
+    expect(result.entry.result).toBe('PASS');
+    expect(result.entry.warnings).toEqual([]);
+    expect(result.entry.criticals_found).toBeUndefined();
+  });
+
+  it('compares against highest-round counts entry when multiple rounds exist', async () => {
+    vol.fromJSON({
+      [PATH]: `${METADATA}quality_log:
+  - skill: prospec-review
+    date: '2026-09-19'
+    result: WARN
+    warnings: []
+    round: 1
+    criticals_found: 3
+    criticals_fixed: 0
+    majors: 0
+  - skill: prospec-review
+    date: '2026-09-19'
+    result: WARN
+    warnings: []
+  - skill: prospec-review
+    date: '2026-09-19'
+    result: PASS
+    warnings: []
+    round: 2
+    criticals_found: 0
+    criticals_fixed: 3
+    majors: 0
+`,
+    });
+
+    // Matches round 2 (highest round) -> no mismatch
+    const matching = await execute({
+      cwd: CWD,
+      entry: {
+        skill: 'prospec-review',
+        result: 'PASS',
+        warnings: [],
+        criticals_found: 0,
+        criticals_fixed: 3,
+        majors: 0,
+      },
+    });
+    expect(matching.entry.warnings).toEqual([]);
+
+    // Mismatches round 2 -> log_mismatch
+    const mismatch = await execute({
+      cwd: CWD,
+      entry: {
+        skill: 'prospec-review',
+        result: 'PASS',
+        warnings: [],
+        criticals_found: 3,
+      },
+    });
+    expect(mismatch.entry.result).toBe('WARN');
+    expect(mismatch.entry.warnings).toEqual([
+      'log_mismatch: criticals_found expected 0 got 3',
+    ]);
   });
 });

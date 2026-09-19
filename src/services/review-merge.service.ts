@@ -25,6 +25,8 @@ import {
   reduceTestFailureStreak,
   replaceReviewMetrics,
   evidenceBlocksFor,
+  applyCleanReviewSentence,
+  stripCleanReviewBlock,
   type ReviewRoundCounts,
   type TestFailureObservation,
 } from '../lib/review-merge.js';
@@ -32,13 +34,26 @@ import {
   appendTestGateWarning,
   readChangeMetadata,
   writeChangeMetadataDoc,
+  upsertReviewRoundEntry,
+  isReviewRoundCountsEntry,
 } from '../lib/change-metadata.js';
+import { readConfig } from '../lib/config.js';
+import { resolveLanguageScope } from '../lib/language-policy.js';
+import { todayIso } from '../lib/date-utils.js';
 import { assessCurrentTestEvidence } from '../lib/drift-assessment.js';
 import { ReviewCircuitBreaker } from '../lib/review-circuit-breaker.js';
 import type { Document } from 'yaml';
 import type { CircuitBreakerState } from '../types/cascade.js';
-import type { ChangeMetadata } from '../types/change.js';
+import type { ChangeMetadata, GateResult } from '../types/change.js';
 import { resolveChange } from './change-resolver.js';
+
+function resolveCleanReviewSentence(language: string): string {
+  const norm = language.trim().toLowerCase();
+  if (norm.includes('chinese') || norm.includes('中文') || norm.includes('zh')) {
+    return '本輪審查未發現任何問題。';
+  }
+  return 'No issues were found in this review round.';
+}
 
 export interface ReviewMergeOptions {
   /** Explicit change name; resolved interactively when omitted. */
@@ -191,9 +206,14 @@ export async function execute(options: ReviewMergeOptions): Promise<ReviewMergeR
       const read = readChangeMetadata(metadataPath, changeName);
       metadata = read.metadata;
       metadataDoc = read.doc;
+
       // Only completed review rounds count — the test gate's exemption WARN is
       // written under its own producer label precisely so it never lands here.
-      const reviewEntries = (metadata.quality_log ?? []).filter((e) => e.skill === 'prospec-review');
+      // Merge-written round counts carry `round` and are ignored so a re-merge stays on this round;
+      // only round-less close entries count as closed rounds (shared predicate, single source).
+      const reviewEntries = (metadata.quality_log ?? []).filter(
+        (e) => e.skill === 'prospec-review' && !isReviewRoundCountsEntry(e),
+      );
       priorReviewRounds = reviewEntries.length;
     } catch (err: unknown) {
       if ((err as NodeJS.ErrnoException).code !== 'ENOENT') {
@@ -393,7 +413,10 @@ export async function execute(options: ReviewMergeOptions): Promise<ReviewMergeR
   // Pre-write fence: the verdict, the target's metadata and review.md must be the
   // ones observed. After an exemption WARN the assessment is the re-obtained one.
   if (!assessment.recheck() || !(await reviewBytesStable()) || !metadataBytesStable()) throw unstable(warningRecorded);
-  const rendered = renderReviewDocument(existingContent, merged, changeName, {
+  // Strip any stale clean-review block carried in `existingContent` before re-rendering:
+  // renderReviewDocument carries the below-evidence region forward, so a prior 0-finding
+  // round's sentence would otherwise persist into this round when it has findings.
+  let rendered = renderReviewDocument(stripCleanReviewBlock(existingContent), merged, changeName, {
       round: finalRoundNumber,
       spendBefore: hasSpendTracking ? spendBefore : undefined,
       lastRoundSpend: roundSpend,
@@ -407,6 +430,16 @@ export async function execute(options: ReviewMergeOptions): Promise<ReviewMergeR
       consecutiveTestFailures: nextStreak.consecutiveTestFailures,
       testFailureAttemptIds: nextStreak.testFailureAttemptIds,
     });
+  // The clean sentence tracks the CURRENT table: a 0-row round writes it, and any
+  // round WITH findings strips a stale one left by an earlier clean round — otherwise
+  // a clean→dirty re-entry leaves "no issues found" above a real finding row.
+  let cleanSentence: string | undefined;
+  if (merged.length === 0) {
+    const config = await readConfig(cwd);
+    const scope = resolveLanguageScope(config, cwd);
+    cleanSentence = resolveCleanReviewSentence(scope.language);
+  }
+  rendered = applyCleanReviewSentence(rendered, cleanSentence);
   try {
     await atomicWrite(reviewPath, rendered);
   } catch (err) {
@@ -417,6 +450,53 @@ export async function execute(options: ReviewMergeOptions): Promise<ReviewMergeR
       changeName,
       entrance: 'review merge',
       reason: `review.md write failed after the exemption warning was recorded: ${err instanceof Error ? err.message : String(err)}`,
+      warningRecorded: true,
+    });
+  }
+
+  // Counts entry persistence: round-keyed quality_log entry written by the CLI at merge time.
+  const hasUnresolvedCritical = merged.some(
+    (f) => f.severity === 'critical' && !hasReviewStatus(REVIEW_RESOLVED_STATUSES, f.status),
+  );
+  const hasCarriedMajor = merged.some(
+    (f) => f.severity === 'major' && !hasReviewStatus(REVIEW_RESOLVED_STATUSES, f.status),
+  );
+  const roundResult: GateResult =
+    hasUnresolvedCritical || hasCarriedMajor || circuitBreaker?.tripped ? 'WARN' : 'PASS';
+
+  if (!metadataBytesStable()) throw unstable(warningRecorded);
+
+  if (metadataDoc === undefined) {
+    if (!fs.existsSync(metadataPath)) {
+      throw new PrerequisiteError(
+        `metadata.yaml for change "${changeName}" is unavailable`,
+        `Restore .prospec/changes/${changeName}/metadata.yaml — a review round requires metadata.yaml`,
+      );
+    }
+    const read = readChangeMetadata(metadataPath, changeName);
+    metadataDoc = read.doc;
+  }
+
+  const counts = roundCounts(findings);
+  upsertReviewRoundEntry(metadataDoc, {
+    skill: 'prospec-review',
+    date: todayIso(),
+    result: roundResult,
+    warnings: [],
+    round: finalRoundNumber,
+    criticals_found: counts.criticals_found,
+    criticals_fixed: counts.criticals_fixed,
+    majors: counts.majors,
+  });
+
+  try {
+    await writeChangeMetadataDoc(metadataPath, metadataDoc, changeName);
+  } catch (err) {
+    if (!warningRecorded) throw err;
+    throw new TestGateError({
+      changeName,
+      entrance: 'review merge',
+      reason: `metadata.yaml write failed after the exemption warning was recorded: ${err instanceof Error ? err.message : String(err)}`,
       warningRecorded: true,
     });
   }

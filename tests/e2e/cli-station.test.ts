@@ -4,6 +4,7 @@ import * as path from 'node:path';
 import * as os from 'node:os';
 import { execFileSync } from 'node:child_process';
 import { RELAYED_FIELD_MAX_CHARS } from '../../src/types/station.js';
+import { parseYaml } from '../../src/lib/yaml-utils.js';
 import { recordCliEvidence } from './helpers/evidence.js';
 import { runCliInProcess } from './helpers/run-cli.js';
 
@@ -24,16 +25,17 @@ afterEach(async () => {
 });
 
 describe('CLI E2E — station commands', () => {
+  async function initChange(name = 'my-change'): Promise<string> {
+    await fs.promises.writeFile(
+      path.join(tmpDir, 'package.json'),
+      JSON.stringify({ name: 'station-test' }),
+    );
+    await runCli(['init', '--name', 'station-test', '--agents', 'claude']);
+    await runCli(['change', 'story', name, '--description', 'station test change']);
+    return path.join(tmpDir, '.prospec', 'changes', name);
+  }
+
   describe('cli-first station commands (issue #107)', () => {
-    async function initChange(name = 'my-change'): Promise<string> {
-      await fs.promises.writeFile(
-        path.join(tmpDir, 'package.json'),
-        JSON.stringify({ name: 'station-test' }),
-      );
-      await runCli(['init', '--name', 'station-test', '--agents', 'claude']);
-      await runCli(['change', 'story', name, '--description', 'station test change']);
-      return path.join(tmpDir, '.prospec', 'changes', name);
-    }
 
     it('change scale + change status advance forward and refuse a backward jump', async () => {
       const changeDir = await initChange();
@@ -51,17 +53,15 @@ describe('CLI E2E — station commands', () => {
       const changeDir = await initChange();
       const { exitCode } = await runCli([
         'change', 'log',
-        '--skill', 'prospec-review',
-        '--result', 'WARN',
+        '--skill', 'prospec-verify',
+        '--result', 'PASS',
+        '--grade', 'A',
         '--warning', 'tricky: [value] with #comment',
-        '--criticals-found', '1',
-        '--criticals-fixed', '1',
-        '--majors', '0',
       ]);
       expect(exitCode).toBe(0);
       const metadata = await fs.promises.readFile(path.join(changeDir, 'metadata.yaml'), 'utf-8');
-      expect(metadata).toContain('skill: prospec-review');
-      expect(metadata).toContain('criticals_found: 1');
+      expect(metadata).toContain('skill: prospec-verify');
+      expect(metadata).toContain('grade: A');
       // a malformed result is refused by commander's choices
       const bad = await runCli(['change', 'log', '--skill', 's', '--result', 'A']);
       expect(bad.exitCode).not.toBe(0);
@@ -873,7 +873,7 @@ describe('fresh-test gates through the CLI (REQ-SERVICES-103, REQ-CLI-028, REQ-C
     expect(again.stdout).toContain('already recorded');
     const meta = metadataOf('nocmd');
     expect((meta.match(/skill: prospec-test-gate/g) ?? []).length).toBe(2);
-    expect(meta).not.toContain('skill: prospec-review');
+    expect((meta.match(/skill: prospec-review/g) ?? []).length).toBe(1);
   });
 
   it('a proven backfill passes with the backfill WARN; scale alone is refused with the remediation', async () => {
@@ -949,5 +949,135 @@ describe('fresh-test gates through the CLI (REQ-SERVICES-103, REQ-CLI-028, REQ-C
     expect(review).not.toContain('| F-1 |');
     // the only prospec-review entry is the fixture's own; no refused merge logged a round
     expect((metadataOf('streak').match(/skill: prospec-review/g) ?? []).length).toBe(1);
+  });
+
+  describe('CLI-owned review round counts (issue #274, REQ-TESTS-121)', () => {
+    async function initReviewChange(name = 'rc-test'): Promise<string> {
+      await fs.promises.writeFile(
+        path.join(tmpDir, 'package.json'),
+        JSON.stringify({ name: 'review-counts-test' }),
+      );
+      await runCli(['init', '--name', 'review-counts-test', '--agents', 'claude']);
+      await runCli(['change', 'story', name, '--description', 'review counts change']);
+      return path.join(tmpDir, '.prospec', 'changes', name);
+    }
+
+    it('review merge writes round-tagged quality_log counts, re-merge of same round is idempotent, and change log mismatch coerces to WARN without overwriting truth', async () => {
+      const changeDir = await initReviewChange('rc-test');
+      const findingsR1 = path.join(tmpDir, 'rc-round1.json');
+      await fs.promises.writeFile(
+        findingsR1,
+        JSON.stringify([
+          { id: 'F-1', location: 'src/a.ts:1', severity: 'critical', lens: 'correctness', status: 'fixed', summary: 'bug1', repro: 'pnpm test' },
+          { id: 'F-2', location: 'src/b.ts:2', severity: 'major', lens: 'security', summary: 'vuln' },
+        ]),
+      );
+
+      // 1. review merge writes quality_log counts entry for round 1
+      const merge = await runCli(['review', 'merge', '--findings', findingsR1, '--round', '1', '--lenses', 'correctness,security']);
+      expect(merge.exitCode).toBe(0);
+
+      const metadataFile = path.join(changeDir, 'metadata.yaml');
+      let metadata = await fs.promises.readFile(metadataFile, 'utf-8');
+      expect(metadata).toContain('skill: prospec-review');
+      expect(metadata).toContain('round: 1');
+      expect(metadata).toContain('criticals_found: 1');
+      expect(metadata).toContain('criticals_fixed: 1');
+      expect(metadata).toContain('majors: 1');
+      expect(metadata).toContain('result: WARN');
+
+      // 2. Re-running the same round is idempotent (does not duplicate entry)
+      const remerge = await runCli(['review', 'merge', '--findings', findingsR1, '--lenses', 'correctness,security']);
+      expect(remerge.exitCode).toBe(0);
+      metadata = await fs.promises.readFile(metadataFile, 'utf-8');
+      expect((metadata.match(/skill: prospec-review/g) ?? []).length).toBe(1);
+      expect((metadata.match(/round: 1/g) ?? []).length).toBe(1);
+
+      // 3. change log with mismatching counts flag pushes log_mismatch to warnings, coerces result >= WARN, and leaves CLI truth intact
+      const logMismatch = await runCli([
+        'change', 'log',
+        '--skill', 'prospec-review',
+        '--result', 'PASS',
+        '--criticals-found', '99',
+        '--change', 'rc-test',
+      ]);
+      expect(logMismatch.exitCode).toBe(0);
+
+      metadata = await fs.promises.readFile(metadataFile, 'utf-8');
+      // Exactly 2 prospec-review entries: round-tagged counts entry + round-less close entry
+      expect((metadata.match(/skill: prospec-review/g) ?? []).length).toBe(2);
+      expect(metadata).toContain('round: 1');
+      expect(metadata).toContain('criticals_found: 1');
+      expect(metadata).not.toContain('criticals_found: 99');
+      expect(metadata).toContain('log_mismatch: criticals_found expected 1 got 99');
+
+      // Close entry has no count fields or round field
+      const parsed = parseYaml<{ quality_log: Array<Record<string, unknown>> }>(metadata);
+      const reviewEntries = parsed.quality_log.filter((e) => e.skill === 'prospec-review');
+      expect(reviewEntries).toHaveLength(2);
+      const [countsEntry, closeEntry] = reviewEntries;
+      expect(countsEntry).toMatchObject({
+        skill: 'prospec-review',
+        round: 1,
+        criticals_found: 1,
+        criticals_fixed: 1,
+        majors: 1,
+      });
+      expect(closeEntry?.skill).toBe('prospec-review');
+      expect(closeEntry?.result).toBe('WARN');
+      expect(closeEntry?.round).toBeUndefined();
+      expect(closeEntry?.criticals_found).toBeUndefined();
+      expect(closeEntry?.criticals_fixed).toBeUndefined();
+      expect(closeEntry?.majors).toBeUndefined();
+    });
+
+    it('clean review merge injects artifact-language clean sentence and prospec check passes language-policy-drift', async () => {
+      // Set up project with traditional Chinese artifact language and valid constitution
+      const packageJson = path.join(tmpDir, 'package.json');
+      await fs.promises.writeFile(packageJson, JSON.stringify({ name: 'clean-e2e' }));
+      await runCli(['init', '--name', 'clean-e2e', '--agents', 'claude', '--language', 'zh-TW', '--trust-zone-language', 'en']);
+      await runCli(['agent', 'sync']);
+
+      // Create a change
+      await runCli(['change', 'story', 'clean-change', '--description', 'clean change test']);
+
+      const emptyFindings = path.join(tmpDir, 'empty.json');
+      await fs.promises.writeFile(emptyFindings, '[]');
+
+      const merge = await runCli(['review', 'merge', '--findings', emptyFindings, '--change', 'clean-change']);
+      if (merge.exitCode !== 0) {
+        console.error('MERGE STDERR:\n' + merge.stderr + '\nMERGE STDOUT:\n' + merge.stdout);
+      }
+      expect(merge.exitCode).toBe(0);
+
+      const reviewMd = await fs.promises.readFile(
+        path.join(tmpDir, '.prospec', 'changes', 'clean-change', 'review.md'),
+        'utf-8',
+      );
+      expect(reviewMd).toContain('<!-- prospec:review-clean -->');
+      expect(reviewMd).toContain('本輪審查未發現任何問題。');
+      expect(reviewMd).toContain('<!-- prospec:review-clean-end -->');
+
+      // Check quality_log has PASS round counts entry with 0 counts
+      const metadataPath = path.join(tmpDir, '.prospec', 'changes', 'clean-change', 'metadata.yaml');
+      const metadata = await fs.promises.readFile(metadataPath, 'utf-8');
+      expect(metadata).toContain('round: 1');
+      expect(metadata).toContain('result: PASS');
+      expect(metadata).toContain('criticals_found: 0');
+      expect(metadata).toContain('criticals_fixed: 0');
+      expect(metadata).toContain('majors: 0');
+
+      // Initialize git repo so prospec check can inspect drift
+      const git = (...args: string[]) => execFileSync('git', args, { cwd: tmpDir, stdio: 'pipe' });
+      git('init', '-q');
+      git('config', 'user.name', 'Fixture');
+      git('config', 'user.email', 'fixture@example.com');
+      git('add', '.');
+      git('commit', '-qm', 'initial commit');
+
+      // prospec check passes language-policy-drift
+      const check = await runCli(['check']);
+      expect(check.stdout).toContain('PASS  language-policy-drift');
+    });
   });
 });

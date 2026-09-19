@@ -147,7 +147,7 @@
         "{{knowledge_base_path}}/_conventions.md"
       ],
       "mandatory": 1,
-      "mandatory_context_tokens": 7926
+      "mandatory_context_tokens": 7869
     },
     "prospec-tasks": {
       "items": [

@@ -80,7 +80,7 @@ export function formatReviewMergeOutput(
   const notice = formatEscapingNotice(result.escapedCells);
   if (notice !== undefined) lines.push(notice);
   lines.push(
-    `${pc.dim('→')} Record the round with ${pc.cyan('`prospec change log --skill prospec-review …`')} using these counts`,
+    `${pc.dim('→')} Close the round with ${pc.cyan('`prospec change log --skill prospec-review …`')}`,
   );
   process.stdout.write(lines.join('\n') + '\n');
 }

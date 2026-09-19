@@ -1,6 +1,6 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
-import { normalizeIssueRef, readChangeMetadata } from '../lib/change-metadata.js';
+import { isReviewRoundCountsEntry, normalizeIssueRef, readChangeMetadata } from '../lib/change-metadata.js';
 import { readConfig, resolveBasePaths } from '../lib/config.js';
 import type { ProspecConfig } from '../types/config.js';
 import { isDraftableFinding } from '../lib/draftable-findings.js';
@@ -230,12 +230,16 @@ async function collectFacts(
  */
 function unresolvedWarnings(
   qualityLog:
-    | Array<{ skill: string; date: string; result: string; warnings?: string[] }>
+    | Array<{ skill: string; date: string; result: string; warnings?: string[]; round?: number }>
     | undefined,
 ): UnresolvedWarning[] {
   if (qualityLog === undefined) return [];
   const latest = new Map<string, { date: string; result: string; warnings?: string[] }>();
   for (const entry of qualityLog) {
+    // A merge-written round-counts entry is a metric, not a round record; it always
+    // carries `warnings: []`, so letting it win last-per-skill would mask the round-less
+    // close entry's WARN. Exclude it, mirroring the round-advance filter.
+    if (isReviewRoundCountsEntry(entry)) continue;
     latest.set(entry.skill, entry);
   }
   const out: UnresolvedWarning[] = [];

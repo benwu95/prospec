@@ -1,5 +1,5 @@
 import * as fs from 'node:fs';
-import { isMap, isScalar, visit, type Document } from 'yaml';
+import { isMap, isScalar, isSeq, visit, type Document } from 'yaml';
 import {
   ChangeMetadataSchema,
   NewChangeMetadataSchema,
@@ -128,14 +128,11 @@ export async function writeChangeMetadataObject(
 }
 
 /**
- * Append one quality_log entry to a read Document, in the canonical key order
- * the metadata-format reference fixes (skill → date → result → warnings →
- * station-specific optional keys). The entry is validated against the strict
- * build schema first — user text is serialized as DATA by the yaml library, so
- * escaping is by construction, and optional keys are emitted only when present.
- * The caller still writes the document via `writeChangeMetadataDoc`.
+ * Build an entry object in canonical key order (skill → date → result → warnings →
+ * grade → dimensions → criticals_found → criticals_fixed → majors → round → verifier_verdict).
+ * Validated against NewQualityLogEntrySchema first.
  */
-export function appendQualityLogEntry(doc: Document, entry: NewQualityLogEntry): void {
+export function buildOrderedQualityLogEntry(entry: NewQualityLogEntry): Record<string, unknown> {
   const parsed = NewQualityLogEntrySchema.parse(entry);
   const ordered: Record<string, unknown> = {
     skill: parsed.skill,
@@ -148,13 +145,76 @@ export function appendQualityLogEntry(doc: Document, entry: NewQualityLogEntry):
   if (parsed.criticals_found !== undefined) ordered.criticals_found = parsed.criticals_found;
   if (parsed.criticals_fixed !== undefined) ordered.criticals_fixed = parsed.criticals_fixed;
   if (parsed.majors !== undefined) ordered.majors = parsed.majors;
+  if (parsed.round !== undefined) ordered.round = parsed.round;
   if (parsed.verifier_verdict !== undefined) ordered.verifier_verdict = parsed.verifier_verdict;
+  return ordered;
+}
+
+/**
+ * Append one quality_log entry to a read Document, in the canonical key order
+ * the metadata-format reference fixes (skill → date → result → warnings →
+ * station-specific optional keys). The entry is validated against the strict
+ * build schema first — user text is serialized as DATA by the yaml library, so
+ * escaping is by construction, and optional keys are emitted only when present.
+ * The caller still writes the document via `writeChangeMetadataDoc`.
+ */
+export function appendQualityLogEntry(doc: Document, entry: NewQualityLogEntry): void {
+  const ordered = buildOrderedQualityLogEntry(entry);
 
   if (doc.has('quality_log')) {
     doc.addIn(['quality_log'], doc.createNode(ordered));
   } else {
     doc.set('quality_log', doc.createNode([ordered]));
   }
+}
+
+/**
+ * Upsert one review round entry in a read Document: if a `skill: prospec-review`
+ * entry with the same `round` exists, replace it in place; otherwise append it.
+ * Round-less entries (legacy or round-close entries) are never matched or overwritten.
+ * Reuses `NewQualityLogEntrySchema` validation and canonical key ordering.
+ */
+export function upsertReviewRoundEntry(doc: Document, entry: NewQualityLogEntry): void {
+  const ordered = buildOrderedQualityLogEntry(entry);
+  const node = doc.createNode(ordered);
+
+  if (!doc.has('quality_log')) {
+    doc.set('quality_log', doc.createNode([ordered]));
+    return;
+  }
+
+  const seq = doc.get('quality_log');
+  if (isSeq(seq) && entry.round !== undefined) {
+    const targetRound = entry.round;
+    const existingIndex = seq.items.findIndex((item) => {
+      if (isMap(item)) {
+        const skill = item.get('skill');
+        const round = item.get('round');
+        return skill === 'prospec-review' && round === targetRound;
+      }
+      return false;
+    });
+
+    if (existingIndex >= 0) {
+      seq.items[existingIndex] = node;
+      return;
+    }
+  }
+
+  doc.addIn(['quality_log'], node);
+}
+
+/**
+ * True for a merge-written `prospec-review` round-counts entry — the one `review merge`
+ * upserts per round, carrying `round`. It is a metric record, NOT a round-close/gate
+ * record: consumers that read the LATEST entry per skill (round advancement,
+ * `prospec status` unresolved warnings) or FLATTEN gate results (escaped-defect
+ * aggregation) must exclude it, or a round-tagged entry (always `warnings: []`,
+ * `result` = the round's outcome) would mask the round-less close entry that carries
+ * the real WARN. The single source of that "is this a counts entry" test.
+ */
+export function isReviewRoundCountsEntry(entry: { skill?: string; round?: number }): boolean {
+  return entry.skill === 'prospec-review' && entry.round !== undefined;
 }
 
 /** The one WARN line a test-gate exemption records: prefix, entrance, reason. */

@@ -272,6 +272,95 @@ describe('ChangeMetadataSchema quality_log structured fields (issue #61)', () =>
   });
 });
 
+describe('QualityLogEntrySchema round field (REQ-TYPES-022, issue #274)', () => {
+  it('accepts non-negative integer round (including 0)', () => {
+    for (const round of [0, 1, 42]) {
+      const entry: NewQualityLogEntry = {
+        skill: 'prospec-review',
+        date: '2026-09-19',
+        result: 'PASS',
+        warnings: [],
+        round,
+      };
+      const parsed = NewQualityLogEntrySchema.safeParse(entry);
+      expect(parsed.success).toBe(true);
+      if (parsed.success) expect(parsed.data.round).toBe(round);
+
+      const meta = ChangeMetadataSchema.safeParse({
+        ...base,
+        quality_log: [entry],
+      });
+      expect(meta.success).toBe(true);
+      if (meta.success) expect(meta.data.quality_log?.[0]?.round).toBe(round);
+    }
+  });
+
+  it('accepts omitting round (backward compatible legacy and close shapes)', () => {
+    const entry: NewQualityLogEntry = {
+      skill: 'prospec-review',
+      date: '2026-09-19',
+      result: 'PASS',
+      warnings: [],
+    };
+    const parsed = NewQualityLogEntrySchema.safeParse(entry);
+    expect(parsed.success).toBe(true);
+    if (parsed.success) expect(parsed.data.round).toBeUndefined();
+
+    const meta = ChangeMetadataSchema.safeParse({
+      ...base,
+      quality_log: [entry],
+    });
+    expect(meta.success).toBe(true);
+    if (meta.success) expect(meta.data.quality_log?.[0]?.round).toBeUndefined();
+  });
+
+  it('rejects negative, fractional, or non-integer round in NewQualityLogEntrySchema', () => {
+    expect(
+      NewQualityLogEntrySchema.safeParse({
+        skill: 'prospec-review',
+        date: '2026-09-19',
+        result: 'PASS',
+        round: -1,
+      }).success,
+    ).toBe(false);
+
+    expect(
+      NewQualityLogEntrySchema.safeParse({
+        skill: 'prospec-review',
+        date: '2026-09-19',
+        result: 'PASS',
+        round: 1.5,
+      }).success,
+    ).toBe(false);
+
+    expect(
+      NewQualityLogEntrySchema.safeParse({
+        skill: 'prospec-review',
+        date: '2026-09-19',
+        result: 'PASS',
+        round: '1' as unknown as number,
+      }).success,
+    ).toBe(false);
+  });
+
+  it('rejects invalid round in ChangeMetadataSchema', () => {
+    expect(
+      ChangeMetadataSchema.safeParse({
+        ...base,
+        quality_log: [
+          {
+            skill: 'prospec-review',
+            date: '2026-09-19',
+            result: 'PASS',
+            round: -1,
+          },
+        ],
+      }).success,
+    ).toBe(false);
+  });
+});
+
+
 describe('ChangeMetadataSchema introduced_by (escaped-defect registration, issue #61)', () => {
   it('accepts a change naming the change that introduced the defect', () => {
     const r = ChangeMetadataSchema.safeParse({ ...base, introduced_by: 'fix-init-clobber-add-upgrade' });
