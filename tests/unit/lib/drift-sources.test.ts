@@ -36,6 +36,7 @@ import {
   changedPathsFromWorkTree,
   partitionDiffAttributedModules,
   collectLanguagePolicyDrift,
+  readGateResults,
 } from '../../../src/lib/drift-sources.js';
 import { ProspecError } from '../../../src/types/errors.js';
 import { resolveLanguageScope } from '../../../src/lib/language-policy.js';
@@ -3511,5 +3512,29 @@ describe('collectChangeTestEvidence — target-scoped facts for the lifecycle ga
     write('.prospec/changes/c1/metadata.yaml', fresh('c1', snapshot.digest!).replace(/test_attempt:[\s\S]*$/, 'test_attempt:\n  id: a2\n  outcome: failed\n  command: pnpm test\n  exit_code: 1\n'));
     const { facts } = collectChangeTestEvidence(tmpDir, 'c1', 'pnpm test', snapshot);
     expect(evaluateChangeTestEvidence(facts)).toMatchObject({ verdict: 'refuse', knownFailure: true, failedAttemptId: 'a2' });
+  });
+});
+
+describe('readGateResults', () => {
+  it('drops merge-written round-tagged prospec-review counts entries (metrics, not gate outcomes)', () => {
+    // A round-tagged counts entry (PASS) alongside a round-less close entry (WARN):
+    // only the close entry is a gate outcome. If the PASS counts entry survived, the
+    // escaped-defect aggregate would register prospec-review as passed on a WARN round.
+    const gates = readGateResults([
+      { skill: 'prospec-review', date: '2026-09-19', result: 'PASS', round: 1 },
+      { skill: 'prospec-review', date: '2026-09-19', result: 'WARN', warnings: ['circuit breaker tripped'] },
+      { skill: 'prospec-verify', date: '2026-09-19', result: 'A' },
+    ]);
+    expect(gates).toEqual([
+      { skill: 'prospec-review', result: 'WARN' },
+      { skill: 'prospec-verify', result: 'A' },
+    ]);
+  });
+
+  it('keeps a round-less prospec-review entry (round === undefined is a close/gate entry)', () => {
+    const gates = readGateResults([
+      { skill: 'prospec-review', date: '2026-09-19', result: 'PASS' },
+    ]);
+    expect(gates).toEqual([{ skill: 'prospec-review', result: 'PASS' }]);
   });
 });

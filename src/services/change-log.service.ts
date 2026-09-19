@@ -1,13 +1,13 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
-import type { NewQualityLogEntry } from '../types/change.js';
+import type { NewQualityLogEntry, GateResult } from '../types/change.js';
 import { PrerequisiteError } from '../types/errors.js';
 import {
   VERIFIER_REPORT_SCHEMAS,
   isVerifierReportSkill,
   planningVerdictToGateResult,
 } from '../types/station.js';
-import { readChangeMetadata, writeChangeMetadataDoc, appendQualityLogEntry } from '../lib/change-metadata.js';
+import { readChangeMetadata, writeChangeMetadataDoc, appendQualityLogEntry, isReviewRoundCountsEntry } from '../lib/change-metadata.js';
 import { todayIso } from '../lib/date-utils.js';
 import { resolveChange } from './change-resolver.js';
 
@@ -80,11 +80,71 @@ export async function execute(options: ChangeLogOptions): Promise<ChangeLogResul
   );
 
   const metadataPath = path.join(cwd, '.prospec', 'changes', changeName, 'metadata.yaml');
-  const { doc } = readChangeMetadata(metadataPath, changeName);
+  const { doc, metadata } = readChangeMetadata(metadataPath, changeName);
+
+  let result: GateResult = composed.result;
+  const warnings = [...composed.warnings];
+
+  if (composed.skill === 'prospec-review') {
+    const hasCountFlags =
+      composed.criticals_found !== undefined ||
+      composed.criticals_fixed !== undefined ||
+      composed.majors !== undefined;
+
+    if (hasCountFlags) {
+      const reviewCountsEntries = (metadata.quality_log ?? []).filter((e) =>
+        isReviewRoundCountsEntry(e),
+      );
+      if (reviewCountsEntries.length > 0) {
+        const highestRoundEntry = reviewCountsEntries.reduce((max, curr) =>
+          (curr.round ?? 0) > (max.round ?? 0) ? curr : max,
+        );
+        const mismatches: string[] = [];
+        if (
+          composed.criticals_found !== undefined &&
+          composed.criticals_found !== (highestRoundEntry.criticals_found ?? 0)
+        ) {
+          mismatches.push(
+            `criticals_found expected ${highestRoundEntry.criticals_found ?? 0} got ${composed.criticals_found}`,
+          );
+        }
+        if (
+          composed.criticals_fixed !== undefined &&
+          composed.criticals_fixed !== (highestRoundEntry.criticals_fixed ?? 0)
+        ) {
+          mismatches.push(
+            `criticals_fixed expected ${highestRoundEntry.criticals_fixed ?? 0} got ${composed.criticals_fixed}`,
+          );
+        }
+        if (
+          composed.majors !== undefined &&
+          composed.majors !== (highestRoundEntry.majors ?? 0)
+        ) {
+          mismatches.push(
+            `majors expected ${highestRoundEntry.majors ?? 0} got ${composed.majors}`,
+          );
+        }
+        if (mismatches.length > 0) {
+          warnings.push(`log_mismatch: ${mismatches.join(', ')}`);
+          if (result === 'PASS') {
+            result = 'WARN';
+          }
+        }
+      }
+    }
+  }
+
+  const strippedComposed = { ...composed };
+  delete strippedComposed.criticals_found;
+  delete strippedComposed.criticals_fixed;
+  delete strippedComposed.majors;
+  delete strippedComposed.round;
 
   const entry: NewQualityLogEntry = {
-    ...composed,
+    ...(composed.skill === 'prospec-review' ? strippedComposed : composed),
     date: composed.date ?? todayIso(),
+    result,
+    warnings,
   };
   appendQualityLogEntry(doc, entry);
   await writeChangeMetadataDoc(metadataPath, doc, changeName);

@@ -86,6 +86,9 @@ const QualityLogEntryShape = {
   criticals_fixed: z.number().int().nonnegative().optional(),
   /** prospec-review majors surfaced this round (advisory, never counted in grade). */
   majors: z.number().int().nonnegative().optional(),
+  /** prospec-review round this counts entry records (idempotency key for upsert,
+   *  and discriminator that tells a merge-written counts entry from a round-less close entry). */
+  round: z.number().int().nonnegative().optional(),
   /** Written ONLY by `prospec change log --verifier-report`: the plan/tasks verifier's
    *  own verdict, the provenance stamp that tells `prospec status` this entry IS the
    *  station's verifier result. A station's Exit Gate / Knowledge Gate entry under the

@@ -13,6 +13,10 @@ import {
   renderReviewMetricsComment,
   replaceReviewMetrics,
   escapedCellsFor,
+  applyCleanReviewSentence,
+  stripCleanReviewBlock,
+  REVIEW_CLEAN_START_MARKER,
+  REVIEW_CLEAN_END_MARKER,
   type ReviewRow,
 } from '../../../src/lib/review-merge.js';
 import { EMPTY_TEST_FAILURE_STREAK } from '../../../src/types/cascade.js';
@@ -757,6 +761,71 @@ describe('test-failure metrics in review.md (REQ-SERVICES-098, REQ-SERVICES-086,
       const plain = '# Review Findings: c\n\nprose\n';
       const out = replaceReviewMetrics(plain, { consecutiveTestFailures: 2, testFailureAttemptIds: ['a', 'b'] });
       expect(out).toBe('<!-- prospec:review-metrics test_failures="2" test_failure_ids="a,b" -->\n' + plain);
+    });
+  });
+
+  describe('applyCleanReviewSentence (REQ-LIB-081, REQ-TESTS-121)', () => {
+    const tableScaffold = `# Review Findings: add-widget\n\n| ID | Location | Severity | Lens | Status | Origin | Summary | Repro |\n|---|---|---|---|---|---|---|---|\n`;
+
+    it('wraps non-empty sentence in clean markers below the document', () => {
+      const sentence = '本輪審查未發現任何重大問題。';
+      const out = applyCleanReviewSentence(tableScaffold, sentence);
+      expect(out).toContain(REVIEW_CLEAN_START_MARKER);
+      expect(out).toContain(REVIEW_CLEAN_END_MARKER);
+      expect(out).toContain(sentence);
+      expect(out.endsWith(`${REVIEW_CLEAN_START_MARKER}\n${sentence}\n${REVIEW_CLEAN_END_MARKER}\n`)).toBe(true);
+    });
+
+    it('is byte-idempotent when applied repeatedly (after position)', () => {
+      const sentence = '本輪審查未發現任何重大問題。';
+      const once = applyCleanReviewSentence(tableScaffold, sentence);
+      const twice = applyCleanReviewSentence(once, sentence);
+      const thrice = applyCleanReviewSentence(twice, sentence);
+      expect(twice).toBe(once);
+      expect(thrice).toBe(once);
+    });
+
+    it('is byte-idempotent when existing clean block was located in before position', () => {
+      const sentence = '本輪審查未發現任何重大問題。';
+      const docWithCleanBefore = `# Review Findings: add-widget\n\n${REVIEW_CLEAN_START_MARKER}\n舊句子\n${REVIEW_CLEAN_END_MARKER}\n\n<!-- prospec:evidence-section -->\n## Evidence\n<!-- prospec:evidence-section-end -->\n`;
+      const once = applyCleanReviewSentence(docWithCleanBefore, sentence);
+      expect(once).not.toContain('舊句子');
+      expect(once.endsWith(`${REVIEW_CLEAN_START_MARKER}\n${sentence}\n${REVIEW_CLEAN_END_MARKER}\n`)).toBe(true);
+      const twice = applyCleanReviewSentence(once, sentence);
+      expect(twice).toBe(once);
+    });
+
+    it('returns document unchanged when sentence is undefined or empty/whitespace', () => {
+      expect(applyCleanReviewSentence(tableScaffold, undefined)).toBe(tableScaffold);
+      expect(applyCleanReviewSentence(tableScaffold, '')).toBe(tableScaffold);
+      expect(applyCleanReviewSentence(tableScaffold, '   \n  ')).toBe(tableScaffold);
+    });
+  });
+
+  describe('stripCleanReviewBlock (F-6: no over-reach on quoted markers)', () => {
+    const tableScaffold = `# Review Findings: add-widget\n\n| ID | Location | Severity | Lens | Status | Origin | Summary | Repro |\n|---|---|---|---|---|---|---|---|\n`;
+
+    it('removes a real single-line clean block and its surrounding blank lines', () => {
+      const doc = `${tableScaffold}\n${REVIEW_CLEAN_START_MARKER}\n本輪審查未發現任何問題。\n${REVIEW_CLEAN_END_MARKER}\n`;
+      const out = stripCleanReviewBlock(doc);
+      expect(out).not.toContain(REVIEW_CLEAN_START_MARKER);
+      expect(out).not.toContain('本輪審查未發現任何問題。');
+      expect(out).toContain('| ID | Location |');
+    });
+
+    it('leaves a findings doc untouched when the start marker only appears QUOTED in evidence prose', () => {
+      const doc = `${tableScaffold}| F-1 | a.ts:1 | major | x | open | 1 | s |  |\n\n<!-- prospec:evidence-section -->\n## Evidence\n\n### F-1\n\n此修復用 ${REVIEW_CLEAN_START_MARKER} 標記包住 clean 句。\n<!-- prospec:evidence-section-end -->\n`;
+      expect(stripCleanReviewBlock(doc)).toBe(doc);
+    });
+
+    it('does not swallow the evidence-section-end marker when a start marker on its own line has multi-line content before a far end', () => {
+      // start marker on its own line + multi-line evidence body + a far end marker: the
+      // multi-line-greedy body of the old regex would span this and delete the
+      // evidence-section-end marker between them. A single-line body cannot.
+      const doc = `${tableScaffold}\n<!-- prospec:evidence-section -->\n## Evidence\n\n### F-1\n\n${REVIEW_CLEAN_START_MARKER}\n第一行\n第二行\n<!-- prospec:evidence-section-end -->\n\n審查者附註\n${REVIEW_CLEAN_END_MARKER}\n`;
+      const out = stripCleanReviewBlock(doc);
+      expect(out).toBe(doc);
+      expect(out).toContain('<!-- prospec:evidence-section-end -->');
     });
   });
 });

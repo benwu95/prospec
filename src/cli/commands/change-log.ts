@@ -107,9 +107,9 @@ export function registerChangeLogCommand(program: Command): void {
         .argParser(parseDimension)
         .default([] as QualityDimension[]),
     )
-    .addOption(new Option('--criticals-found <n>', 'Review criticals surfaced this round').argParser(parseCount))
-    .addOption(new Option('--criticals-fixed <n>', 'Review criticals fixed this round').argParser(parseCount))
-    .addOption(new Option('--majors <n>', 'Review majors surfaced this round').argParser(parseCount))
+    .addOption(new Option('--criticals-found <n>', 'Expected review criticals surfaced this round (audited against CLI-owned counts)').argParser(parseCount))
+    .addOption(new Option('--criticals-fixed <n>', 'Expected review criticals fixed this round (audited against CLI-owned counts)').argParser(parseCount))
+    .addOption(new Option('--majors <n>', 'Expected review majors surfaced this round (audited against CLI-owned counts)').argParser(parseCount))
     .option('--date <date>', 'Entry date (defaults to today)', parseDate)
     .option('--change <name>', 'Specify the change name')
     .action(

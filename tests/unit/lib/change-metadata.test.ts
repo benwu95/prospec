@@ -6,6 +6,7 @@ import {
   writeChangeMetadataDoc,
   writeChangeMetadataObject,
   appendQualityLogEntry,
+  upsertReviewRoundEntry,
   normalizeIssueRef,
 } from '../../../src/lib/change-metadata.js';
 import { MetadataValidationError, YamlParseError } from '../../../src/types/errors.js';
@@ -362,6 +363,175 @@ scale: standard
     ).toThrow();
   });
 });
+
+describe('upsertReviewRoundEntry (REQ-LIB-081, REQ-TESTS-121)', () => {
+  const WITH_COMMENT = `name: add-widget
+created_at: 2026-07-13T09:51:00.000Z
+status: implemented
+# hand-written note that must survive
+scale: standard
+`;
+
+  it('creates quality_log when absent, in canonical key order', async () => {
+    vol.fromJSON({ [PATH]: WITH_COMMENT });
+    const { doc } = readChangeMetadata(PATH, 'add-widget');
+    upsertReviewRoundEntry(doc, {
+      skill: 'prospec-review',
+      date: '2026-09-19',
+      result: 'PASS',
+      warnings: [],
+      round: 1,
+      criticals_found: 0,
+      criticals_fixed: 0,
+      majors: 0,
+    });
+    await writeChangeMetadataDoc(PATH, doc, 'add-widget');
+    const written = vol.readFileSync(PATH, 'utf-8') as string;
+    expect(written).toContain('# hand-written note that must survive');
+    expect(written).toMatch(
+      /quality_log:\n {2}- skill: prospec-review\n {4}date: 2026-09-19\n {4}result: PASS\n {4}warnings: \[\]\n {4}criticals_found: 0\n {4}criticals_fixed: 0\n {4}majors: 0\n {4}round: 1/,
+    );
+  });
+
+  it('appends when quality_log exists but no entry matches round', async () => {
+    vol.fromJSON({
+      [PATH]: `${WITH_COMMENT}quality_log:
+  - skill: prospec-plan
+    date: 2026-07-29
+    result: PASS
+    warnings: []
+`,
+    });
+    const { doc } = readChangeMetadata(PATH, 'add-widget');
+    upsertReviewRoundEntry(doc, {
+      skill: 'prospec-review',
+      date: '2026-09-19',
+      result: 'WARN',
+      warnings: [],
+      round: 1,
+      criticals_found: 1,
+      criticals_fixed: 0,
+      majors: 2,
+    });
+    await writeChangeMetadataDoc(PATH, doc, 'add-widget');
+    const written = vol.readFileSync(PATH, 'utf-8') as string;
+    expect(written).toContain('skill: prospec-plan');
+    expect(written).toContain('round: 1');
+    const reread = readChangeMetadata(PATH, 'add-widget');
+    expect(reread.metadata.quality_log).toHaveLength(2);
+    expect(reread.metadata.quality_log?.[1]?.round).toBe(1);
+  });
+
+  it('replaces matching prospec-review entry in place with same round', async () => {
+    vol.fromJSON({
+      [PATH]: `${WITH_COMMENT}quality_log:
+  - skill: prospec-review
+    date: 2026-09-19
+    result: WARN
+    warnings: []
+    criticals_found: 2
+    criticals_fixed: 0
+    majors: 1
+    round: 1
+  - skill: prospec-review
+    date: 2026-09-19
+    result: WARN
+    warnings: []
+`,
+    });
+    const { doc } = readChangeMetadata(PATH, 'add-widget');
+    upsertReviewRoundEntry(doc, {
+      skill: 'prospec-review',
+      date: '2026-09-19',
+      result: 'PASS',
+      warnings: [],
+      round: 1,
+      criticals_found: 2,
+      criticals_fixed: 2,
+      majors: 0,
+    });
+    await writeChangeMetadataDoc(PATH, doc, 'add-widget');
+    const reread = readChangeMetadata(PATH, 'add-widget');
+    expect(reread.metadata.quality_log).toHaveLength(2);
+    // Replaced in-place: first entry updated
+    expect(reread.metadata.quality_log?.[0]?.criticals_fixed).toBe(2);
+    expect(reread.metadata.quality_log?.[0]?.majors).toBe(0);
+    expect(reread.metadata.quality_log?.[0]?.result).toBe('PASS');
+    expect(reread.metadata.quality_log?.[0]?.round).toBe(1);
+    // Second entry (round-less close entry) untouched
+    expect(reread.metadata.quality_log?.[1]?.round).toBeUndefined();
+  });
+
+  it('never matches or overwrites round-less prospec-review entries', async () => {
+    vol.fromJSON({
+      [PATH]: `${WITH_COMMENT}quality_log:
+  - skill: prospec-review
+    date: 2026-09-19
+    result: PASS
+    warnings:
+      - close entry
+`,
+    });
+    const { doc } = readChangeMetadata(PATH, 'add-widget');
+    upsertReviewRoundEntry(doc, {
+      skill: 'prospec-review',
+      date: '2026-09-19',
+      result: 'PASS',
+      warnings: [],
+      round: 1,
+      criticals_found: 0,
+      criticals_fixed: 0,
+      majors: 0,
+    });
+    await writeChangeMetadataDoc(PATH, doc, 'add-widget');
+    const reread = readChangeMetadata(PATH, 'add-widget');
+    expect(reread.metadata.quality_log).toHaveLength(2);
+    expect(reread.metadata.quality_log?.[0]?.round).toBeUndefined();
+    expect(reread.metadata.quality_log?.[0]?.warnings).toEqual(['close entry']);
+    expect(reread.metadata.quality_log?.[1]?.round).toBe(1);
+  });
+
+  it('is byte-idempotent on re-merge of the same round', async () => {
+    vol.fromJSON({ [PATH]: WITH_COMMENT });
+    const { doc } = readChangeMetadata(PATH, 'add-widget');
+    const entry = {
+      skill: 'prospec-review',
+      date: '2026-09-19',
+      result: 'PASS' as const,
+      warnings: [],
+      round: 2,
+      criticals_found: 0,
+      criticals_fixed: 0,
+      majors: 0,
+    };
+    upsertReviewRoundEntry(doc, entry);
+    await writeChangeMetadataDoc(PATH, doc, 'add-widget');
+    const firstOutput = vol.readFileSync(PATH, 'utf-8') as string;
+
+    // Run again with identical entry
+    const { doc: doc2 } = readChangeMetadata(PATH, 'add-widget');
+    upsertReviewRoundEntry(doc2, entry);
+    await writeChangeMetadataDoc(PATH, doc2, 'add-widget');
+    const secondOutput = vol.readFileSync(PATH, 'utf-8') as string;
+
+    expect(secondOutput).toBe(firstOutput);
+  });
+
+  it('validates entry with NewQualityLogEntrySchema', () => {
+    vol.fromJSON({ [PATH]: WITH_COMMENT });
+    const { doc } = readChangeMetadata(PATH, 'add-widget');
+    expect(() =>
+      upsertReviewRoundEntry(doc, {
+        skill: 'prospec-review',
+        date: '2026-09-19',
+        // @ts-expect-error invalid result
+        result: 'UNKNOWN',
+        round: 1,
+      }),
+    ).toThrow();
+  });
+});
+
 
 describe('normalizeIssueRef (issue #131)', () => {
   it.each([

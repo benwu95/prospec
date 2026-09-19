@@ -6238,14 +6238,39 @@ describe('Structured quality_log + escaped-defect registration (issue #61)', () 
     expect(section).toContain('hasVerifyGrade');
   });
 
-  it('prospec-review records structured criticals/majors counts every round via `prospec change log` flags (issue #107)', () => {
+  it('prospec-review demotes counts and clean-review prose to a one-line CLI pointer and pins the two-record contract (REQ-TEMPLATES-130, REQ-TEMPLATES-145, REQ-TEMPLATES-163, REQ-TESTS-121)', () => {
     const review = renderTemplate('skills/prospec-review.hbs', TEMPLATE_CONTEXT);
-    const section = sectionOf(review, '### Review Provenance (machine gate)');
-    expect(section).toContain('--criticals-found');
-    expect(section).toContain('--criticals-fixed');
-    expect(section).toContain('--majors');
-    // the counts come from the CLI's own round report, not a hand tally
-    expect(section).toContain("`prospec review merge`'s round report");
+    const persistence = sectionOf(review, '### Persistence');
+    const provenance = sectionOf(review, '### Review Provenance (machine gate)');
+    const successCriteria = sectionOf(review, '### Success Criteria');
+    const exitGate = sectionOf(review, '### Exit Gate (Constitution)');
+
+    const expectedPointer =
+      "The CLI records this round's counts and clean sentence at merge time; `change log` only closes the round and audits self-reported counts";
+
+    // Pointer appears in both Clean review callout (in Persistence) and Review Provenance
+    expect(persistence).toContain(expectedPointer);
+    expect(provenance).toContain(expectedPointer);
+
+    // Negative assertions (mutation-verified in T19):
+    // 1. §Provenance does NOT instruct passing counts flags as primary writer
+    expect(provenance).not.toContain('--criticals-found <n>');
+    expect(provenance).not.toContain('--criticals-fixed <n>');
+    expect(provenance).not.toContain('--majors <n>');
+    expect(provenance).not.toContain("The counts come straight from `prospec review merge`'s round report");
+
+    // 2. Clean review callout does NOT instruct manual appending
+    expect(persistence).not.toContain('manually append a summary sentence in the artifact language');
+
+    // Two-record contract alignment in Persistence, Success Criteria, and Exit Gate:
+    // Persistence: omit --round re-runs until change log closes it
+    expect(persistence).toContain(
+      'Omit `--round` and the CLI re-runs the round `review.md` records until `prospec change log` has closed it',
+    );
+    // Success Criteria: round-close entry
+    expect(successCriteria).toContain('round-close entry recorded');
+    // Exit Gate: close the round with a prospec-review entry
+    expect(exitGate).toContain('close the round with a `prospec-review` entry');
   });
 
   it('the shipped status-lifecycle template documents the introduced_by convention + example', () => {

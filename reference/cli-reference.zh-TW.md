@@ -280,7 +280,7 @@ Entry Points、Dependencies、Config Files 沒有逐語言覆寫機制——未�
 
 - **`prospec change log --skill <station> (--result <PASS|WARN|FAIL> | --verifier-report <file>) [options]`**
   - **核心用途**：在 `metadata.yaml` 追加一筆結構化的 `quality_log` 記錄。
-  - **選項**：支援 `--warning <w>`、`--grade <g>`、`--dimension n=r`、`--criticals-found <n>` 等參數，欄位順序固定；自由文字由 yaml 函式庫以 YAML 資料序列化（僅在 YAML 語法需要時加引號），metacharacter 不會破壞檔案；此命令寫的是 YAML 而非 Markdown 表格，不做表格跳脫。
+  - **選項**：支援 `--warning <w>`、`--grade <g>`、`--dimension n=r`、`--criticals-found <n>` 等參數，欄位順序固定；自由文字由 yaml 函式庫以 YAML 資料序列化（僅在 YAML 語法需要時加引號），metacharacter 不會破壞檔案；此命令寫的是 YAML 而非 Markdown 表格，不做表格跳脫。針對 `prospec-review`，`--criticals-found`、`--criticals-fixed` 與 `--majors` 旗標僅作為期望值稽核輸入而非直寫：與 `review merge` 所記錄的 CLI 真值不符時會追加 `log_mismatch` 警告並將結果至少提升為 `WARN`（不覆寫已記錄之真值），且追加的關輪記錄本身不帶計數欄位。
   - **`--verifier-report <file>`**（plan/tasks 站）：以 rubric 擁有的 schema 驗證 Architecture/Task Verifier 的 JSON 報告（verdict `PASS` | `WARN` | `FLAWS`、恰好該站的 dimensions、單行且有上限的 `rationale`/`warnings`）並記錄——`FLAWS` 落為 `result: FAIL`，無效 payload 在寫入前即被拒絕。與 `--result` 及組合式欄位互斥。`prospec status` 會把最新 verifier 結果為 `FAIL` 的站導回該站，直到後續 verifier `PASS`／`WARN`，或 Break-Glass `--result WARN --warning "Manual override: …"` 取代它。
 
 - **`prospec change progress [--complete <task>] [--change <name>]`**
@@ -292,7 +292,7 @@ Entry Points、Dependencies、Config Files 沒有逐語言覆寫機制——未�
 - **`prospec review merge --findings <file> [--round <n>] [--spend <tokens>] [--budget <tokens>] [--max-fix-induced-ratio <r>] [--max-rounds <n>] [--max-flips <n>] [--lenses <list>] [--change <name>]`**
   - **核心用途**：將單輪審查的 JSON 發現合併至累積的 `review.md` 表格中。
   - **跳脫規則**：表格 cell 內的 `|` 寫成 `\|`、換行摺成一個空白；同一性以 finding `id` 判定，不比對 location 文字；至少一個 cell 被跳脫時，成功輸出多印一行提示。
-  - **重點條列**：依識別碼去重、蓋印各發現的來源輪次（`Origin`）、嚴重度取最大值、跨輪次保留記錄、追蹤累計 token 支出與執行的鏡角清單，並評估雙軸 Circuit Breaker（修復引發缺陷比率、預算上限、震盪翻轉、輪次硬上限）於跳閘時輸出升級報告（EscalationReport）。
+  - **重點條列**：依識別碼去重、蓋印各發現的來源輪次（`Origin`）、嚴重度取最大值、跨輪次保留記錄、追蹤累計 token 支出與執行的鏡角清單，並評估雙軸 Circuit Breaker（修復引發缺陷比率、預算上限、震盪翻轉、輪次硬上限）於跳閘時輸出升級報告（EscalationReport）。每次合併時，CLI 自動在 `metadata.yaml` 的 `quality_log` 寫入或更新該輪的計數記錄（`criticals_found`、`criticals_fixed`、`majors`、`round`，依輪次冪等）。當累積 findings 表格為 0 列（clean review 輪）時，CLI 亦會自動在 `review.md` 注入符合工件語言（artifact language）的 clean review 總結句。
   - **測試閘門**：在輸入與輪次順序的拒絕（不寫任何檔案）之後，每次合併都要求該變更的 fresh green `test_attempt`，或兩種明確豁免之一（無可解析的測試命令、已證明的 backfill），豁免時以 `tests: not-adjudicated` WARN 合併。測試拒絕以 exit 1 結束並印出 `prospec check --record-tests --change <name>`；它唯一允許的寫入是 `review.md` metrics 註解內有界的測試失敗 metrics（`test_failures`、`test_failure_ids`）——絕不合併 findings 或推進輪次。計數的是 review merge 自身觀測到的不同失敗 attempt（同一 attempt id 重放不重複計數、fresh green 會重設、豁免或迴圈換代不會）；達預設門檻 3 時拒絕同時回報 `persistent_test_failure` 與 `ESCALATE_TO_HUMAN`。沒有門檻旗標。metrics 註解格式錯誤或重複時在任何寫入前拒絕。
 
 - **`prospec verify record --dimension <name>=<result>... | --dimensions <file> [options]`**

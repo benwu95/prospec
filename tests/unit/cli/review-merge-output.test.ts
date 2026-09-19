@@ -183,6 +183,12 @@ describe('review-merge-output', () => {
     expect(out).toContain('fix_induced_threshold_exceeded');
     expect(out).toContain('revert-and-redesign');
   });
+
+  it('tells caller to close the round without "using these counts"', () => {
+    const out = captureStdout(() => formatReviewMergeOutput(baseResult(), 'normal'));
+    expect(out).toContain('Close the round with `prospec change log --skill prospec-review …`');
+    expect(out).not.toContain('using these counts');
+  });
 });
 
 

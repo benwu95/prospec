@@ -1,8 +1,9 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { vol } from 'memfs';
 import { execute } from '../../../src/services/review-merge.service.js';
+import { readChangeMetadata, writeChangeMetadataDoc } from '../../../src/lib/change-metadata.js';
 import { PrerequisiteError, ProspecError, TestGateError } from '../../../src/types/errors.js';
-import { RELAYED_FIELD_MAX_CHARS, TEST_GATE_NOT_ADJUDICATED, TEST_GATE_PRODUCER } from '../../../src/types/station.js';
+import { RELAYED_FIELD_MAX_CHARS, TEST_GATE_PRODUCER } from '../../../src/types/station.js';
 
 vi.mock('node:fs', async () => {
   const memfs = await import('memfs');
@@ -614,7 +615,7 @@ ${FRESH_GREEN}`,
     await execute({ cwd: CWD, findingsPath: FINDINGS, spend: 4000, budget: 6000 });
     vol.writeFileSync(
       '/repo/.prospec/changes/add-widget/metadata.yaml',
-      META_HEAD + "quality_log:\n  - skill: prospec-review\n    date: '2026-08-28'\n    round: 1\n    result: WARN\n" + FRESH_GREEN,
+      META_HEAD + "quality_log:\n  - skill: prospec-review\n    date: '2026-08-28'\n    round: 1\n    result: WARN\n  - skill: prospec-review\n    date: '2026-08-28'\n    result: WARN\n" + FRESH_GREEN,
     );
     const r2 = await execute({ cwd: CWD, findingsPath: FINDINGS, spend: 3000, budget: 6000 });
     expect(r2.round.roundNumber).toBe(2);
@@ -855,8 +856,10 @@ describe('review-merge test gate — fresh green before any merge (REQ-CLI-028, 
     expect(first.round.roundNumber).toBe(1);
     const meta = readMeta();
     expect(meta).toContain(`skill: ${TEST_GATE_PRODUCER}`);
-    expect(meta).toContain(`${TEST_GATE_NOT_ADJUDICATED} (review merge)`);
-    expect(meta).not.toContain('skill: prospec-review');
+    // The exemption warning is recorded under prospec-test-gate, while the accepted
+    // round records its own round-tagged counts entry under prospec-review.
+    expect(meta).toContain('skill: prospec-review');
+    expect(meta).toContain('round: 1');
     // replay: deduplicated, and the exemption never counted as a completed review round
     const second = await execute({ cwd: CWD, findingsPath: FINDINGS });
     expect(second.testGate).toMatchObject({ verdict: 'exempt', warningRecorded: false });
@@ -986,5 +989,160 @@ describe('review-merge exemption WARN-first path — failure injection (REQ-SERV
     const again = await execute({ cwd: CWD, findingsPath: FINDINGS });
     expect(again.testGate?.warningRecorded).toBe(false);
     expect(warnCount()).toBe(2);
+  });
+
+  describe('review-merge quality_log counts entry and clean review sentence (REQ-SERVICES-098, REQ-LIB-081, REQ-TESTS-121)', () => {
+    it('upserts round-tagged counts entry with PASS when clean and no unresolved criticals or carried majors', async () => {
+      seed([
+        { id: 'F-1', location: 'src/a.ts:1', severity: 'critical', lens: 'correctness', status: 'fixed', summary: 'bug', repro: 'pnpm test' },
+      ]);
+      await execute({ cwd: CWD, findingsPath: FINDINGS });
+      const { metadata } = readChangeMetadata(METADATA, 'add-widget');
+      expect(metadata.quality_log).toHaveLength(1);
+      const entry = metadata.quality_log?.[0];
+      expect(entry).toMatchObject({
+        skill: 'prospec-review',
+        round: 1,
+        result: 'PASS',
+        criticals_found: 1,
+        criticals_fixed: 1,
+        majors: 0,
+        warnings: [],
+      });
+      expect(entry?.date).toBeDefined();
+    });
+
+    it('upserts round-tagged counts entry with WARN when unresolved critical or carried major is present', async () => {
+      seed([
+        { id: 'F-1', location: 'src/a.ts:1', severity: 'critical', lens: 'correctness', status: 'open', summary: 'bug', repro: 'pnpm test' },
+      ]);
+      await execute({ cwd: CWD, findingsPath: FINDINGS });
+      const { metadata } = readChangeMetadata(METADATA, 'add-widget');
+      expect(metadata.quality_log?.[0]).toMatchObject({
+        skill: 'prospec-review',
+        round: 1,
+        result: 'WARN',
+        criticals_found: 1,
+        criticals_fixed: 0,
+        majors: 0,
+      });
+    });
+
+    it('re-running the same round replaces entry in place without adding duplicates (byte-idempotent)', async () => {
+      seed([
+        { id: 'F-1', location: 'src/a.ts:1', severity: 'major', lens: 'security', status: 'open', summary: 'vuln' },
+      ]);
+      await execute({ cwd: CWD, findingsPath: FINDINGS });
+      const metaOnce = vol.readFileSync(METADATA, 'utf-8');
+
+      // Re-run same round
+      await execute({ cwd: CWD, findingsPath: FINDINGS });
+      const metaTwice = vol.readFileSync(METADATA, 'utf-8');
+      expect(metaTwice).toBe(metaOnce);
+
+      const { metadata } = readChangeMetadata(METADATA, 'add-widget');
+      expect(metadata.quality_log).toHaveLength(1);
+      expect(metadata.quality_log?.[0]?.round).toBe(1);
+    });
+
+    it('writes artifact-language clean sentence when 0 findings rows (both zh-TW and English)', async () => {
+      // 1. zh-TW
+      const ZH_CONFIG = 'version: "1.0"\nproject:\n  name: t\nartifact_language: "Traditional Chinese (Taiwan)"\ntech_stack:\n  test_command: node -e 0\n';
+      seed([], undefined, FRESH_GREEN, ZH_CONFIG);
+      await execute({ cwd: CWD, findingsPath: FINDINGS });
+      const reviewZh = vol.readFileSync(REVIEW, 'utf-8') as string;
+      expect(reviewZh).toContain('<!-- prospec:review-clean -->');
+      expect(reviewZh).toContain('本輪審查未發現任何問題。');
+      expect(reviewZh).toContain('<!-- prospec:review-clean-end -->');
+
+      // Re-merge byte-idempotency
+      await execute({ cwd: CWD, findingsPath: FINDINGS });
+      expect(vol.readFileSync(REVIEW, 'utf-8')).toBe(reviewZh);
+
+      // 2. English
+      const EN_CONFIG = 'version: "1.0"\nproject:\n  name: t\nartifact_language: "English"\ntech_stack:\n  test_command: node -e 0\n';
+      seed([], undefined, FRESH_GREEN, EN_CONFIG);
+      await execute({ cwd: CWD, findingsPath: FINDINGS });
+      const reviewEn = vol.readFileSync(REVIEW, 'utf-8') as string;
+      expect(reviewEn).toContain('<!-- prospec:review-clean -->');
+      expect(reviewEn).toContain('No issues were found in this review round.');
+      expect(reviewEn).toContain('<!-- prospec:review-clean-end -->');
+    });
+
+    it('F-4 pin: a later round with findings strips a stale clean sentence from an earlier clean round', async () => {
+      const ZH_CONFIG = 'version: "1.0"\nproject:\n  name: t\nartifact_language: "Traditional Chinese (Taiwan)"\ntech_stack:\n  test_command: node -e 0\n';
+      // Round 1: clean review writes the clean sentence.
+      seed([], undefined, FRESH_GREEN, ZH_CONFIG);
+      await execute({ cwd: CWD, findingsPath: FINDINGS });
+      expect(vol.readFileSync(REVIEW, 'utf-8') as string).toContain('本輪審查未發現任何問題。');
+      // Close round 1 with a round-less prospec-review entry so the next merge opens round 2.
+      const { doc } = readChangeMetadata(METADATA, 'add-widget');
+      doc.addIn(['quality_log'], doc.createNode({
+        skill: 'prospec-review',
+        date: '2026-09-19',
+        result: 'PASS',
+        warnings: [],
+      }));
+      await writeChangeMetadataDoc(METADATA, doc, 'add-widget');
+      // Round 2: a finding arrives — the stale clean sentence must be gone, the row present.
+      vol.writeFileSync(
+        FINDINGS,
+        JSON.stringify([
+          { id: 'F-1', location: 'src/a.ts:10', severity: 'critical', lens: 'correctness', status: 'open', summary: 'off-by-one', repro: 'pnpm vitest run tests/unit/a.test.ts', evidence: '第 10 行邊界錯誤。' },
+        ]),
+      );
+      await execute({ cwd: CWD, findingsPath: FINDINGS });
+      const dirty = vol.readFileSync(REVIEW, 'utf-8') as string;
+      expect(dirty).not.toContain('本輪審查未發現任何問題。');
+      expect(dirty).not.toContain('<!-- prospec:review-clean -->');
+      expect(dirty).toContain('src/a.ts:10');
+      // Re-merging the same dirty round is byte-idempotent.
+      await execute({ cwd: CWD, findingsPath: FINDINGS });
+      expect(vol.readFileSync(REVIEW, 'utf-8')).toBe(dirty);
+    });
+
+    it('advancement counts only round-less entries, and prospec status behavior is preserved', async () => {
+      seed(round1);
+      // Round 1 merge
+      await execute({ cwd: CWD, findingsPath: FINDINGS });
+      // Merge-written entry does not advance round on re-run
+      const re = await execute({ cwd: CWD, findingsPath: FINDINGS });
+      expect(re.round.roundNumber).toBe(1);
+
+      // Simulating change log appending a round-less close entry
+      const { doc } = readChangeMetadata(METADATA, 'add-widget');
+      doc.addIn(['quality_log'], doc.createNode({
+        skill: 'prospec-review',
+        date: '2026-09-19',
+        result: 'WARN',
+        warnings: ['circuit breaker warning'],
+      }));
+      await writeChangeMetadataDoc(METADATA, doc, 'add-widget');
+
+      // Now next merge without --round advances to round 2
+      const round2 = await execute({ cwd: CWD, findingsPath: FINDINGS });
+      expect(round2.round.roundNumber).toBe(2);
+
+      // Verify status service behavior: prospec status unresolved warnings and latest gate result
+      const { execute: runStatus } = await import('../../../src/services/status.service.js');
+      const statusReport = await runStatus({ cwd: CWD });
+      const changeReport = statusReport.changes.find((c) => c.name === 'add-widget');
+      expect(changeReport).toBeDefined();
+      // F-1 regression pin: the round-less close entry's WARN must still surface in
+      // `prospec status` unresolved warnings. The round-2 merge appends its round-tagged
+      // counts entry LAST (always warnings: []); a last-wins-by-skill read that did not
+      // exclude counts entries would mask this WARN.
+      expect(
+        (changeReport!.unresolvedWarnings ?? []).some(
+          (w) => w.skill === 'prospec-review' && w.warning === 'circuit breaker warning',
+        ),
+      ).toBe(true);
+      // Round 2 merge wrote its counts entry, which is present in metadata
+      const { metadata: updatedMeta } = readChangeMetadata(METADATA, 'add-widget');
+      expect(updatedMeta.quality_log).toHaveLength(3); // round 1 counts, close 1, round 2 counts
+      expect(updatedMeta.quality_log?.[0]?.round).toBe(1);
+      expect(updatedMeta.quality_log?.[1]?.round).toBeUndefined();
+      expect(updatedMeta.quality_log?.[2]?.round).toBe(2);
+    });
   });
 });

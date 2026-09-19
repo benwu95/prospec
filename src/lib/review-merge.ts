@@ -605,3 +605,54 @@ export function renderReviewDocument(
   if (tail === '') return tableWithMetrics;
   return `${trimTrailingNewlines(tableWithMetrics)}\n\n${tail}\n`;
 }
+
+/** Marks the start of a machine-written clean-review statement in review.md. */
+export const REVIEW_CLEAN_START_MARKER = '<!-- prospec:review-clean -->';
+/** Marks the end of a machine-written clean-review statement in review.md. */
+export const REVIEW_CLEAN_END_MARKER = '<!-- prospec:review-clean-end -->';
+
+const RE_META = /[.*+?^${}()|[\]\\]/g;
+const CLEAN_START_ESC = REVIEW_CLEAN_START_MARKER.replace(RE_META, '\\$&');
+const CLEAN_END_ESC = REVIEW_CLEAN_END_MARKER.replace(RE_META, '\\$&');
+// Matches ONLY a well-formed clean block — start marker, ONE single-line sentence,
+// end marker — with its surrounding blank lines. The single-line body (`[^\n]*`) is
+// what a machine-written block always is, and it is what stops the strip from
+// over-reaching: a findings doc that merely QUOTES a marker in evidence prose is not a
+// single-line block so it never matches, and the body can never span the newlines
+// between an evidence-prose start and a far-away end (so the evidence-section-end
+// marker is never swallowed).
+const REVIEW_CLEAN_BLOCK_RE = new RegExp(
+  `\\n*${CLEAN_START_ESC}\\n[^\\n]*\\n${CLEAN_END_ESC}\\n*`,
+  'g',
+);
+
+/**
+ * Strip a machine-written clean-review block from a review document. Callers pass
+ * `existingContent` through this before re-rendering so a stale clean sentence from an
+ * earlier 0-finding round is not carried forward into a later round that has findings
+ * (which would leave "no issues found" above a real row). A document with no well-formed
+ * clean block is returned byte-for-byte untouched — the newline collapse runs only after
+ * a block was actually removed, so it never rewrites spacing in a findings document that
+ * has none, and a marker merely quoted in evidence prose is never matched.
+ */
+export function stripCleanReviewBlock(content: string): string {
+  const afterBlock = content.replace(REVIEW_CLEAN_BLOCK_RE, '\n\n');
+  if (afterBlock === content) return content;
+  return afterBlock.replace(/\n{3,}/g, '\n\n');
+}
+
+/**
+ * Wraps a non-empty clean-review sentence in dedicated markers below the document's
+ * evidence section, stripping any prior clean block first for byte-idempotency.
+ * When `sentence` is undefined or empty/whitespace, returns `rendered` unchanged.
+ */
+export function applyCleanReviewSentence(rendered: string, sentence?: string): string {
+  if (!sentence || sentence.trim() === '') {
+    return rendered;
+  }
+  const stripped = stripCleanReviewBlock(rendered);
+  const base = trimTrailingNewlines(stripped);
+  const cleanBlock = `${REVIEW_CLEAN_START_MARKER}\n${sentence.trim()}\n${REVIEW_CLEAN_END_MARKER}`;
+  return base === '' ? `${cleanBlock}\n` : `${base}\n\n${cleanBlock}\n`;
+}
+
