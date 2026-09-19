@@ -7043,7 +7043,7 @@ describe('Shift-Left Architecture Verifier in /prospec-plan (issue #179)', () =>
     expect(registeredSkills).toEqual(['prospec-ff', 'prospec-plan']);
   });
 
-  it('plan-verifier-rubric.md is rendered and satisfies token budget <= 2500', () => {
+  it('plan-verifier-rubric.md is rendered and satisfies the reference_per_file token budget', () => {
     const content = renderTemplate('skills/references/plan-verifier-rubric.hbs', TEMPLATE_CONTEXT);
     const tokens = estimateTokens(content);
     expect(tokens).toBeLessThanOrEqual(DEFAULT_KNOWLEDGE_TOKEN_BUDGET.reference_per_file);
@@ -7096,7 +7096,7 @@ describe('Multi-Candidate Architecture Selection in /prospec-plan (issue #180)',
     expect(registeredSkills).toEqual(['prospec-plan']);
   });
 
-  it('candidate-evaluation.md is rendered and satisfies token budget <= 2500', () => {
+  it('candidate-evaluation.md is rendered and satisfies the reference_per_file token budget', () => {
     const content = renderTemplate('skills/references/candidate-evaluation.hbs', TEMPLATE_CONTEXT);
     const tokens = estimateTokens(content);
     expect(tokens).toBeLessThanOrEqual(DEFAULT_KNOWLEDGE_TOKEN_BUDGET.reference_per_file);
@@ -7153,7 +7153,7 @@ describe('Shift-Left Task Contract & DAG Dependency Verifier in /prospec-tasks (
     expect(registeredSkills).toEqual(['prospec-ff', 'prospec-tasks']);
   });
 
-  it('tasks-verifier-rubric.md is rendered and satisfies token budget <= 2500', () => {
+  it('tasks-verifier-rubric.md is rendered and satisfies the reference_per_file token budget', () => {
     const content = renderTemplate('skills/references/tasks-verifier-rubric.hbs', TEMPLATE_CONTEXT);
     const tokens = estimateTokens(content);
     expect(tokens).toBeLessThanOrEqual(DEFAULT_KNOWLEDGE_TOKEN_BUDGET.reference_per_file);
@@ -7266,7 +7266,7 @@ describe("Autonomous Pipeline Cascading & Verifier Gates (issue #183)", () => {
     expect(reviewRefs).toContain("project-test-runner.md");
   });
 
-  it("cascade references render and satisfy token budget <= 2500", () => {
+  it("cascade references render and satisfy the reference_per_file token budget", () => {
     for (const refTemplate of ["cascade-protocol.hbs", "circuit-breaker.hbs", "project-test-runner.hbs"]) {
       const content = renderTemplate(`skills/references/${refTemplate}`, TEMPLATE_CONTEXT);
       const tokens = estimateTokens(content);

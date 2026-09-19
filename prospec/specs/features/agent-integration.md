@@ -35,7 +35,7 @@ Register `candidate-evaluation.hbs` reference template in `agent-sync.service.ts
 
 #### REQ-TESTS-084: Contract Tests for Candidate Architecture Selection
 Contract tests in `skill-format.test.ts` for candidate evaluation reference and prospec-plan integration.
-- WHEN contract tests run, THEN verify `candidate-evaluation.md` registration, token budget $\le 2500$, Startup Loading cache isolation, and prospec-plan Phase 4 candidate selection instructions
+- WHEN contract tests run, THEN verify `candidate-evaluation.md` registration, token budget within `reference_per_file`, Startup Loading cache isolation, and prospec-plan Phase 4 candidate selection instructions
 
 ---
 

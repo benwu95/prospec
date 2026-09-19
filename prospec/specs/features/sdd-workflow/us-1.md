@@ -117,7 +117,7 @@ A structured architecture verification rubric template (`plan-verifier-rubric.md
 - WHEN the Reuse & Single-Source dimension is applied, THEN for every new writer / creator / parser / formatter surface the plan introduces, the verifier either names the target project's existing owner with retrieval evidence (module README Modification Guide, conventions, module map, grep) or confirms the plan argues the rewrite explicitly; a plan with no new surface states a vacuous PASS, an owner search that finds nothing records that negative evidence, evidence collection may be delegated to a fast executor while the verifier only adjudicates, and a `standard` plan missing its `Simpler Alternative` counts as an unargued rewrite
 - WHEN an existing owner is bypassed without a stated rationale, or a `standard` plan lacks its Simpler Alternative, THEN the Verdict table grades it FLAWS regardless of the path the surface sits on (Break-Glass Override unchanged); the rubric names the single-source bypass criterion in `review-format.md` only as the review-stage counterpart — whose two-condition threshold is deliberately narrower — and never restates its definition
 - WHEN evaluating a project, THEN the rubric instructs dynamic inspection against the project's `CONSTITUTION.md` and `_conventions.md` without hardcoding CLI-specific layers
-- WHEN measured for knowledge token budget, THEN the template size remains $\le 2500$ tokens
+- WHEN measured for knowledge token budget, THEN the template size remains within the `reference_per_file` budget
 - WHEN the Architecture Verifier writes its report, THEN the reference owns a JSON schema with `verdict`, the exact five dimensions, evidence, and warnings; the orchestrator accepts only a readable non-empty schema-valid file, probes lifecycle while pending, discloses terminal degradation, and NEVER synthesizes PASS
 - WHEN the payload schema section renders its `verdict` and `dimensions` rows, THEN their vocabulary is projected from `PLANNING_VERDICTS` and `PLAN_VERIFIER_DIMENSIONS` through the render context, the section states that `rationale` and each `warnings[]` item are single-line and bounded by the injected relayed `summary` ceiling (detail belongs in `evidence`), and the receipt is recorded with `prospec change log --skill prospec-plan --verifier-report <file>`
 
@@ -134,7 +134,7 @@ Phase 6 of `/prospec-plan` performs independent architecture verification agains
 #### REQ-TESTS-089: Contract Tests for Plan Verifier and Rubric
 Contract test suite asserts the invariants of the Plan Architecture Verifier and its rubric.
 - WHEN contract tests execute, THEN they assert `plan-verifier-rubric.md` is cited on-demand in Phase 6 and excluded from Startup Loading
-- WHEN measuring reference size, THEN `plan-verifier-rubric.md` satisfies the $\le 2500$ tokens budget
+- WHEN measuring reference size, THEN `plan-verifier-rubric.md` satisfies the `reference_per_file` budget
 - WHEN verifying reference deployment, THEN `getSkillReferences` contains `plan-verifier-rubric.md` for both `prospec-plan` and `prospec-ff`
 
 ---
@@ -226,7 +226,7 @@ A structured candidate evaluation rubric template (`candidate-evaluation.md`) de
 - WHEN `candidate-evaluation.md` is rendered, THEN it defines orthogonal candidate generation guidelines (Option A Pragmatic/Minimal Surface vs Option B Decoupled/Clean Architecture)
 - WHEN evaluating candidates, THEN it instructs dynamic anchoring to the project's manifests and `_conventions.md`
 - WHEN conducting tournament comparison, THEN it uses position-swapped pairwise comparison across Blast Radius & Complexity, Constitution & Layering Adherence, and Extensibility vs Simplicity
-- WHEN measured for knowledge token budget, THEN the template size remains $\le 2500$ tokens
+- WHEN measured for knowledge token budget, THEN the template size remains within the `reference_per_file` budget
 - WHEN a Candidate or Tournament Judge writes a delegated report, THEN this reference owns its JSON schema and required closed fields; the orchestrator accepts only a readable non-empty schema-valid file, probes lifecycle while pending, discloses terminal degradation, and NEVER substitutes a verbal or mock record
 
 ---
@@ -252,7 +252,7 @@ Contract tests assert that both `prospec-knowledge-update` and `prospec-verify` 
 A structured task verification rubric template (`tasks-verifier-rubric.md`) defining architecture-agnostic orthogonal criteria decomposition for tasks-stage contract review.
 - WHEN `tasks-verifier-rubric.md` is rendered, THEN it defines four orthogonal evaluation dimensions: Bidirectional Contract Coverage, DAG Dependency & Layering Topological Order, TDD Module Test Closure, and Task Sizing & Marker Schema Compliance
 - WHEN evaluating a project, THEN the rubric instructs dynamic inspection against the project's `CONSTITUTION.md`, `_conventions.md`, and `module-map.yaml` without hardcoding CLI-specific layers
-- WHEN measured for knowledge token budget, THEN the template size remains $\le 2500$ tokens
+- WHEN measured for knowledge token budget, THEN the template size remains within the `reference_per_file` budget
 - WHEN the Task Verifier writes its report, THEN the reference owns a JSON schema with `verdict`, the exact four dimensions, evidence, and warnings; the orchestrator accepts only a readable non-empty schema-valid file, probes lifecycle while pending, discloses terminal degradation, and NEVER synthesizes PASS
 
 ---
@@ -279,7 +279,7 @@ The `tasks-format.md` reference specifies bidirectional traceability self-checki
 #### REQ-TESTS-091: Contract Tests for Task Verifier and Rubric
 Contract test suite asserts the invariants of the Task Verifier and its rubric.
 - WHEN contract tests execute, THEN they assert `tasks-verifier-rubric.md` is cited on-demand in Phase 6 of `prospec-tasks` and Phase 4 of `prospec-ff`, and excluded from Startup Loading
-- WHEN measuring reference size, THEN `tasks-verifier-rubric.md` satisfies the $\le 2500$ tokens budget
+- WHEN measuring reference size, THEN `tasks-verifier-rubric.md` satisfies the `reference_per_file` budget
 - WHEN verifying reference deployment, THEN `getSkillReferences` contains `tasks-verifier-rubric.md` for both `prospec-tasks` and `prospec-ff`
 
 ---

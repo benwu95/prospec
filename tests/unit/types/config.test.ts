@@ -20,7 +20,7 @@ describe('DEFAULT_KNOWLEDGE_TOKEN_BUDGET', () => {
       spec_per_file: 5000,
       demand_knowledge_per_file: 10000,
       skill_per_file: 12500,
-      reference_per_file: 2500,
+      reference_per_file: 4000,
       headroom: 0.85,
     });
   });

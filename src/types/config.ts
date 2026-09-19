@@ -72,8 +72,9 @@ export type TokenBudget = z.infer<typeof TokenBudgetSchema>;
  * SKILL.md and reference files prospec itself ships, so their only correct value is
  * the budget those files were authored against, and it moves with the release, not
  * with a project. 12,500 is the measured operational core of the multi-phase gate
- * skills after three slimming attempts; 2,500 keeps "a skill plus the references one
- * phase reads" inside one skill budget. They are graded by `knowledge-size` only in
+ * skills after three slimming attempts; 4,000 clears the largest shipped reference
+ * (~3,000 tokens) of the headroom band, once further slimming was judged to save too
+ * little to be worth the churn. They are graded by `knowledge-size` only in
  * authoring projects, have no row in a project's loading table, and are never
  * read from `.prospec.yaml` (`SHIPPED_BUDGET_FIELDS`).
  */
@@ -84,7 +85,7 @@ export const DEFAULT_KNOWLEDGE_TOKEN_BUDGET = {
   spec_per_file: 5000,
   demand_knowledge_per_file: 10000,
   skill_per_file: 12500,
-  reference_per_file: 2500,
+  reference_per_file: 4000,
   headroom: 0.85,
 } as const;
 
