@@ -71,6 +71,7 @@ export const WORKFLOW_REASON_CODES = [
   'VERIFY_GRADE_BELOW_BAR',
   'KNOWLEDGE_UNSYNCED',
   'TERMINAL',
+  'ESCALATE_TO_HUMAN',
   // archive Entry Gate
   'CHECK_UNPROVABLE',
   'TASKS_INCOMPLETE',
@@ -144,6 +145,14 @@ export interface ChangeRouteFacts {
    */
   lastPlanVerifierResult: GateResult | null;
   lastTasksVerifierResult: GateResult | null;
+  /** Trailing below-bar verify grades (B/C/D), reset by S or A. */
+  verifyBelowBarStreak: number;
+  /** Trailing plan verifier FLAWS results, reset by PASS/WARN or Break-Glass. */
+  planFlawsStreak: number;
+  /** Trailing tasks verifier FLAWS results, reset by PASS/WARN or Break-Glass. */
+  tasksFlawsStreak: number;
+  /** Resolved maximum station retries bound. */
+  maxStationRetries: number;
   /** Whether affected-module Knowledge is confirmed synced for this change. */
   hasKnowledgeSync: boolean;
   /** Unresolved WARNs computed from this change's `quality_log` (empty when

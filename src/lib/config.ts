@@ -5,7 +5,9 @@ import {
   ProspecConfigSchema,
   DEFAULT_ARTIFACT_LANGUAGE,
   DEFAULT_BASE_DIR,
-  DEFAULT_KNOWLEDGE_TOKEN_BUDGET, isShippedBudgetField,
+  DEFAULT_KNOWLEDGE_TOKEN_BUDGET,
+  DEFAULT_MAX_STATION_RETRIES,
+  isShippedBudgetField,
   isDefaultArtifactLanguage,
 } from '../types/config.js';
 import type { ProspecConfig, KnowledgeSizeBudget, TokenBudget } from '../types/config.js';
@@ -111,6 +113,20 @@ export function resolveKnowledgeTokenBudget(config: ProspecConfig): KnowledgeSiz
     if (override !== undefined) resolved[key] = override;
   }
   return resolved;
+}
+
+/**
+ * Resolve maximum station retries bound (REQ-LIB-082).
+ *
+ * Missing, <= 0, or non-integer falls back to DEFAULT_MAX_STATION_RETRIES (3).
+ * Pure resolver — performs no I/O.
+ */
+export function resolveMaxStationRetries(config?: ProspecConfig | null): number {
+  const value = config?.workflow?.max_station_retries;
+  if (typeof value === 'number' && Number.isInteger(value) && value > 0) {
+    return value;
+  }
+  return DEFAULT_MAX_STATION_RETRIES;
 }
 
 /**

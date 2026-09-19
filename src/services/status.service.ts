@@ -1,7 +1,7 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { isReviewRoundCountsEntry, normalizeIssueRef, readChangeMetadata } from '../lib/change-metadata.js';
-import { readConfig, resolveBasePaths } from '../lib/config.js';
+import { readConfig, resolveBasePaths, resolveMaxStationRetries } from '../lib/config.js';
 import type { ProspecConfig } from '../types/config.js';
 import { isDraftableFinding } from '../lib/draftable-findings.js';
 import { assessCurrentDrift } from '../lib/drift-assessment.js';
@@ -95,21 +95,26 @@ export async function execute(options: StatusOptions = {}): Promise<StatusReport
         // Identity first, and independent of the agent configuration: it is what a
         // host's own skill mechanism loads, so an unreadable or empty config costs
         // the fallback path below, never the station the agent is being sent to.
-        const skill = resolveNextSkill(route.next);
-        if (skill) route.nextSkill = skill;
-        const skillPath = resolveNextSkillPath(agentNames, route.next);
-        if (skillPath) route.nextSkillPath = skillPath;
-        // Additive and derived from the SAME resolution the skill path used, so a
-        // row can never name a different host than the action line above it. Absent
-        // — never fabricated — when the route is terminal or no agent is configured.
-        const skillRoot = resolveSkillRoot(agentNames);
-        if (route.next !== null && skillRoot !== null) {
-          route.nextReferenceMap = projectStatusReferenceMap(STATION_SKILLS[route.next], {
-            scale: facts.scale,
-            uiScope: facts.uiScope,
-            skillPath: skillRoot,
-            ...(knowledgeBasePath === null ? {} : { knowledgeBasePath }),
-          });
+        // Enrichment runs only when the route resolves a next station (next !== null).
+        // A null next — terminal archived or an ESCALATE_TO_HUMAN escalation — fabricates
+        // no nextSkill, skill path, or reference map (REQ-SERVICES-092).
+        if (route.next !== null) {
+          const skill = resolveNextSkill(route.next);
+          if (skill) route.nextSkill = skill;
+          const skillPath = resolveNextSkillPath(agentNames, route.next);
+          if (skillPath) route.nextSkillPath = skillPath;
+          // Additive and derived from the SAME resolution the skill path used, so a
+          // row can never name a different host than the action line above it. Absent
+          // — never fabricated — when the route is terminal or no agent is configured.
+          const skillRoot = resolveSkillRoot(agentNames);
+          if (skillRoot !== null) {
+            route.nextReferenceMap = projectStatusReferenceMap(STATION_SKILLS[route.next], {
+              scale: facts.scale,
+              uiScope: facts.uiScope,
+              skillPath: skillRoot,
+              ...(knowledgeBasePath === null ? {} : { knowledgeBasePath }),
+            });
+          }
         }
         changes.push(route);
       } catch (err) {
@@ -211,8 +216,12 @@ async function collectFacts(
     codeTasksDone: codeTasks.filter((t) => t.checked).length,
     hasReviewProvenance: metadata.review_provenance !== undefined,
     lastVerifyGrade: lastVerifyGrade(metadata.quality_log),
+    verifyBelowBarStreak: verifyBelowBarStreak(metadata.quality_log),
     lastPlanVerifierResult: latestGateResult(metadata.quality_log, 'prospec-plan'),
+    planFlawsStreak: planningFlawsStreak(metadata.quality_log, 'prospec-plan'),
     lastTasksVerifierResult: latestGateResult(metadata.quality_log, 'prospec-tasks'),
+    tasksFlawsStreak: planningFlawsStreak(metadata.quality_log, 'prospec-tasks'),
+    maxStationRetries: resolveMaxStationRetries(config),
     unresolvedWarnings: unresolvedWarnings(metadata.quality_log),
     hasKnowledgeSync:
       metadata.status === 'verified'
@@ -319,4 +328,70 @@ function lastVerifyGrade(
     }
   }
   return null;
+}
+
+/**
+ * Consecutive below-bar grades (B, C, D) from the tail of quality_log.
+ * An S or A resets the streak to 0. Non-verify entries or entries without
+ * a grade are skipped.
+ */
+export function verifyBelowBarStreak(
+  qualityLog: Array<{ skill: string; grade?: VerifyGrade }> | undefined,
+): number {
+  if (qualityLog === undefined) return 0;
+  let streak = 0;
+  for (let i = qualityLog.length - 1; i >= 0; i--) {
+    const entry = qualityLog[i];
+    if (entry === undefined || entry.skill !== 'prospec-verify' || entry.grade === undefined) {
+      continue;
+    }
+    if (entry.grade === 'B' || entry.grade === 'C' || entry.grade === 'D') {
+      streak++;
+    } else if (entry.grade === 'S' || entry.grade === 'A') {
+      break;
+    }
+  }
+  return streak;
+}
+
+/**
+ * Consecutive verifier FAIL results for a station from the tail of quality_log.
+ *
+ * Scanned from the latest entry backwards, using the identical provenance rule as
+ * `latestGateResult`: only an entry the sink stamped with `verifier_verdict` counts
+ * (`FLAWS` → FAIL, `PASS` or `WARN` resets the streak), plus a Break-Glass `WARN`
+ * whose warning opens with `BREAK_GLASS_PREFIX` (resets the streak). Every other
+ * entry under the skill (the station's own unstamped Exit Gate PASS/WARN/FAIL) is
+ * neither a verifier result nor able to hide one, so it is skipped.
+ */
+export function planningFlawsStreak(
+  qualityLog:
+    | Array<{ skill: string; result: string; warnings?: string[]; verifier_verdict?: string }>
+    | undefined,
+  skill: string,
+): number {
+  if (qualityLog === undefined) return 0;
+  let streak = 0;
+  for (let i = qualityLog.length - 1; i >= 0; i--) {
+    const entry = qualityLog[i];
+    if (entry === undefined || entry.skill !== skill) continue;
+    if (entry.verifier_verdict !== undefined) {
+      const parsed = PlanningVerdictSchema.safeParse(entry.verifier_verdict);
+      if (!parsed.success) continue;
+      const gateResult = planningVerdictToGateResult(parsed.data);
+      if (gateResult === 'FAIL') {
+        streak++;
+      } else {
+        // PASS or WARN resets the streak
+        break;
+      }
+    } else if (
+      entry.result === 'WARN' &&
+      (entry.warnings ?? []).some((w) => w.trimStart().startsWith(BREAK_GLASS_PREFIX))
+    ) {
+      // Break-Glass WARN resets the streak
+      break;
+    }
+  }
+  return streak;
 }

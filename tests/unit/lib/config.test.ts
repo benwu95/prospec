@@ -2,9 +2,9 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { vol } from 'memfs';
-import { resolveConfigPath, readConfig, validateConfig, writeConfig, resolveBasePaths, isArtifactLanguageUnset, resolveKnowledgeTokenBudget, resolveTestCommand } from '../../../src/lib/config.js';
+import { resolveConfigPath, readConfig, validateConfig, writeConfig, resolveBasePaths, isArtifactLanguageUnset, resolveKnowledgeTokenBudget, resolveTestCommand, resolveMaxStationRetries } from '../../../src/lib/config.js';
 import { ConfigNotFound, ConfigInvalid } from '../../../src/types/errors.js';
-import { DEFAULT_KNOWLEDGE_TOKEN_BUDGET, ProspecConfigSchema, SHIPPED_BUDGET_FIELDS, isShippedBudgetField, type ProspecConfig } from '../../../src/types/config.js';
+import { DEFAULT_KNOWLEDGE_TOKEN_BUDGET, DEFAULT_MAX_STATION_RETRIES, ProspecConfigSchema, SHIPPED_BUDGET_FIELDS, isShippedBudgetField, type ProspecConfig } from '../../../src/types/config.js';
 
 vi.mock('node:fs', async () => {
   const memfs = await import('memfs');
@@ -397,3 +397,60 @@ describe('US-3 schema cleanup: dead fields removed, top-level loose preserved', 
     expect((config as Record<string, unknown>)['custom_field']).toBe('value');
   });
 });
+
+describe('resolveMaxStationRetries (REQ-LIB-082, REQ-TESTS-122)', () => {
+  it('falls back to DEFAULT_MAX_STATION_RETRIES (3) when config is null or undefined', () => {
+    expect(resolveMaxStationRetries(null)).toBe(DEFAULT_MAX_STATION_RETRIES);
+    expect(resolveMaxStationRetries(undefined)).toBe(DEFAULT_MAX_STATION_RETRIES);
+    expect(resolveMaxStationRetries()).toBe(3);
+  });
+
+  it('falls back to DEFAULT_MAX_STATION_RETRIES when workflow or max_station_retries is unset', () => {
+    const config = validateConfig('project:\n  name: test\n');
+    expect(resolveMaxStationRetries(config)).toBe(DEFAULT_MAX_STATION_RETRIES);
+
+    const configWithEmptyWorkflow: ProspecConfig = {
+      project: { name: 'test' },
+      workflow: {},
+    };
+    expect(resolveMaxStationRetries(configWithEmptyWorkflow)).toBe(DEFAULT_MAX_STATION_RETRIES);
+  });
+
+  it('resolves a positive integer when explicitly configured', () => {
+    const config = validateConfig('project:\n  name: test\nworkflow:\n  max_station_retries: 5\n');
+    expect(resolveMaxStationRetries(config)).toBe(5);
+
+    const configMin: ProspecConfig = {
+      project: { name: 'test' },
+      workflow: { max_station_retries: 1 },
+    };
+    expect(resolveMaxStationRetries(configMin)).toBe(1);
+  });
+
+  it('falls back to DEFAULT_MAX_STATION_RETRIES when configured value is 0, negative, or non-integer', () => {
+    const configZero: ProspecConfig = {
+      project: { name: 'test' },
+      workflow: { max_station_retries: 0 },
+    };
+    expect(resolveMaxStationRetries(configZero)).toBe(DEFAULT_MAX_STATION_RETRIES);
+
+    const configNegative: ProspecConfig = {
+      project: { name: 'test' },
+      workflow: { max_station_retries: -1 },
+    };
+    expect(resolveMaxStationRetries(configNegative)).toBe(DEFAULT_MAX_STATION_RETRIES);
+
+    const configFloat: ProspecConfig = {
+      project: { name: 'test' },
+      workflow: { max_station_retries: 3.5 },
+    };
+    expect(resolveMaxStationRetries(configFloat)).toBe(DEFAULT_MAX_STATION_RETRIES);
+
+    const configNaN: ProspecConfig = {
+      project: { name: 'test' },
+      workflow: { max_station_retries: Number.NaN },
+    };
+    expect(resolveMaxStationRetries(configNaN)).toBe(DEFAULT_MAX_STATION_RETRIES);
+  });
+});
+

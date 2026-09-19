@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { vol } from 'memfs';
-import { execute } from '../../../src/services/status.service.js';
+import { execute, verifyBelowBarStreak, planningFlawsStreak } from '../../../src/services/status.service.js';
 import { collectGitTimestamps } from '../../../src/lib/drift-sources.js';
 import type { ChangeRouteFacts } from '../../../src/types/status.js';
 
@@ -975,3 +975,127 @@ describe('status.service — latest planning verifier result (REQ-SERVICES-070 /
     expect(report.changes[0]?.code).toBe('VERIFY_GRADE_BELOW_BAR');
   });
 });
+
+describe('verifyBelowBarStreak (REQ-SERVICES-070, REQ-TESTS-122)', () => {
+  it('returns 0 when quality_log is undefined or empty', () => {
+    expect(verifyBelowBarStreak(undefined)).toBe(0);
+    expect(verifyBelowBarStreak([])).toBe(0);
+  });
+
+  it('ignores entries from other skills and entries without grades', () => {
+    const log = [
+      { skill: 'prospec-plan', grade: 'C' as const },
+      { skill: 'prospec-verify' },
+      { skill: 'prospec-tasks' },
+    ];
+    expect(verifyBelowBarStreak(log)).toBe(0);
+  });
+
+  it('counts consecutive below-bar grades (B, C, D) from the tail', () => {
+    expect(verifyBelowBarStreak([{ skill: 'prospec-verify', grade: 'B' }])).toBe(1);
+    expect(verifyBelowBarStreak([{ skill: 'prospec-verify', grade: 'C' }])).toBe(1);
+    expect(verifyBelowBarStreak([{ skill: 'prospec-verify', grade: 'D' }])).toBe(1);
+
+    const consecutive = [
+      { skill: 'prospec-verify', grade: 'B' as const },
+      { skill: 'prospec-verify', grade: 'C' as const },
+      { skill: 'prospec-verify', grade: 'D' as const },
+    ];
+    expect(verifyBelowBarStreak(consecutive)).toBe(3);
+  });
+
+  it('resets streak on passing grade S or A', () => {
+    const resetByS = [
+      { skill: 'prospec-verify', grade: 'C' as const },
+      { skill: 'prospec-verify', grade: 'S' as const },
+    ];
+    expect(verifyBelowBarStreak(resetByS)).toBe(0);
+
+    const resetByA = [
+      { skill: 'prospec-verify', grade: 'D' as const },
+      { skill: 'prospec-verify', grade: 'A' as const },
+    ];
+    expect(verifyBelowBarStreak(resetByA)).toBe(0);
+
+    const trailingAfterReset = [
+      { skill: 'prospec-verify', grade: 'C' as const },
+      { skill: 'prospec-verify', grade: 'S' as const },
+      { skill: 'prospec-verify', grade: 'B' as const },
+      { skill: 'prospec-verify', grade: 'D' as const },
+    ];
+    expect(verifyBelowBarStreak(trailingAfterReset)).toBe(2);
+  });
+});
+
+describe('planningFlawsStreak (REQ-SERVICES-070, REQ-TESTS-122)', () => {
+  it('returns 0 when quality_log is undefined or empty', () => {
+    expect(planningFlawsStreak(undefined, 'prospec-plan')).toBe(0);
+    expect(planningFlawsStreak([], 'prospec-plan')).toBe(0);
+  });
+
+  it('ignores unstamped Exit Gate FAIL and entries for other skills', () => {
+    const log = [
+      { skill: 'prospec-tasks', result: 'FAIL', verifier_verdict: 'FLAWS' },
+      { skill: 'prospec-plan', result: 'FAIL' }, // unstamped Exit Gate
+      { skill: 'prospec-plan', result: 'FAIL', warnings: ['some advisory'] }, // unstamped Exit Gate
+    ];
+    expect(planningFlawsStreak(log, 'prospec-plan')).toBe(0);
+    expect(planningFlawsStreak(log, 'prospec-tasks')).toBe(1);
+  });
+
+  it('counts consecutive stamped FLAWS entries', () => {
+    const log = [
+      { skill: 'prospec-plan', result: 'FAIL', verifier_verdict: 'FLAWS' },
+      { skill: 'prospec-plan', result: 'FAIL', verifier_verdict: 'FLAWS' },
+      { skill: 'prospec-plan', result: 'FAIL', verifier_verdict: 'FLAWS' },
+    ];
+    expect(planningFlawsStreak(log, 'prospec-plan')).toBe(3);
+  });
+
+  it('unstamped Exit Gate entries between FLAWS do not hide or reset the streak', () => {
+    const log = [
+      { skill: 'prospec-plan', result: 'FAIL', verifier_verdict: 'FLAWS' },
+      { skill: 'prospec-plan', result: 'WARN', warnings: ['some exit gate warning'] },
+      { skill: 'prospec-plan', result: 'FAIL', verifier_verdict: 'FLAWS' },
+    ];
+    expect(planningFlawsStreak(log, 'prospec-plan')).toBe(2);
+  });
+
+  it('resets streak on stamped PASS or WARN', () => {
+    const passReset = [
+      { skill: 'prospec-plan', result: 'FAIL', verifier_verdict: 'FLAWS' },
+      { skill: 'prospec-plan', result: 'PASS', verifier_verdict: 'PASS' },
+    ];
+    expect(planningFlawsStreak(passReset, 'prospec-plan')).toBe(0);
+
+    const warnReset = [
+      { skill: 'prospec-plan', result: 'FAIL', verifier_verdict: 'FLAWS' },
+      { skill: 'prospec-plan', result: 'WARN', verifier_verdict: 'WARN' },
+    ];
+    expect(planningFlawsStreak(warnReset, 'prospec-plan')).toBe(0);
+
+    const trailingAfterPass = [
+      { skill: 'prospec-plan', result: 'FAIL', verifier_verdict: 'FLAWS' },
+      { skill: 'prospec-plan', result: 'PASS', verifier_verdict: 'PASS' },
+      { skill: 'prospec-plan', result: 'FAIL', verifier_verdict: 'FLAWS' },
+    ];
+    expect(planningFlawsStreak(trailingAfterPass, 'prospec-plan')).toBe(1);
+  });
+
+  it('resets streak on Break-Glass WARN (Manual override:)', () => {
+    const breakGlass = [
+      { skill: 'prospec-plan', result: 'FAIL', verifier_verdict: 'FLAWS' },
+      { skill: 'prospec-plan', result: 'FAIL', verifier_verdict: 'FLAWS' },
+      { skill: 'prospec-plan', result: 'WARN', warnings: ['Manual override: accepted design trade-off'] },
+    ];
+    expect(planningFlawsStreak(breakGlass, 'prospec-plan')).toBe(0);
+
+    const trailingAfterBreakGlass = [
+      { skill: 'prospec-plan', result: 'FAIL', verifier_verdict: 'FLAWS' },
+      { skill: 'prospec-plan', result: 'WARN', warnings: ['  Manual override: trimmed whitespace accepted'] },
+      { skill: 'prospec-plan', result: 'FAIL', verifier_verdict: 'FLAWS' },
+    ];
+    expect(planningFlawsStreak(trailingAfterBreakGlass, 'prospec-plan')).toBe(1);
+  });
+});
+

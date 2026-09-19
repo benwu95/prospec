@@ -30,6 +30,10 @@ function facts(overrides: Partial<ChangeRouteFacts> = {}): ChangeRouteFacts {
     lastPlanVerifierResult: null,
     lastTasksVerifierResult: null,
     hasKnowledgeSync: true,
+    verifyBelowBarStreak: 0,
+    planFlawsStreak: 0,
+    tasksFlawsStreak: 0,
+    maxStationRetries: 3,
     ...overrides,
   };
 }
@@ -211,6 +215,282 @@ describe('status-router — lifecycle edges', () => {
     expect(route.reasons.join(' ')).toContain('prospec-learn');
   });
 });
+
+describe('status-router — escalation bounds on consecutive failures (REQ-LIB-035, REQ-TESTS-122)', () => {
+  describe('plan verifier failure loop', () => {
+    it('routes back to plan when planFlawsStreak is below maxStationRetries (N-1)', () => {
+      const route = routeChange(
+        facts({
+          status: 'plan',
+          lastPlanVerifierResult: 'FAIL',
+          planFlawsStreak: 2,
+          maxStationRetries: 3,
+        }),
+      );
+      expect(route.next).toBe('plan');
+      expect(route.code).toBe('PLAN_VERIFIER_FAILED');
+    });
+
+    it('escalates to human when planFlawsStreak reaches maxStationRetries (N)', () => {
+      const route = routeChange(
+        facts({
+          status: 'plan',
+          lastPlanVerifierResult: 'FAIL',
+          planFlawsStreak: 3,
+          maxStationRetries: 3,
+        }),
+      );
+      expect(route.next).toBeNull();
+      expect(route.code).toBe('ESCALATE_TO_HUMAN');
+      expect(route.reasons.join(' ')).toContain('failed 3 consecutive times (limit: 3)');
+      expect(route.reasons.join(' ')).toContain('escalating to human');
+      expect(route.blockingGates.join(' ')).toContain('Architecture Verifier PASS/WARN recorded');
+    });
+
+    it('escalates to human when planFlawsStreak exceeds maxStationRetries (N+1)', () => {
+      const route = routeChange(
+        facts({
+          status: 'plan',
+          lastPlanVerifierResult: 'FAIL',
+          planFlawsStreak: 4,
+          maxStationRetries: 3,
+        }),
+      );
+      expect(route.next).toBeNull();
+      expect(route.code).toBe('ESCALATE_TO_HUMAN');
+    });
+
+    it('respects a custom maxStationRetries bound', () => {
+      const routeBelow = routeChange(
+        facts({
+          status: 'plan',
+          lastPlanVerifierResult: 'FAIL',
+          planFlawsStreak: 4,
+          maxStationRetries: 5,
+        }),
+      );
+      expect(routeBelow.next).toBe('plan');
+      expect(routeBelow.code).toBe('PLAN_VERIFIER_FAILED');
+
+      const routeAtLimit = routeChange(
+        facts({
+          status: 'plan',
+          lastPlanVerifierResult: 'FAIL',
+          planFlawsStreak: 5,
+          maxStationRetries: 5,
+        }),
+      );
+      expect(routeAtLimit.next).toBeNull();
+      expect(routeAtLimit.code).toBe('ESCALATE_TO_HUMAN');
+    });
+
+    it('does not escalate when lastPlanVerifierResult is not FAIL, even if streak is high', () => {
+      for (const result of ['PASS', 'WARN', null] as const) {
+        const route = routeChange(
+          facts({
+            status: 'plan',
+            lastPlanVerifierResult: result,
+            planFlawsStreak: 10,
+            maxStationRetries: 3,
+          }),
+        );
+        expect(route.next).toBe('tasks');
+        expect(route.code).not.toBe('ESCALATE_TO_HUMAN');
+      }
+    });
+  });
+
+  describe('tasks verifier failure loop', () => {
+    it('routes back to tasks when tasksFlawsStreak is below maxStationRetries (N-1)', () => {
+      const route = routeChange(
+        facts({
+          status: 'tasks',
+          lastTasksVerifierResult: 'FAIL',
+          tasksFlawsStreak: 2,
+          maxStationRetries: 3,
+          hasTasks: true,
+          codeTasksTotal: 3,
+        }),
+      );
+      expect(route.next).toBe('tasks');
+      expect(route.code).toBe('TASKS_VERIFIER_FAILED');
+    });
+
+    it('escalates to human when tasksFlawsStreak reaches maxStationRetries (N)', () => {
+      const route = routeChange(
+        facts({
+          status: 'tasks',
+          lastTasksVerifierResult: 'FAIL',
+          tasksFlawsStreak: 3,
+          maxStationRetries: 3,
+          hasTasks: true,
+          codeTasksTotal: 3,
+        }),
+      );
+      expect(route.next).toBeNull();
+      expect(route.code).toBe('ESCALATE_TO_HUMAN');
+      expect(route.reasons.join(' ')).toContain('failed 3 consecutive times (limit: 3)');
+      expect(route.reasons.join(' ')).toContain('escalating to human');
+      expect(route.blockingGates.join(' ')).toContain('Task Verifier PASS/WARN recorded');
+    });
+
+    it('escalates to human when tasksFlawsStreak exceeds maxStationRetries (N+1)', () => {
+      const route = routeChange(
+        facts({
+          status: 'tasks',
+          lastTasksVerifierResult: 'FAIL',
+          tasksFlawsStreak: 5,
+          maxStationRetries: 3,
+        }),
+      );
+      expect(route.next).toBeNull();
+      expect(route.code).toBe('ESCALATE_TO_HUMAN');
+    });
+
+    it('respects a custom maxStationRetries bound', () => {
+      const routeBelow = routeChange(
+        facts({
+          status: 'tasks',
+          lastTasksVerifierResult: 'FAIL',
+          tasksFlawsStreak: 1,
+          maxStationRetries: 2,
+        }),
+      );
+      expect(routeBelow.next).toBe('tasks');
+      expect(routeBelow.code).toBe('TASKS_VERIFIER_FAILED');
+
+      const routeAtLimit = routeChange(
+        facts({
+          status: 'tasks',
+          lastTasksVerifierResult: 'FAIL',
+          tasksFlawsStreak: 2,
+          maxStationRetries: 2,
+        }),
+      );
+      expect(routeAtLimit.next).toBeNull();
+      expect(routeAtLimit.code).toBe('ESCALATE_TO_HUMAN');
+    });
+
+    it('does not escalate when lastTasksVerifierResult is not FAIL, even if streak is high', () => {
+      for (const result of ['PASS', 'WARN', null] as const) {
+        const route = routeChange(
+          facts({
+            status: 'tasks',
+            lastTasksVerifierResult: result,
+            tasksFlawsStreak: 10,
+            maxStationRetries: 3,
+            hasTasks: true,
+            codeTasksTotal: 3,
+          }),
+        );
+        expect(route.next).toBe('implement');
+        expect(route.code).not.toBe('ESCALATE_TO_HUMAN');
+      }
+    });
+  });
+
+  describe('verify below-bar loop at status: implemented', () => {
+    for (const grade of ['B', 'C', 'D'] as const) {
+      it(`routes back to verify for grade ${grade} when streak is below limit (N-1)`, () => {
+        const route = routeChange(
+          facts({
+            status: 'implemented',
+            hasReviewProvenance: true,
+            lastVerifyGrade: grade,
+            verifyBelowBarStreak: 2,
+            maxStationRetries: 3,
+          }),
+        );
+        expect(route.next).toBe('verify');
+        expect(route.code).not.toBe('ESCALATE_TO_HUMAN');
+      });
+
+      it(`escalates to human for grade ${grade} when streak reaches limit (N)`, () => {
+        const route = routeChange(
+          facts({
+            status: 'implemented',
+            hasReviewProvenance: true,
+            lastVerifyGrade: grade,
+            verifyBelowBarStreak: 3,
+            maxStationRetries: 3,
+          }),
+        );
+        expect(route.next).toBeNull();
+        expect(route.code).toBe('ESCALATE_TO_HUMAN');
+        expect(route.reasons.join(' ')).toContain(
+          `below-bar grades 3 consecutive times (limit: 3, latest: ${grade})`,
+        );
+      });
+    }
+
+    it('does not escalate for passing grades S/A even if streak is set', () => {
+      for (const grade of ['S', 'A'] as const) {
+        const route = routeChange(
+          facts({
+            status: 'implemented',
+            hasReviewProvenance: true,
+            lastVerifyGrade: grade,
+            verifyBelowBarStreak: 3,
+            maxStationRetries: 3,
+          }),
+        );
+        expect(route.next).toBe('verify');
+        expect(route.code).not.toBe('ESCALATE_TO_HUMAN');
+      }
+    });
+  });
+
+  describe('verify below-bar loop at status: verified', () => {
+    for (const grade of ['B', 'C', 'D'] as const) {
+      it(`routes back to verify for grade ${grade} when streak is below limit (N-1)`, () => {
+        const route = routeChange(
+          facts({
+            status: 'verified',
+            lastVerifyGrade: grade,
+            verifyBelowBarStreak: 2,
+            maxStationRetries: 3,
+          }),
+        );
+        expect(route.next).toBe('verify');
+        expect(route.code).toBe('VERIFY_GRADE_BELOW_BAR');
+      });
+
+      it(`escalates to human for grade ${grade} when streak reaches limit (N)`, () => {
+        const route = routeChange(
+          facts({
+            status: 'verified',
+            lastVerifyGrade: grade,
+            verifyBelowBarStreak: 3,
+            maxStationRetries: 3,
+          }),
+        );
+        expect(route.next).toBeNull();
+        expect(route.code).toBe('ESCALATE_TO_HUMAN');
+        expect(route.reasons.join(' ')).toContain(
+          `below-bar grades 3 consecutive times (limit: 3, latest: ${grade})`,
+        );
+        expect(route.blockingGates.join(' ')).toContain('fresh grade S or A');
+      });
+    }
+
+    it('does not escalate for passing grades S/A or null, even if streak is set', () => {
+      for (const grade of ['S', 'A', null] as const) {
+        const route = routeChange(
+          facts({
+            status: 'verified',
+            lastVerifyGrade: grade,
+            hasKnowledgeSync: true,
+            verifyBelowBarStreak: 5,
+            maxStationRetries: 3,
+          }),
+        );
+        expect(route.next).toBe('archive');
+        expect(route.code).not.toBe('ESCALATE_TO_HUMAN');
+      }
+    });
+  });
+});
+
 
 describe('status-router — backfill entry (never a skipped station)', () => {
   it('backfill at implemented is a legal entry, not a skip', () => {

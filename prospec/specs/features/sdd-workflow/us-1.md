@@ -322,6 +322,7 @@ The types module exports type definitions and Zod schemas for pipeline cascading
 - WHEN validating cascading configuration or state, THEN Zod schemas enforce type constraints and default thresholds (3-5 max rounds)
 - WHEN CircuitBreakerConfigSchema parses configuration without maxConsecutiveTestFailures, THEN default it to three independently of maxReviewRounds and maxOscillationFlips; explicit values must be positive integers.
 - WHEN a test gate refusal carries escalation, THEN its typed error includes the actual reason and CircuitBreakerState without changing the successful ReviewMergeResult contract into a fake success.
+- WHEN a station-to-station recovery loop reaches its retry limit, THEN `EscalationReportSchema.type` accepts `station_retry_limit_exceeded` alongside the existing kinds (append-only, matched by value)
 
 ---
 
@@ -378,6 +379,7 @@ The test suite validates pipeline cascading components, oscillation breakers, pr
 The cascading protocol defines a per-station execution loop whose first step loads the station instructions using the rendered host capability policy on every transition and re-entry.
 - WHEN a station is entered during cascading, THEN the loop runs Step 1 [LOAD] (invoke or reinvoke the station skill for persistent-reattach; otherwise run prospec status and read its SKILL.md, with native-load failure using the same fallback) → Step 2 [ENTRY] (station entry gates) → Step 3 [EXEC] (per SKILL.md and its on-demand references) → Step 4 [GATE] (machine verifiers; FAIL trips the Oscillation Breaker) → Step 5 [NEXT] (prospec status, then back to Step 1).
 - WHEN the loop identifies the skill, THEN it uses the canonical skill identity and harness-neutral guidance; fallback paths derive from deployment metadata, never an absolute or hardcoded installation root.
+- WHEN Step 5 [NEXT] reads a route whose `code` is `ESCALATE_TO_HUMAN`, THEN the loop HALTs and emits an `EscalationReport` (`type: station_retry_limit_exceeded`) instead of returning to Step 1, and the Station Transition Gates table's Next Station column is left unchanged (the escalation is a loop-exit, not a routed station)
 
 ---
 
@@ -408,9 +410,9 @@ A pure resolver derives the next station's canonical skill identity from STATION
 
 #### REQ-SERVICES-092: status service attaches the resolved skill path
 The status service enriches each route with the next station's canonical skill identity and any resolvable deployment path, using the pure resolvers.
-- WHEN the service routes a non-terminal change, THEN it calls the identity resolver with the routed next station and sets nextSkill, and separately resolves nextSkillPath from the configured agents.
+- WHEN the service routes a change whose route resolves a next station (`next !== null`), THEN it calls the identity resolver with the routed next station and sets nextSkill, and separately resolves nextSkillPath from the configured agents.
 - WHEN config cannot be read or declares no agents, THEN nextSkill still identifies the routed station, nextSkillPath stays absent and routing is otherwise unchanged.
-- WHEN the route is terminal, THEN no nextSkill, skill path or reference map is fabricated.
+- WHEN the route has no next station (`next === null` — terminal `archived` or an `ESCALATE_TO_HUMAN` escalation), THEN no nextSkill, skill path or reference map is fabricated.
 - WHEN enrichment runs, THEN the filesystem stays byte-identical and current, next, code, blocking gates and reasons are unchanged; the existing reference-map projection and filtering are retained.
 
 ---
@@ -418,8 +420,8 @@ The status service enriches each route with the next station's canonical skill i
 #### REQ-CLI-039: status output surfaces the actionable skill target
 prospec status presents the canonical next-station skill identity as the primary actionable target and a resolvable skill path as a separate fallback field. It does not infer the running host or promise any lifecycle capability.
 - WHEN a routed change has nextSkill, THEN an action line below next names invoke skill prospec-<name> with guidance to follow the host loading policy; a nextSkillPath, if present, is printed separately as fallback: read <path> before station checks.
-- WHEN a non-terminal route has no configured agent, THEN the skill action is still present without a fabricated fallback directory.
-- WHEN the route is terminal, THEN no station action or fallback is printed and the existing terminal guidance is retained.
+- WHEN a route resolves a next station but has no configured agent, THEN the skill action is still present without a fabricated fallback directory.
+- WHEN the route has no next station (`next === null`), THEN no station action or fallback is printed; the terminal `archived` guidance is retained, and an `ESCALATE_TO_HUMAN` escalation prints its own HALT guidance (REQ-CLI-023) instead.
 - WHEN formatting, THEN existing status, issue, next, reference-map, gate, reason and warning output is retained, repository-derived values including fallback paths are sanitized, and no routing or capability decision is made by the formatter.
 
 ---

@@ -196,6 +196,20 @@ const KnowledgeSchema = z.object({
   generated_artifacts: z.array(z.string()).optional(),
 }).optional();
 
+const WorkflowSchema = z
+  .object({
+    max_station_retries: z.number().optional(),
+  })
+  .optional();
+
+export type WorkflowConfig = z.infer<typeof WorkflowSchema>;
+
+/**
+ * Default maximum consecutive failures before a station recovery loop escalates
+ * to human (REQ-TYPES-101).
+ */
+export const DEFAULT_MAX_STATION_RETRIES = 3;
+
 export const DEFAULT_BASE_DIR = 'prospec';
 
 /** Artifact language assumed when `.prospec.yaml` has no `artifact_language`. */
@@ -232,6 +246,7 @@ export const ProspecConfigSchema = z
     exclude: z.array(z.string()).optional(),
     agents: z.array(z.enum(VALID_AGENTS)).optional(),
     knowledge: KnowledgeSchema,
+    workflow: WorkflowSchema,
     artifact_language: z.string().optional(),
     trust_zone_language: z.string().optional(),
     skill_triggers: z.record(z.string(), z.array(z.string())).optional(),

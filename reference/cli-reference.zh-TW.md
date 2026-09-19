@@ -231,6 +231,7 @@ Entry Points、Dependencies、Config Files 沒有逐語言覆寫機制——未�
     - 以 `read:` 列出下一站的 reference 地圖——該站會抵達的每個載入點、要讀的部署路徑、用途，以及 `status` 無法判斷的條件提示。依變更已知的 scale 與 UI scope 過濾，並以 `fallback:` 同一個已設定 host 解析路徑；終端路由或未設定 agent 時不輸出，未帶 reference 的站則為空集合。站點指令抵達不代表其 references 已抵達。
     - `--json` 將整份 status 報告（含各變更的 `nextSkill`、`unresolvedWarnings` 與 `nextReferenceMap`）輸出至 stdout，供機器讀取。
     - 無任何進行中變更時，讀取 `prospec-report.json` 並回報其**狀態**：`--auto-draft` 會起草的 finding 數量，或該報告無法解析、或是對著不同的程式碼產生的（以 `change_digest` 比對）。無法信任的報告會如實回報，絕不當成「沒有漂移」。
+    - 當站點恢復迴圈（verify below-bar、plan verifier flaws、tasks verifier flaws）達到 `workflow.max_station_retries`（預設 3）時，`status` 會路由至 `next: null` 並帶穩定代碼 `ESCALATE_TO_HUMAN`，印出 HALT 指引與失敗摘要，不再無限循環回原站。
 
 - **`prospec change story <name> [options]`**
   - **核心用途**：建立新變更的目錄結構、`proposal.md` 骨架與 `metadata.yaml`（`status: story`）。
@@ -547,6 +548,7 @@ Prospec 的核心設定檔為專案根目錄的 `.prospec.yaml`。這是客製�
 - **`knowledge.additional_core_conventions`**：Prospec 的知識系統會在 Agent 啟動時預設載入 `_conventions.md`（與 `CONSTITUTION.md`）。如果你有其他全域共用的規範檔案（例如 API 規範、資安規範等）也希望能做為 Core Conventions (L1) 強制預先載入，可以將相對於 `ai-knowledge/` 的檔名加在這裡。
 - **`skill_triggers`**：允許客製化修改觸發特定 AI Skill 的關鍵字（可加入母語觸發詞）。
 - **`skill_exclusions`**：與 `skill_triggers` 同形狀——以母語說明該 skill「不負責什麼」的短語；`prospec agent sync` 會渲染為 skill description 之後的 `Not for:` 子句（未設定即無此子句）。
+- **`workflow.max_station_retries`**：限制站點恢復迴圈（verify below-bar、plan verifier flaws、tasks verifier flaws）的連續失敗次數，達上限時 `status` 會停止循環並交接給人類（預設 3，常數 `DEFAULT_MAX_STATION_RETRIES`）。
 
 `.prospec.yaml` 範例（每個欄位的完整逐欄註解參考，執行 `prospec config example`）：
 ```yaml
@@ -565,6 +567,8 @@ exclude:
 agents:
   - claude
   - antigravity
+workflow:
+  max_station_retries: 3
 knowledge:
   base_path: prospec/ai-knowledge
   strategy: domain

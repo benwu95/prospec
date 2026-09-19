@@ -46,7 +46,7 @@ Every station — whether reached via `prospec status` or by autonomous cascadin
 2. **Step 2 [ENTRY]** — Check the station's Entry Gates; if any FAILs, stop and resolve it before acting.
 3. **Step 3 [EXEC]** — Execute the station per its `SKILL.md` and the references it loads on demand; loading a station never means its references arrived.
 4. **Step 4 [GATE]** — Run the station's machine verifiers. On FAIL, apply the Oscillation Breaker (stop if state flips FAIL → PASS → FAIL ≥ 2) — never loop unbounded.
-5. **Step 5 [NEXT]** — Run `prospec status` for the next station, then return to Step 1.
+5. **Step 5 [NEXT]** — Run `prospec status` for the next station. When the route carries `code: ESCALATE_TO_HUMAN`, HALT immediately and emit an `EscalationReport` (`type: station_retry_limit_exceeded`) summarizing the failure streak and reasons — do NOT return to Step 1. Otherwise, return to Step 1.
 
 ---
 

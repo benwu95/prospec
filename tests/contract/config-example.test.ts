@@ -44,6 +44,7 @@ describe('config example completeness contract', () => {
         knowledgeShape.token_budget.unwrap().shape,
         obj.knowledge?.token_budget as Record<string, unknown> | undefined,
       ],
+      ['workflow', top.workflow.unwrap().shape, obj.workflow],
     ];
     for (const [label, shape, value] of nested) {
       for (const key of Object.keys(shape)) {
