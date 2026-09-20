@@ -137,6 +137,67 @@ Prose only.
   it('parses this repo-shaped Constitution deterministically (same input, same output)', () => {
     expect(parseConstitutionRules(TAGGED)).toEqual(parseConstitutionRules(TAGGED));
   });
+
+  describe('check_id and coverage extraction (REQ-LIB-032)', () => {
+    it('extracts check_id and coverage when covers clause is present', () => {
+      const doc = `## Principles
+
+### [MUST] Language Policy
+
+**Verify**: check: language-policy-drift; covers: change-artifact and trust-zone language compliance. Further prose here.
+`;
+      const rules = parseConstitutionRules(doc);
+      expect(rules).toHaveLength(1);
+      expect(rules[0]?.check_id).toBe('language-policy-drift');
+      expect(rules[0]?.coverage).toBe('change-artifact and trust-zone language compliance');
+      expect(rules[0]?.has_verify_hint).toBe(true);
+    });
+
+    it('extracts check_id without coverage when covers clause is absent', () => {
+      const doc = `## Principles
+
+### [MUST] One-way Dependency Direction
+
+**Verify**: check: import-direction. Lower layers do not import higher layers.
+`;
+      const rules = parseConstitutionRules(doc);
+      expect(rules).toHaveLength(1);
+      expect(rules[0]?.check_id).toBe('import-direction');
+      expect(rules[0]?.coverage).toBeUndefined();
+      expect(rules[0]?.has_verify_hint).toBe(true);
+    });
+
+    it('omits check_id and coverage when Verify has no check: declaration', () => {
+      const doc = `## Principles
+
+### [MUST] Freeform Verify Rule
+
+**Verify**: Manual check only by the reviewer.
+`;
+      const rules = parseConstitutionRules(doc);
+      expect(rules).toHaveLength(1);
+      expect(rules[0]?.check_id).toBeUndefined();
+      expect(rules[0]?.coverage).toBeUndefined();
+      expect(rules[0]?.has_verify_hint).toBe(true);
+    });
+
+    it('does not attach check_id or coverage from a hint preceding the first rule', () => {
+      const doc = `## Principles
+
+**Verify**: check: import-direction; covers: entire repo.
+
+### [MUST] Real First Rule
+
+**Verify**: Manual check.
+`;
+      const rules = parseConstitutionRules(doc);
+      expect(rules).toHaveLength(1);
+      expect(rules[0]?.name).toBe('Real First Rule');
+      expect(rules[0]?.check_id).toBeUndefined();
+      expect(rules[0]?.coverage).toBeUndefined();
+      expect(rules[0]?.has_verify_hint).toBe(true);
+    });
+  });
 });
 
 // The line-ending family (issue #140). Every pattern here is `$`-anchored on a

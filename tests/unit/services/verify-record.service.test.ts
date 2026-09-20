@@ -6,6 +6,7 @@ import { PrerequisiteError } from '../../../src/types/errors.js';
 import type { QualityDimension } from '../../../src/types/change.js';
 import { RELAYED_FIELD_MAX_CHARS } from '../../../src/types/station.js';
 import { EVIDENCE_SECTION_MARKER } from '../../../src/lib/delegated-evidence.js';
+import type { ConstitutionRuleEntry } from '../../../src/types/drift-report.js';
 
 vi.mock('node:fs', async () => {
   const memfs = await import('memfs');
@@ -26,8 +27,16 @@ const CWD = '/repo';
 const META = '/repo/.prospec/changes/add-widget/metadata.yaml';
 
 function report(
-  statuses: { tc?: string; kh?: string; tp?: string; rp?: string; cs?: string } = {},
-  extra: { digest?: string | null; skipReason?: string; subjects?: string[]; omitSubjects?: boolean; failingChange?: string } = {},
+  statuses: { tc?: string; kh?: string; tp?: string; rp?: string; cs?: string; lp?: string; id?: string } = {},
+  extra: {
+    digest?: string | null;
+    skipReason?: string;
+    subjects?: string[];
+    omitSubjects?: boolean;
+    failingChange?: string;
+    constitution?: { rules: ConstitutionRuleEntry[] };
+    extraChecks?: Array<{ id: string; status: string; reason?: string }>;
+  } = {},
 ): string {
   // Change-scoped checks enumerate their subjects (the target by default) and
   // anchor a fail under the target's change dir — the engine's own shape, so the
@@ -50,6 +59,9 @@ function report(
   // them, so the shared fixtures do not trip Gate A / Gate D1 by default.
   checks.push(check('review-provenance', statuses.rp ?? 'pass'));
   if (statuses.cs !== undefined) checks.push(check('constitution-severity', statuses.cs));
+  if (statuses.lp !== undefined) checks.push(check('language-policy-drift', statuses.lp));
+  if (statuses.id !== undefined) checks.push(check('import-direction', statuses.id));
+  if (extra.extraChecks !== undefined) checks.push(...extra.extraChecks);
   return JSON.stringify({
     version: 1,
     generated_at: '2026-07-30T00:00:00.000Z',
@@ -57,6 +69,7 @@ function report(
     structural: {
       checks,
       findings,
+      ...(extra.constitution !== undefined ? { constitution: extra.constitution } : {}),
     },
     semantic: { status: 'not-checked' },
     summary: { fail_count: 0, warn_count: 0, skipped_count: 0 },
@@ -615,3 +628,211 @@ describe('verify-record — per-change adjudication (REQ-TEMPLATES-131 / issue #
     expect(result.dimensions.find((d) => d.name === 'tests')?.result).toBe('not-adjudicated');
   });
 });
+
+describe('verify-record — constitution audit integration (REQ-SERVICES-113)', () => {
+  const constitutionReport = (extraOpts: { lpStatus?: string; csStatus?: string; extraRules?: ConstitutionRuleEntry[] } = {}) =>
+    report(
+      { cs: extraOpts.csStatus ?? 'pass', lp: extraOpts.lpStatus ?? 'pass' },
+      {
+        constitution: {
+          rules: [
+            {
+              name: 'Language Policy',
+              severity: 'MUST',
+              has_verify_hint: true,
+              line: 10,
+              check_id: 'language-policy-drift',
+              coverage: 'change artifacts only',
+            },
+            {
+              name: 'INVEST Criteria',
+              severity: 'MUST',
+              has_verify_hint: true,
+              line: 20,
+            },
+            ...(extraOpts.extraRules ?? []),
+          ],
+        },
+      },
+    );
+
+  it('incorporates constitution_rules, accepts valid statements, and advances status', async () => {
+    seed({ reportJson: constitutionReport() });
+    const dimsPath = '/repo/dimensions.json';
+    vol.writeFileSync(
+      dimsPath,
+      JSON.stringify([
+        { name: 'delta-spec-compliance', result: 'PASS', graded_by: 'fresh-subagent' },
+        {
+          name: 'constitution',
+          result: 'PASS',
+          graded_by: 'fresh-subagent',
+          constitution_rules: [
+            { name: 'Language Policy', result: 'PASS', statement: 'Follows conventions' },
+            { name: 'INVEST Criteria', result: 'PASS', statement: 'Follows INVEST' },
+          ],
+        },
+        { name: 'design', result: 'not-applicable', graded_by: 'fresh-subagent' },
+      ]),
+    );
+
+    const result = await execute({ cwd: CWD, dimensionsPath: dimsPath, judgmentDimensions: [], warnings: [] });
+    expect(result.grade).toBe('S');
+    expect(result.statusAdvanced).toBe(true);
+  });
+
+  it('refuses before write when grader entry flips machine verdict', async () => {
+    seed({ reportJson: constitutionReport() });
+    const dimsPath = '/repo/dimensions.json';
+    vol.writeFileSync(
+      dimsPath,
+      JSON.stringify([
+        { name: 'delta-spec-compliance', result: 'PASS', graded_by: 'fresh-subagent' },
+        {
+          name: 'constitution',
+          result: 'PASS',
+          graded_by: 'fresh-subagent',
+          constitution_rules: [
+            // Machine verdict is PASS; grader tries to flip to FAIL
+            { name: 'Language Policy', result: 'FAIL', statement: 'Violation' },
+            { name: 'INVEST Criteria', result: 'PASS', statement: 'Follows INVEST' },
+          ],
+        },
+        { name: 'design', result: 'not-applicable', graded_by: 'fresh-subagent' },
+      ]),
+    );
+
+    await expect(
+      execute({ cwd: CWD, dimensionsPath: dimsPath, judgmentDimensions: [], warnings: [] }),
+    ).rejects.toThrow(PrerequisiteError);
+    // Metadata remains implemented, not verified
+    expect(vol.readFileSync(META, 'utf-8')).toContain('status: implemented');
+  });
+
+  it('refuses before write naming a required rule whose statement is missing', async () => {
+    // Required: Language Policy (has covers) + INVEST Criteria (no check_id)
+    seed({ reportJson: constitutionReport() });
+    const dimsPath = '/repo/dimensions.json';
+    vol.writeFileSync(
+      dimsPath,
+      JSON.stringify([
+        { name: 'delta-spec-compliance', result: 'PASS', graded_by: 'fresh-subagent' },
+        {
+          name: 'constitution',
+          result: 'PASS',
+          graded_by: 'fresh-subagent',
+          constitution_rules: [
+            // Language Policy carries no statement — it is a required rule
+            { name: 'Language Policy', result: 'PASS' },
+            { name: 'INVEST Criteria', result: 'PASS', statement: 'Follows INVEST' },
+          ],
+        },
+        { name: 'design', result: 'not-applicable', graded_by: 'fresh-subagent' },
+      ]),
+    );
+
+    await expect(
+      execute({ cwd: CWD, dimensionsPath: dimsPath, judgmentDimensions: [], warnings: [] }),
+    ).rejects.toThrow(/missing a grader statement.*Language Policy/i);
+    expect(vol.readFileSync(META, 'utf-8')).toContain('status: implemented');
+  });
+
+  it('refuses the flag form with an actionable message when the Constitution declares checks (F-6)', async () => {
+    // Flag form (--dimension constitution=PASS) has no constitution_rules channel,
+    // so a Constitution that declares checks cannot be graded through it.
+    seed({ reportJson: constitutionReport() });
+    let caught: unknown;
+    try {
+      await execute({
+        cwd: CWD,
+        judgmentDimensions: judgment({ constitution: 'PASS' }),
+        warnings: [],
+        date: '2026-08-29',
+      });
+    } catch (e) {
+      caught = e;
+    }
+    expect(caught).toBeInstanceOf(PrerequisiteError);
+    // Names the missing rules AND points to the --dimensions file form
+    expect((caught as PrerequisiteError).suggestion).toMatch(/--dimensions file form/);
+    expect((caught as Error).message).toMatch(/Language Policy/);
+    expect(vol.readFileSync(META, 'utf-8')).toContain('status: implemented');
+  });
+
+  it('accepts a legacy payload carrying score and ignores score', async () => {
+    seed({ reportJson: constitutionReport() });
+    const dimsPath = '/repo/dimensions.json';
+    vol.writeFileSync(
+      dimsPath,
+      JSON.stringify([
+        { name: 'delta-spec-compliance', result: 'PASS', graded_by: 'fresh-subagent', score: 5 },
+        {
+          name: 'constitution',
+          result: 'PASS',
+          graded_by: 'fresh-subagent',
+          score: 4,
+          constitution_rules: [
+            { name: 'Language Policy', result: 'PASS', statement: 'Good' },
+            { name: 'INVEST Criteria', result: 'PASS', statement: 'Good' },
+          ],
+        },
+        { name: 'design', result: 'not-applicable', graded_by: 'fresh-subagent', score: 5 },
+      ]),
+    );
+
+    const result = await execute({ cwd: CWD, dimensionsPath: dimsPath, judgmentDimensions: [], warnings: [] });
+    expect(result.grade).toBe('S');
+    expect(result.statusAdvanced).toBe(true);
+  });
+
+  it('runs original backward-compat path when Constitution declares no check:', async () => {
+    // Constitution with no check_id declared
+    const noCheckReport = report(
+      {},
+      {
+        constitution: {
+          rules: [
+            { name: 'Rule 1', severity: 'MUST', has_verify_hint: false, line: 10 },
+            { name: 'Rule 2', severity: 'SHOULD', has_verify_hint: false, line: 20 },
+          ],
+        },
+      },
+    );
+    seed({ reportJson: noCheckReport });
+    const result = await execute({
+      cwd: CWD,
+      judgmentDimensions: judgment(),
+      warnings: [],
+      date: '2026-08-29',
+    });
+    expect(result.grade).toBe('S');
+    expect(result.statusAdvanced).toBe(true);
+  });
+
+  it('floors constitution dimension when machine sub-ledger reports FAIL or WARN', async () => {
+    // Language policy fails
+    seed({ reportJson: constitutionReport({ lpStatus: 'fail' }) });
+    const dimsPath = '/repo/dimensions.json';
+    vol.writeFileSync(
+      dimsPath,
+      JSON.stringify([
+        { name: 'delta-spec-compliance', result: 'PASS', graded_by: 'fresh-subagent' },
+        {
+          name: 'constitution',
+          result: 'PASS', // Grader says PASS, but machine ledger is FAIL
+          graded_by: 'fresh-subagent',
+          constitution_rules: [
+            { name: 'Language Policy', result: 'FAIL', statement: 'Failed' },
+            { name: 'INVEST Criteria', result: 'PASS', statement: 'Good' },
+          ],
+        },
+        { name: 'design', result: 'not-applicable', graded_by: 'fresh-subagent' },
+      ]),
+    );
+
+    await expect(
+      execute({ cwd: CWD, dimensionsPath: dimsPath, judgmentDimensions: [], warnings: [] }),
+    ).rejects.toThrow(/cannot be more lenient than a machine/);
+  });
+});
+

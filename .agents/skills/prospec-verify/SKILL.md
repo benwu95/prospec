@@ -179,12 +179,11 @@ Mark each item PASS / WARN / FAIL.
 
 ### Verification 3/5: Constitution Full Audit — `[mixed]`
 
-Check **every principle** in the Constitution — but not from your own reading of the file: **the rule
-list and severities are machine-supplied; the violation judgment is yours.** Read
-`structural.constitution.rules[]` from the report — one entry per principle, each with its `name`,
-RFC-2119 `severity`, and whether it carries a `Verify` hint — and audit **1:1 against that
-inventory**: your statement count must be ≥ the inventory's entry count. This removes the two
-failure modes an unaided read has: silently skipping a principle, and re-assigning its severity.
+Check **every principle** in the Constitution: **the rule list and severities are machine-supplied;
+the violation judgment is yours.** Read `structural.constitution.rules[]` from the report — each with
+`name`, RFC-2119 `severity`, and `Verify` hint — and audit against that inventory: a
+statement for each rule with no `check:`, each `covers:` gap, and each not-adjudicated
+declared rule (`verify record` refuses naming any it lacks).
 - **Take each severity from the inventory** — never re-derive or re-assign it. Map a violation by
   weight: **MUST → FAIL**, **SHOULD → WARN**; a **MAY** is advisory, so a violation is an
   informational note that does NOT affect the grade (grade vocabulary stays PASS/WARN/FAIL).
@@ -194,12 +193,11 @@ failure modes an unaided read has: silently skipping a principle, and re-assigni
   no principles), state so and audit from the file directly — this dimension is mixed, so the
   judgment half still runs; record the WARN for the missing inventory (budget-counted like every
   other WARN — there is no exemption class).
-- Find **evidence** from implementation code and planning documents; mark PASS / WARN / FAIL with
-  score (1-5). A rule's `Verify` hint guides the check (mechanically-checkable rules use it directly;
-  others are interpretive).
+- **Machine sub-ledger**: a declared rule's verdict is CLI-filled from the report, and a grader verdict may only add a WARN on top of a machine PASS. The grader writes a statement for each rule with no `check:`, each `covers:` gap, and each not-adjudicated declared rule. The grader can never flip a machine verdict.
+- Find **evidence** from code and planning; mark PASS / WARN / FAIL. Every PASS must carry checkable evidence (file, command, or REQ id). A rule's `Verify` hint guides the check.
 - **`metadata.scale: backfill`**: pre-existing code-quality debt is informational; see [`references/verify-backfill.md`](references/verify-backfill.md).
 - FAIL items must include specific remediation steps
-- **Call Chain ↔ layering**: if `plan.md` declares a Call Chain, confirm the implementation matches it and introduces no layering violation against the Constitution's dependency/layering rule (a layer reaching past its neighbor, business logic in the entry/transport layer, a skipped data-access layer, or a side effect emitted before commit). Plan-declared clean layering but dirty implementation → FAIL.
+- **Call Chain ↔ layering**: if `plan.md` declares a Call Chain, confirm the implementation matches it and introduces no layering violation against the Constitution's dependency/layering rule. Plan-declared clean layering but dirty implementation → FAIL.
 
 ### Verification 4/5: Knowledge ↔ Implementation Consistency — `[machine]`
 
@@ -402,7 +400,7 @@ WARN items are deployment risks — recommend resolving before `prospec-archive`
 - [ ] all applicable dimensions executed (6 dimension sections for standard/full; `scale: quick` uses the condensed table — one row per applicable dimension, 2/5 shown as `not-applicable`, 6 only when `ui_scope != none`)
 - [ ] each dimension graded PASS/WARN/FAIL/not-applicable/not-adjudicated with evidence, and its adjudicator named (manual)
 - [ ] every machine dimension's result equals its check's status in the report (no re-grading)
-- [ ] 3/5 statements >= `structural.constitution.rules[]` entry count (or the missing-inventory WARN recorded)
+- [ ] 3/5 has a statement for each rule with no `check:`, each `covers:` gap, and each not-adjudicated declared rule (or the missing-inventory WARN recorded)
 - [ ] status updated per grade (S/A -> verified)
 - [ ] FAIL items include remediation steps
 

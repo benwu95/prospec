@@ -115,20 +115,21 @@ structured facts behind its `detail` (additive, so a report without it still val
 ```jsonc
 {
   "rules": [
-    { "name": "Language Policy", "severity": "MUST", "has_verify_hint": true, "line": 10 },
+    { "name": "Language Policy", "severity": "MUST", "has_verify_hint": true, "line": 10, "check_id": "language-policy-drift", "coverage": "Description matches generated text" },
     { "name": "Legacy untagged rule", "severity": null, "has_verify_hint": false, "line": 42 }
   ]
 }
 ```
 
 - One entry per `###` heading in the Constitution's `## Principles` section, in file order.
+- Each entry carries `name`, `severity`, `has_verify_hint`, `line`, plus optional `check_id` and `coverage` when declared in a `**Verify**:` line (`check: <id>[; covers: <scope>]`).
 - `severity` ∈ `MUST` | `SHOULD` | `MAY` | `null`. `null` = no RFC-2119 tag — **never** defaulted;
   `constitution-severity` warns on it.
 - When the inventory has rules but **no project-authored** principle (only the seeded examples +
   Language Policy remain after subtracting the starter set), `constitution-severity` warns with one
   whole-document finding (no `line`): nothing real to grade.
-- `prospec-verify` 3/5 audits **1:1 against this list** (statement count ≥ entry count), taking each
-  severity from here, not re-reading the file — so no rule is skipped or reassigned. Judging a
+- `prospec-verify` 3/5 audits against this list: a statement for each rule with no `check:`, a `covers:` gap, or a not-adjudicated check, taking each
+  severity from here and filling machine verdicts from declared `check_id`s, not re-reading the file — so no rule is skipped or reassigned. Judging a
   violation stays with the agent.
 - The whole object is **optional** (absent when the Constitution is missing or declares no
   principles) → audit from the file and record the missing-inventory WARN.

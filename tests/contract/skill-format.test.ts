@@ -24,7 +24,9 @@ import {
 import type { ValidAgent, ProspecConfig } from '../../src/types/config.js';
 import { resolveKnowledgeTokenBudget } from '../../src/lib/config.js';
 import { buildIndexTemplateContext } from '../../src/lib/index-template.js';
-import { DRIFT_CHECK_IDS, KnowledgeHealthModuleSchema } from '../../src/types/drift-report.js';
+import { DRIFT_CHECK_IDS, KnowledgeHealthModuleSchema, ConstitutionRuleEntrySchema } from '../../src/types/drift-report.js';
+import { isLegalCheckId } from '../../src/lib/constitution-audit.js';
+import { parseConstitutionRules } from '../../src/lib/constitution-parser.js';
 import { DEFAULT_KNOWLEDGE_TOKEN_BUDGET, isShippedBudgetField } from '../../src/types/config.js';
 import {
   PLANNING_VERDICTS,
@@ -548,6 +550,34 @@ describe('Skill Format Contract', () => {
       // the frozen contract without documenting it here fails immediately.
       for (const key of Object.keys(KnowledgeHealthModuleSchema.shape)) {
         expect(shape, `knowledge_health shape must document the "${key}" key`).toContain(key);
+      }
+    });
+
+    it('drift-report-format enumerates every constitution rule key the schema defines (REQ-TEMPLATES-157)', () => {
+      const ref = render('skills/references/drift-report-format.hbs');
+      const start = ref.indexOf('## `structural.constitution`');
+      expect(start, 'constitution section not found').toBeGreaterThan(-1);
+      const nextHeading = ref.indexOf('\n## ', start + 1);
+      const section = ref.slice(start, nextHeading === -1 ? undefined : nextHeading);
+      const fence = /```jsonc\n([\s\S]*?)```/.exec(section);
+      expect(fence, 'constitution section must carry a jsonc shape block').not.toBeNull();
+      const shape = fence![1]!;
+      expect(shape, 'jsonc shape block sliced empty').toContain('"rules"');
+      for (const key of Object.keys(ConstitutionRuleEntrySchema.shape)) {
+        expect(shape, `constitution rules shape must document the "${key}" key`).toContain(key);
+      }
+    });
+
+    it('every declared check_id in prospec/CONSTITUTION.md is legal (REQ-TESTS-057)', () => {
+      const content = fs.readFileSync(path.resolve(process.cwd(), 'prospec/CONSTITUTION.md'), 'utf-8');
+      const rules = parseConstitutionRules(content);
+      const declaredRules = rules.filter((r) => r.check_id !== undefined && r.check_id !== null);
+      expect(declaredRules.length, 'must have at least one declared rule').toBeGreaterThanOrEqual(4);
+      for (const rule of declaredRules) {
+        expect(
+          isLegalCheckId(rule.check_id!),
+          `declared check_id "${rule.check_id}" on rule "${rule.name}" must be legal (a DRIFT_CHECK_IDS member)`,
+        ).toBe(true);
       }
     });
 
@@ -4232,8 +4262,12 @@ describe('Startup Loading cache-stable prefix ordering (REQ-TEMPLATES-080/081)',
    * Reference anchor raised 46_639 → 46_700 when `cascade-protocol` gained the Step 5
    * HALT on ESCALATE_TO_HUMAN and `circuit-breaker` its `station_retry_limit_exceeded`
    * trigger (bound-recovery-loops).
+   *
+   * Reference anchor raised 46_700 → 46_823 when `delegated-evidence-format`
+   * gained `constitution_rules` projection and `drift-report-format` gained
+   * `check_id`/`coverage` on `rules[]` (declare-constitution-checks).
    */
-  const REFERENCE_CEILING_ANCHOR = 46_700;
+  const REFERENCE_CEILING_ANCHOR = 46_823;
   const CUMULATIVE_CEILING_ANCHOR = 87_953;
 
   const renderSkill = (name: string) => {
@@ -6431,13 +6465,23 @@ describe('Structured quality_log + escaped-defect registration (issue #61)', () 
       expect(tests).toContain('never suppress a recorded non-zero exit');
     });
 
-    it('requires a 1:1 Constitution audit against the machine rule inventory', () => {
+    it('requires Constitution audit against machine inventory with declared rules and new threshold (REQ-TESTS-057)', () => {
       const section = sectionOf(verify(), '### Verification 3/5: Constitution Full Audit — `[mixed]`');
       expect(section).toContain('structural.constitution.rules[]');
-      expect(section).toMatch(/statement count must be ≥ the inventory's entry count/);
+      expect(flat(section)).toMatch(/a statement for each rule with no `check:`, each `covers:` gap, and each not-adjudicated declared rule/);
       expect(section).toContain('never re-derive or re-assign it');
+      // machine sub-ledger: CLI-filled, grader may only add WARN
+      expect(flat(section)).toContain(
+        "a declared rule's verdict is CLI-filled from the report, and a grader verdict may only add a WARN",
+      );
+      expect(section).toContain('The grader can never flip a machine verdict');
+      // removal of 1-5 score prose
+      expect(section).not.toMatch(/score\s*\(\s*1\s*-\s*5\s*\)/i);
       // untagged rules still fall back to judgment grading (backward-compatible)
       expect(section).toContain('null');
+
+      const criteria = sectionOf(verify(), '### Success Criteria');
+      expect(flat(criteria)).toMatch(/3\/5 has a statement for each rule with no `check:`, each `covers:` gap, and each not-adjudicated declared rule/);
     });
 
     it('requires fresh context for 2/5 and 6, with an explicit degradation disclosure', () => {
@@ -6495,7 +6539,7 @@ describe('Structured quality_log + escaped-defect registration (issue #61)', () 
       const inventory = sectionOf(ref, '## `structural.constitution` (optional) — the rule inventory verify audits against');
       expect(inventory).toContain('severity');
       expect(inventory).toContain('null');
-      expect(inventory).toContain('1:1');
+      expect(inventory).toContain('a not-adjudicated check');
       const sibling = sectionOf(ref, '## Sibling report — `escaped-defect-report.json`');
       expect(sibling).toContain('escaped_rate');
       expect(sibling).toContain('sample_count: 0');

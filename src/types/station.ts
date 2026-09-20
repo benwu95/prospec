@@ -300,6 +300,13 @@ export const MACHINE_DIMENSION_NAMES = VERIFY_DIMENSIONS.filter(
   (d) => d.adjudicator === 'machine',
 ).map((d) => d.name);
 
+export const ConstitutionRuleJudgmentSchema = z.object({
+  name: z.string().min(1),
+  result: z.enum(DIMENSION_RESULTS),
+  statement: z.string().optional(),
+});
+export type ConstitutionRuleJudgment = z.infer<typeof ConstitutionRuleJudgmentSchema>;
+
 /**
  * One judgment dimension's verdict as the grader reports it — the richer of the
  * two input forms `verify record` accepts (the other is the repeatable
@@ -309,33 +316,45 @@ export const MACHINE_DIMENSION_NAMES = VERIFY_DIMENSIONS.filter(
  * delegate to a fresh context and both get the prose back, so a second set of
  * numbers here would be a second payload contract to keep in step.
  */
-export const JudgmentDimensionInputSchema = z.object({
-  /** Rendered as the block anchor AND its heading — a raw line, so bounded.
-   *  Shares the `id` ceiling (it plays the same structural role) but is refused
-   *  under its OWN name: a message reading "id is 101 characters" would send the
-   *  caller looking for a field its payload does not have. */
-  name: relayedString('id', 'name'),
-  result: z.enum(DIMENSION_RESULTS),
-  /** The grading context, REQUIRED for a judgment verdict: `fresh-subagent` or
-   *  `in-session`. Self-declared — the CLI cannot detect it — and load-bearing:
-   *  `in-session` caps the grade below S. Required here (not `.optional()`) so a
-   *  file-form entry omitting it is refused at the schema layer, matching the
-   *  flag form's service-layer refusal. */
-  graded_by: z.enum(DIMENSION_GRADED_BY),
-  /** Free-string self-report of the grading executor (model / harness). Optional
-   *  and non-blocking — recorded for future per-executor statistics (no station
-   *  consumes it yet), not a gate. */
-  executor: z.string().min(1).optional(),
-  /** Self-reported tokens spent on this verdict — the detection-per-cost
-   *  denominator. Optional and non-blocking. */
-  spend: z.number().int().nonnegative().optional(),
-  /** One-line verdict rationale — relayed, so bounded. */
-  summary: relayedString('summary').optional(),
-  /** The command that re-establishes this verdict. */
-  repro: relayedString('repro').optional(),
-  /** Full grading evidence, written to verify.md. Uncapped — never relayed. */
-  evidence: z.string().min(1).optional(),
-});
+export const JudgmentDimensionInputSchema = z
+  .object({
+    /** Rendered as the block anchor AND its heading — a raw line, so bounded.
+     *  Shares the `id` ceiling (it plays the same structural role) but is refused
+     *  under its OWN name: a message reading "id is 101 characters" would send the
+     *  caller looking for a field its payload does not have. */
+    name: relayedString('id', 'name'),
+    result: z.enum(DIMENSION_RESULTS),
+    /** The grading context, REQUIRED for a judgment verdict: `fresh-subagent` or
+     *  `in-session`. Self-declared — the CLI cannot detect it — and load-bearing:
+     *  `in-session` caps the grade below S. Required here (not `.optional()`) so a
+     *  file-form entry omitting it is refused at the schema layer, matching the
+     *  flag form's service-layer refusal. */
+    graded_by: z.enum(DIMENSION_GRADED_BY),
+    /** Free-string self-report of the grading executor (model / harness). Optional
+     *  and non-blocking — recorded for future per-executor statistics (no station
+     *  consumes it yet), not a gate. */
+    executor: z.string().min(1).optional(),
+    /** Self-reported tokens spent on this verdict — the detection-per-cost
+     *  denominator. Optional and non-blocking. */
+    spend: z.number().int().nonnegative().optional(),
+    /** One-line verdict rationale — relayed, so bounded. */
+    summary: relayedString('summary').optional(),
+    /** The command that re-establishes this verdict. */
+    repro: relayedString('repro').optional(),
+    /** Full grading evidence, written to verify.md. Uncapped — never relayed. */
+    evidence: z.string().min(1).optional(),
+    /** Per-rule constitution verdicts, meaningful only for the constitution dimension (additive). */
+    constitution_rules: z.array(ConstitutionRuleJudgmentSchema).optional(),
+  })
+  .superRefine((val, ctx) => {
+    if (val.name !== 'constitution' && val.constitution_rules !== undefined) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'constitution_rules is only permitted on the constitution dimension',
+        path: ['constitution_rules'],
+      });
+    }
+  });
 export type JudgmentDimensionInput = z.infer<typeof JudgmentDimensionInputSchema>;
 
 /** The `--dimensions` payload: one verify run's judgment verdicts. */

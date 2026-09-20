@@ -58,6 +58,7 @@ silently drift.
 - `summary`: non-empty, bounded single-line string (optional)
 - `repro`: non-empty, bounded single-line command (optional)
 - `evidence`: non-empty full prose string (optional; never relayed)
+- `constitution_rules`: array of per-rule audit entries, valid only on the constitution dimension (optional)
 
 ## Physical Receipt Verification Protocol
 

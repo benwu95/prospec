@@ -24,11 +24,13 @@ import {
   findUnsafeBlockField,
   isUnsafeRawLine,
   renderEvidenceSection,
+  containsEvidenceMarker,
   EVIDENCE_MARKER_PREFIX,
   type EvidenceBlock,
 } from '../lib/delegated-evidence.js';
 import { assessCurrentDrift } from '../lib/drift-assessment.js';
-import { adjudicateChangeCheck } from '../lib/change-gate.js';
+import { adjudicateChangeCheck, mapCheckStatusToVerdict } from '../lib/change-gate.js';
+import { auditConstitution } from '../lib/constitution-audit.js';
 import type { DriftCheckId } from '../types/drift-report.js';
 import {
   computeGrade,
@@ -146,6 +148,16 @@ function readJudgmentInput(dimensionsPath: string): JudgmentDimensionInput[] {
         `Dimension ${d.name} carries \`${EVIDENCE_MARKER_PREFIX}\` (or a line break) in its ${unsafe === 'key' ? 'name' : unsafe === 'heading' ? 'result' : 'summary or evidence'} — that marker is the evidence-block grammar`,
         `Remove or rephrase it in that dimension's prose; nothing was written`,
       );
+    }
+    if (d.constitution_rules) {
+      for (const cr of d.constitution_rules) {
+        if (cr.statement && containsEvidenceMarker(cr.statement)) {
+          throw new PrerequisiteError(
+            `Dimension ${d.name} constitution_rule "${cr.name}" statement carries \`${EVIDENCE_MARKER_PREFIX}\` — that marker is the evidence-block grammar`,
+            `Remove or rephrase it in that rule's statement; nothing was written`,
+          );
+        }
+      }
     }
   }
   return parsed.data;
@@ -281,6 +293,50 @@ export async function execute(options: VerifyRecordOptions): Promise<VerifyRecor
   const assessment = await assessCurrentDrift(cwd);
   const { report } = assessment;
 
+  const constitutionRules = report.structural.constitution?.rules ?? [];
+  const constitutionInput = judgmentInput.find((d) => d.name === 'constitution');
+  const graderConstitutionRules = constitutionInput?.constitution_rules;
+
+  const resolveStatus = (checkId: string) =>
+    adjudicateChangeCheck(report, checkId as DriftCheckId, changeName).status;
+
+  const constitutionAudit = auditConstitution({
+    rules: constitutionRules,
+    resolveStatus,
+    graderEntries: graderConstitutionRules,
+  });
+
+  const hasDeclaredChecks = constitutionAudit.machineLedger.length > 0;
+  if (hasDeclaredChecks || graderConstitutionRules !== undefined) {
+    if (constitutionAudit.violations.length > 0) {
+      throw new PrerequisiteError(
+        `Constitution audit anti-flip violation: ${constitutionAudit.violations.map((v) => v.reason).join('; ')}`,
+        'Grader may only keep the machine verdict or add a WARN over a machine PASS for declared rules; nothing was written',
+      );
+    }
+    const suppliedStatements = new Set(
+      (graderConstitutionRules ?? [])
+        .filter((r) => typeof r.statement === 'string' && r.statement.trim().length > 0)
+        .map((r) => r.name),
+    );
+    const missingStatements = constitutionAudit.requiredStatements.filter(
+      (name) => !suppliedStatements.has(name),
+    );
+    if (missingStatements.length > 0) {
+      // The flag form (`--dimension constitution=PASS`) has no constitution_rules
+      // channel, so a Constitution that declares checks can only be graded through
+      // the file form — say so instead of an uncrossable count.
+      const remedy =
+        graderConstitutionRules === undefined
+          ? `This Constitution declares checks, so the constitution dimension must be graded through the --dimensions file form — give each rule a constitution_rules[] entry with a non-empty statement (the --dimension flag form cannot carry them). Missing: ${missingStatements.join(', ')}. Nothing was written`
+          : `Provide a non-empty statement for each non-mechanized rule, partial-coverage gap, and unadjudicated check. Missing: ${missingStatements.join(', ')}. Nothing was written`;
+      throw new PrerequisiteError(
+        `Constitution audit is missing a grader statement for ${missingStatements.length} rule(s): ${missingStatements.join(', ')}`,
+        remedy,
+      );
+    }
+  }
+
   // Gate A — the review-provenance Entry Gate, enforced here so the verify skill
   // no longer checks it by hand: a non-backfill change whose review-provenance,
   // adjudicated for THIS change, is not `pass` (review absent, stale, or the
@@ -316,14 +372,7 @@ export async function execute(options: VerifyRecordOptions): Promise<VerifyRecor
     if (verdict.reason !== undefined) {
       machineSkipReasons.set(name, verdict.reason);
     }
-    const result =
-      verdict.status === 'pass'
-        ? ('PASS' as const)
-        : verdict.status === 'warn'
-          ? ('WARN' as const)
-          : verdict.status === 'fail'
-            ? ('FAIL' as const)
-            : ('not-adjudicated' as const);
+    const result = mapCheckStatusToVerdict(verdict.status);
     return { name, result, adjudicator: 'machine' as const };
   });
 
@@ -332,15 +381,33 @@ export async function execute(options: VerifyRecordOptions): Promise<VerifyRecor
   // report pass/skipped/absent sets no floor (a judgment may still be stricter).
   for (const d of judgmentVerdicts) {
     const checkId = JUDGMENT_MACHINE_COUNTERPART[d.name];
-    if (checkId === undefined) continue;
-    const check = report.structural.checks.find((c) => c.id === checkId);
-    if (!check || (check.status !== 'fail' && check.status !== 'warn')) continue;
-    const floor = check.status === 'fail' ? 2 : 1;
-    if (verdictRank(d.result) < floor) {
-      throw new PrerequisiteError(
-        `judgment dimension "${d.name}" is declared "${d.result}" but the report's ${checkId} check reports "${check.status}" — a judgment cannot be more lenient than a machine finding`,
-        `Grade "${d.name}" at least ${check.status === 'fail' ? 'FAIL' : 'WARN'}, or fix the violation and regenerate the report before recording`,
-      );
+    if (checkId !== undefined) {
+      const check = report.structural.checks.find((c) => c.id === checkId);
+      if (check && (check.status === 'fail' || check.status === 'warn')) {
+        const floor = check.status === 'fail' ? 2 : 1;
+        if (verdictRank(d.result) < floor) {
+          throw new PrerequisiteError(
+            `judgment dimension "${d.name}" is declared "${d.result}" but the report's ${checkId} check reports "${check.status}" — a judgment cannot be more lenient than a machine finding`,
+            `Grade "${d.name}" at least ${check.status === 'fail' ? 'FAIL' : 'WARN'}, or fix the violation and regenerate the report before recording`,
+          );
+        }
+      }
+    }
+    if (d.name === 'constitution') {
+      for (const entry of constitutionAudit.machineLedger) {
+        if (entry.verdict === 'FAIL' && verdictRank(d.result) < 2) {
+          throw new PrerequisiteError(
+            `judgment dimension "${d.name}" is declared "${d.result}" but machine check "${entry.check_id}" for rule "${entry.rule_name}" reports "fail" — a judgment cannot be more lenient than a machine finding`,
+            `Grade "${d.name}" at least FAIL, or fix the violation and regenerate the report before recording`,
+          );
+        }
+        if (entry.verdict === 'WARN' && verdictRank(d.result) < 1) {
+          throw new PrerequisiteError(
+            `judgment dimension "${d.name}" is declared "${d.result}" but machine check "${entry.check_id}" for rule "${entry.rule_name}" reports "warn" — a judgment cannot be more lenient than a machine finding`,
+            `Grade "${d.name}" at least WARN, or fix the violation and regenerate the report before recording`,
+          );
+        }
+      }
     }
   }
 
@@ -363,9 +430,14 @@ export async function execute(options: VerifyRecordOptions): Promise<VerifyRecor
       return `${d.name}: not-adjudicated — its check could not run (${reason ?? 'no skip reason recorded in the report'})`;
     });
 
+  const constitutionNotAdjWarnings: string[] = constitutionAudit.machineLedger
+    .filter((entry) => entry.verdict === 'not-adjudicated' && !excludedFromGrade.includes('constitution'))
+    .map((entry) => `constitution: rule "${entry.rule_name}" check "${entry.check_id}" not-adjudicated — its check could not run`);
+
   const warnings = [
     ...options.warnings,
     ...notAdjudicatedWarnings,
+    ...constitutionNotAdjWarnings,
     ...(backfillHonestyWarning ? [backfillHonestyWarning] : []),
   ];
 

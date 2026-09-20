@@ -261,6 +261,42 @@ describe('check.service execute', () => {
     expect(result.report.structural.constitution).toBeUndefined();
   });
 
+  it('populates structural.constitution.rules[] with check_id and coverage (REQ-LIB-032)', async () => {
+    write(
+      'prospec/CONSTITUTION.md',
+      [
+        '## Principles',
+        '',
+        '### [MUST] Language Policy',
+        '**Description**: Language policy.',
+        '**Verify**: check: language-policy-drift; covers: change artifacts only.',
+        '',
+        '### [SHOULD] Freeform Rule',
+        '**Description**: Freeform.',
+        '**Verify**: Manual check only.',
+      ].join('\n'),
+    );
+    const result = await execute({ cwd: tmpDir });
+    if (result.kind !== 'report') throw new Error('expected report');
+    const rules = result.report.structural.constitution?.rules;
+    expect(rules).toBeDefined();
+    expect(rules).toHaveLength(2);
+    expect(rules?.[0]).toMatchObject({
+      name: 'Language Policy',
+      severity: 'MUST',
+      has_verify_hint: true,
+      check_id: 'language-policy-drift',
+      coverage: 'change artifacts only',
+    });
+    expect(rules?.[1]).toMatchObject({
+      name: 'Freeform Rule',
+      severity: 'SHOULD',
+      has_verify_hint: true,
+    });
+    expect(rules?.[1]?.check_id).toBeUndefined();
+    expect(rules?.[1]?.coverage).toBeUndefined();
+  });
+
   it('warns via knowledge-size on an over-budget module README (SC-001/SC-002)', async () => {
     write('prospec/index.md', '# small index\n'); // well within L1 budget
     write('prospec/ai-knowledge/modules/big/README.md', 'x'.repeat(4400)); // ~1100 tokens > 1000
