@@ -22,7 +22,7 @@ Named exceptions inside the change-artifact zone, which stay **English** because
 
 **Rationale**: The project owner reviews their own change narrative in Traditional Chinese (Taiwan), reducing communication barriers; archive summaries are that narrative's committed copy, so they follow it rather than the English Feature Specs. The trust zone sits next to the code as technical reference (and is what reviewers cite in English), so keeping it — like code, terminology, and commit history — in English follows industry convention and matches its actual, review-endorsed state. This rule and the entry config are generated from one resolved path set (`lib/language-policy.ts`), so the two cannot drift into contradicting each other.
 
-**Verify**: Files under `.prospec/changes/**`, `.prospec/archive/**`, and `prospec/specs/_archived-history/**` are written in Traditional Chinese (Taiwan); `prospec/CONSTITUTION.md`, `prospec/README.md`, `prospec/index.md`, `prospec/specs/product.md`, `prospec/specs/features/**`, `prospec/ai-knowledge/**`, code, technical terms, and commit messages are in English. The named exceptions above are NOT violations — in either direction — and an audit does NOT flag the English trust zone as a Language-Policy violation (the zone is exempt).
+**Verify**: check: language-policy-drift; covers: Description matches generated text for configured language scope. Files under `.prospec/changes/**`, `.prospec/archive/**`, and `prospec/specs/_archived-history/**` are written in Traditional Chinese (Taiwan); `prospec/CONSTITUTION.md`, `prospec/README.md`, `prospec/index.md`, `prospec/specs/product.md`, `prospec/specs/features/**`, `prospec/ai-knowledge/**`, code, technical terms, and commit messages are in English. The named exceptions above are NOT violations — in either direction — and an audit does NOT flag the English trust zone as a Language-Policy violation (the zone is exempt).
 
 ---
 ### [MUST] Atomic Commits and Format Requirements
@@ -65,7 +65,7 @@ Named exceptions inside the change-artifact zone, which stay **English** because
 
 **Rationale**: TDD ensures code quality, reduces regression risk, and drives modular design. Writing tests first also validates requirement understanding.
 
-**Verify**: Every new feature or bug fix ships with corresponding tests; coverage is ≥ 80%; `test:` commits precede or accompany `feat:` commits.
+**Verify**: check: test-provenance; covers: Test suite execution, freshness, and exit code. Every new feature or bug fix ships with corresponding tests; coverage is ≥ 80%; `test:` commits precede or accompany `feat:` commits.
 
 ---
 ### [SHOULD] One-way Dependency Direction
@@ -74,7 +74,7 @@ Named exceptions inside the change-artifact zone, which stay **English** because
 
 **Rationale**: A clean, acyclic dependency graph keeps layers independently testable and prevents business logic leaking into the I/O layer.
 
-**Verify**: Lower layers (`types`, `lib`) do not import higher layers (`services`, `cli`); the module dependency graph is a DAG.
+**Verify**: check: import-direction; covers: Layer import hierarchy and DAG acyclicity. Lower layers (`types`, `lib`) do not import higher layers (`services`, `cli`); the module dependency graph is a DAG.
 
 ---
 ### [SHOULD] User-Facing Documentation Stays Current
@@ -97,7 +97,7 @@ The drift engine does **not** check count accuracy — a correct aggregate can m
 
 **Rationale**: Factual counts drift silently and compound: 23 occurrences over 6 modules before machine ownership was established (PB-004 provenance), and every new drift check missed the README prose enumeration until adversarial review caught it (PB-009 provenance, 5 occurrences across 3 modules). Splitting counts into three explicit tiers eliminates the assumption that `pnpm counts` covers everything — it does not.
 
-**Verify**: `pnpm counts:check` passes in CI for machine-owned counts. Hand-maintained counts are verified by review — the docs-claims lens (PB-003) surfaces mis-counts as fixable majors. Every check id **annotated with its severity** in either CLI Reference file is a real `DRIFT_CHECK_IDS` member, and both files name the same real ids (both contract-guarded). An id mentioned without a severity, and whether the enumeration still COVERS a newly added check, are verified by review — not by a machine.
+**Verify**: check: spec-counters; covers: Feature spec frontmatter counter alignment. `pnpm counts:check` passes in CI for machine-owned counts. Hand-maintained counts are verified by review — the docs-claims lens (PB-003) surfaces mis-counts as fixable majors. Every check id **annotated with its severity** in either CLI Reference file is a real `DRIFT_CHECK_IDS` member, and both files name the same real ids (both contract-guarded). An id mentioned without a severity, and whether the enumeration still COVERS a newly added check, are verified by review — not by a machine.
 
 ---
 ### [MUST] Pre-Merge CI Checks

@@ -37,6 +37,21 @@ const VERIFY_HINT = ruleFieldLabel('Verify');
 
 const SEVERITIES = new Set<string>(CONSTITUTION_SEVERITIES);
 
+const CHECK_DECLARATION = /\bcheck:\s*([a-zA-Z0-9_-]+)(?:[;,]?\s*covers:\s*(.+?))?(?:\.\s+|;\s*|$|\.\s*$)/;
+
+function parseCheckDeclaration(line: string): { check_id?: string; coverage?: string } {
+  const match = CHECK_DECLARATION.exec(line);
+  if (match === null || match[1] === undefined) {
+    return {};
+  }
+  const check_id = match[1].trim();
+  const rawCoverage = match[2]?.trim().replace(/\.+$/, '').trim();
+  return {
+    check_id,
+    ...(rawCoverage !== undefined && rawCoverage.length > 0 ? { coverage: rawCoverage } : {}),
+  };
+}
+
 /**
  * Parse the `## Principles` section into one entry per `###` rule heading.
  *
@@ -66,6 +81,13 @@ export function parseConstitutionRules(markdown: string): ConstitutionRuleEntry[
     // than attributing it to the section.
     if (current !== null && VERIFY_HINT.test(line.trimStart())) {
       current.has_verify_hint = true;
+      const decl = parseCheckDeclaration(line);
+      if (decl.check_id !== undefined) {
+        current.check_id = decl.check_id;
+        if (decl.coverage !== undefined) {
+          current.coverage = decl.coverage;
+        }
+      }
     }
   }
   return rules;

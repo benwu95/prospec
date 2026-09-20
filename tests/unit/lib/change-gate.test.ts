@@ -1,5 +1,9 @@
 import { describe, it, expect } from 'vitest';
-import { adjudicateChangeCheck, changeDirPrefix } from '../../../src/lib/change-gate.js';
+import {
+  adjudicateChangeCheck,
+  changeDirPrefix,
+  mapCheckStatusToVerdict,
+} from '../../../src/lib/change-gate.js';
 import {
   DRIFT_CHECK_IDS,
   DRIFT_CHECK_SCOPES,
@@ -172,5 +176,19 @@ describe('adjudicateChangeCheck — repository-scoped checks', () => {
       'anyone',
     );
     expect(skipped).toMatchObject({ status: 'skipped', reason: 'no constitution' });
+  });
+});
+
+describe('mapCheckStatusToVerdict', () => {
+  it('maps pass/warn/fail to PASS/WARN/FAIL', () => {
+    expect(mapCheckStatusToVerdict('pass')).toBe('PASS');
+    expect(mapCheckStatusToVerdict('warn')).toBe('WARN');
+    expect(mapCheckStatusToVerdict('fail')).toBe('FAIL');
+  });
+
+  it('maps skipped, unprovable, and any unrecognized status to not-adjudicated (never PASS)', () => {
+    expect(mapCheckStatusToVerdict('skipped')).toBe('not-adjudicated');
+    expect(mapCheckStatusToVerdict('unprovable')).toBe('not-adjudicated');
+    expect(mapCheckStatusToVerdict('anything-else')).toBe('not-adjudicated');
   });
 });

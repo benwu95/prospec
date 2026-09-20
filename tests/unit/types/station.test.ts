@@ -253,6 +253,59 @@ describe('JudgmentDimensionsInputSchema', () => {
     expect(JudgmentDimensionsInputSchema.safeParse([dimension]).success).toBe(true);
     expect(JudgmentDimensionsInputSchema.safeParse({ dimensions: [dimension] }).success).toBe(false);
   });
+
+  describe('constitution_rules (REQ-TYPES-102)', () => {
+    it('accepts constitution_rules when name is constitution', () => {
+      const constitutionDim = {
+        name: 'constitution',
+        result: 'PASS' as const,
+        graded_by: 'fresh-subagent' as const,
+        constitution_rules: [
+          { name: 'Language Policy', result: 'PASS' as const, statement: 'Follows conventions' },
+          { name: 'TDD', result: 'WARN' as const },
+        ],
+      };
+      const r = JudgmentDimensionInputSchema.safeParse(constitutionDim);
+      expect(r.success).toBe(true);
+      if (r.success) {
+        expect(r.data.constitution_rules).toHaveLength(2);
+        expect(r.data.constitution_rules?.[0]?.statement).toBe('Follows conventions');
+        expect(r.data.constitution_rules?.[1]?.statement).toBeUndefined();
+      }
+    });
+
+    it('validates backward-compatibility when constitution_rules is omitted', () => {
+      const constitutionDim = {
+        name: 'constitution',
+        result: 'PASS' as const,
+        graded_by: 'fresh-subagent' as const,
+      };
+      expect(JudgmentDimensionInputSchema.safeParse(constitutionDim).success).toBe(true);
+    });
+
+    it('rejects constitution_rules on non-constitution dimensions', () => {
+      const nonConstitution = {
+        ...dimension,
+        name: 'delta-spec-compliance',
+        constitution_rules: [{ name: 'Rule 1', result: 'PASS' as const }],
+      };
+      const r = JudgmentDimensionInputSchema.safeParse(nonConstitution);
+      expect(r.success).toBe(false);
+      if (!r.success) {
+        expect(r.error.issues.some((i) => i.path.includes('constitution_rules'))).toBe(true);
+      }
+    });
+
+    it('rejects an invalid result in constitution_rules', () => {
+      const constitutionDim = {
+        name: 'constitution',
+        result: 'PASS' as const,
+        graded_by: 'fresh-subagent' as const,
+        constitution_rules: [{ name: 'Rule 1', result: 'INVALID_RESULT' }],
+      };
+      expect(JudgmentDimensionInputSchema.safeParse(constitutionDim).success).toBe(false);
+    });
+  });
 });
 
 describe('VERIFY_DIMENSIONS registry', () => {

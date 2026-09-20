@@ -243,6 +243,50 @@ describe('DriftReportSchema', () => {
     expect(r.success).toBe(true);
   });
 
+  it('accepts constitution rule entries with optional check_id and coverage', () => {
+    const r = DriftReportSchema.safeParse({
+      ...baseReport,
+      structural: {
+        ...baseReport.structural,
+        constitution: {
+          rules: [
+            {
+              name: 'Language Policy',
+              severity: 'MUST',
+              has_verify_hint: true,
+              line: 10,
+              check_id: 'language-policy-drift',
+              coverage: 'prose files',
+            },
+            {
+              name: 'TDD',
+              severity: 'MUST',
+              has_verify_hint: true,
+              line: 20,
+              check_id: 'test-provenance',
+            },
+            {
+              name: 'Legacy rule',
+              severity: null,
+              has_verify_hint: false,
+              line: 42,
+              check_id: null,
+            },
+          ],
+        },
+      },
+    });
+    expect(r.success).toBe(true);
+    if (r.success && r.data.structural.constitution) {
+      expect(r.data.structural.constitution.rules[0]?.check_id).toBe('language-policy-drift');
+      expect(r.data.structural.constitution.rules[0]?.coverage).toBe('prose files');
+      expect(r.data.structural.constitution.rules[1]?.check_id).toBe('test-provenance');
+      expect(r.data.structural.constitution.rules[1]?.coverage).toBeUndefined();
+      expect(r.data.structural.constitution.rules[2]?.check_id).toBeNull();
+    }
+  });
+
+
   it('rejects an unknown severity and a non-positive line in the inventory', () => {
     for (const rule of [
       { name: 'X', severity: 'CRITICAL', has_verify_hint: false, line: 3 },

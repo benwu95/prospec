@@ -29,8 +29,10 @@ so that quality is assured before archiving.
 - WHEN the live assessment is available, THEN staleness is adjudicated by its `structural.knowledge_health` section (git timestamps, deterministic) and verify adopts that verdict without re-deriving it; an unavailable mechanical dimension remains not-adjudicated plus WARN (S unreachable), never substituted by LLM judgment, while unprovable required evidence can separately refuse recording
 
 #### REQ-TEMPLATES-063: Verify Grades Constitution by Severity
-verify Verification 3/5 reports by RFC-2119 severity grading of rules; the grade vocabulary stays PASS/WARN/FAIL (no fourth state added). The rule list and severities are taken from the report's `structural.constitution.rules[]` inventory — never re-derived or re-assigned — and the audit is 1:1 against it (statement count ≥ entry count), so a principle cannot be silently skipped.
+verify Verification 3/5 reports by RFC-2119 severity grading of rules; the grade vocabulary stays PASS/WARN/FAIL (no fourth state added). The rule list and severities are taken from the report's `structural.constitution.rules[]` inventory — never re-derived or re-assigned. A rule that declares `check: <id>[; covers: <scope>]` has its declared scope's verdict filled by the CLI from the report and the grader may only add a WARN on top; the grader writes statements only for rules with no `check:` and for the uncovered part of declared rules. The audit still accounts for every principle: statement count must be ≥ (rules with no `check:`) + (declared rules carrying a `covers:` clause), so no principle is silently skipped.
 - WHEN a principle carries `[MUST]`/`[SHOULD]`/`[MAY]`, THEN map a violation MUST→FAIL, SHOULD→WARN, MAY→informational (does not affect grade)
+- WHEN a rule declares a `check_id` resolvable in the report, THEN its machine verdict is taken from that check and a grader verdict may only add a WARN, never flip the machine PASS/FAIL
+- WHEN the 3/5 audit is rendered, THEN each verdict is PASS/WARN/FAIL with no 1–5 score attached, and a PASS carries checkable evidence (a file, command, or REQ id)
 - WHEN the Constitution is free-text without severity tags, THEN fall back to judgment-based PASS/WARN/FAIL (backward-compatible)
 
 #### REQ-TEMPLATES-153: [Verify dimension adjudication split + two-ledger grade]
@@ -40,10 +42,11 @@ verify Verification 3/5 reports by RFC-2119 severity grading of rules; the grade
 - WHEN `quality_log` is written, THEN each `dimensions[]` entry carries its `adjudicator`
 
 #### REQ-TEMPLATES-154: Verify 5/5 and 3/5 consume the new engine facts
-Core Workflow **Step 0** runs `prospec check --record-tests` — after the Entry Gate (it costs a suite run and mutates metadata, so a change the gate is about to refuse must not pay for it) and after the final effective-input edits including Knowledge/count sync — then refreshes `prospec check --json` for human-visible reporting because startup output predates the attempt; `verify record` independently consumes live assessment, so the report refresh is not a freshness bypass or a prerequisite for safe grading. 5/5 is adjudicated by the `test-provenance` check; 3/5 audits 1:1 against `structural.constitution.rules[]`.
+Core Workflow **Step 0** runs `prospec check --record-tests` — after the Entry Gate and after the final effective-input edits including Knowledge/count sync — then refreshes `prospec check --json` for human-visible reporting. 5/5 is adjudicated by the `test-provenance` check; 3/5 audits against `structural.constitution.rules[]`, and for each rule declaring a `check_id` resolvable in the report the CLI fills that rule's machine verdict into the sub-ledger, leaving the grader to audit only rules with no `check:` and the uncovered part of declared rules.
 - WHEN the recorded run failed, THEN 5/5 is FAIL and may not be re-graded as a WARN; under `scale: backfill` a *missing* run stays informational but a recorded non-zero exit is never suppressed
 - WHEN no test command resolves, THEN the check `skipped` makes 5/5 `not-adjudicated` with `tech_stack.test_command` named as the fix
 - WHEN a principle's inventory severity is `null`, THEN grade it by judgment (backward-compatible with a free-text Constitution)
+- WHEN a rule declares a `check_id` resolvable in the report, THEN 3/5 fills its machine verdict from that check and the grader may only add a WARN
 - WHEN an equivalent commit is the only subsequent operation, THEN preserve valid test evidence instead of automatically rerunning the suite; WHEN final sync or any other effective input changes, THEN perform the needed validation again before presenting the final S/A result
 
 #### REQ-TEMPLATES-155: Verify 2/5 and 6 self-verification is a mechanical grade cap
@@ -60,13 +63,42 @@ Both judgment dimensions are graded by an independent reviewer that does not sha
 - WHEN the two skill templates are rendered, THEN the boundary statement occurs exactly once across both (contract-asserted, mutation-verified)
 
 #### REQ-TEMPLATES-157: metadata-format reference documents the grading-context fields
-`references/drift-report-format` documents the two new check ids, the `structural.constitution` section, and the escaped-defect sibling report with its three distinct honesty flags; `references/metadata-format` places `test_provenance` in the canonical field order and records the dimension vocabulary — `adjudicator`, plus the judgment-dimension grading-context fields `graded_by` (`fresh-subagent`|`in-session`), `executor` and `spend`; `init/status-lifecycle.md.hbs` and `prospec/ai-knowledge/_status-lifecycle.md` both state that the `implemented → verified` gate's machine dimensions are engine-adjudicated.
+`references/drift-report-format` documents the two check ids, the `structural.constitution` section including the `check_id`/`coverage` fields on `structural.constitution.rules[]`, and the escaped-defect sibling report with its three distinct honesty flags; `references/metadata-format` places `test_provenance` in the canonical field order and records the dimension vocabulary — `adjudicator`, plus the judgment-dimension grading-context fields `graded_by` (`fresh-subagent`|`in-session`), `executor` and `spend`; `init/status-lifecycle.md.hbs` and `prospec/ai-knowledge/_status-lifecycle.md` both state that the `implemented → verified` gate's machine dimensions are engine-adjudicated.
 - WHEN the reference lists check ids, THEN the set is machine-pinned to `DRIFT_CHECK_IDS`, not hand-listed
+- WHEN the reference documents `structural.constitution.rules[]`, THEN it lists `check_id`/`coverage` and a contract test derives the expected key set from the Zod schema rather than a hand-written list
 - WHEN either lifecycle copy is edited, THEN both state the same gate semantics, and the `§What each gate checks` section is byte-identical across the two copies (the contract test pins exactly that section; other sections may differ in wording)
 - WHEN the reference documents a judgment dimension, THEN it lists `graded_by`/`executor`/`spend` alongside `adjudicator`
 
 #### REQ-TESTS-057: Report contract, skill contract and CLI integration tests
-The frozen check registry has an **unsorted** literal assertion pinning existing ids in order; skipped-never-PASS across every id the registry carries, derived from `DRIFT_CHECK_IDS.length` rather than a written-out number, so a new check id is covered the moment it is appended; section-scoped verify-template assertions (adjudicator labels, the two new NEVERs, the `not-adjudicated` contract, the 1:1 inventory rule, the complete WARN budget with no engine-unavailability exemption, and section-scoped guards distinguishing unavailable-command skips, uncertified-attempt FAILs and required-input refusal) and a cross-template count proving the boundary statement appears exactly once; prose pins are wrap-independent (whitespace-normalized via `flat()`, never a literal line-break position); formatter unit coverage for both new output paths including terminal sanitisation; service tests for the honest-skip branches, paired ignored-output convergence and tracked/non-ignored input-mutation refusal cases and read-only purity; e2e pinning the `SKIP` state with its reason against a real git fixture (the reason string is guard-order-dependent — a repo-less fixture truthfully reports "not a git repository" instead).
+The frozen check registry keeps its unsorted literal assertion and its skipped-never-PASS coverage derived from `DRIFT_CHECK_IDS.length`; section-scoped verify-template assertions cover the adjudicator labels, the `not-adjudicated` contract, the statement rule (a statement for every rule with no `check:`, every declared `covers:` gap, and every not-adjudicated declared rule), the machine sub-ledger contract (a declared rule's verdict is CLI-filled and a grader verdict may only add a WARN), the complete WARN budget with no engine-unavailability exemption, and the removal of the 1–5 score prose; a `check_id` legality contract pins every declared id to `DRIFT_CHECK_IDS` (no pnpm/CI gate is a legal declaration); prose pins are wrap-independent; unit coverage exercises the constitution-audit fill / add-WARN-only / requiredStatements set (including the covers-and-not-adjudicated dedup) paths, the verify-record set-based refusal naming the missing rule and the flag-form actionable message, and the backward-compatible no-`check:` path; e2e pins the default init Constitution (no declarations) running the unchanged audit path.
 - WHEN a check id is appended to the registry, THEN the skipped-never-PASS assertion covers it without being edited
+
+---
+
+#### REQ-TYPES-102: JudgmentDimensionInput carries a per-rule constitution audit
+`JudgmentDimensionInputSchema` gains an optional `constitution_rules: [{ name, result, statement? }]` array, meaningful only for the `constitution` dimension, so the grader relays a per-rule Constitution verdict through the existing `--dimensions` payload rather than a second contract.
+- WHEN `constitution_rules` is omitted, THEN the payload still validates (backward-compatible)
+- WHEN a non-`constitution` dimension carries `constitution_rules`, THEN the schema refuses it
+- WHEN an entry is present, THEN its `result` is a `DIMENSION_RESULTS` value and `statement` is an optional string
+
+---
+
+#### REQ-LIB-083: constitution-audit pure engine (fill / anti-flip / requiredStatements)
+`lib/constitution-audit.ts` is a pure engine: `auditConstitution({ rules, resolveStatus, graderEntries })` fills each declared rule's machine verdict from the report via the injected `resolveStatus` mapped through the shared `mapCheckStatusToVerdict` (`lib/change-gate`, the one source both the machine-dimension ledger and this sub-ledger read), records a `skipped`/`unprovable` check as `not-adjudicated` (never PASS), permits a grader entry on a declared rule to hold only its machine result or (when the machine result is PASS) a WARN, and returns `requiredStatements` — the de-duplicated set of rule names the grader must each write a statement for (rules with no `check_id`, declared rules carrying a `covers:` clause, and declared rules whose check is not-adjudicated). It exposes `isLegalCheckId` (a member of `DRIFT_CHECK_IDS`).
+- WHEN a declared rule's `check_id` resolves in the report, THEN its machine verdict is taken from `resolveStatus` (mapped by `mapCheckStatusToVerdict`), never from the grader
+- WHEN a declared rule's check is skipped or unprovable, THEN the rule is `not-adjudicated` (never PASS) and is in `requiredStatements`
+- WHEN a grader entry for a declared rule holds a result other than the machine result or a WARN over a machine PASS, THEN the engine reports a violation; adding a WARN over a machine PASS does not
+- WHEN a rule qualifies for `requiredStatements` on several counts (a `covers:` gap that is also not-adjudicated), THEN it appears exactly once
+- WHEN `isLegalCheckId` is called, THEN a `DRIFT_CHECK_IDS` member is legal and anything else — including a pnpm/CI gate — is not
+
+---
+
+#### REQ-SERVICES-113: verify record folds in the constitution machine sub-ledger
+`verify record` reads `constitution_rules` from the `--dimensions` payload through the existing refusal path and audits them with `lib/constitution-audit`, injecting a single `resolveStatus = adjudicateChangeCheck(report, checkId, changeName).status` (which already encapsulates each check's scope and its skipped pass-through) and mapping machine dimensions through the same `mapCheckStatusToVerdict`; a reported violation, or any `requiredStatements` rule lacking a non-empty statement, refuses before any write and names the missing rules, and the machine sub-ledger floors the `constitution` dimension per rule via the existing Gate D1.
+- WHEN a grader entry flips a declared rule's machine verdict, THEN recording refuses before any write
+- WHEN a rule in `requiredStatements` has no non-empty statement, THEN recording refuses before any write naming that rule
+- WHEN the grader uses the flag form while the Constitution declares checks, THEN the refusal points to the `--dimensions` file form as the way to supply per-rule statements
+- WHEN an old payload still carries `score`, THEN it is accepted and `score` is ignored
+- WHEN the Constitution declares no `check:`, THEN the original path runs and the grade is equivalent to today
 
 ---

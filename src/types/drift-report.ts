@@ -333,6 +333,10 @@ export const ConstitutionRuleEntrySchema = z.object({
   severity: z.enum(CONSTITUTION_SEVERITIES).nullable(),
   has_verify_hint: z.boolean(),
   line: z.number().int().positive(),
+  /** The declared machine check id; null or absent when undeclared (additive). */
+  check_id: z.string().nullable().optional(),
+  /** The declared scope covered by the check; absent when undeclared (additive). */
+  coverage: z.string().optional(),
 });
 
 /**

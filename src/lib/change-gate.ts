@@ -13,6 +13,27 @@ export interface ChangeCheckVerdict {
   findings: DriftFinding[];
 }
 
+/** A verify machine verdict — the vocabulary the 5+1 machine dimensions and the
+ *  Constitution machine sub-ledger both speak. */
+export type MachineVerdict = 'PASS' | 'WARN' | 'FAIL' | 'not-adjudicated';
+
+/**
+ * Map a per-change check status to a verify machine verdict — the ONE source both
+ * the machine-dimension ledger (`verify-record`) and the Constitution audit
+ * (`constitution-audit`) read, so the mapping cannot drift between them. Any
+ * non-graded status (`skipped` / `unprovable` / anything unrecognized) becomes
+ * `not-adjudicated`, never `PASS`.
+ */
+export function mapCheckStatusToVerdict(status: string): MachineVerdict {
+  return status === 'pass'
+    ? 'PASS'
+    : status === 'warn'
+      ? 'WARN'
+      : status === 'fail'
+        ? 'FAIL'
+        : 'not-adjudicated';
+}
+
 const CHANGES_ROOT = '.prospec/changes/';
 
 /** The repo-relative prefix every finding about one change is anchored under. */

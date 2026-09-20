@@ -174,10 +174,10 @@
         "{{constitution_path}}"
       ],
       "mandatory": 0,
-      "mandatory_context_tokens": 10497
+      "mandatory_context_tokens": 10505
     }
   },
-  "reference_ceiling_tokens": 46700,
+  "reference_ceiling_tokens": 46823,
   "references": {
     "adapter-figma": 589,
     "adapter-html": 663,
@@ -188,10 +188,10 @@
     "cascade-protocol": 2190,
     "circuit-breaker": 1339,
     "debug-recovery-format": 1307,
-    "delegated-evidence-format": 2849,
+    "delegated-evidence-format": 2876,
     "delta-spec-format": 2017,
     "design-spec-format": 930,
-    "drift-report-format": 2692,
+    "drift-report-format": 2786,
     "feature-boundary-criteria": 963,
     "feature-spec-format": 1185,
     "implementation-guide": 1075,
