@@ -147,6 +147,9 @@ export function buildOrderedQualityLogEntry(entry: NewQualityLogEntry): Record<s
   if (parsed.majors !== undefined) ordered.majors = parsed.majors;
   if (parsed.round !== undefined) ordered.round = parsed.round;
   if (parsed.verifier_verdict !== undefined) ordered.verifier_verdict = parsed.verifier_verdict;
+  if (parsed.context_id !== undefined) ordered.context_id = parsed.context_id;
+  if (parsed.baseline_revision !== undefined) ordered.baseline_revision = parsed.baseline_revision;
+  if (parsed.coverage_summary !== undefined) ordered.coverage_summary = parsed.coverage_summary;
   return ordered;
 }
 

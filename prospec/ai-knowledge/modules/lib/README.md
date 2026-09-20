@@ -1,6 +1,6 @@
 # Shared Kernel
 
-> Config, I/O, templates, scanning, detection, drift engine, status routing, knowledge reads, station engines (57 files)
+> Config, I/O, templates, scanning, detection, drift engine, status routing, knowledge reads, station engines (60 files)
 <!-- prospec:module-readme-format 2026-09-01 -->
 
 <!-- prospec:auto-start -->
@@ -20,14 +20,18 @@
 | `draftable-findings.ts` | `isDraftableFinding` — the ONE predicate deciding whether a drift finding can be drafted into a fix change (excludes the `headroom` pressure tier and anything under `.prospec/`); pure, so the read-only `status` surface shares it with the drafter without importing the change-creation path |
 | `knowledge-sync.ts` / `archive-gate.ts` / `change-gate.ts` | `checkKnowledgeSync` — the ONE affected-module knowledge-sync derivation (`status` routes on it, `archive` refuses on it); `adjudicateChangeCheck` — the pure per-change verdict over a report (`DRIFT_CHECK_SCOPES` + `subjects`: a sibling's findings never decide the target, an un-enumerated target is `unprovable`, skipped passes through ahead of the subjects test); `evaluateArchiveEntryGate` — the archive Entry-Gate verdict for ONE target (metadata-completeness / task-completion / three provenance / knowledge-sync as `WorkflowReason`s; `--allow-incomplete` exempts completeness only, a proven backfill's task-completion is not applicable); `mapCheckStatusToVerdict` — the ONE drift-status→verify-verdict map both the machine dimensions and the `constitution-audit` sub-ledger read |
 | `spec-headings.ts` / `spec-slices.ts` / `spec-read.ts` | THE feature-spec REQ heading rule, the index over it, the pure REQ-scoped selection, and the one shared read entry both narrow-read surfaces route through — see the sub-module below |
+| `acceptance-baseline.ts` | Proposal scenario parser (`parseProposalScenarios`), canonical digest re-export (`computeAcceptanceDigest` from types/change), and pure freeze/amend decisions (`decideFreezeScenarios` / `decideAmendScenarios`); line matching reuses `stripTrailingCr` |
+| `requirement-assessment.ts` | Pure per-requirement coverage and grade floor reducer (`assessRequirementCompliance`): item/finding floor rules, aggregate vs item validation, and single dimension-level gap warning budgeting |
+| `verification-context.ts` | Stateless assessment boundary (`assessVerificationContext`): produces `CurrentVerificationContextAssessment` binding change spec, baseline, proposal, test attempt facts, code snapshot, and canonical `context_id` |
 | station engines (9 files) | Pipe tables, the evidence-block grammar, the findings merge, the S/A/B/C/D grade, the ledger, the artifact validators, the module README format engine, the dual-axis review circuit breaker, the lens yield statistics — see the sub-module below |
 
-The drift engine's 7 files are listed in the sub-module below; the station engines' 9 in theirs; the other 22 `.ts` are single-purpose helpers (including `constitution-audit.ts` — the pure verify Constitution audit engine: machine-verdict fill, anti-flip, and the de-duplicated `requiredStatements` set), with invariants in Pitfalls.
+The drift engine's 7 files are listed in the sub-module below; the station engines' 9 in theirs; the other 25 `.ts` are single-purpose helpers (including `constitution-audit.ts` — the pure verify Constitution audit engine: machine-verdict fill, anti-flip, and the de-duplicated `requiredStatements` set), with invariants in Pitfalls.
 
 ## Public API
 
 - Config/IO/render — `readConfig`/`atomicWrite`/`renderTemplate`/`mergeContent`/`mergeManagedDoc`
 - Scan/detect/parse — `scanDir`/`detectModules`/`isSourceFile`/`collectNonSourceDirectories`/`detectTechStack`/`parse*Dependencies()` (malformed-safe)
+- Baseline/context/assessment — `parseProposalScenarios`/`computeAcceptanceDigest`/`decideFreezeScenarios`/`decideAmendScenarios`, `assessRequirementCompliance`, `assessVerificationContext`
 - Knowledge/metadata — `loadModuleMap`/`searchModules`/`loadFeatureSpecContent`/`loadModuleKnowledge` (README + `## Sub-Modules` files), `readChangeMetadata`/`appendQualityLogEntry`/`upsertReviewRoundEntry`/`isReviewRoundCountsEntry` (drift exports: see the sub-module)
 - Circuit breaker/runner — `countFlips`/`isOscillating`/`calculateFixInducedRatio`/`ReviewCircuitBreaker` (a station engine), `resolveProjectTestCommand`/`detectTestCommand`
 - Token Accounting — `parseAllLogFiles` (JSONL transcript parsing), `calculateCodebaseBaselineTokens` (`git ls-files` based theoretical baseline)

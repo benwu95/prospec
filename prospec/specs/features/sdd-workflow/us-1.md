@@ -9,6 +9,9 @@ so that I can clearly describe user stories, acceptance criteria, and functional
 - WHEN the change name already exists THEN prompt that it exists and terminate
 - WHEN describing requirements THEN guide writing multiple independent INVEST User Stories (with priority and WHEN/THEN acceptance scenarios)
 
+- WHEN substantive proposal scenarios are complete THEN freeze them through the story CLI before advancing; creating the scaffold itself never freezes placeholders
+- WHEN scenarios change later THEN use a reasoned amendment with the expected digest and preserve the capture status of each revision
+
 ### Behavior Specifications
 
 #### REQ-CHNG-001: Create Change Directory
@@ -52,12 +55,44 @@ Track status via metadata.yaml, with `ai-knowledge/_status-lifecycle.md` as the 
 `prospec-new-story.hbs` guides producing INVEST User Stories.
 - WHEN triggered, THEN interview flow guides multiple independent Stories with P0/P1/P2 + WHEN/THEN
 - WHEN complete, THEN conform to proposal-format.hbs + execute Knowledge Quality Gate
+- WHEN substantive acceptance scenarios have been authored, THEN invoke the story freeze command before the next station; a later scenario change uses the controlled amendment path with its reason and expected digest
 
 #### REQ-TEMPLATES-150: metadata.yaml Format Reference
 `references/metadata-format.hbs` is the single authority for the metadata.yaml serialization format (canonical field order, minimal quoting, `created_at` ISO 8601, `quality_log` entry shape); semantics defer to `ChangeMetadataSchema` (`src/types/change.ts`) and `_status-lifecycle.md`, without restating them.
 - WHEN new-story/ff scaffold metadata.yaml, THEN follow the reference's canonical field order and serialization conventions (loaded MANDATORY at new-story Startup Loading / on-demand at ff Phase 2)
 - WHEN a downstream skill (plan/tasks/implement/review/verify/archive) appends a `quality_log` entry or edits `status`, THEN follow the reference's entry shape — `result` stays the gate three-state, the verify grade lives in `grade`, never in `result`
 - WHEN the reference documents field domains, THEN it points to the schema/`_status-lifecycle.md` rather than restating them (avoids the templates restatement-contract failure)
+- WHEN documenting acceptance metadata, THEN describe pending, frozen and late-capture states, revision identity and amendment audit fields by reference to the executable schema; never teach manual YAML serialization
+
+---
+
+#### REQ-TYPES-103: Acceptance baseline revision contract
+Change metadata supports an optional versioned acceptance baseline with a current revision pointer and complete revisions, without requiring it on legacy reads. New story scaffolds declare the contract with no frozen revision.
+- WHEN a revision is saved, THEN it contains scenario identities, original text, proposal locations, a canonical digest, its previous digest when present, capture time/status/origin, and a reason
+- WHEN canonical scenario text differs only in LF versus CRLF, THEN its digest is identical; semantic whitespace and order remain significant, while source line numbers and timestamps do not affect the scenario digest
+- WHEN metadata contains an invalid revision chain, digest, duplicate identity, or current pointer, THEN the baseline is refused rather than silently repaired
+- WHEN any revision is created by freeze or amendment, THEN its origin is derived from that invocation's captured_status: story only for story status and late-capture for plan/tasks/implemented, never inherited from an earlier revision; inconsistent origin/status is refused on read, and legacy records without a baseline remain readable
+
+---
+
+#### REQ-LIB-084: Acceptance baseline parsing and mutation decisions
+A pure acceptance-baseline engine extracts the documented proposal User Story / Acceptance Scenarios sections and decides freeze/amend readiness without performing I/O.
+- WHEN parsing completed scenarios, THEN stable revision-scoped identities combine the story id and scenario ordinal, continuation lines are preserved, fenced examples are ignored, and empty, duplicate, known-placeholder or unsupported sections produce actionable refusal
+- WHEN freezing the same canonical content again, THEN the decision is a no-op; replacing existing content requires amendment with a non-empty reason and the expected current digest
+- WHEN amendment repeats identical content with a matching current digest, THEN it is a no-op without another revision or quality_log entry
+- WHEN status is verified or archived, THEN freeze and amendment are refused with a new-change remedy; permitted mutations preserve the lifecycle status
+- WHEN current proposal scenarios differ from the baseline, THEN the engine reports mismatch without replacing the baseline or asserting semantic noncompliance
+
+---
+
+#### REQ-SERVICES-114: Controlled scenario freeze and amendment
+The story CLI exposes mutually exclusive --freeze-scenarios and --amend-scenarios modes for an existing named change, delegated to the acceptance mutation service. The creation mode continues to scaffold without freezing placeholder content.
+- WHEN --freeze-scenarios runs on a valid completed proposal, THEN the baseline and its quality_log entry are written through the existing metadata owner in one atomic document update
+- WHEN --amend-scenarios is requested, THEN --reason and --expected-digest are required, both previous and new revision identities are audited, and the proposal itself is not rewritten by the CLI
+- WHEN mutation mode is combined with create-only options, its expected digest is stale, input observations change, or validation fails, THEN CLI/service refuse before writing and preserve existing artifacts byte-for-byte
+- WHEN a new-contract story enters plan, or quick enters tasks, THEN a pending baseline refuses with the story-freeze remedy; legacy metadata remains admissible with an explicit limitation and no implicit capture
+- WHEN freeze or amendment creates a revision, THEN its origin reflects the current capture status, including late-capture for implemented amendments of an originally story-captured baseline; no-op retries preserve provenance, and verified/archived capture or amendment is refused without lifecycle rollback
+- WHEN new-story or ff finishes authoring a substantive proposal, THEN the workflow invokes the freeze mode before advancing; controlled amendments return through the story workflow and subsequent planning/verification consumes the revised baseline
 
 ---
 

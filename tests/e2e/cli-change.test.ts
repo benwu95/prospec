@@ -275,6 +275,12 @@ describe('CLI E2E — change & spec', () => {
       await runCli(['init', '--name', 'crlf-test', '--agents', 'claude']);
       await runCli(['change', 'story', 'add-feature', '--description', 'CRLF routing e2e']);
       await runCli(['change', 'scale', 'quick']);
+      const proposalPath = path.join(tmpDir, '.prospec', 'changes', 'add-feature', 'proposal.md');
+      await fs.promises.writeFile(
+        proposalPath,
+        '# Proposal: add-feature\n\n## User Story\n\n### US-1: Title [P1]\n\n**Acceptance Scenarios:**\n- WHEN trigger THEN result\n',
+      );
+      await runCli(['change', 'story', 'add-feature', '--freeze-scenarios']);
       await runCli(['change', 'tasks']);
 
       const tasksPath = path.join(tmpDir, '.prospec', 'changes', 'add-feature', 'tasks.md');

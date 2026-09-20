@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import {
   CHANGE_SCALES,
+  computeAcceptanceDigest,
   CHANGE_STATUSES,
   ChangeMetadataSchema,
   PROVENANCE_AUDITED_STATUSES,
@@ -773,5 +774,205 @@ describe('versioned input evidence', () => {
     expect(ChangeMetadataSchema.safeParse({ ...base, review_provenance: record }).success).toBe(true);
     expect(ChangeMetadataSchema.safeParse({ ...base, review_provenance: { ...record, fingerprint_version: 2 } }).success).toBe(false);
     expect(ChangeMetadataSchema.parse({ ...base, review_provenance: { ...record, fingerprint_version: 'future', scope: 'future' } }).review_provenance?.scope).toBe('future');
+  });
+});
+
+describe('AcceptanceBaselineSchema & AcceptanceRevision (REQ-TYPES-103)', () => {
+  const validScenario = {
+    id: 'US-1.1',
+    story_id: 'US-1',
+    text: 'WHEN something happens THEN something occurs',
+    source: 'proposal.md:25',
+  };
+
+  const validRevision1 = {
+    revision: 1,
+    digest: computeAcceptanceDigest([validScenario]),
+    captured_at: '2026-09-20T10:00:00Z',
+    captured_status: 'story' as const,
+    origin: 'story' as const,
+    reason: 'initial frozen baseline',
+    scenarios: [validScenario],
+  };
+
+  const validRevision2 = {
+    revision: 2,
+    digest: computeAcceptanceDigest([validScenario]),
+    previous_digest: computeAcceptanceDigest([validScenario]),
+    captured_at: '2026-09-20T11:00:00Z',
+    captured_status: 'implemented' as const,
+    origin: 'late-capture' as const,
+    reason: 'amendment with updated scenarios',
+    scenarios: [validScenario],
+  };
+
+  it('accepts metadata without acceptance (backward-compatible legacy)', () => {
+    const r = ChangeMetadataSchema.safeParse(base);
+    expect(r.success).toBe(true);
+    if (r.success) expect(r.data.acceptance).toBeUndefined();
+  });
+
+  it.each(['not-a-digest', '0'.repeat(64)])('R277-3 rejects an invalid or mismatched scenario digest: %s', (digest) => {
+    expect(ChangeMetadataSchema.safeParse({
+      ...base,
+      acceptance: { version: 1, current_revision: 1, revisions: [{ ...validRevision1, digest }] },
+    }).success).toBe(false);
+  });
+
+  it('accepts new pending scaffold with empty revisions', () => {
+    const r = ChangeMetadataSchema.safeParse({
+      ...base,
+      acceptance: {
+        version: 1,
+        revisions: [],
+      },
+    });
+    expect(r.success).toBe(true);
+    if (r.success) {
+      expect(r.data.acceptance?.version).toBe(1);
+      expect(r.data.acceptance?.revisions).toEqual([]);
+      expect(r.data.acceptance?.current_revision).toBeUndefined();
+    }
+  });
+
+  it('accepts valid baseline with revision chain and matching current_revision', () => {
+    const r = ChangeMetadataSchema.safeParse({
+      ...base,
+      acceptance: {
+        version: 1,
+        current_revision: 2,
+        revisions: [validRevision1, validRevision2],
+      },
+    });
+    expect(r.success).toBe(true);
+    if (r.success) {
+      expect(r.data.acceptance?.current_revision).toBe(2);
+      expect(r.data.acceptance?.revisions).toHaveLength(2);
+    }
+  });
+
+  it('rejects revision where captured_status is story but origin is late-capture', () => {
+    const badRev = { ...validRevision1, origin: 'late-capture' };
+    const r = ChangeMetadataSchema.safeParse({
+      ...base,
+      acceptance: {
+        version: 1,
+        current_revision: 1,
+        revisions: [badRev],
+      },
+    });
+    expect(r.success).toBe(false);
+  });
+
+  it('rejects revision where captured_status is implemented but origin is story', () => {
+    const badRev = { ...validRevision2, origin: 'story' };
+    const r = ChangeMetadataSchema.safeParse({
+      ...base,
+      acceptance: {
+        version: 1,
+        current_revision: 2,
+        revisions: [validRevision1, badRev],
+      },
+    });
+    expect(r.success).toBe(false);
+  });
+
+  it('rejects duplicate scenario ids in the same revision', () => {
+    const badRev = {
+      ...validRevision1,
+      scenarios: [validScenario, { ...validScenario, text: 'duplicate id' }],
+    };
+    const r = ChangeMetadataSchema.safeParse({
+      ...base,
+      acceptance: {
+        version: 1,
+        current_revision: 1,
+        revisions: [badRev],
+      },
+    });
+    expect(r.success).toBe(false);
+  });
+
+  it('rejects current_revision set when revisions array is empty', () => {
+    const r = ChangeMetadataSchema.safeParse({
+      ...base,
+      acceptance: {
+        version: 1,
+        current_revision: 1,
+        revisions: [],
+      },
+    });
+    expect(r.success).toBe(false);
+  });
+
+  it('rejects current_revision pointing to a non-existent revision', () => {
+    const r = ChangeMetadataSchema.safeParse({
+      ...base,
+      acceptance: {
+        version: 1,
+        current_revision: 99,
+        revisions: [validRevision1],
+      },
+    });
+    expect(r.success).toBe(false);
+  });
+
+  it('rejects invalid revision chain: first revision with previous_digest', () => {
+    const badRev1 = { ...validRevision1, previous_digest: 'some-digest' };
+    const r = ChangeMetadataSchema.safeParse({
+      ...base,
+      acceptance: {
+        version: 1,
+        current_revision: 1,
+        revisions: [badRev1],
+      },
+    });
+    expect(r.success).toBe(false);
+  });
+
+  it('rejects invalid revision chain: mismatched previous_digest on revision 2', () => {
+    const badRev2 = { ...validRevision2, previous_digest: 'wrong-digest' };
+    const r = ChangeMetadataSchema.safeParse({
+      ...base,
+      acceptance: {
+        version: 1,
+        current_revision: 2,
+        revisions: [validRevision1, badRev2],
+      },
+    });
+    expect(r.success).toBe(false);
+  });
+
+  it('accepts lightweight verify identity fields in quality_log and dimension', () => {
+    const entry = {
+      ...base,
+      quality_log: [
+        {
+          skill: 'prospec-verify',
+          date: '2026-09-20',
+          result: 'PASS',
+          warnings: [],
+          grade: 'A',
+          context_id: 'ctx-123',
+          baseline_revision: 1,
+          coverage_summary: '18/18',
+          dimensions: [
+            {
+              name: 'delta-spec-compliance',
+              result: 'PASS',
+              context_id: 'ctx-123',
+              baseline_revision: 1,
+            },
+          ],
+        },
+      ],
+    };
+    const r = ChangeMetadataSchema.safeParse(entry);
+    expect(r.success).toBe(true);
+    if (r.success) {
+      expect(r.data.quality_log?.[0]?.context_id).toBe('ctx-123');
+      expect(r.data.quality_log?.[0]?.baseline_revision).toBe(1);
+      expect(r.data.quality_log?.[0]?.coverage_summary).toBe('18/18');
+    }
   });
 });

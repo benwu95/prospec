@@ -6,6 +6,7 @@ import { atomicWrite } from '../lib/fs-utils.js';
 import { renderTemplate } from '../lib/template.js';
 import { readChangeMetadata, writeChangeMetadataDoc } from '../lib/change-metadata.js';
 import { forbiddenArtifacts, isStatusBefore } from '../types/change.js';
+import { checkAcceptanceReadiness } from '../lib/acceptance-baseline.js';
 import { resolveChange } from './change-resolver.js';
 
 /** What this station writes — the set the scale contract is checked against. */
@@ -24,6 +25,7 @@ export interface ChangePlanResult {
   changeDir: string;
   createdFiles: string[];
   relatedModules: string[];
+  legacyBaseline?: boolean;
 }
 
 /**
@@ -88,6 +90,21 @@ export async function execute(options: ChangePlanOptions): Promise<ChangePlanRes
     );
   }
 
+  // 3c. Check acceptance baseline readiness (REQ-SERVICES-114)
+  let legacyBaseline = false;
+  if (meta) {
+    const readiness = checkAcceptanceReadiness(meta.metadata);
+    if (!readiness.ready) {
+      throw new PrerequisiteError(
+        readiness.reason ?? 'acceptance scenarios have not been frozen',
+        readiness.suggestion,
+      );
+    }
+    if (readiness.legacy) {
+      legacyBaseline = true;
+    }
+  }
+
   // 3c. Refuse to clobber existing plan artifacts (which may carry hand/AI edits)
   // unless --force. Re-running the scaffold otherwise silently overwrites them.
   const planPath = path.join(changeDir, 'plan.md');
@@ -131,5 +148,6 @@ export async function execute(options: ChangePlanOptions): Promise<ChangePlanRes
     changeDir,
     createdFiles,
     relatedModules,
+    legacyBaseline: legacyBaseline || undefined,
   };
 }

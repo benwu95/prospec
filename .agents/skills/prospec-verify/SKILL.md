@@ -24,7 +24,7 @@ When triggered, briefly describe:
    executable — the one-click installer script from the project README (macOS/Linux `install.sh`,
    Windows `install.ps1`) or a release binary from GitHub Releases; prospec is NOT published to
    npm. Then re-run this skill.
-3. **Version older than 2.2.0** → STOP. Report the installed vs required version
+3. **Version older than 2.3.0** → STOP. Report the installed vs required version
    and ask the user to upgrade, then re-run this skill.
 
 Hand-executing a CLI-owned mutation is NEVER the fallback — that re-introduces the
@@ -162,20 +162,16 @@ travels back, and `verify record --dimensions` lands it in `verify.md` (contract
 
 Sub-agents are available here, so take the sub-agent path. Should a spawn fail at runtime anyway, degrade — offer a fresh single-pass review or the harness's own reviewer command; only when neither is available, grade 2/5 in the implementation's own context and record it honestly with `--graded-by in-session` — which mechanically caps the grade below S (not merely a disclosure WARN), the remedy being to re-grade in fresh context and re-record — and name the path you took. A degraded path is never a silent skip: the developer is told which path ran, every time.
 
+Dimension 2/5 receives `delta-spec.md`, frozen acceptance scenarios, and Step 0 `test_attempt` summary via prepared context (`prospec verify context --change <name>`).
+- Supply prepared context (`context_id`) and grade applicable requirements into per-REQ `items` (evidence, optional repro); report `scenario_findings` for semantic deviation against frozen acceptance scenarios.
+- Executable REQs require reproducible evidence; document/architecture REQs cite checkable evidence (`file:line`, commands, tests) without fabricated repro.
+
 **`metadata.scale: quick`**: this dimension is `not-applicable` — there is no delta-spec to
-compare against. Report it as `not-applicable` (NEVER as PASS — an unchecked dimension must not
+compare against (proposal, baseline, tests are informational). Report it as `not-applicable` (NEVER as PASS — an unchecked dimension must not
 look checked); it does not enter the grade. Spec impact is re-checked against the actual diff
 at the `prospec-archive` Entry Gate.
 
-**`metadata.scale: backfill`**: this dimension is the **primary graded dimension** (spec-fidelity contract); see [`references/verify-backfill.md`](references/verify-backfill.md).
-
-Otherwise, compare each file specification in delta-spec.md:
-- New files exist
-- Modified files contain expected changes
-- API endpoints match specifications
-- Type definitions are complete
-
-Mark each item PASS / WARN / FAIL.
+**`metadata.scale: backfill`**: this dimension is the **primary graded dimension** (spec-fidelity contract; see [`references/verify-backfill.md`](references/verify-backfill.md)), and backfill never fabricates an original pre-implementation story baseline.
 
 ### Verification 3/5: Constitution Full Audit — `[mixed]`
 

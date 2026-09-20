@@ -195,7 +195,7 @@ Entry Points、Dependencies、Config Files 沒有逐語言覆寫機制——未�
 | 命令 | 說明 |
 |------|------|
 | `prospec status [--json]` | 唯讀查詢進行中變更的當前階段、建議下一步、阻擋閘門與未解的 `quality_log` WARN；工作區乾淨時回報漂移報告的狀態。每行 `reason:` 帶穩定的 `[CODE]`。`--json` 將完整報告輸出至 stdout |
-| `prospec change story <name> [options]` | 建立變更需求骨架（`proposal.md` + `metadata.yaml`） |
+| `prospec change story <name> [options]` | 建立變更需求骨架（`proposal.md` + `metadata.yaml`）或凍結／修訂驗收場景基準（`--freeze-scenarios`、`--amend-scenarios`） |
 | `prospec change plan [--change <name>] [--force]` | 建立技術實作計劃骨架（`plan.md` + `delta-spec.md`） |
 | `prospec change tasks [--change <name>] [--force]` | 建立任務清單骨架（`tasks.md`） |
 | `prospec change auto-draft [options]` | 從漂移 findings（或指定 `--target`）建立修復變更骨架，免去手動轉抄報告 |
@@ -212,7 +212,8 @@ Entry Points、Dependencies、Config Files 沒有逐語言覆寫機制——未�
 | `prospec change progress [options]` | 計算任務進度（排除 `[M]` / `[V]`）並支援勾選指定任務 |
 | `prospec change log [options]` | 在 `metadata.yaml` 追加結構化 `quality_log` 記錄；`--verifier-report <file>` 記錄經 schema 驗證的 plan/tasks verifier 報告（`FLAWS` → `FAIL`） |
 | `prospec review merge --findings <file> [options]` | 將審查 JSON 發現合併進累積 `review.md` 表格 |
-| `prospec verify record [options]` | 彙整機器與判斷維度計算評級（S/A/B/C/D），達標時推進 verified |
+| `prospec verify context --change <name>` | 投影確定性驗證上下文（`verify-context.json`），固定基準、規格、提案、程式碼快照與測試事實 |
+| `prospec verify record [options]` | 彙整機器與判斷維度計算評級（S/A/B/C/D），依據上下文與基準核對，達標時推進 verified |
 | `prospec learn upsert --lesson <file> [options]` | 冪等寫入經驗帳本，依規則判定是否晉升 Playbook |
 | `prospec learn yield [options]` | 從已封存審查計算鏡角產出率統計與淘汰建議 |
 | `prospec validate <kind> [target] [options]` | 機械式驗證工件結構完整性（不符時 exit 1） |
@@ -234,16 +235,26 @@ Entry Points、Dependencies、Config Files 沒有逐語言覆寫機制——未�
     - 當站點恢復迴圈（verify below-bar、plan verifier flaws、tasks verifier flaws）達到 `workflow.max_station_retries`（預設 3）時，`status` 會路由至 `next: null` 並帶穩定代碼 `ESCALATE_TO_HUMAN`，印出 HALT 指引與失敗摘要，不再無限循環回原站。
 
 - **`prospec change story <name> [options]`**
-  - **核心用途**：建立新變更的目錄結構、`proposal.md` 骨架與 `metadata.yaml`（`status: story`）。
-  - **選項與參數**：
+  - **核心用途**：建立新變更的目錄結構、`proposal.md` 骨架與 `metadata.yaml`（`status: story`），或凍結／受控修訂驗收場景基準。
+  - **骨架選項**：
     - `--description <d>`：變更的一行簡短描述。
     - `--related-module <m>...`：明確指定關聯模組（覆寫關鍵字自動比對）。
     - `--issue <ref>`：登記此變更對應的 Issue / Ticket 追蹤編號。
     - `--introduced-by <c>`：記錄引入此缺陷的變更來源（用於缺陷漏失率分析）。
+  - **基準管理模式**（與骨架建立選項互斥）：
+    - `--freeze-scenarios`：將 `proposal.md` 中已撰寫的實質驗收場景快照凍結進 `metadata.yaml` 的 `acceptance` 基準（revision 1，origin: `story`）。若含有未修改的 placeholder、缺少 `**Acceptance Scenarios:**` 區段、場景 ID 重複／非法，或與建立專用旗標混用時將拒絕執行。相同標準化內容具備冪等性；內容不同且未走修訂程序時拒絕。
+    - `--amend-scenarios`：針對已凍結的變更受控追加新的基準版本。必須同時提供 `--reason "<text>"` 與 `--expected-digest <sha256>`。CLI 會同時稽核前版 digest 與新版身分，但不會主動改寫 `proposal.md`。若於 `implemented` 階段或之後修訂，記錄的 origin 標記為 `late-capture`。
+    - `--reason <text>`：說明場景修訂理由的說明文字（`--amend-scenarios` 時必填）。
+    - `--expected-digest <sha256>`：當前基準版本的預期 sha256 digest，防止並行或基於過期狀態的改寫（`--amend-scenarios` 時必填）。
+  - **基準閘門與生命週期規則**：
+    - 進入 `plan` 階段（或 `scale: quick` 進入 `tasks`）前必須先凍結驗收基準（`--freeze-scenarios`）。未凍結的變更會被拒絕並提示補救方式。
+    - **Legacy 相容限制**：歷史既有變更（`metadata.yaml` 中無 `acceptance` 欄位）允許繼續推進，並明確揭露限制（`baseline unavailable`），但不會隱式捕捉基準。缺少原始基準將使驗證評級 S 不可達（S 資格受阻；符合 WARN 預算時仍可獲評 A）。
+    - **終端拒絕（Terminal Refusal）**：處於 `status: verified` 或 `status: archived` 的變更一律拒絕任何基準凍結或修訂操作，且不倒退生命週期狀態（新的需求變更必須另開新 change）。
+    - **可追溯性與權限隔離（Traceability vs. Permission Isolation）**：基準版本與摘要比對旨在為 SDD 各站點提供確定性的證據可追溯性與稽核軌跡，並不提供沙盒或作業系統檔案權限隔離。
 
 - **`prospec change plan [--change <name>] [--force]`**
   - **核心用途**：建立 `plan.md` 與 `delta-spec.md` 骨架，並將狀態推進至 `plan`。
-  - **防護規則**：若檔案已存在則拒絕覆寫（除非加上 `--force`）；禁止不允許 plan 的 scale（例如 `quick` 需改跑 `change tasks`，`backfill` 需使用 `prospec-promote-backfill`）。
+  - **防護規則**：若檔案已存在則拒絕覆寫（除非加上 `--force`）；禁止不允許 plan 的 scale（例如 `quick` 需改跑 `change tasks`，`backfill` 需使用 `prospec-promote-backfill`）；未凍結驗收場景基準（`prospec change story <name> --freeze-scenarios`）時拒絕推進，除非變更為 legacy（無 `acceptance` 鍵）。
 
 - **`prospec change tasks [--change <name>] [--force]`**
   - **核心用途**：建立 `tasks.md` 骨架，並將狀態推進至 `tasks`。
@@ -296,9 +307,26 @@ Entry Points、Dependencies、Config Files 沒有逐語言覆寫機制——未�
   - **重點條列**：依識別碼去重、蓋印各發現的來源輪次（`Origin`）、嚴重度取最大值、跨輪次保留記錄、追蹤累計 token 支出與執行的鏡角清單，並評估雙軸 Circuit Breaker（修復引發缺陷比率、預算上限、震盪翻轉、輪次硬上限）於跳閘時輸出升級報告（EscalationReport）。每次合併時，CLI 自動在 `metadata.yaml` 的 `quality_log` 寫入或更新該輪的計數記錄（`criticals_found`、`criticals_fixed`、`majors`、`round`，依輪次冪等）。當累積 findings 表格為 0 列（clean review 輪）時，CLI 亦會自動在 `review.md` 注入符合工件語言（artifact language）的 clean review 總結句。
   - **測試閘門**：在輸入與輪次順序的拒絕（不寫任何檔案）之後，每次合併都要求該變更的 fresh green `test_attempt`，或兩種明確豁免之一（無可解析的測試命令、已證明的 backfill），豁免時以 `tests: not-adjudicated` WARN 合併。測試拒絕以 exit 1 結束並印出 `prospec check --record-tests --change <name>`；它唯一允許的寫入是 `review.md` metrics 註解內有界的測試失敗 metrics（`test_failures`、`test_failure_ids`）——絕不合併 findings 或推進輪次。計數的是 review merge 自身觀測到的不同失敗 attempt（同一 attempt id 重放不重複計數、fresh green 會重設、豁免或迴圈換代不會）；達預設門檻 3 時拒絕同時回報 `persistent_test_failure` 與 `ESCALATE_TO_HUMAN`。沒有門檻旗標。metrics 註解格式錯誤或重複時在任何寫入前拒絕。
 
+- **`prospec verify context --change <name>`**
+  - **核心用途**：在變更目錄內投影確定性的驗證上下文快照（`verify-context.json`），不執行測試套件、不修改 `metadata.yaml` 亦不變更生命週期狀態。
+  - **捕捉的事實**：
+    - 變更名稱、scale、規格來源／內文／digest，以及適用的 REQ ID 清單（`quick` 時為提案內文）。
+    - 凍結的基準版本、digest 與場景清單（或顯式的 unavailable 狀態），以及 proposal mismatch 揭露。
+    - 測試嘗試事實：Step 0 `test_attempt` ID、結果、exit code 與測試 provenance／新鮮度。
+    - 儲存庫程式碼快照身分（`snapshot-v2`）。
+    - 標準化 `context_id`（上下文正規化內容的 sha256 摘要；排除變動時間戳記）。
+  - **穩定性與拒絕規則**：在準備階段會再次核對輸入；任何進行中的檔案異動或不穩定的輸入觀測均會中止並零寫入。
+
 - **`prospec verify record --dimension <name>=<result>... | --dimensions <file> [options]`**
-  - **核心用途**：計算驗證評級（S/A/B/C/D）並記錄結果。
-  - **重點條列**：機械維度自讀 `prospec-report.json`，判斷維度由參數或 JSON 檔案傳入；評級達 S 或 A 時自動將狀態推進至 `status: verified`。
+  - **核心用途**：計算驗證評級（S/A/B/C/D）、核對裁決上下文與證據一致性，並記錄結構化驗證紀錄。
+  - **重點條列**：
+    - 機械維度自讀 `prospec-report.json`，判斷維度由參數或 JSON 檔案傳入（`--dimensions`）。
+    - **上下文與逐 REQ 驗證**：當傳入 `--dimensions <file>` 且 `delta-spec-compliance` 包含 `context_id`、`items[]` 與 `scenario_findings[]` 時：
+      - `verify record` 會透過共用的 `assessVerificationContext` 比對已保存的 `verify-context.json` 與當前重組事實，確認程式碼快照、規格內文、基準版本、提案與測試 attempt 身分在寫入前完全一致。任一項不符即拒絕記錄。
+      - 逐一評定 delta-spec 中的每一項正式需求。缺交的 REQ 會由機器自動補為 `not-adjudicated`。
+      - **結果 Floor 與 Reducer**：任一 item 或 deviation finding 判定為 `FAIL` 時，綜合結果最低為 `FAIL`；任一項為 `WARN` 時最低為 `WARN`；未裁決或缺交項補為 `not-adjudicated`（且評級 S 不可達）；不論缺交項多寡，皆整合成單一維度級的 gap warning 扣除 Grade A 容許額度。
+      - **Legacy 輸入**：未帶 `context_id` 的舊版輸入不會推導出任何逐 REQ PASS；如實揭露未裁決狀態並保留顯式 FAIL。
+    - 評級達 S 或 A 時自動將狀態推進至 `status: verified`。
 
 - **`prospec learn upsert --lesson <file> [--today <date>]`**
   - **核心用途**：向經驗帳本（`_lessons-ledger.md`）冪等寫入教訓記錄。

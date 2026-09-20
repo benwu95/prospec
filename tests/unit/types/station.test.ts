@@ -19,6 +19,10 @@ import {
   TEST_EVIDENCE_EXEMPTIONS,
   testGateRemediation,
   type TestEvidenceDecision,
+  EVIDENCE_KINDS,
+  JudgmentItemSchema,
+  ScenarioFindingSchema,
+  VerificationContextSchema,
 } from '../../../src/types/station.js';
 
 describe('ReviewFindingSchema', () => {
@@ -386,5 +390,273 @@ describe('test gate contracts (REQ-LIB-080, REQ-TYPES-086)', () => {
     const pass: TestEvidenceDecision = { verdict: 'pass', attemptId: 'a' };
     const exempt: TestEvidenceDecision = { verdict: 'exempt', exemption: 'no-command', reason: 'no test command configured' };
     expect([refuse, pass, exempt].map((d) => d.verdict)).toEqual(['refuse', 'pass', 'exempt']);
+  });
+});
+
+describe('Per-requirement judgment and context contracts (REQ-TYPES-104)', () => {
+  describe('EVIDENCE_KINDS', () => {
+    it('is the closed set of evidence kinds', () => {
+      expect(EVIDENCE_KINDS).toEqual(['executable', 'document', 'architecture']);
+    });
+  });
+
+  describe('JudgmentItemSchema', () => {
+    const validExecutable = {
+      req_id: 'REQ-LIB-001',
+      result: 'PASS' as const,
+      evidence_kind: 'executable' as const,
+      evidence: 'test passed with assertion',
+      repro: 'pnpm test tests/unit/lib/foo.test.ts',
+    };
+
+    it('parses valid executable item with evidence and repro', () => {
+      const r = JudgmentItemSchema.safeParse(validExecutable);
+      expect(r.success).toBe(true);
+    });
+
+    it('rejects empty or whitespace evidence for PASS/WARN/FAIL', () => {
+      expect(
+        JudgmentItemSchema.safeParse({ ...validExecutable, evidence: '' }).success,
+      ).toBe(false);
+      expect(
+        JudgmentItemSchema.safeParse({ ...validExecutable, evidence: '   \n  ' }).success,
+      ).toBe(false);
+    });
+
+    it('rejects executable PASS/FAIL without non-whitespace repro', () => {
+      expect(
+        JudgmentItemSchema.safeParse({ ...validExecutable, repro: undefined }).success,
+      ).toBe(false);
+      expect(
+        JudgmentItemSchema.safeParse({ ...validExecutable, repro: '   ' }).success,
+      ).toBe(false);
+      expect(
+        JudgmentItemSchema.safeParse({ ...validExecutable, result: 'FAIL', repro: undefined }).success,
+      ).toBe(false);
+    });
+
+    it('allows document/architecture items without repro', () => {
+      const docItem = {
+        req_id: 'REQ-DOC-001',
+        result: 'PASS' as const,
+        evidence_kind: 'document' as const,
+        evidence: 'README.md:25 describes the API without executable requirement',
+      };
+      expect(JudgmentItemSchema.safeParse(docItem).success).toBe(true);
+
+      const archItem = {
+        req_id: 'REQ-ARCH-001',
+        result: 'PASS' as const,
+        evidence_kind: 'architecture' as const,
+        evidence: 'module-map.yaml defines the DAG boundary',
+      };
+      expect(JudgmentItemSchema.safeParse(archItem).success).toBe(true);
+    });
+
+    it('requires evidence justification for not-applicable', () => {
+      expect(
+        JudgmentItemSchema.safeParse({
+          req_id: 'REQ-001',
+          result: 'not-applicable',
+          evidence_kind: 'document',
+          evidence: 'feature is not enabled on this scale',
+        }).success,
+      ).toBe(true);
+
+      expect(
+        JudgmentItemSchema.safeParse({
+          req_id: 'REQ-001',
+          result: 'not-applicable',
+          evidence_kind: 'document',
+        }).success,
+      ).toBe(false);
+    });
+
+    it('allows optional evidence for not-adjudicated', () => {
+      expect(
+        JudgmentItemSchema.safeParse({
+          req_id: 'REQ-001',
+          result: 'not-adjudicated',
+          evidence_kind: 'executable',
+        }).success,
+      ).toBe(true);
+    });
+
+    it('enforces relayed-field ceilings on req_id and repro', () => {
+      expect(
+        JudgmentItemSchema.safeParse({
+          ...validExecutable,
+          req_id: 'R'.repeat(RELAYED_FIELD_MAX_CHARS.id + 1),
+        }).success,
+      ).toBe(false);
+
+      expect(
+        JudgmentItemSchema.safeParse({
+          ...validExecutable,
+          repro: 'p'.repeat(RELAYED_FIELD_MAX_CHARS.repro + 1),
+        }).success,
+      ).toBe(false);
+    });
+  });
+
+  describe('ScenarioFindingSchema', () => {
+    const validFinding = {
+      scenario_id: 'US-1.1',
+      affected_req_ids: ['REQ-LIB-084'],
+      spec_location: 'proposal.md:25',
+      result: 'FAIL' as const,
+      summary: 'behavior deviates from frozen scenario',
+      evidence: 'the function throws ConfigNotFound instead of PrerequisiteError',
+    };
+
+    it('parses valid scenario finding', () => {
+      expect(ScenarioFindingSchema.safeParse(validFinding).success).toBe(true);
+    });
+
+    it('accepts empty affected_req_ids (scenario omitted from spec)', () => {
+      expect(
+        ScenarioFindingSchema.safeParse({ ...validFinding, affected_req_ids: [] }).success,
+      ).toBe(true);
+    });
+
+    it('rejects finding with PASS result', () => {
+      expect(
+        ScenarioFindingSchema.safeParse({ ...validFinding, result: 'PASS' }).success,
+      ).toBe(false);
+    });
+
+    it('rejects empty evidence or summary', () => {
+      expect(
+        ScenarioFindingSchema.safeParse({ ...validFinding, evidence: '   ' }).success,
+      ).toBe(false);
+      expect(
+        ScenarioFindingSchema.safeParse({ ...validFinding, summary: '' }).success,
+      ).toBe(false);
+    });
+
+    it('enforces ceilings on scenario_id, spec_location and summary', () => {
+      expect(
+        ScenarioFindingSchema.safeParse({
+          ...validFinding,
+          scenario_id: 'S'.repeat(RELAYED_FIELD_MAX_CHARS.id + 1),
+        }).success,
+      ).toBe(false);
+      expect(
+        ScenarioFindingSchema.safeParse({
+          ...validFinding,
+          spec_location: 'L'.repeat(RELAYED_FIELD_MAX_CHARS.location + 1),
+        }).success,
+      ).toBe(false);
+      expect(
+        ScenarioFindingSchema.safeParse({
+          ...validFinding,
+          summary: 'M'.repeat(RELAYED_FIELD_MAX_CHARS.summary + 1),
+        }).success,
+      ).toBe(false);
+    });
+  });
+
+  describe('JudgmentDimensionInputSchema delta-spec-compliance restriction', () => {
+    const item = {
+      req_id: 'REQ-LIB-084',
+      result: 'PASS' as const,
+      evidence_kind: 'executable' as const,
+      evidence: 'test passed',
+      repro: 'pnpm test',
+    };
+
+    it('accepts items, context_id, scenario_findings on delta-spec-compliance', () => {
+      const r = JudgmentDimensionInputSchema.safeParse({
+        name: 'delta-spec-compliance',
+        result: 'PASS',
+        graded_by: 'fresh-subagent',
+        context_id: 'ctx-1',
+        items: [item],
+        scenario_findings: [],
+      });
+      expect(r.success).toBe(true);
+    });
+
+    it('refuses items on dimensions other than delta-spec-compliance', () => {
+      const r = JudgmentDimensionInputSchema.safeParse({
+        name: 'constitution',
+        result: 'PASS',
+        graded_by: 'fresh-subagent',
+        items: [item],
+      });
+      expect(r.success).toBe(false);
+    });
+
+    it('refuses context_id on dimensions other than delta-spec-compliance', () => {
+      const r = JudgmentDimensionInputSchema.safeParse({
+        name: 'design',
+        result: 'PASS',
+        graded_by: 'fresh-subagent',
+        context_id: 'ctx-1',
+      });
+      expect(r.success).toBe(false);
+    });
+
+    it('refuses scenario_findings on dimensions other than delta-spec-compliance', () => {
+      const r = JudgmentDimensionInputSchema.safeParse({
+        name: 'constitution',
+        result: 'PASS',
+        graded_by: 'fresh-subagent',
+        scenario_findings: [],
+      });
+      expect(r.success).toBe(false);
+    });
+  });
+
+  describe('VerificationContextSchema closed shape', () => {
+    const validContext = {
+      version: 1,
+      change_name: 'freeze-acceptance-evidence',
+      scale: 'full',
+      spec: {
+        source: 'delta-spec.md',
+        content: '# Spec content',
+        digest: 'spec-digest',
+        req_ids: ['REQ-LIB-084', 'REQ-TYPES-103'],
+      },
+      proposal: {
+        source: 'proposal.md',
+        digest: 'proposal-digest',
+      },
+      baseline: {
+        status: 'frozen',
+        revision: 1,
+        digest: 'baseline-digest',
+        scenarios: [
+          {
+            id: 'US-1.1',
+            story_id: 'US-1',
+            text: 'scenario text',
+            source: 'proposal.md:20',
+          },
+        ],
+        proposal_mismatch: false,
+      },
+      test_attempt: {
+        status: 'passed',
+        attempt_id: 'att-1',
+        exit_code: 0,
+        command: 'pnpm test',
+      },
+      snapshot: {
+        digest: 'code-snapshot-digest',
+      },
+      context_id: 'canonical-context-id',
+    };
+
+    it('parses valid closed VerificationContext', () => {
+      expect(VerificationContextSchema.safeParse(validContext).success).toBe(true);
+    });
+
+    it('rejects unknown / unmodeled keys in VerificationContext (closed shape)', () => {
+      expect(
+        VerificationContextSchema.safeParse({ ...validContext, unknown_extra: 123 }).success,
+      ).toBe(false);
+    });
   });
 });

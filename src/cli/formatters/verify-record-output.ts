@@ -1,6 +1,7 @@
 import pc from 'picocolors';
 import type { LogLevel } from '../../types/config.js';
 import type { VerifyRecordResult } from '../../services/verify-record.service.js';
+import type { VerifyContextResult } from '../../services/verify-context.service.js';
 import { sanitizeTerminal } from './sanitize.js';
 
 /** Format the VerifyRecordResult: the two ledgers, the grade, the status effect. */
@@ -19,6 +20,9 @@ export function formatVerifyRecordOutput(
     `Judgment ledger: ${judgment.map((d) => `${sanitizeTerminal(d.name)}=${d.result}`).join(' · ')}`,
     `Quality Grade: ${gradeColor(result.grade)} (result: ${result.result})`,
   ];
+  if (result.coverageSummary !== undefined) {
+    lines.push(`Requirements coverage: ${sanitizeTerminal(result.coverageSummary)}`);
+  }
   if (result.excludedFromGrade.length > 0) {
     const excluded = result.excludedFromGrade.map((n) => sanitizeTerminal(n)).join(', ');
     lines.push(
@@ -54,3 +58,20 @@ export function formatVerifyRecordOutput(
   );
   process.stdout.write(lines.join('\n') + '\n');
 }
+
+/** Format the VerifyContextResult for terminal output. */
+export function formatVerifyContextOutput(
+  result: VerifyContextResult,
+  logLevel: LogLevel = 'normal',
+): void {
+  if (logLevel === 'quiet') return;
+
+  const lines: string[] = [
+    `Verification context prepared for ${sanitizeTerminal(result.changeName)}`,
+    `Context file: ${pc.cyan(sanitizeTerminal(result.contextPath))}`,
+    `Context ID:   ${pc.dim(sanitizeTerminal(result.contextId))}`,
+  ];
+
+  process.stdout.write(lines.join('\n') + '\n');
+}
+

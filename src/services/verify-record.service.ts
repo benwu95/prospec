@@ -1,5 +1,6 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
+import { isDeepStrictEqual } from 'node:util';
 import { PrerequisiteError } from '../types/errors.js';
 import {
   isStatusBefore,
@@ -11,6 +12,7 @@ import {
   JUDGMENT_DIMENSION_NAMES,
   MACHINE_DIMENSION_NAMES,
   JudgmentDimensionsInputSchema,
+  VerificationContextSchema,
   type JudgmentDimensionInput,
 } from '../types/station.js';
 import {
@@ -41,6 +43,13 @@ import {
 } from '../lib/verify-grade.js';
 import { todayIso } from '../lib/date-utils.js';
 import { resolveChange } from './change-resolver.js';
+import { assessVerificationContext } from '../lib/verification-context.js';
+import {
+  assessRequirementCompliance,
+  type RequirementAssessmentResult,
+} from '../lib/requirement-assessment.js';
+import { iterateDeltaEntries } from '../lib/landing-fidelity.js';
+import { renderMarkdownTable } from '../lib/markdown-table.js';
 
 export interface VerifyRecordOptions {
   /** Explicit change name; resolved interactively when omitted. */
@@ -48,7 +57,7 @@ export interface VerifyRecordOptions {
   cwd?: string;
   quiet?: boolean;
   /** The reviewer's verdicts for the judgment dimensions (2/5, 3/5, 6). */
-  judgmentDimensions: QualityDimension[];
+  judgmentDimensions?: QualityDimension[];
   /**
    * Path to a JSON array of judgment verdicts that may also carry each
    * dimension's summary, repro and evidence — the richer alternative to the
@@ -76,6 +85,8 @@ export interface VerifyRecordResult {
   excludedFromGrade: string[];
   /** Repo-relative `verify.md` path, when this run recorded judgment evidence. */
   evidencePath?: string;
+  /** Summary of requirement coverage (e.g. '18/18'), if applicable. */
+  coverageSummary?: string;
   /**
    * Present when at least one grade-input judgment dimension was graded
    * `in-session`: grade S is then mechanically unattainable. Carries the
@@ -159,19 +170,94 @@ function readJudgmentInput(dimensionsPath: string): JudgmentDimensionInput[] {
         }
       }
     }
+    if (d.items) {
+      for (const item of d.items) {
+        if (item.evidence && containsEvidenceMarker(item.evidence)) {
+          throw new PrerequisiteError(
+            `Dimension ${d.name} item "${item.req_id}" evidence carries \`${EVIDENCE_MARKER_PREFIX}\` — that marker is the evidence-block grammar`,
+            `Remove or rephrase it in that item's evidence; nothing was written`,
+          );
+        }
+        if (item.repro && containsEvidenceMarker(item.repro)) {
+          throw new PrerequisiteError(
+            `Dimension ${d.name} item "${item.req_id}" repro carries \`${EVIDENCE_MARKER_PREFIX}\` — that marker is the evidence-block grammar`,
+            `Remove or rephrase it in that item's repro; nothing was written`,
+          );
+        }
+      }
+    }
+    if (d.scenario_findings) {
+      for (const finding of d.scenario_findings) {
+        if (containsEvidenceMarker(finding.summary)) {
+          throw new PrerequisiteError(
+            `Dimension ${d.name} scenario_finding "${finding.scenario_id}" summary carries \`${EVIDENCE_MARKER_PREFIX}\` — that marker is the evidence-block grammar`,
+            `Remove or rephrase it in that finding's summary; nothing was written`,
+          );
+        }
+        if (containsEvidenceMarker(finding.evidence)) {
+          throw new PrerequisiteError(
+            `Dimension ${d.name} scenario_finding "${finding.scenario_id}" evidence carries \`${EVIDENCE_MARKER_PREFIX}\` — that marker is the evidence-block grammar`,
+            `Remove or rephrase it in that finding's evidence; nothing was written`,
+          );
+        }
+      }
+    }
   }
   return parsed.data;
 }
 
 /** The evidence block a judgment verdict carries, or none when it carries no prose. */
-function evidenceBlockFor(d: JudgmentDimensionInput): EvidenceBlock | undefined {
-  const body = [
-    ...(d.summary === undefined ? [] : [`**Summary:** ${d.summary}`]),
-    ...(d.repro === undefined ? [] : [`**Repro:** ${toInlineCodeSpan(d.repro)}`]),
-    ...(d.evidence === undefined ? [] : ['', d.evidence]),
-  ]
-    .join('\n')
-    .trim();
+function evidenceBlockFor(
+  d: JudgmentDimensionInput,
+  reqAssessment?: RequirementAssessmentResult,
+): EvidenceBlock | undefined {
+  const bodyParts: string[] = [];
+  if (d.name === 'delta-spec-compliance' && d.context_id) {
+    bodyParts.push(`**Context ID:** \`${d.context_id}\``);
+  }
+  if (d.summary !== undefined && d.summary.trim() !== '') {
+    bodyParts.push(`**Summary:** ${d.summary}`);
+  }
+  if (d.repro !== undefined && d.repro.trim() !== '') {
+    bodyParts.push(`**Repro:** ${toInlineCodeSpan(d.repro)}`);
+  }
+  if (d.evidence !== undefined && d.evidence.trim() !== '') {
+    bodyParts.push(d.evidence);
+  }
+  if (d.name === 'delta-spec-compliance' && reqAssessment && reqAssessment.items.length > 0) {
+    const tableRows = reqAssessment.items.map((item) => [
+      item.req_id,
+      item.result,
+      item.evidence_kind,
+      item.evidence ?? '',
+      item.repro ? toInlineCodeSpan(item.repro) : '',
+    ]);
+    const table = renderMarkdownTable(
+      ['REQ ID', 'Result', 'Kind', 'Evidence', 'Repro'],
+      tableRows,
+    );
+    bodyParts.push(`#### Requirements Compliance\n\n${table}`);
+  }
+  if (d.name === 'delta-spec-compliance' && reqAssessment?.gapWarnings.length) {
+    bodyParts.push(`#### Verification Limitations\n\n${reqAssessment.gapWarnings.join('\n\n')}`);
+  }
+  if (d.name === 'delta-spec-compliance' && d.scenario_findings && d.scenario_findings.length > 0) {
+    const findingRows = d.scenario_findings.map((f) => [
+      f.scenario_id,
+      f.affected_req_ids.join(', '),
+      f.spec_location,
+      f.result,
+      f.summary,
+      f.evidence,
+    ]);
+    const findingTable = renderMarkdownTable(
+      ['Scenario ID', 'Affected REQs', 'Spec Location', 'Result', 'Summary', 'Evidence'],
+      findingRows,
+    );
+    bodyParts.push(`#### Scenario Deviation Findings\n\n${findingTable}`);
+  }
+
+  const body = bodyParts.join('\n\n').trim();
   if (body === '') return undefined;
   return { key: d.name, heading: `${d.name} — ${d.result}`, body };
 }
@@ -222,7 +308,7 @@ export async function execute(options: VerifyRecordOptions): Promise<VerifyRecor
 
   // The richer input form, read and validated FIRST: every refusal it carries
   // must precede the metadata write.
-  if (options.dimensionsPath !== undefined && options.judgmentDimensions.length > 0) {
+  if (options.dimensionsPath !== undefined && options.judgmentDimensions !== undefined && options.judgmentDimensions.length > 0) {
     throw new PrerequisiteError(
       'Both --dimension flags and a --dimensions file were supplied',
       'Pass the verdicts one way or the other — one verify run has one verdict source',
@@ -232,7 +318,7 @@ export async function execute(options: VerifyRecordOptions): Promise<VerifyRecor
     options.dimensionsPath === undefined ? [] : readJudgmentInput(options.dimensionsPath);
   const judgmentVerdicts: QualityDimension[] =
     options.dimensionsPath === undefined
-      ? options.judgmentDimensions
+      ? (options.judgmentDimensions ?? [])
       : judgmentInput.map((d) => ({
           name: d.name,
           result: d.result,
@@ -287,6 +373,155 @@ export async function execute(options: VerifyRecordOptions): Promise<VerifyRecor
       backfillHonestyWarning =
         '`scale: backfill` claimed but no backfill-draft.md — graded as standard';
     }
+  }
+
+  const deltaVerdict = judgmentVerdicts.find((d) => d.name === 'delta-spec-compliance');
+  const deltaInput = judgmentInput.find((d) => d.name === 'delta-spec-compliance');
+  const suppliedDeltaVerdict = deltaInput?.result ?? deltaVerdict?.result;
+
+  let liveContextAssessment: ReturnType<typeof assessVerificationContext> | undefined;
+  let contextStatus: 'valid' | 'missing' = 'missing';
+  let savedContextRecheck: (() => boolean) | undefined;
+
+  if (deltaInput?.context_id !== undefined) {
+    const contextPath = path.join(cwd, '.prospec', 'changes', changeName, 'verify-context.json');
+    if (!fs.existsSync(contextPath)) {
+      throw new PrerequisiteError(
+        `Saved verification context not found for change "${changeName}" at ${contextPath}`,
+        `Run \`prospec verify context --change ${changeName}\` before grading`,
+      );
+    }
+    let savedContextJson: { context_id?: string };
+    const savedContextBytes = fs.readFileSync(contextPath);
+    try {
+      savedContextJson = JSON.parse(savedContextBytes.toString('utf8'));
+    } catch {
+      throw new PrerequisiteError(
+        `Saved verification context at ${contextPath} is not valid JSON`,
+        `Re-run \`prospec verify context --change ${changeName}\``,
+      );
+    }
+    if (savedContextJson?.context_id !== deltaInput.context_id) {
+      throw new PrerequisiteError(
+        `Saved verification context ID mismatch: expected "${deltaInput.context_id}", found "${savedContextJson?.context_id}" in ${contextPath}`,
+        'Re-run verify context and re-grade with the matching context_id',
+      );
+    }
+
+    liveContextAssessment = assessVerificationContext(cwd, changeName);
+    if (liveContextAssessment.context.context_id !== deltaInput.context_id) {
+      throw new PrerequisiteError(
+        `Verification context is stale or changed since grading: graded context_id "${deltaInput.context_id}" does not match current repository/spec context_id "${liveContextAssessment.context.context_id}"`,
+        'Inputs (spec, proposal, baseline, tests, or code) changed; re-run verify context and re-grade',
+      );
+    }
+    if (!VerificationContextSchema.safeParse(savedContextJson).success ||
+        !isDeepStrictEqual(savedContextJson, liveContextAssessment.context)) {
+      throw new PrerequisiteError('Saved verification context integrity mismatch — nothing was written',
+        'Re-run verify context and re-grade against its complete, unchanged projection');
+    }
+    savedContextRecheck = () => {
+      try { return savedContextBytes.equals(fs.readFileSync(contextPath)); } catch { return false; }
+    };
+    if (!liveContextAssessment.recheck()) {
+      throw new PrerequisiteError(
+        'verification inputs changed or are unprovable — nothing was written',
+        'Re-run verify context against stable current inputs',
+      );
+    }
+    contextStatus = 'valid';
+  }
+
+  let baselineStatus: 'frozen' | 'late-capture' | 'missing' = 'missing';
+  let currentRevisionNumber: number | undefined;
+  let currentRevScenarios: Array<{ id: string }> | undefined;
+
+  if (
+    metadata.acceptance &&
+    metadata.acceptance.revisions &&
+    metadata.acceptance.revisions.length > 0 &&
+    metadata.acceptance.current_revision
+  ) {
+    const currentRev = metadata.acceptance.revisions.find(
+      (r) => r.revision === metadata.acceptance!.current_revision,
+    );
+    if (currentRev) {
+      currentRevisionNumber = currentRev.revision;
+      currentRevScenarios = currentRev.scenarios;
+      baselineStatus = currentRev.origin === 'late-capture' ? 'late-capture' : 'frozen';
+    }
+  }
+
+  if (deltaInput?.scenario_findings && deltaInput.scenario_findings.length > 0) {
+    if (!currentRevScenarios || currentRevScenarios.length === 0) {
+      throw new PrerequisiteError(
+        'scenario_findings supplied but change has no acceptance baseline revisions',
+        'Cannot evaluate scenario findings without a frozen acceptance baseline',
+      );
+    }
+    const knownScenarioIds = new Set(currentRevScenarios.map((s) => s.id));
+    for (const finding of deltaInput.scenario_findings) {
+      if (!knownScenarioIds.has(finding.scenario_id)) {
+        throw new PrerequisiteError(
+          `unknown scenario_id "${finding.scenario_id}" in scenario_findings (expected one of: ${[...knownScenarioIds].join(', ')})`,
+          'Ensure scenario findings reference valid frozen scenarios',
+        );
+      }
+    }
+  }
+
+  const deltaPath = path.join(cwd, '.prospec', 'changes', changeName, 'delta-spec.md');
+  const deltaExists = fs.existsSync(deltaPath);
+
+  let reqAssessment: RequirementAssessmentResult | undefined;
+  if (metadata.scale === 'quick') {
+    reqAssessment = assessRequirementCompliance({
+      scale: 'quick',
+      deltaContent: '',
+      items: deltaInput?.items,
+      findings: deltaInput?.scenario_findings,
+      suppliedVerdict: suppliedDeltaVerdict,
+      baselineStatus,
+      contextStatus,
+    });
+  } else {
+    if (!deltaExists && (deltaInput?.items !== undefined || deltaInput?.context_id !== undefined)) {
+      throw new PrerequisiteError(
+        `delta-spec.md for change "${changeName}" cannot be read`,
+        'Ensure delta-spec.md exists before recording verify',
+      );
+    }
+    const deltaContent = deltaExists ? fs.readFileSync(deltaPath, 'utf8') : '';
+
+    if (deltaInput?.scenario_findings) {
+      const entries = iterateDeltaEntries(deltaContent);
+      const formalReqIds = new Set(
+        entries.filter((e) => ['ADDED', 'MODIFIED', 'REMOVED'].includes(e.section)).map((e) => e.reqId),
+      );
+      for (const finding of deltaInput.scenario_findings) {
+        for (const reqId of finding.affected_req_ids) {
+          if (!formalReqIds.has(reqId)) {
+            throw new PrerequisiteError(
+              `unknown REQ id "${reqId}" in scenario_finding "${finding.scenario_id}" (expected one of: ${[...formalReqIds].join(', ')})`,
+            );
+          }
+        }
+      }
+    }
+
+    reqAssessment = assessRequirementCompliance({
+      scale: metadata.scale ?? 'standard',
+      deltaContent,
+      items: deltaInput?.items,
+      findings: deltaInput?.scenario_findings,
+      suppliedVerdict: suppliedDeltaVerdict,
+      baselineStatus,
+      contextStatus,
+    });
+
+  }
+  if (deltaVerdict) {
+    deltaVerdict.result = reqAssessment.verdict;
   }
 
   // Adjudicate current facts; a saved report is only an informational artifact.
@@ -413,7 +648,17 @@ export async function execute(options: VerifyRecordOptions): Promise<VerifyRecor
 
   const dimensions: QualityDimension[] = [
     ...machineDimensions,
-    ...judgmentVerdicts.map((d) => ({ ...d, adjudicator: 'judgment' as const })),
+    ...judgmentVerdicts.map((d) => {
+      if (d.name === 'delta-spec-compliance') {
+        return {
+          ...d,
+          adjudicator: 'judgment' as const,
+          ...(deltaInput?.context_id ? { context_id: deltaInput.context_id } : {}),
+          ...(currentRevisionNumber ? { baseline_revision: currentRevisionNumber } : {}),
+        };
+      }
+      return { ...d, adjudicator: 'judgment' as const };
+    }),
   ];
 
   // A not-adjudicated machine dimension is itself a WARN — spell its warning
@@ -439,6 +684,7 @@ export async function execute(options: VerifyRecordOptions): Promise<VerifyRecor
     ...notAdjudicatedWarnings,
     ...constitutionNotAdjWarnings,
     ...(backfillHonestyWarning ? [backfillHonestyWarning] : []),
+    ...(reqAssessment && reqAssessment.gapWarnings.length > 0 ? reqAssessment.gapWarnings : []),
   ];
 
   const gradeInputs = dimensions.filter((d) => !excludedFromGrade.includes(d.name));
@@ -464,6 +710,12 @@ export async function execute(options: VerifyRecordOptions): Promise<VerifyRecor
     : undefined;
   const date = options.date ?? todayIso();
 
+  let coverageSummaryStr: string | undefined;
+  if (reqAssessment && reqAssessment.isApplicable && reqAssessment.expectedReqIds.length > 0) {
+    const adjudicated = reqAssessment.items.filter((i) => i.result !== 'not-adjudicated').length;
+    coverageSummaryStr = `${adjudicated}/${reqAssessment.expectedReqIds.length}`;
+  }
+
   appendQualityLogEntry(doc, {
     skill: 'prospec-verify',
     date,
@@ -471,12 +723,42 @@ export async function execute(options: VerifyRecordOptions): Promise<VerifyRecor
     warnings,
     grade,
     dimensions,
+    context_id: deltaInput?.context_id,
+    baseline_revision: currentRevisionNumber,
+    coverage_summary: coverageSummaryStr,
   });
 
-  const blocks = judgmentInput.flatMap((d) => {
-    const block = evidenceBlockFor(d);
-    return block === undefined ? [] : [block];
-  });
+  const blocks: EvidenceBlock[] = [];
+  if (judgmentInput.length > 0) {
+    for (const d of judgmentInput) {
+      const block = evidenceBlockFor(
+        { ...d, result: judgmentVerdicts.find((verdict) => verdict.name === d.name)!.result },
+        d.name === 'delta-spec-compliance' ? reqAssessment : undefined,
+      );
+      if (block !== undefined) blocks.push(block);
+    }
+  } else if (reqAssessment && reqAssessment.isApplicable) {
+    const deltaVerdict = judgmentVerdicts.find((d) => d.name === 'delta-spec-compliance');
+    const block = evidenceBlockFor(
+      {
+        name: 'delta-spec-compliance',
+        result: (deltaVerdict?.result ?? 'not-adjudicated') as JudgmentDimensionInput['result'],
+        graded_by: (deltaVerdict?.graded_by ?? 'fresh-subagent') as 'fresh-subagent' | 'in-session',
+      },
+      reqAssessment,
+    );
+    if (block !== undefined) blocks.push(block);
+  }
+
+  for (const block of blocks) {
+    const unsafe = findUnsafeBlockField(block);
+    if (unsafe !== undefined) {
+      throw new PrerequisiteError(
+        `Block ${block.key} carries \`${EVIDENCE_MARKER_PREFIX}\` (or a line break) in its ${unsafe} — that marker is the evidence-block grammar`,
+        'Remove or rephrase it; nothing was written',
+      );
+    }
+  }
 
   // The heading this run would write is machine-derived (a parsed ISO date and a
   // grade from a closed enum), so this is a backstop rather than an input gate —
@@ -502,7 +784,12 @@ export async function execute(options: VerifyRecordOptions): Promise<VerifyRecor
   // the authoritative write left a dated, graded evidence section for a run that
   // has no `quality_log` entry at all; this order can only ever leave a recorded
   // run whose evidence is missing, which reads as what it is.
-  if (!assessment.recheck() || fs.readFileSync(metadataPath, 'utf8') !== metadataInput) {
+  if (
+    !assessment.recheck() ||
+    (liveContextAssessment !== undefined && !liveContextAssessment.recheck()) ||
+    (savedContextRecheck !== undefined && !savedContextRecheck()) ||
+    fs.readFileSync(metadataPath, 'utf8') !== metadataInput
+  ) {
     throw new PrerequisiteError('verification inputs changed or are unprovable — nothing was written', 'Re-run verify against stable current inputs');
   }
   await writeChangeMetadataDoc(metadataPath, doc, changeName);
@@ -522,11 +809,18 @@ export async function execute(options: VerifyRecordOptions): Promise<VerifyRecor
   let evidencePath: string | undefined;
   if (blocks.length > 0) {
     const verifyPath = path.join(cwd, '.prospec', 'changes', changeName, 'verify.md');
-    const existing = await readFileIfExists(verifyPath);
-    const section = renderEvidenceSection(blocks, evidenceHeading);
-    const head = existing.trim() === '' ? `# Verify Evidence: ${changeName}\n` : existing;
-    await atomicWrite(verifyPath, `${trimTrailingNewlines(head)}\n\n${section}\n`);
-    evidencePath = path.join('.prospec', 'changes', changeName, 'verify.md');
+    try {
+      const existing = await readFileIfExists(verifyPath);
+      const section = renderEvidenceSection(blocks, evidenceHeading);
+      const head = existing.trim() === '' ? `# Verify Evidence: ${changeName}\n` : existing;
+      await atomicWrite(verifyPath, `${trimTrailingNewlines(head)}\n\n${section}\n`);
+      evidencePath = path.join('.prospec', 'changes', changeName, 'verify.md');
+    } catch (error) {
+      throw new PrerequisiteError(
+        `metadata.yaml was updated with grade ${grade}, but writing verify.md failed (${error instanceof Error ? error.message : String(error)})`,
+        'Re-run verify record to append the missing evidence; metadata has recorded this run',
+      );
+    }
   }
 
   return {
@@ -539,6 +833,7 @@ export async function execute(options: VerifyRecordOptions): Promise<VerifyRecor
     gradeGraduates: gradeAdvancesStatus(grade),
     excludedFromGrade,
     evidencePath,
+    coverageSummary: coverageSummaryStr,
     ...(selfVerifiedCap !== undefined ? { selfVerifiedCap } : {}),
   };
 }

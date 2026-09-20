@@ -10,6 +10,8 @@
  * identical verdict.
  */
 
+import { withoutFencedBlocks } from './markdown-fences.js';
+
 /**
  * One `- WHEN … THEN …` bullet: `key` is whitespace-normalised for comparison,
  * `text` is the source lines exactly as written. Comparing on the key means a
@@ -313,7 +315,12 @@ export function iterateDeltaEntries(deltaContent: string): DeltaEntry[] {
     if (reqId) entries.push({ section, reqId, description, feature, story, body });
   };
 
-  for (const line of deltaContent.split('\n')) {
+  const lines = deltaContent.split('\n');
+  const masked = withoutFencedBlocks(lines);
+
+  for (let i = 0; i < lines.length; i++) {
+    const rawLine = lines[i]!;
+    const line = masked[i]!;
     const sectionMatch = line.match(/^##\s+(ADDED|MODIFIED|REMOVED)/i);
     if (sectionMatch) {
       push();
@@ -345,7 +352,7 @@ export function iterateDeltaEntries(deltaContent: string): DeltaEntry[] {
       story = storyMatch[1]!.trim();
       continue;
     }
-    body.push(line);
+    body.push(rawLine);
   }
   push();
   return entries;

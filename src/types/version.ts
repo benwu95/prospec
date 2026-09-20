@@ -35,4 +35,4 @@ export const PROSPEC_VERSION: string = process.env.PROSPEC_VERSION || pkgVersion
  * option 2.1.x does not accept — so a lower floor would let a 2.1.x binary pass the
  * probe and then die mid-station on commander's unknown-option error.
  */
-export const MINIMUM_CLI_VERSION = '2.2.0';
+export const MINIMUM_CLI_VERSION = '2.3.0';

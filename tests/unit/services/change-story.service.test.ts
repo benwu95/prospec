@@ -46,6 +46,10 @@ describe('change-story.service', () => {
     // Verify files exist
     expect(fs.existsSync('/project/.prospec/changes/add-auth/proposal.md')).toBe(true);
     expect(fs.existsSync('/project/.prospec/changes/add-auth/metadata.yaml')).toBe(true);
+
+    const metaRaw = fs.readFileSync('/project/.prospec/changes/add-auth/metadata.yaml', 'utf-8');
+    const parsedMeta = parseYaml(metaRaw) as Record<string, unknown>;
+    expect(parsedMeta.acceptance).toEqual({ version: 1, revisions: [] });
   });
 
   it('should throw AlreadyExistsError when change directory exists', async () => {

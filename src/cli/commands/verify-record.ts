@@ -5,7 +5,10 @@ import {
   type DimensionGradedBy,
   type QualityDimension,
 } from '../../types/change.js';
-import { formatVerifyRecordOutput } from '../formatters/verify-record-output.js';
+import {
+  formatVerifyRecordOutput,
+  formatVerifyContextOutput,
+} from '../formatters/verify-record-output.js';
 import { handleError } from '../formatters/error-output.js';
 import type { GlobalOptions } from '../index.js';
 import { resolveLogLevel } from '../log-level.js';
@@ -151,4 +154,26 @@ export function registerVerifyCommand(program: Command): void {
         }
       },
     );
+
+  verify
+    .command('context')
+    .description(
+      'Deterministic verification context projection (writes verify-context.json)',
+    )
+    .option('--change <name>', 'Specify the change name')
+    .action(async (options: { change?: string }) => {
+      const globalOpts = program.opts<GlobalOptions>();
+      const logLevel = resolveLogLevel(globalOpts);
+      try {
+        const { execute } = await import('../../services/verify-context.service.js');
+        const result = await execute({
+          change: options.change,
+          quiet: globalOpts.quiet,
+        });
+        formatVerifyContextOutput(result, logLevel);
+      } catch (err) {
+        handleError(err, globalOpts.verbose ?? false);
+      }
+    });
 }
+

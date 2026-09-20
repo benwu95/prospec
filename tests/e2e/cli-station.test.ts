@@ -537,7 +537,9 @@ describe('CLI E2E — station commands', () => {
         '--spend', '12345',
       ]);
       expect(exitCode, stderr).toBe(0);
-      expect(stdout).toContain('Quality Grade: S');
+      // Legacy fixture has no delta-spec: disclose the gap and cap the grade.
+      expect(stdout).toContain('Quality Grade: A');
+      expect(stdout).toContain('empty requirement set');
       const metadata = await fs.promises.readFile(
         path.join(tmpDir, '.prospec', 'changes', 'my-change', 'metadata.yaml'),
         'utf-8',
@@ -608,13 +610,15 @@ describe('CLI E2E — station commands', () => {
         '--graded-by', 'fresh-subagent',
       ]);
       expect(exitCode, stderr).toBe(0);
-      expect(stdout).toContain('Quality Grade: S');
+      // Legacy fixture has no delta-spec: disclose the gap and cap the grade.
+      expect(stdout).toContain('Quality Grade: A');
+      expect(stdout).toContain('empty requirement set');
       const metadata = await fs.promises.readFile(
         path.join(tmpDir, '.prospec', 'changes', 'init-compat', 'metadata.yaml'),
         'utf-8',
       );
       expect(metadata).toContain('status: verified');
-      expect(metadata).toContain('grade: S');
+      expect(metadata).toContain('grade: A');
     });
 
     it('verify record refuses the run-level context flags alongside --dimensions (usage error)', async () => {
@@ -861,6 +865,12 @@ describe('change log --verifier-report (REQ-CLI-053, issue #266)', () => {
   async function initChange(): Promise<string> {
     await runCli(['init', '--name', 'e2e', '--agents', 'claude']);
     await runCli(['change', 'story', 'plan-me', '--description', 'fixture']);
+    const proposalPath = path.join(tmpDir, '.prospec/changes/plan-me/proposal.md');
+    await fs.promises.writeFile(
+      proposalPath,
+      '# Proposal: plan-me\n\n## User Story\n\n### US-1: Title [P1]\n\n**Acceptance Scenarios:**\n- WHEN action THEN result\n',
+    );
+    await runCli(['change', 'story', 'plan-me', '--freeze-scenarios']);
     await runCli(['change', 'plan']);
     return path.join(tmpDir, '.prospec/changes/plan-me');
   }
@@ -1149,6 +1159,195 @@ describe('fresh-test gates through the CLI (REQ-SERVICES-103, REQ-CLI-028, REQ-C
       // prospec check passes language-policy-drift
       const check = await runCli(['check']);
       expect(check.stdout).toContain('PASS  language-policy-drift');
+    });
+  });
+
+  describe('acceptance freeze and deterministic verify context flow (issue #277, T25)', () => {
+    it('executes full workflow: authored story -> freeze -> context -> grader payload with deviation finding -> record', async () => {
+      const packageJson = path.join(tmpDir, 'package.json');
+      await fs.promises.writeFile(packageJson, JSON.stringify({ name: 'freeze-e2e' }));
+      await runCli(['init', '--name', 'freeze-e2e', '--agents', 'claude']);
+
+      const git = (...args: string[]) => execFileSync('git', args, { cwd: tmpDir, stdio: 'pipe' });
+      git('init', '-q');
+      git('config', 'user.name', 'Fixture');
+      git('config', 'user.email', 'fixture@example.com');
+
+      await fs.promises.writeFile(
+        path.join(tmpDir, '.prospec.yaml'),
+        'version: "1.0"\nproject:\n  name: freeze-e2e\ntech_stack:\n  test_command: node suite.cjs\n',
+      );
+      await fs.promises.writeFile(
+        path.join(tmpDir, 'suite.cjs'),
+        'process.exitCode = 0;\n',
+      );
+      await fs.promises.mkdir(path.join(tmpDir, 'prospec/ai-knowledge'), { recursive: true });
+      await fs.promises.writeFile(
+        path.join(tmpDir, 'prospec/CONSTITUTION.md'),
+        '# Constitution\n\n## Principles\n\n### [MUST] Tests\n\n**Description**: Tests must pass.\n\n**Verify**: Run tests.\n',
+      );
+      await fs.promises.writeFile(
+        path.join(tmpDir, 'prospec/ai-knowledge/module-map.yaml'),
+        'modules:\n  - name: auth\n    description: Auth module\n    paths: [src]\n    keywords: [auth]\n',
+      );
+      git('add', '.');
+      git('commit', '-qm', 'initial');
+
+      // 1. Authored story
+      await runCli(['change', 'story', 'feat-auth', '--description', 'User authentication flow']);
+      const proposalPath = path.join(tmpDir, '.prospec', 'changes', 'feat-auth', 'proposal.md');
+      const proposalContent = [
+        '# Proposal: feat-auth',
+        '',
+        '## User Story',
+        '',
+        '### US-1: User Login [P1]',
+        '',
+        '**Acceptance Scenarios:**',
+        '- WHEN user submits valid credentials THEN token is returned',
+        '- WHEN user submits invalid credentials THEN error 401 is returned',
+        '',
+      ].join('\n');
+      await fs.promises.writeFile(proposalPath, proposalContent);
+
+      // 2. Freeze scenarios
+      const freezeResult = await runCli(['change', 'story', 'feat-auth', '--freeze-scenarios']);
+      expect(freezeResult.exitCode).toBe(0);
+      expect(freezeResult.stdout).toContain('Frozen acceptance scenarios (revision 1)');
+      expect(freezeResult.stdout).toContain('Scenarios count: 2');
+
+      // 3. Plan & Delta Spec
+      await runCli(['change', 'plan']);
+      const deltaPath = path.join(tmpDir, '.prospec', 'changes', 'feat-auth', 'delta-spec.md');
+      const deltaContent = [
+        '# Delta Spec',
+        '',
+        '## ADDED',
+        '',
+        '### REQ-AUTH-001: Valid user token',
+        '**Feature:** auth',
+        '**Story:** US-1',
+        '**Description:** Return token on valid credentials.',
+        '**Spec:**',
+        'Return token on valid credentials.',
+        '',
+        '### REQ-AUTH-002: Invalid user error',
+        '**Feature:** auth',
+        '**Story:** US-1',
+        '**Description:** Return error 401 on invalid credentials.',
+        '**Spec:**',
+        'Return error 401 on invalid credentials.',
+        '',
+      ].join('\n');
+      await fs.promises.writeFile(deltaPath, deltaContent);
+
+      // 4. Code tasks & advance to implemented
+      const tasksPath = path.join(tmpDir, '.prospec', 'changes', 'feat-auth', 'tasks.md');
+      await fs.promises.writeFile(
+        tasksPath,
+        '- [x] T1 Implement login token\n- [x] T2 Implement 401 error\n',
+      );
+      await runCli(['change', 'status', 'implemented']);
+
+      // 5. Fresh review and test prerequisites
+      git('add', '.');
+      git('commit', '-qm', 'implemented code');
+      await runCli(['check', '--change', 'feat-auth', '--record-review']);
+      await runCli(['check', '--change', 'feat-auth', '--record-tests']);
+
+      // 6. Verification context projection
+      const contextResult = await runCli(['verify', 'context', '--change', 'feat-auth']);
+      expect(contextResult.exitCode).toBe(0);
+      expect(contextResult.stdout).toContain('Verification context prepared for feat-auth');
+
+      const contextPath = path.join(tmpDir, '.prospec', 'changes', 'feat-auth', 'verify-context.json');
+      expect(fs.existsSync(contextPath)).toBe(true);
+      const savedContext = JSON.parse(await fs.promises.readFile(contextPath, 'utf-8')) as {
+        context_id: string;
+        spec: { req_ids: string[] };
+      };
+      expect(savedContext.context_id).toBeDefined();
+      expect(savedContext.spec.req_ids).toEqual(['REQ-AUTH-001', 'REQ-AUTH-002']);
+
+      // 7. Grader returns items and deviation finding
+      const judgmentPath = path.join(tmpDir, '.prospec', 'judgment.json');
+      const judgmentPayload = [
+        {
+          name: 'delta-spec-compliance',
+          result: 'WARN',
+          graded_by: 'fresh-subagent',
+          context_id: savedContext.context_id,
+          items: [
+            {
+              req_id: 'REQ-AUTH-001',
+              result: 'PASS',
+              evidence_kind: 'document',
+              evidence: 'verified token generation in src/auth.ts:25',
+            },
+            {
+              req_id: 'REQ-AUTH-002',
+              result: 'PASS',
+              evidence_kind: 'document',
+              evidence: 'verified error 401 in src/auth.ts:40',
+            },
+          ],
+          scenario_findings: [
+            {
+              scenario_id: 'US-1.1',
+              affected_req_ids: ['REQ-AUTH-001'],
+              spec_location: 'prospec/specs/features/auth.md:25',
+              result: 'WARN',
+              summary: 'Token payload format differs from scenario expectation',
+              evidence: 'Observed token claims structure differs slightly',
+            },
+          ],
+        },
+        {
+          name: 'constitution',
+          result: 'PASS',
+          graded_by: 'fresh-subagent',
+        },
+        {
+          name: 'design',
+          result: 'not-applicable',
+          graded_by: 'fresh-subagent',
+        },
+      ];
+      await fs.promises.writeFile(judgmentPath, JSON.stringify(judgmentPayload));
+
+      // 8. Record verification
+      const recordResult = await runCli([
+        'verify',
+        'record',
+        '--change',
+        'feat-auth',
+        '--dimensions',
+        judgmentPath,
+      ]);
+      if (recordResult.exitCode !== 0) console.error('RECORD ERROR:', recordResult.stderr);
+      expect(recordResult.exitCode).toBe(0);
+      expect(recordResult.stdout).toContain('Quality Grade: A');
+      expect(recordResult.stdout).toContain('Requirements coverage: 2/2');
+
+      // 9. Assert scenario/spec dual positioning and report content
+      const verifyMd = await fs.promises.readFile(
+        path.join(tmpDir, '.prospec', 'changes', 'feat-auth', 'verify.md'),
+        'utf-8',
+      );
+      expect(verifyMd).toContain('Scenario Deviation Findings');
+      expect(verifyMd).toContain('US-1.1');
+      expect(verifyMd).toContain('prospec/specs/features/auth.md:25');
+      expect(verifyMd).toContain('REQ-AUTH-001');
+      expect(verifyMd).toContain('Requirements Compliance');
+      expect(verifyMd).toContain('REQ-AUTH-001');
+      expect(verifyMd).toContain('REQ-AUTH-002');
+
+      const metadata = await fs.promises.readFile(
+        path.join(tmpDir, '.prospec', 'changes', 'feat-auth', 'metadata.yaml'),
+        'utf-8',
+      );
+      expect(metadata).toContain('grade: A');
+      expect(metadata).toMatch(/coverage_summary:\s*"?2\/2"?/);
     });
   });
 });

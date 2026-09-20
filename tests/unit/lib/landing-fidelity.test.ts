@@ -105,6 +105,27 @@ describe('landing-fidelity parsers', () => {
     expect(entries).toHaveLength(1);
     expect(entries[0]).toMatchObject({ section: 'MODIFIED', reqId: 'REQ-LIB-900', feature: 'drift-checks' });
   });
+
+  it('iterateDeltaEntries masks headings inside code fences (REQ-LIB-085)', () => {
+    const entries = iterateDeltaEntries(
+      [
+        '## ADDED',
+        '',
+        '### REQ-LIB-901: Real entry',
+        '**Feature:** drift-checks',
+        '```markdown',
+        '### REQ-LIB-999: Fenced example',
+        '**Feature:** drift-checks',
+        '```',
+        '',
+        '### REQ-LIB-902: Another real entry',
+        '**Feature:** drift-checks',
+      ].join('\n'),
+    );
+    expect(entries).toHaveLength(2);
+    expect(entries.map((e) => e.reqId)).toEqual(['REQ-LIB-901', 'REQ-LIB-902']);
+    expect(entries[0]!.body.join('\n')).toContain('### REQ-LIB-999: Fenced example');
+  });
 });
 
 describe('the drift check and the archive write path share one comparison (REQ-LIB-061)', () => {

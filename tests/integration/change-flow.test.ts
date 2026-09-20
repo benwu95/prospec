@@ -7,6 +7,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import * as fs from 'node:fs';
 import { vol } from 'memfs';
 import { execute as storyExecute } from '../../src/services/change-story.service.js';
+import { execute as acceptanceExecute } from '../../src/services/change-acceptance.service.js';
 import { execute as planExecute } from '../../src/services/change-plan.service.js';
 import { execute as tasksExecute } from '../../src/services/change-tasks.service.js';
 import { execute as scaleExecute } from '../../src/services/change-scale.service.js';
@@ -25,7 +26,7 @@ vi.mock('../../src/lib/template.js', () => ({
       return 'name: test\nstatus: story\ncreated_at: "2026-01-01T00:00:00.000Z"\nrelated_modules: []\ndescription: Test\n';
     }
     if (templateName.includes('proposal')) {
-      return '# Proposal\n\nAs a developer...\n';
+      return '# Proposal\n\n## User Story\n\n### US-1: Developer Story [P1]\n\n**Acceptance Scenarios:**\n- WHEN action occurs THEN result is expected\n';
     }
     if (templateName.includes('plan.md')) {
       return '# Plan\n\n## Implementation Steps\n';
@@ -67,6 +68,13 @@ describe('Change Management Flow Integration', () => {
     expect(storyResult.changeName).toBe('add-feature');
     expect(fs.existsSync('/project/.prospec/changes/add-feature/proposal.md')).toBe(true);
     expect(fs.existsSync('/project/.prospec/changes/add-feature/metadata.yaml')).toBe(true);
+
+    // Freeze scenarios at story completion
+    await acceptanceExecute({
+      change: 'add-feature',
+      cwd: '/project',
+      mode: 'freeze',
+    });
 
     // Step 2: Create plan
     const planResult = await planExecute({
@@ -122,6 +130,11 @@ describe('Change Management Flow Integration', () => {
     // The bold Module cell must not reach metadata as part of the name.
     if (afterStory.success) expect(afterStory.data.related_modules).toEqual(['lib']);
 
+    await acceptanceExecute({ change: 'add-feature', cwd: '/project', mode: 'freeze' });
+    const afterFreeze = parseMetadata();
+    expect(afterFreeze.success).toBe(true);
+    if (afterFreeze.success) expect(afterFreeze.data.acceptance?.current_revision).toBe(1);
+
     await planExecute({ change: 'add-feature', cwd: '/project' });
     const afterPlan = parseMetadata();
     expect(afterPlan.success).toBe(true);
@@ -163,13 +176,14 @@ describe('Change Management Flow Integration', () => {
   });
 
   // REQ-TESTS-072 / SC-001: the quick path has a legal CLI route end to end.
-  it('should complete the quick story → scale → tasks workflow without plan artifacts', async () => {
+  it('should complete the new quick story → scale → freeze → tasks workflow without plan artifacts', async () => {
     vol.fromJSON({
       '/project/.prospec.yaml': 'project:\n  name: test\n',
     });
 
     await storyExecute({ name: 'quick-flow', cwd: '/project', description: 'quick' });
     await scaleExecute({ change: 'quick-flow', cwd: '/project', scale: 'quick' });
+    await acceptanceExecute({ change: 'quick-flow', cwd: '/project', mode: 'freeze' });
 
     const result = await tasksExecute({ change: 'quick-flow', cwd: '/project' });
 
@@ -185,6 +199,26 @@ describe('Change Management Flow Integration', () => {
     );
     expect(metadata.status).toBe('tasks');
     expect(metadata.scale).toBe('quick');
+  });
+
+  it('allows legacy quick change without acceptance block to run tasks directly', async () => {
+    vol.fromJSON({
+      '/project/.prospec.yaml': 'project:\n  name: test\n',
+      '/project/.prospec/changes/legacy-quick/metadata.yaml':
+        'name: legacy-quick\nstatus: story\nscale: quick\ncreated_at: "2026-01-01"\n',
+      '/project/.prospec/changes/legacy-quick/proposal.md':
+        '# Proposal: legacy-quick\n\nDescription\n',
+    });
+
+    const result = await tasksExecute({ change: 'legacy-quick', cwd: '/project' });
+    expect(result.createdFiles).toContain('.prospec/changes/legacy-quick/tasks.md');
+    expect(fs.existsSync('/project/.prospec/changes/legacy-quick/tasks.md')).toBe(true);
+    const metadata = ChangeMetadataSchema.parse(
+      parseYaml(
+        fs.readFileSync('/project/.prospec/changes/legacy-quick/metadata.yaml', 'utf-8'),
+      ),
+    );
+    expect(metadata.status).toBe('tasks');
   });
 
   it('should refuse the plan station once a change is marked quick', async () => {

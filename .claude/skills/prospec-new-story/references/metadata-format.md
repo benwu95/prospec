@@ -18,7 +18,7 @@ composing structured CLI input) knows what each field means.
 ## Canonical field order
 
 `name` → `created_at` → `status` → `scale` → `related_modules` → `description` →
-`quality_log` → `review_provenance` → `test_provenance` → `test_attempt` → `delta_spec_provenance` → `introduced_by` → `issue`
+`quality_log` → `review_provenance` → `test_provenance` → `test_attempt` → `delta_spec_provenance` → `introduced_by` → `issue` → `acceptance`
 
 Existing documents containing YAML aliases retain their authored field order: anchor/alias bindings
 take precedence over canonical ordering. Comments and unknown fields remain preserved.
@@ -38,6 +38,15 @@ take precedence over canonical ordering. Comments and unknown fields remain pres
 | `delta_spec_provenance` | no | `prospec check --record-review` | delta-spec baseline |
 | `introduced_by` | no | `prospec change story --introduced-by` (bug-fix changes only) | escaped-defect registration |
 | `issue` | no | `prospec change story --issue`, `prospec change auto-draft --issue` | external-tracker registration — see below |
+| `acceptance` | no | `prospec change story` (`--freeze-scenarios`, `--amend-scenarios`) | versioned acceptance baseline — see below |
+
+### `acceptance` — versioned acceptance baseline
+
+The `acceptance:` contract is owned by `AcceptanceBaselineSchema` and its revision/scenario schemas in `src/types/change.ts`; those executable schemas define the fields and domains. Do not serialize a second schema by hand.
+- **Pending**: New scaffolds have no frozen revision. The `current_revision` pointer and `revisions` history are populated only after substantive scenarios are authored; pending contracts block plan (or quick tasks).
+- **Freeze**: Run `prospec change story <name> --freeze-scenarios` after authoring the proposal.
+- **Amend**: Run `prospec change story <name> --amend-scenarios --reason "<text>" --expected-digest <sha256>` to append a controlled revision. Every revision's origin follows its own `captured_status`; capture after story is disclosed as late-capture, including amendments.
+- **CLI-managed**: Both modes atomically update the baseline and quality_log. **Never hand-edit `metadata.yaml`** or fabricate revision history.
 
 ### `test_provenance` — the recorded test run
 

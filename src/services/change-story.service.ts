@@ -124,6 +124,10 @@ export async function execute(options: ChangeStoryOptions): Promise<ChangeStoryR
     name: changeName,
     created_at: new Date().toISOString(),
     status: 'story',
+    acceptance: {
+      version: 1,
+      revisions: [],
+    },
     ...(options.scale ? ({ scale: options.scale } satisfies Partial<NewChangeMetadata>) : {}),
     ...(relatedModules.length > 0
       ? ({ related_modules: relatedModules.map((m) => m.name) } satisfies Partial<NewChangeMetadata>)
