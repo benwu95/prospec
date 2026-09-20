@@ -26,7 +26,7 @@ Write each generated document in the language the Constitution's Language Policy
    executable — the one-click installer script from the project README (macOS/Linux `install.sh`,
    Windows `install.ps1`) or a release binary from GitHub Releases; prospec is NOT published to
    npm. Then re-run this skill.
-3. **Version older than 2.2.0** → STOP. Report the installed vs required version
+3. **Version older than 2.3.0** → STOP. Report the installed vs required version
    and ask the user to upgrade, then re-run this skill.
 
 Hand-executing a CLI-owned mutation is NEVER the fallback — that re-introduces the
@@ -127,7 +127,7 @@ Assess the change's complexity and determine scale (`quick` / `standard` / `full
 Define one or more INVEST User Stories (slim form when `scale: quick` — see Phase 3.5):
 
 1. **Background**: Context and problem statement
-2. **User Stories**: INVEST stories with Priority (P1/P2/P3), Acceptance Scenarios (WHEN/THEN), and Independent Test
+2. **User Stories**: INVEST stories with Priority (P0/P1/P2), Acceptance Scenarios (WHEN/THEN), and Independent Test
 3. **Stated Assumptions**: 100% list of autonomous inferences in artifact language
 4. **Edge Cases**: Boundary conditions and error scenarios
 5. **Functional Requirements**: Traceable numbered requirements (`FR-001...`)
@@ -145,9 +145,14 @@ Define one or more INVEST User Stories (slim form when `scale: quick` — see Ph
 
 Follow `references/proposal-format.md` format with all sections from Phase 4.
 
+Once substantive acceptance scenarios have been authored, **freeze** the baseline:
+- Run `prospec change story [name] --freeze-scenarios` (Bash) to snapshot scenarios into `metadata.yaml` `acceptance` baseline (revision 1, origin: story).
+- A later scenario change must use the controlled amendment path: `prospec change story [name] --amend-scenarios --reason "<text>" --expected-digest <sha256>`. Never hand-edit `metadata.yaml`.
+
 > **Phase 5 Gate** — proceed when:
 > - [ ] `proposal.md` written following `references/proposal-format.md`
 > - [ ] All Phase 4 sections present (including `## Stated Assumptions`, no empty Background/Why)
+> - [ ] Substantive acceptance scenarios frozen into baseline via `prospec change story [name] --freeze-scenarios`
 
 ### Phase 6: Constitution Check (site-specific: INVEST)
 
@@ -210,7 +215,8 @@ Verify the output against this skill's **site-specific** Constitution rule (**IN
 - **NEVER** write implementation details in Acceptance Criteria — ACs focus on user-observable outcomes
 - **NEVER** create a Story with fewer than 2 acceptance scenarios (WHEN/THEN)
 - **NEVER** include technical architecture or code in proposal.md — that belongs in plan.md
-- **NEVER** hand-edit metadata.yaml — scaffold, `scale`, and `quality_log` writes go through `prospec change story` / `change scale` / `change log` (lifecycle: `prospec/ai-knowledge/_status-lifecycle.md`)
+- **NEVER** advance to plan (or tasks for quick) without freezing substantive acceptance scenarios via `prospec change story [name] --freeze-scenarios` — un-frozen stories cannot enter planning or tasks
+- **NEVER** hand-edit metadata.yaml — scaffold, `scale`, baseline freeze/amend (`--freeze-scenarios` / `--amend-scenarios`), and `quality_log` writes go through `prospec change` commands (lifecycle: `prospec/ai-knowledge/_status-lifecycle.md`)
 - **NEVER** ask multiple questions at once when in Question mode — ask at most **one question at a time**
 - **NEVER** omit autonomous inferences from `## Stated Assumptions` — 100% of inferred decisions must be explicit
 - **NEVER** use generic "user" as the role — be specific (developer, project manager, system admin)

@@ -4,7 +4,7 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg?style=flat-square)](LICENSE)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.9-blue?style=flat-square&logo=typescript)](https://www.typescriptlang.org/)
-[![測試](https://img.shields.io/badge/測試-5855%20總計-success?style=flat-square)](tests/)
+[![測試](https://img.shields.io/badge/測試-6056%20總計-success?style=flat-square)](tests/)
 [![Node](https://img.shields.io/badge/node-%3E%3D22.13-brightgreen?style=flat-square&logo=node.js)](https://nodejs.org/)
 [![pnpm](https://img.shields.io/badge/pnpm-%3E%3D11-orange?style=flat-square&logo=pnpm)](https://pnpm.io/)
 
@@ -494,6 +494,8 @@ check 與 token 量測）在 **[CLI 參考 — CLI 命令](./reference/cli-refer
 
 - **`prospec validate <kind> <file>`** — 依 schema 驗證單一工件；`<kind>` 為
   `slug`、`backfill-draft`、`promote-scaffold`、`design-spec`、`module-readme` 之一。
+- **`prospec change story <name> --freeze-scenarios` / `--amend-scenarios`** — 將 `proposal.md` 的實質驗收場景凍結進 `metadata.yaml` 的基準（或以 `--reason` 與 `--expected-digest` 受控追加新修訂版）。進入 plan 與 tasks 均要求凍結基準；既有未凍結變更雖允許推進但會揭露限制（評級 S 不可達）。已 verified/archived 的變更執行凍結或修訂面臨終端拒絕。請注意基準 digest 與驗證上下文提供的是審計可追溯性，並非沙盒或權限隔離。
+- **`prospec verify context --change <name>`** — 在評級前寫出確定性的 `verify-context.json`，固定規格、凍結基準、提案、程式碼快照與測試事實；由 `verify record` 在逐 REQ 評定時核對。
 - **`prospec change log --skill <skill> --verifier-report <file>`** — 記錄 planning verifier 自己的
   報告；`FLAWS` 對應 `result: FAIL`。此閘門是 **per-change**：sibling change 的過期證據不會擋住
   這一個。（以 `[CODE]` 標示 CLI 自有判定的是 `prospec status` 的路由理由行。）
@@ -635,7 +637,7 @@ Prospec 採用 **Pragmatic Layered Architecture**（`cli → services → lib �
 ## 測試
 
 ```bash
-# 執行所有測試（共 5855 個；4 個略過）
+# 執行所有測試（共 6056 個；4 個略過）
 pnpm test
 
 # Watch 模式
@@ -648,11 +650,11 @@ pnpm run typecheck
 pnpm run lint
 ```
 
-**測試覆蓋率**：共 5855 個測試（5851 個通過；4 個略過），橫跨 4 大類：
-- Unit tests（types + lib + services + cli）：4230 tests
-- Contract tests（CLI 輸出 + Skill 格式）：1353 tests
-- Integration tests：104 tests
-- E2E tests：168 tests
+**測試覆蓋率**：共 6056 個測試（6052 個通過；4 個略過），橫跨 4 大類：
+- Unit tests（types + lib + services + cli）：4404 tests
+- Contract tests（CLI 輸出 + Skill 格式）：1362 tests
+- Integration tests：121 tests
+- E2E tests：169 tests
 
 測試套件內含真實 `init` + `agent sync` 生成契約（`tests/integration/skill-contract.test.ts`）：檢查 agent 專屬的 reference 路徑、無 dangling reference、canonical convention 文件、`base_dir` 相對的 spec 路徑，以及 antigravity/codex/copilot 收斂至 `.agents/skills` + `AGENTS.md`。
 

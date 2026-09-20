@@ -33,6 +33,9 @@ Under `scale: backfill`, the existing code is the **ground truth**. The goal of 
 - Marked as **`not-applicable`** (no `tasks.md` exists by contract).
 
 ### Dimension 2/5: Specification Compliance (Primary Graded Dimension)
+- **Prepared Context & Payload Contract**: Dimension 2/5 applies the shared prepared-context and per-REQ payload contract (`items`, `context_id`, `scenario_findings`) per [`references/delegated-evidence-format.md`](delegated-evidence-format.md) — never recreate a second schema.
+- **No Fabricated Baseline**: Backfill never fabricates an original pre-implementation story baseline; evaluation checks spec-to-code fidelity against observable code.
+- **Baseline Gap & Grade Caps**: When the original pre-implementation baseline is unavailable or the current revision was captured late (`late-capture`), disclose the baseline gap as `not-adjudicated` with the shared single dimension-level gap warning. Real `FAIL` verdicts are strictly preserved and never masked by the gap. Grade S is unreachable (capped below S due to unadjudicated baseline); grade A is reachable when all other gates and the existing grade-A budget allow it.
 - **Fidelity Check**: Every requirement in `delta-spec.md` must accurately reflect the observable behavior of the source code.
 - **Anchor Resolution**: Every cited `file:line` or function symbol in `delta-spec.md` must resolve to real code. A dead reference is a **FAIL**.
 - **No Empty PASS**: An AC with **no `file:line` evidence** to check → **WARN/FAIL**, **NEVER an empty PASS** — unverifiable fidelity is not fidelity.

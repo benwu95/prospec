@@ -27,7 +27,7 @@ Write each generated document in the language the Constitution's Language Policy
    executable — the one-click installer script from the project README (macOS/Linux `install.sh`,
    Windows `install.ps1`) or a release binary from GitHub Releases; prospec is NOT published to
    npm. Then re-run this skill.
-3. **Version older than 2.2.0** → STOP. Report the installed vs required version
+3. **Version older than 2.3.0** → STOP. Report the installed vs required version
    and ask the user to upgrade, then re-run this skill.
 
 Hand-executing a CLI-owned mutation is NEVER the fallback — that re-introduces the
@@ -83,6 +83,7 @@ absent; never invent one, and never derive one from the branch name.
 | Scaffold | Run `prospec change story [name] --description "<one-liner>" [--issue <ref>]` (Bash) — CLI scaffolds `.prospec/changes/[name]/` + `metadata.yaml`(status: story) + `proposal.md`. Pass `--issue` only when Phase 1 got a tracker item; the flag exists ONLY here, so a skipped answer cannot be amended later without rebuilding the change |
 | Scale | Run the complexity assessment from `prospec-new-story` Phase 3.5 (criteria table + quick veto). STOP. Ask the user to confirm the scale; do not proceed with this phase until a reply is received. Write it via `prospec change scale <scale>` (Bash). Quick → slim proposal form |
 | Populate | Read [`references/proposal-format.md`](references/proposal-format.md) on demand, then write User Story and ACs to that format |
+| Freeze | Once substantive acceptance scenarios are written, freeze baseline via `prospec change story [name] --freeze-scenarios` (Bash). Amend via `prospec change story [name] --amend-scenarios --reason "<text>" --expected-digest <sha256>`. Never hand-edit metadata.yaml |
 | Check | Site-specific Constitution check (this phase's rule: INVEST) — **advisory**: record any concern via `prospec change log --skill prospec-ff --result WARN --warning "<concern>"` and continue; never pause the Story on it (the same advisory contract as `prospec-new-story`; the authoritative INVEST audit is `prospec-verify`'s) |
 
 **Scale routing:** when `scale: quick` is confirmed, SKIP Phase 3 entirely — no plan.md, no
@@ -94,6 +95,7 @@ Loading is still read). Status advances `story → tasks` directly
 > **Phase 2 Gate** — proceed when:
 > - [ ] `proposal.md` + `metadata.yaml`(status: story) created
 > - [ ] `metadata.scale` confirmed by user and written
+> - [ ] acceptance scenarios frozen via `prospec change story [name] --freeze-scenarios`
 > - [ ] advisory INVEST check run; any concern recorded to `quality_log` (never blocks)
 
 ### Phase 3: Plan Generation (skipped when `scale: quick`)
@@ -167,15 +169,6 @@ offering the next skill.
 | Circuit breaker tripped | state & diagnostics | Escalate to human with trade-off options |
 | Severe Constitution violation | All parts completed before failure | Pause FF, switch to single-phase Skill |
 
-## When to Use vs. Not to Use
-
-| Suitable for FF / Cascading | Not suitable for FF |
-|-----------------------------|-------------------|
-| Requirements clear, well-explored | Requirements vague, need discussion |
-| Verifier gates in place | Major architectural uncertainty |
-| Independent scope, low-to-medium risk | Untracked legacy codebase without tests |
-| Tight schedule / high autonomy | First time with project |
-
 ## Output Contract
 
 > After running, self-assess and emit a concise Output Summary. Every Success Criterion must be objectively checkable (file existence / grep / test result / count) — no subjective adjectives.
@@ -203,6 +196,7 @@ Verify the output against each phase's **site-specific** Constitution rule (INVE
 - **NEVER** ask more than 3 questions in Phase 1 — FF prioritizes speed, use `prospec-explore` for depth
 - **NEVER** inline full format prose into this skill body — load this skill's `references/` files directly
 - **NEVER** skip metadata.yaml status progression — story → plan → tasks (or story → tasks under `scale: quick`); the `prospec change` commands own every transition — never hand-edit metadata.yaml
+- **NEVER** advance past Phase 2 without freezing acceptance scenarios via `prospec change story [name] --freeze-scenarios`
 - **NEVER** discard completed phases on failure — error recovery is FF's core capability
 - **NEVER** skip Layer 2 knowledge loading for standard/full — Plan phase must load related module AI Knowledge (quick skips Plan and loads none)
 - **NEVER** skip Phase 3 without a `scale: quick` in metadata.yaml — confirmed by the user, or assigned by `prospec change auto-draft` from the drift check it drafted for; skipping plan is an explicit contract, not a shortcut
@@ -212,12 +206,3 @@ Verify the output against each phase's **site-specific** Constitution rule (INVE
 - **NEVER** continue cascading past a tripped circuit breaker or unresolved critical findings
 - **NEVER** use passive voice for confirmation wait points (e.g., "confirm before proceeding") — always use an active imperative ("STOP. Ask the user...").
 - **NEVER** proceed into Phase 2 without the user's explicit reply to the change name, nor proceed past the Scale step without the user's explicit reply to the scale.
-
-## Error Handling
-
-| Scenario | Action |
-|----------|--------|
-| Constitution severe violation at any phase | Pause FF, preserve completed parts, switch to single-phase Skill |
-| User changes requirements mid-flow | Restart from Phase 1 with new requirements |
-| Module Knowledge insufficient | Proceed with available info, note gaps in plan.md Risk Assessment |
-| Circuit breaker tripped | Halt cascading, emit EscalationReport to human |

@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
-import { formatVerifyRecordOutput } from '../../../src/cli/formatters/verify-record-output.js';
+import { formatVerifyRecordOutput, formatVerifyContextOutput } from '../../../src/cli/formatters/verify-record-output.js';
 import type { VerifyRecordResult } from '../../../src/services/verify-record.service.js';
 
 // BEL (0x07) is a C0 control char that picocolors never emits (it only uses ESC
@@ -153,4 +153,75 @@ describe('status line honesty (already-verified vs grade-too-low)', () => {
       'Judgment evidence:',
     );
   });
+
+  it('prints requirements coverage when coverageSummary is present, and sanitizes it', () => {
+    const out = captureStdout(() =>
+      formatVerifyRecordOutput(
+        baseResult({ coverageSummary: `18${BEL}/18` }),
+        'normal',
+      ),
+    );
+    expect(out.includes(BEL)).toBe(false);
+    expect(out).toContain('Requirements coverage: 18/18');
+  });
+
+  it('omits requirements coverage line when coverageSummary is absent', () => {
+    const out = captureStdout(() =>
+      formatVerifyRecordOutput(
+        baseResult({ coverageSummary: undefined }),
+        'normal',
+      ),
+    );
+    expect(out).not.toContain('Requirements coverage:');
+  });
 });
+
+describe('formatVerifyContextOutput', () => {
+  it('prints verification context prepared, context file path, and context ID', () => {
+    const out = captureStdout(() =>
+      formatVerifyContextOutput(
+        {
+          changeName: 'feat-x',
+          contextPath: '.prospec/changes/feat-x/verify-context.json',
+          contextId: '0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef',
+        },
+        'normal',
+      ),
+    );
+    expect(out).toContain('Verification context prepared for feat-x');
+    expect(out).toContain('Context file: .prospec/changes/feat-x/verify-context.json');
+    expect(out).toContain('Context ID:   0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef');
+  });
+
+  it('prints nothing in quiet mode', () => {
+    const out = captureStdout(() =>
+      formatVerifyContextOutput(
+        {
+          changeName: 'feat-x',
+          contextPath: '.prospec/changes/feat-x/verify-context.json',
+          contextId: 'abcdef',
+        },
+        'quiet',
+      ),
+    );
+    expect(out).toBe('');
+  });
+
+  it('strips terminal control characters from all fields', () => {
+    const out = captureStdout(() =>
+      formatVerifyContextOutput(
+        {
+          changeName: `feat${BEL}x`,
+          contextPath: `path${BEL}to/file`,
+          contextId: `id${BEL}123`,
+        },
+        'normal',
+      ),
+    );
+    expect(out.includes(BEL)).toBe(false);
+    expect(out).toContain('featx');
+    expect(out).toContain('pathto/file');
+    expect(out).toContain('id123');
+  });
+});
+

@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import { z } from 'zod';
 
 /**
@@ -34,6 +35,7 @@ export const PLANNING_VERDICTS = ['PASS', 'WARN', 'FLAWS'] as const;
  *  not run): claiming PASS would fake a verdict, and `not-applicable` would claim
  *  the dimension was moot. The gate `result` stays the three-state. */
 export const DIMENSION_RESULTS = [...GATE_RESULTS, 'not-applicable', 'not-adjudicated'] as const;
+export type DimensionResult = (typeof DIMENSION_RESULTS)[number];
 
 /** Who decided a verify dimension: the deterministic drift engine, or the agent.
  *  Recorded per dimension so a later escaped-defect analysis can tell a machine
@@ -66,6 +68,9 @@ export const QualityDimensionSchema = z.looseObject({
    *  denominator (`lib/token-accounting` gives an offline estimate). Optional and
    *  non-blocking; absent when the grader did not declare one. */
   spend: z.number().int().nonnegative().optional(),
+  /** Lightweight verify identity fields (REQ-TYPES-103, REQ-TYPES-104). */
+  context_id: z.string().optional(),
+  baseline_revision: z.number().int().positive().optional(),
 });
 
 /** Field shape shared by the strict (build) and loose (read) entry views below. */
@@ -95,6 +100,10 @@ const QualityLogEntryShape = {
    *  same skill carries none, so it is never read as one. `result` stays the gate
    *  three-state (`FLAWS` → `FAIL`). */
   verifier_verdict: z.enum(PLANNING_VERDICTS).optional(),
+  /** Lightweight verify identity fields (REQ-TYPES-103, REQ-SERVICES-087, REQ-CLI-029). */
+  context_id: z.string().optional(),
+  baseline_revision: z.number().int().positive().optional(),
+  coverage_summary: z.string().optional(),
 } as const;
 
 /** Strict view — no index signature, so tsc's excess-property check still catches
@@ -109,6 +118,185 @@ export const NewQualityLogEntrySchema = z.object(QualityLogEntryShape);
  *  review writes the critical/major counts. Absent keeps every existing entry valid.
  *  Loose: reads never strip unmodeled keys (see ChangeMetadataSchema). */
 export const QualityLogEntrySchema = NewQualityLogEntrySchema.loose();
+
+/**
+ * Acceptance Baseline Contract (REQ-TYPES-103).
+ * Tracks scenario definitions and revisions frozen at proposal completion or amended later.
+ */
+export const ACCEPTANCE_ORIGINS = ['story', 'late-capture'] as const;
+export type AcceptanceOrigin = (typeof ACCEPTANCE_ORIGINS)[number];
+
+const AcceptanceScenarioShape = {
+  id: z.string().min(1),
+  story_id: z.string().min(1),
+  text: z.string().min(1),
+  source: z.string().min(1),
+};
+
+export const NewAcceptanceScenarioSchema = z.object(AcceptanceScenarioShape);
+export const AcceptanceScenarioSchema = NewAcceptanceScenarioSchema.loose();
+export type AcceptanceScenario = z.infer<typeof AcceptanceScenarioSchema>;
+export type NewAcceptanceScenario = z.infer<typeof NewAcceptanceScenarioSchema>;
+
+/** Canonical revision identity shared by schema validation and capture decisions. */
+export function computeAcceptanceDigest(
+  scenarios: readonly { id: string; text: string }[],
+  version: number = 1,
+): string {
+  const normalized = scenarios.map((s) => ({ id: s.id, text: s.text.replace(/\r\n/g, '\n') }));
+  return createHash('sha256').update(JSON.stringify({ version, scenarios: normalized })).digest('hex');
+}
+
+function refineAcceptanceRevision<T extends {
+  revision: number;
+  digest: string;
+  captured_status: ChangeStatus;
+  origin: AcceptanceOrigin;
+  scenarios: readonly { id: string; text: string }[];
+}>(val: T, ctx: z.RefinementCtx): void {
+  if (val.digest !== computeAcceptanceDigest(val.scenarios)) {
+    ctx.addIssue({ code: 'custom', message: 'digest does not match canonical scenario content', path: ['digest'] });
+  }
+  if (val.captured_status === 'story' && val.origin !== 'story') {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: 'origin must be "story" when captured_status is "story"',
+      path: ['origin'],
+    });
+  } else if (val.captured_status !== 'story' && val.origin !== 'late-capture') {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: 'origin must be "late-capture" when captured_status is not "story"',
+      path: ['origin'],
+    });
+  }
+
+  const seenIds = new Set<string>();
+  for (let i = 0; i < val.scenarios.length; i++) {
+    const scenario = val.scenarios[i];
+    if (!scenario) continue;
+    const id = scenario.id;
+    if (seenIds.has(id)) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: `duplicate scenario identity "${id}" in revision ${val.revision}`,
+        path: ['scenarios', i, 'id'],
+      });
+    }
+    seenIds.add(id);
+  }
+}
+
+const AcceptanceRevisionShape = {
+  revision: z.number().int().positive(),
+  digest: z.string().min(1),
+  previous_digest: z.string().min(1).optional(),
+  captured_at: z.string().min(1),
+  captured_status: z.enum(CHANGE_STATUSES),
+  origin: z.enum(ACCEPTANCE_ORIGINS),
+  reason: z.string().min(1),
+  scenarios: z.array(AcceptanceScenarioSchema),
+};
+
+export const NewAcceptanceRevisionSchema = z
+  .object({
+    ...AcceptanceRevisionShape,
+    scenarios: z.array(NewAcceptanceScenarioSchema),
+  })
+  .superRefine(refineAcceptanceRevision);
+
+export const AcceptanceRevisionSchema = z
+  .looseObject(AcceptanceRevisionShape)
+  .superRefine(refineAcceptanceRevision);
+
+export type AcceptanceRevision = z.infer<typeof AcceptanceRevisionSchema>;
+export type NewAcceptanceRevision = z.infer<typeof NewAcceptanceRevisionSchema>;
+
+function refineAcceptanceBaseline<T extends {
+  revisions: readonly { revision: number; digest: string; previous_digest?: string }[];
+  current_revision?: number | null;
+}>(val: T, ctx: z.RefinementCtx): void {
+  if (val.revisions.length === 0) {
+    if (val.current_revision !== undefined && val.current_revision !== null) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'current_revision must not point to a revision when revisions list is empty',
+        path: ['current_revision'],
+      });
+    }
+    return;
+  }
+
+  if (val.current_revision === undefined || val.current_revision === null) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: 'current_revision must be set when revisions are present',
+      path: ['current_revision'],
+    });
+  } else {
+    const hasCurrent = val.revisions.some((r) => r.revision === val.current_revision);
+    if (!hasCurrent) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: `current_revision ${val.current_revision} does not exist in revisions`,
+        path: ['current_revision'],
+      });
+    }
+  }
+
+  for (let i = 0; i < val.revisions.length; i++) {
+    const rev = val.revisions[i];
+    if (!rev) continue;
+    const expectedRev = i + 1;
+    if (rev.revision !== expectedRev) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: `invalid revision chain: expected revision ${expectedRev}, got ${rev.revision}`,
+        path: ['revisions', i, 'revision'],
+      });
+    }
+
+    if (i === 0) {
+      if (rev.previous_digest !== undefined) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: 'first revision must not have previous_digest',
+          path: ['revisions', i, 'previous_digest'],
+        });
+      }
+    } else {
+      const prevRev = val.revisions[i - 1];
+      if (prevRev && rev.previous_digest !== prevRev.digest) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: `invalid revision chain: revision ${rev.revision} previous_digest does not match revision ${prevRev.revision} digest`,
+          path: ['revisions', i, 'previous_digest'],
+        });
+      }
+    }
+  }
+}
+
+const AcceptanceBaselineShape = {
+  version: z.literal(1),
+  current_revision: z.number().int().positive().nullable().optional(),
+  revisions: z.array(AcceptanceRevisionSchema).default([]),
+};
+
+export const NewAcceptanceBaselineSchema = z
+  .object({
+    version: z.literal(1),
+    current_revision: z.number().int().positive().nullable().optional(),
+    revisions: z.array(NewAcceptanceRevisionSchema).default([]),
+  })
+  .superRefine(refineAcceptanceBaseline);
+
+export const AcceptanceBaselineSchema = z
+  .looseObject(AcceptanceBaselineShape)
+  .superRefine(refineAcceptanceBaseline);
+
+export type AcceptanceBaseline = z.infer<typeof AcceptanceBaselineSchema>;
+export type NewAcceptanceBaseline = z.infer<typeof NewAcceptanceBaselineSchema>;
 
 /** Version and scope are explicit; unknown/absent values remain readable legacy evidence. */
 export const FINGERPRINT_VERSION = 'snapshot-v2';
@@ -230,6 +418,11 @@ const ChangeMetadataShape = {
   // registration convention — optional, outside the metadata-completeness
   // required-field floor, and enforced by no drift check.
   issue: z.string().optional(),
+  /**
+   * Versioned acceptance baseline (REQ-TYPES-103).
+   * Optional keeps existing metadata valid; new story scaffolds declare the contract.
+   */
+  acceptance: AcceptanceBaselineSchema.optional(),
 } as const;
 
 /** Strict view — no index signature, so tsc's excess-property check still

@@ -59,6 +59,9 @@ silently drift.
 - `repro`: non-empty, bounded single-line command (optional)
 - `evidence`: non-empty full prose string (optional; never relayed)
 - `constitution_rules`: array of per-rule audit entries, valid only on the constitution dimension (optional)
+- `items`: requirement judgments (`req_id`, `result`, `evidence_kind`, optional `evidence` and `repro`), only on delta-spec-compliance (optional)
+- `context_id`: canonical 64-character hex string binding prepared verification context inputs (optional; required on delta-spec-compliance when prepared context is used)
+- `scenario_findings`: deviations (`scenario_id`, `affected_req_ids`, `spec_location`, `result`, `summary`, `evidence`), only on delta-spec-compliance (optional)
 
 ## Physical Receipt Verification Protocol
 
@@ -109,6 +112,8 @@ The command a reader runs to see the defect. All of these qualify:
 A finding reached by inspection rather than by execution still names a command — the probe that shows
 the cited lines. That is why `repro` is **required on every `critical`**: it is what the orchestrator
 verifies existence with, in place of prose it no longer receives.
+
+A document or architecture requirement reached by inspection rather than execution cites checkable evidence (e.g. `file:line`, a command displaying cited lines, or an inspection test name) without fabricating an executable reproduction.
 
 Re-run **after** the fix, the same `repro` is what shows the fix worked, so the field keeps its value
 past the round that raised it.
@@ -179,7 +184,7 @@ any note of your own goes here, below the closing marker
   (`**Summary:**` / `**Repro:**` lines, then the evidence). The marker is what delimits a run, so
   evidence quoting a previous run's heading cannot forge a phantom graded entry in the audit record.
   Appended, never overwritten — a re-verify after fixes must not erase the reasoning that graded it
-  lower. A run whose dimensions carry no prose (no evidence, no summary, no repro) writes no file.
+  lower. Requirement rows and limitations are written even without grader prose.
 
 ## Language
 
@@ -187,6 +192,31 @@ The artifact language the Constitution's Language Policy assigns to `.prospec/ch
 `summary` and `evidence` — they are narrative read by the change's author. `repro` is a command, and
 `location`, `id`, the severity/lens/status enums and every dimension name stay English. The CLI is
 language-agnostic: whatever the payload carries is what lands in the artifact.
+
+---
+
+## Three Fixed Examples
+
+### 1. Acceptable FAIL with checkable evidence
+A requirement or review finding correctly records a defect with checkable evidence:
+- **Location**: `src/services/auth.ts:42`
+- **Claim**: Missing bearer token prefix validation causes unauthorized request to be parsed as anonymous instead of rejected.
+- **Evidence / Repro**: `curl -s -o /dev/null -w "%{http_code}" -H "Authorization: invalid-token" http://localhost:3000/api/protected` yields `200` instead of `401`.
+- **Verdict**: `FAIL` (acceptable because it points to concrete, checkable evidence that proves the defect).
+
+### 2. Unacceptable PASS without evidence
+A requirement or check claims compliance without checkable verification:
+- **Location**: `src/lib/cache.ts`
+- **Claim**: "Cache invalidation logic matches specification."
+- **Evidence / Repro**: (empty or vague assertion like "verified by inspecting code")
+- **Verdict**: Rejected / `WARN` (unacceptable because unsubstantiated PASS creates false confidence; every PASS requires checkable `file:line`, test invocation, or inspection command).
+
+### 3. False-positive critical dismissed after its alleged reproduction fails
+A reviewer reports a critical defect that does not survive verification:
+- **Location**: `src/db/pool.ts:88`
+- **Claim**: Alleged connection leak when query aborts on timeout.
+- **Alleged Repro**: `pnpm vitest run tests/integration/pool-timeout.test.ts`
+- **Outcome**: The orchestrator executes the repro command; the test passes cleanly and connection metrics show pool size remains bounded. The critical finding is dismissed with documented evidence that the repro failed to demonstrate the defect claim.
 
 ---
 

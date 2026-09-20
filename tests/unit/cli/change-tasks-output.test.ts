@@ -104,6 +104,20 @@ describe('formatChangeTasksOutput', () => {
     expect(out).toContain('prospec-implement');
   });
 
+  it('renders legacy baseline limitation when legacyBaseline is true', () => {
+    const write = vi.spyOn(process.stdout, 'write').mockImplementation(() => true);
+    formatChangeTasksOutput(makeResult({ legacyBaseline: true }));
+    const out = write.mock.calls.flat().join('');
+    expect(out).toContain('Limitation: acceptance baseline is unavailable (legacy change)');
+  });
+
+  it('omits legacy baseline limitation when legacyBaseline is false or omitted', () => {
+    const write = vi.spyOn(process.stdout, 'write').mockImplementation(() => true);
+    formatChangeTasksOutput(makeResult({ legacyBaseline: false }));
+    const out = write.mock.calls.flat().join('');
+    expect(out).not.toContain('acceptance baseline');
+  });
+
   it('terminates the written payload with a trailing newline', () => {
     const write = vi.spyOn(process.stdout, 'write').mockImplementation(() => true);
     formatChangeTasksOutput(makeResult());

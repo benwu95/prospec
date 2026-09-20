@@ -35,6 +35,8 @@ import {
   REVIEW_SEVERITIES,
   ReviewFindingsInputSchema,
   JudgmentDimensionsInputSchema,
+  JudgmentItemSchema,
+  ScenarioFindingSchema,
   TASKS_VERIFIER_DIMENSIONS,
   VALIDATE_KINDS,
   VERIFIER_REPORT_SCHEMAS,
@@ -4266,9 +4268,13 @@ describe('Startup Loading cache-stable prefix ordering (REQ-TEMPLATES-080/081)',
    * Reference anchor raised 46_700 → 46_823 when `delegated-evidence-format`
    * gained `constitution_rules` projection and `drift-report-format` gained
    * `check_id`/`coverage` on `rules[]` (declare-constitution-checks).
+   *
+   * Reference anchor raised 46_823 → 48_138 and cumulative anchor raised 87_953 → 88_253
+   * when acceptance scenario baseline and verification context contracts were added
+   * to references and skills (freeze-acceptance-evidence).
    */
-  const REFERENCE_CEILING_ANCHOR = 46_823;
-  const CUMULATIVE_CEILING_ANCHOR = 87_953;
+  const REFERENCE_CEILING_ANCHOR = 48_138;
+  const CUMULATIVE_CEILING_ANCHOR = 88_253;
 
   const renderSkill = (name: string) => {
     const skill = SKILL_DEFINITIONS.find((s) => s.name === name)!;
@@ -9237,6 +9243,127 @@ describe('fresh-test gate — prose demoted to one CLI-refusal sentence, maps an
     it('the Gates and What-each-gate-checks sections are identical in the shipped template and the local copy', () => {
       expect(sectionOf(local(), '## Gates')).toBe(sectionOf(template(), '## Gates'));
       expect(sectionOf(local(), '## What each gate checks')).toBe(sectionOf(template(), '## What each gate checks'));
+    });
+  });
+
+  describe('Frozen acceptance scenarios and verification evidence contracts (issue #277, REQ-TESTS-123)', () => {
+    it('prospec-new-story and prospec-ff require freezing substantive acceptance scenarios before advancing (REQ-TEMPLATES-032, REQ-SERVICES-114)', () => {
+      const newStory = renderTemplate('skills/prospec-new-story.hbs', TEMPLATE_CONTEXT);
+      const ff = renderTemplate('skills/prospec-ff.hbs', TEMPLATE_CONTEXT);
+
+      expect(newStory).toContain('--freeze-scenarios');
+      expect(newStory).toContain('--amend-scenarios');
+      expect(newStory).toMatch(/NEVER.*advance.*freeze/i);
+
+      expect(ff).toContain('--freeze-scenarios');
+      expect(ff).toContain('--amend-scenarios');
+    });
+
+    it('proposal-format and metadata-format specify acceptance baseline contract and CLI-first mutation (REQ-TEMPLATES-150, REQ-SERVICES-114)', () => {
+      const propFmt = renderTemplate('skills/references/proposal-format.hbs', TEMPLATE_CONTEXT);
+      const metaFmt = renderTemplate('skills/references/metadata-format.hbs', TEMPLATE_CONTEXT);
+
+      expect(propFmt).toContain('--freeze-scenarios');
+      expect(propFmt).toContain('--amend-scenarios');
+
+      expect(metaFmt).toContain('acceptance:');
+      expect(metaFmt).toContain('current_revision');
+      expect(metaFmt).toContain('revisions');
+      expect(metaFmt).toContain('late-capture');
+      expect(metaFmt).toMatch(/never.*hand-edit.*metadata|never.*edit.*by hand/i);
+    });
+
+    it('R277-10 defers acceptance fields to the executable schema instead of inventing another YAML contract', () => {
+      const section = sectionOf(renderTemplate('skills/references/metadata-format.hbs', TEMPLATE_CONTEXT), '### `acceptance`');
+      expect(section.trim()).not.toBe('');
+      expect(section).toContain('AcceptanceBaselineSchema');
+      expect(section).not.toContain('```yaml');
+      expect(section).not.toMatch(/origin: amended|ordinal:|raw_text:/);
+      expect(section).toContain('--amend-scenarios');
+      expect(section).toContain('captured_status');
+    });
+
+    it('prospec-verify dimension 2/5 removes generic checklist, uses prepared context, and requires per-REQ items (REQ-TEMPLATES-155, REQ-TEMPLATES-235)', () => {
+      const verify = renderTemplate('skills/prospec-verify.hbs', TEMPLATE_CONTEXT);
+      const v25 = sectionOf(verify, '### Verification 2/5:');
+
+      // Four-item checklist must be REMOVED
+      expect(v25).not.toContain('New files exist');
+      expect(v25).not.toContain('Modified files contain expected changes');
+      expect(v25).not.toContain('API endpoints match specifications');
+      expect(v25).not.toContain('Type definitions are complete');
+
+      // Prepared context and per-REQ requirement compliance
+      expect(v25).toContain('prospec verify context');
+      expect(v25).toMatch(/context_id|items/);
+      expect(v25).toMatch(/semantic deviation|scenario_findings|frozen acceptance scenarios/i);
+    });
+
+    it('delegated-evidence-format projects JudgmentDimensionsInputSchema with context_id, items, scenario_findings, non-executable repro exception, and three fixed examples (REQ-TEMPLATES-180)', () => {
+      const def = renderTemplate('skills/references/delegated-evidence-format.hbs', TEMPLATE_CONTEXT);
+
+      // Schema projection
+      expect(def).toContain('context_id');
+      expect(def).toContain('items');
+      expect(def).toContain('scenario_findings');
+
+      // Non-executable repro exception
+      expect(def).toMatch(/document|architecture|inspection/i);
+
+      // Three fixed examples
+      expect(def).toContain('Acceptable FAIL with checkable evidence');
+      expect(def).toContain('Unacceptable PASS without evidence');
+      expect(def).toContain('False-positive critical dismissed');
+    });
+
+    it('R277-6 projects the actual nested judgment fields in the schema section', () => {
+      const def = renderTemplate('skills/references/delegated-evidence-format.hbs', TEMPLATE_CONTEXT);
+      const projection = sectionOf(def, '### JudgmentDimensionsInputSchema projection');
+      expect(projection.trim()).not.toBe('');
+      const items = projection.split('\n').find((line) => line.startsWith('- `items`:'));
+      const findings = projection.split('\n').find((line) => line.startsWith('- `scenario_findings`:'));
+      expect(items).toBeDefined();
+      expect(findings).toBeDefined();
+      for (const field of Object.keys(JudgmentItemSchema.shape)) expect(items).toContain('`' + field + '`');
+      for (const field of Object.keys(ScenarioFindingSchema.shape)) expect(findings).toContain('`' + field + '`');
+      expect(items).not.toContain('`id`');
+      expect(findings).not.toMatch(/spec_anchor|implementation_anchor|`finding`/);
+    });
+
+    it('verify-backfill reflects shared prepared-context, per-REQ payload, baseline gap, and grade caps (REQ-TEMPLATES-115)', () => {
+      const backfill = renderTemplate('skills/references/verify-backfill.hbs', TEMPLATE_CONTEXT);
+      const v25 = sectionOf(backfill, '### Dimension 2/5: Specification Compliance');
+
+      expect(v25).toContain('references/delegated-evidence-format.md');
+      expect(v25).toMatch(/`items`.*`context_id`.*`scenario_findings`/);
+      expect(v25).toMatch(/not-adjudicated/);
+      expect(v25).toMatch(/gap warning/i);
+      expect(v25).toMatch(/grade S is unreachable|S unreachable/i);
+      expect(v25).toMatch(/grade A is reachable|A reachable|A permitted/i);
+      expect(v25).toMatch(/FAIL.*preserved|preserve.*FAIL/i);
+    });
+
+    it('prospec-new-story and proposal-format enforce P0/P1/P2 priority taxonomy (REQ-TEMPLATES-032)', () => {
+      const story = renderTemplate('skills/prospec-new-story.hbs', TEMPLATE_CONTEXT);
+      const propFmt = renderTemplate('skills/references/proposal-format.hbs', TEMPLATE_CONTEXT);
+
+      const storyPhase4 = sectionOf(story, '### Phase 4: Collect INVEST User Stories & Stated Assumptions');
+      expect(storyPhase4).toContain('Priority (P0/P1/P2)');
+      expect(storyPhase4).not.toContain('Priority (P1/P2/P3)');
+
+      const propStories = sectionOf(propFmt, '### 2. User Stories');
+      expect(propStories).toContain('**Priority levels:** P0 (must-have), P1 (should-have), P2 (nice-to-have)');
+      expect(propStories).not.toContain('P3');
+    });
+
+    it('verify-backfill and cascade-protocol reflect prepared context and deviation reporting (REQ-TEMPLATES-155, REQ-SERVICES-115)', () => {
+      const backfill = renderTemplate('skills/references/verify-backfill.hbs', TEMPLATE_CONTEXT);
+      const cascade = renderTemplate('skills/references/cascade-protocol.hbs', TEMPLATE_CONTEXT);
+
+      expect(backfill).toMatch(/context|prepared context/i);
+      expect(backfill).toMatch(/never fabricates.*original.*baseline|pre-implementation/i);
+
+      expect(cascade).toMatch(/verify\.md anchors|deviation findings|missing adjudications/i);
     });
   });
 });

@@ -82,6 +82,7 @@ When the pipeline completes Verification with Grade S/A (and subsequent Knowledg
    - **Delta-Spec Summary**: Overview of added/modified/removed requirements.
    - **Knowledge Sync Summary**: Confirmation of updated module READMEs and stamped freshness.
    - **Git Diff Summary**: Clean summary of modified/added files.
+   - **Audited Deviations & Limitations**: Disclose any unadjudicated requirements, baseline limitations, or deviation findings with their `verify.md` anchors, rather than submerging them in an aggregate PASS.
 3. **Strict Invariant — Human Commit Prompt**:
    - The Agent **NEVER** automatically commits, pushes, or archives without explicit human approval.
    - Prompt the user to commit the change as a single atomic-by-feature commit folding implement, review, and verify fixes plus knowledge sync together (`feat: <description>`).

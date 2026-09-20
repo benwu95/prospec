@@ -106,6 +106,20 @@ describe('formatChangePlanOutput', () => {
     expect(text).toContain('to generate the task list');
   });
 
+  it('renders legacy baseline limitation when legacyBaseline is true', () => {
+    const out = captureStdout();
+    formatChangePlanOutput(makeResult({ legacyBaseline: true }), 'normal');
+    const text = out.calls();
+    expect(text).toContain('Limitation: acceptance baseline is unavailable (legacy change)');
+  });
+
+  it('omits legacy baseline limitation when legacyBaseline is false or omitted', () => {
+    const out = captureStdout();
+    formatChangePlanOutput(makeResult({ legacyBaseline: false }), 'normal');
+    const text = out.calls();
+    expect(text).not.toContain('acceptance baseline');
+  });
+
   it('terminates the rendered block with a trailing newline (L51 join + newline)', () => {
     const out = captureStdout();
     formatChangePlanOutput(makeResult(), 'normal');

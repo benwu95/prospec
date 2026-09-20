@@ -1,11 +1,17 @@
 import { z } from 'zod';
 import {
+  CHANGE_SCALES,
   DIMENSION_ADJUDICATORS,
   DIMENSION_GRADED_BY,
   DIMENSION_RESULTS,
   PLANNING_VERDICTS,
+  AcceptanceScenarioSchema,
+  type DimensionResult,
   type GateResult,
 } from './change.js';
+
+export type { DimensionResult };
+export type JudgmentDimensionVerdict = DimensionResult;
 
 /**
  * Station I/O contracts for the cli-first delegation commands (issue #107).
@@ -308,6 +314,64 @@ export const ConstitutionRuleJudgmentSchema = z.object({
 export type ConstitutionRuleJudgment = z.infer<typeof ConstitutionRuleJudgmentSchema>;
 
 /**
+ * Per-requirement judgment and context contracts (REQ-TYPES-104).
+ */
+export const EVIDENCE_KINDS = ['executable', 'document', 'architecture'] as const;
+export type EvidenceKind = (typeof EVIDENCE_KINDS)[number];
+
+export const JudgmentItemSchema = z
+  .object({
+    req_id: relayedString('id', 'req_id'),
+    result: z.enum(DIMENSION_RESULTS),
+    evidence_kind: z.enum(EVIDENCE_KINDS),
+    evidence: z.string().optional(),
+    repro: relayedString('repro', 'repro').optional(),
+  })
+  .superRefine((val, ctx) => {
+    if (val.result === 'PASS' || val.result === 'WARN' || val.result === 'FAIL') {
+      if (val.evidence === undefined || val.evidence.trim().length === 0) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: `result "${val.result}" requires non-empty evidence`,
+          path: ['evidence'],
+        });
+      }
+    } else if (val.result === 'not-applicable') {
+      if (val.evidence === undefined || val.evidence.trim().length === 0) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: 'not-applicable requires evidence justification',
+          path: ['evidence'],
+        });
+      }
+    }
+
+    if (val.evidence_kind === 'executable' && (val.result === 'PASS' || val.result === 'FAIL')) {
+      if (val.repro === undefined || val.repro.trim().length === 0) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: `executable ${val.result} requires non-empty repro command`,
+          path: ['repro'],
+        });
+      }
+    }
+  });
+export type JudgmentItem = z.infer<typeof JudgmentItemSchema>;
+
+export const ScenarioFindingSchema = z.object({
+  scenario_id: relayedString('id', 'scenario_id'),
+  affected_req_ids: z.array(relayedString('id', 'affected_req_ids[]')).default([]),
+  spec_location: relayedString('location', 'spec_location'),
+  result: z.enum(['WARN', 'FAIL']),
+  summary: relayedString('summary', 'summary'),
+  evidence: z
+    .string()
+    .min(1)
+    .refine((v) => v.trim().length > 0, 'evidence must not be whitespace only'),
+});
+export type ScenarioFinding = z.infer<typeof ScenarioFindingSchema>;
+
+/**
  * One judgment dimension's verdict as the grader reports it — the richer of the
  * two input forms `verify record` accepts (the other is the repeatable
  * `--dimension name=result` flag, which carries the verdict alone).
@@ -345,6 +409,10 @@ export const JudgmentDimensionInputSchema = z
     evidence: z.string().min(1).optional(),
     /** Per-rule constitution verdicts, meaningful only for the constitution dimension (additive). */
     constitution_rules: z.array(ConstitutionRuleJudgmentSchema).optional(),
+    /** Optional per-REQ items, context_id and scenario_findings (delta-spec-compliance only). */
+    items: z.array(JudgmentItemSchema).optional(),
+    context_id: relayedString('id', 'context_id').optional(),
+    scenario_findings: z.array(ScenarioFindingSchema).optional(),
   })
   .superRefine((val, ctx) => {
     if (val.name !== 'constitution' && val.constitution_rules !== undefined) {
@@ -354,11 +422,94 @@ export const JudgmentDimensionInputSchema = z
         path: ['constitution_rules'],
       });
     }
+    if (val.name !== 'delta-spec-compliance') {
+      if (val.items !== undefined) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: 'items is only permitted on the delta-spec-compliance dimension',
+          path: ['items'],
+        });
+      }
+      if (val.context_id !== undefined) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: 'context_id is only permitted on the delta-spec-compliance dimension',
+          path: ['context_id'],
+        });
+      }
+      if (val.scenario_findings !== undefined) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: 'scenario_findings is only permitted on the delta-spec-compliance dimension',
+          path: ['scenario_findings'],
+        });
+      }
+    }
   });
 export type JudgmentDimensionInput = z.infer<typeof JudgmentDimensionInputSchema>;
 
 /** The `--dimensions` payload: one verify run's judgment verdicts. */
 export const JudgmentDimensionsInputSchema = z.array(JudgmentDimensionInputSchema);
+
+/**
+ * Closed VerificationContext contract (REQ-TYPES-104, REQ-SERVICES-115).
+ */
+export const VerificationContextSpecSchema = z.strictObject({
+  source: z.string().min(1),
+  content: z.string(),
+  digest: z.string().min(1),
+  req_ids: z.array(z.string().min(1)),
+});
+
+export const VerificationContextProposalSchema = z.strictObject({
+  source: z.string().min(1),
+  digest: z.string().min(1),
+});
+
+export const VerificationContextBaselineSchema = z.strictObject({
+  status: z.enum(['frozen', 'pending', 'unavailable']),
+  revision: z.number().int().positive().optional(),
+  digest: z.string().optional(),
+  scenarios: z.array(AcceptanceScenarioSchema).optional(),
+  proposal_mismatch: z.boolean().optional(),
+});
+
+export const VerificationContextTestAttemptSchema = z.strictObject({
+  status: z.string().min(1),
+  attempt_id: z.string().optional(),
+  exit_code: z.number().int().nullable().optional(),
+  command: z.string().optional(),
+  summary: z.string().optional(),
+});
+
+export const VerificationContextSnapshotSchema = z.strictObject({
+  digest: z.string().min(1),
+  scope: z.string().optional(),
+});
+
+export const VerificationContextSchema = z.strictObject({
+  version: z.literal(1),
+  change_name: z.string().min(1),
+  scale: z.enum(CHANGE_SCALES),
+  spec: VerificationContextSpecSchema,
+  proposal: VerificationContextProposalSchema,
+  baseline: VerificationContextBaselineSchema,
+  test_attempt: VerificationContextTestAttemptSchema,
+  snapshot: VerificationContextSnapshotSchema,
+  context_id: z.string().min(1),
+});
+
+export type VerificationContextSpec = z.infer<typeof VerificationContextSpecSchema>;
+export type VerificationContextProposal = z.infer<typeof VerificationContextProposalSchema>;
+export type VerificationContextBaseline = z.infer<typeof VerificationContextBaselineSchema>;
+export type VerificationContextTestAttempt = z.infer<typeof VerificationContextTestAttemptSchema>;
+export type VerificationContextSnapshot = z.infer<typeof VerificationContextSnapshotSchema>;
+export type VerificationContext = z.infer<typeof VerificationContextSchema>;
+
+export interface CurrentVerificationContextAssessment {
+  context: VerificationContext;
+  recheck(): boolean;
+}
 
 // --- planning verifiers (`prospec change log --verifier-report`) ---
 

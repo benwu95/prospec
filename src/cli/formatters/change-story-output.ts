@@ -1,6 +1,7 @@
 import pc from 'picocolors';
 import type { LogLevel } from '../../types/config.js';
 import type { ChangeStoryResult } from '../../services/change-story.service.js';
+import type { ChangeAcceptanceResult } from '../../services/change-acceptance.service.js';
 import { sanitizeTerminal } from './sanitize.js';
 
 /**
@@ -49,6 +50,33 @@ export function formatChangeStoryOutput(
   lines.push(
     `${pc.dim('→')} Then run ${pc.cyan('`prospec change plan`')} to generate the implementation plan`,
   );
+
+  process.stdout.write(lines.join('\n') + '\n');
+}
+
+/**
+ * Format the ChangeAcceptanceResult for terminal output.
+ */
+export function formatChangeAcceptanceOutput(
+  result: ChangeAcceptanceResult,
+  logLevel: LogLevel = 'normal',
+): void {
+  if (logLevel === 'quiet') return;
+
+  const header = result.noop
+    ? `Acceptance scenarios unchanged (revision ${result.revision}, no-op)`
+    : result.mode === 'amend'
+      ? `Amended acceptance scenarios (revision ${result.revision})`
+      : `Frozen acceptance scenarios (revision ${result.revision})`;
+
+  const lines: string[] = [
+    `${pc.green('✓')} ${header}`,
+    `Change:          ${sanitizeTerminal(result.changeName)}`,
+    `Digest:          ${sanitizeTerminal(result.digest)}`,
+    `Origin:          ${sanitizeTerminal(result.origin)}`,
+    `Captured status: ${sanitizeTerminal(result.capturedStatus)}`,
+    `Scenarios count: ${result.scenariosCount}`,
+  ];
 
   process.stdout.write(lines.join('\n') + '\n');
 }

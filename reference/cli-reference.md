@@ -196,7 +196,7 @@ Entry Points, Dependencies, and Config Files have no per-language override — t
 | Command | Description |
 |---------|-------------|
 | `prospec status [--json]` | Read-only check of in-flight changes, lifecycle station, next steps, blocking gates, and unresolved `quality_log` WARNs; each `reason:` line carries a stable `[CODE]`. On a clean workspace, reports the drift report's state. `--json` emits the full report to stdout |
-| `prospec change story <name> [options]` | Create change story scaffold (`proposal.md` + `metadata.yaml`) |
+| `prospec change story <name> [options]` | Create change story scaffold (`proposal.md` + `metadata.yaml`) or freeze/amend acceptance scenario baselines (`--freeze-scenarios`, `--amend-scenarios`) |
 | `prospec change plan [--change <name>] [--force]` | Create technical implementation plan scaffold (`plan.md` + `delta-spec.md`) |
 | `prospec change tasks [--change <name>] [--force]` | Create task checklist scaffold (`tasks.md`) |
 | `prospec change auto-draft [options]` | Scaffold fix changes from drift findings (or an explicit `--target`) without hand-copying the report |
@@ -213,7 +213,8 @@ Entry Points, Dependencies, and Config Files have no per-language override — t
 | `prospec change progress [options]` | Calculate code-task progress (excluding `[M]` / `[V]`) and flip checkboxes |
 | `prospec change log [options]` | Append structured `quality_log` entry in `metadata.yaml`; `--verifier-report <file>` records a validated plan/tasks verifier report (`FLAWS` → `FAIL`) |
 | `prospec review merge --findings <file> [options]` | Merge review JSON findings into cumulative `review.md` table |
-| `prospec verify record [options]` | Compute S/A/B/C/D grade from machine/judgment dimensions and advance to verified |
+| `prospec verify context --change <name>` | Project deterministic verification context (`verify-context.json`) combining baseline, spec, proposal, code snapshot, and test facts |
+| `prospec verify record [options]` | Compute S/A/B/C/D grade from machine/judgment dimensions, validate against context and baseline, and advance to verified |
 | `prospec learn upsert --lesson <file> [options]` | Idempotent lesson ledger upsert and evaluate promotion rules |
 | `prospec learn yield [options]` | Calculate lens yield statistics and retirement recommendations from archived reviews |
 | `prospec validate <kind> [target] [options]` | Machine validation of artifact structural integrity (exits 1 on failure) |
@@ -235,16 +236,26 @@ Entry Points, Dependencies, and Config Files have no per-language override — t
     - When a station recovery loop (verify below-bar, plan verifier flaws, tasks verifier flaws) reaches `workflow.max_station_retries` (default 3), `status` routes to `next: null` with stable code `ESCALATE_TO_HUMAN`, printing a HALT directive and failure summary rather than looping back.
 
 - **`prospec change story <name> [options]`**
-  - **Purpose**: Scaffold a new change directory with `proposal.md` and `metadata.yaml` (`status: story`).
-  - **Options**:
+  - **Purpose**: Scaffold a new change directory with `proposal.md` and `metadata.yaml` (`status: story`), or capture/amend acceptance scenario baselines.
+  - **Scaffold Options**:
     - `--description <d>`: One-line summary of the change.
     - `--related-module <m>...`: Explicitly associate modules (overrides auto-matching).
     - `--issue <ref>`: Register associated Issue / Ticket tracking identifier.
     - `--introduced-by <c>`: Record introducing change source (for escaped-defect analysis).
+  - **Baseline Management Modes** (mutually exclusive with creation options):
+    - `--freeze-scenarios`: Freeze substantive acceptance scenarios from `proposal.md` into `metadata.yaml` `acceptance` baseline (revision 1, origin: `story`). Refuses placeholders, unauthored content, missing `**Acceptance Scenarios:**`, duplicate/invalid IDs, or when combined with create-only flags. Idempotent on identical content; refuses differing content without amendment.
+    - `--amend-scenarios`: Controlled amendment to record a new baseline revision for an already-frozen story. Requires `--reason "<text>"` and `--expected-digest <sha256>`. Audits both previous digest and new revision identity; does not rewrite `proposal.md`. If amended during or after `implemented`, records `origin: late-capture`.
+    - `--reason <text>`: Justification text explaining the scenario amendment (required with `--amend-scenarios`).
+    - `--expected-digest <sha256>`: Expected sha256 digest of the current baseline revision to guard against concurrent or stale overwrites (required with `--amend-scenarios`).
+  - **Baseline Gates & Lifecycle Rules**:
+    - Entering `plan` (or `tasks` for `scale: quick`) requires a frozen baseline (`--freeze-scenarios`). Unfrozen stories are refused with remediation instructions.
+    - **Legacy limitation**: Pre-existing changes without an `acceptance` baseline in `metadata.yaml` are admitted with an explicit limitation disclosure (`baseline unavailable`), but cannot be implicitly captured. Missing baseline caps the verification grade below S (S is unreachable; Grade A remains possible within the WARN budget).
+    - **Terminal refusal**: Changes with `status: verified` or `status: archived` refuse any baseline freeze or amendment without lifecycle rollback (new requirements must be handled in a new change).
+    - **Traceability vs. Permission Isolation**: Baseline revisions and digest tracking establish deterministic auditability and evidence provenance across SDD stations, but do not provide process sandboxing or filesystem privilege isolation.
 
 - **`prospec change plan [--change <name>] [--force]`**
   - **Purpose**: Scaffold `plan.md` and `delta-spec.md`, advancing status to `plan`.
-  - **Safety Rules**: Refuses to overwrite existing files unless `--force` is passed; refuses outright for scales where plans are forbidden (`quick` routes to `change tasks`, `backfill` to `prospec-promote-backfill`).
+  - **Safety Rules**: Refuses to overwrite existing files unless `--force` is passed; refuses outright for scales where plans are forbidden (`quick` routes to `change tasks`, `backfill` to `prospec-promote-backfill`); refuses if acceptance scenarios have not been frozen (`prospec change story <name> --freeze-scenarios`) unless the change is legacy (no `acceptance` key).
 
 - **`prospec change tasks [--change <name>] [--force]`**
   - **Purpose**: Scaffold `tasks.md`, advancing status to `tasks`.
@@ -297,9 +308,26 @@ Entry Points, Dependencies, and Config Files have no per-language override — t
   - **Key Details**: Deduplicates by identity key, stamps each finding's `Origin` round, keeps maximum severity, preserves findings across rounds, tracks cumulative token spend, records invoked lenses, and evaluates the dual-axis circuit breaker (fix-induced ratio / spend budget / oscillation flips / hard cap) to emit an EscalationReport when tripped. On each merge, the CLI automatically writes or updates the round's `quality_log` counts entry (`criticals_found`, `criticals_fixed`, `majors`, `round`) in `metadata.yaml` (idempotent by round number). When the cumulative findings table has 0 rows (a clean review round), the CLI also automatically injects an artifact-language clean review sentence into `review.md`.
   - **Test gate**: after the input and round-sequence refusals (which write nothing), every merge requires the change's fresh green `test_attempt` or one of the two explicit exemptions (no resolvable test command, proven backfill), which merge with a `tests: not-adjudicated` WARN. A test refusal exits 1 with `prospec check --record-tests --change <name>`; its ONLY permitted write is the bounded test-failure metrics (`test_failures`, `test_failure_ids`) inside `review.md`'s metrics comment — never a findings merge or round advance. The count is of the distinct failed attempts review merge itself observed (a replayed attempt id never counts twice, a fresh green resets it, an exemption or loop rollover does not); at the default threshold of 3 the refusal also reports `persistent_test_failure` with `ESCALATE_TO_HUMAN`. No threshold flag exists. A malformed or duplicate metrics comment is refused before any write.
 
+- **`prospec verify context --change <name>`**
+  - **Purpose**: Project a deterministic verification context snapshot (`verify-context.json`) within the change directory without running test commands or modifying `metadata.yaml` / lifecycle status.
+  - **Captured Facts**:
+    - Change identity, scale, specification source/content/digest, and applicable REQ IDs (or proposal for `quick`).
+    - Frozen baseline revision, digest, and scenarios (or explicit unavailable state), plus proposal mismatch disclosure.
+    - Test attempt facts: Step 0 `test_attempt` ID, outcome, exit code, and test provenance / freshness.
+    - Repository code snapshot identity (`snapshot-v2`).
+    - Canonical `context_id` (sha256 digest of canonical context payload; excludes volatile timestamps).
+  - **Stability & Refusal**: Rechecks inputs during preparation; any concurrent file mutation or unstable input observations abort with zero writes.
+
 - **`prospec verify record --dimension <name>=<result>... | --dimensions <file> [options]`**
-  - **Purpose**: Calculate verification grade (S/A/B/C/D) and record structured verification log.
-  - **Key Details**: Machine dimensions are self-sourced from `prospec-report.json`, judgment dimensions from CLI flags or JSON; advances status to `verified` on S or A grade.
+  - **Purpose**: Calculate verification grade (S/A/B/C/D), validate judgment context and evidence consistency, and record structured verification log.
+  - **Key Details**:
+    - Machine dimensions are self-sourced from `prospec-report.json`; judgment dimensions are supplied via CLI flags or JSON payload (`--dimensions`).
+    - **Context & Per-REQ Verification**: When `--dimensions <file>` provides `context_id`, `items[]`, and `scenario_findings[]` for `delta-spec-compliance`:
+      - `verify record` validates the saved `verify-context.json` against freshly reconstructed facts from `assessVerificationContext`, verifying that code snapshot, spec bytes, baseline revision, proposal, and test attempt identities match before the first write. Any mismatch refuses recording.
+      - Each applicable requirement from the delta-spec is evaluated in `items[]`. Missing items are automatically backfilled as `not-adjudicated`.
+      - **Result Floor & Reducer**: Any item or deviation finding `FAIL` yields aggregate `FAIL`; any `WARN` yields `WARN`; unadjudicated or missing items yield `not-adjudicated` (and cap grade below S); one dimension-level gap warning is charged against the Grade A budget regardless of the number of missing items.
+      - **Legacy Inputs**: Payloads omitting `context_id` infer no per-REQ PASS credit; missing adjudication is disclosed, and explicit FAIL is retained.
+    - Advances status to `verified` on S or A grade.
 
 - **`prospec learn upsert --lesson <file> [--today <date>]`**
   - **Purpose**: Idempotently upsert lessons into `_lessons-ledger.md`.

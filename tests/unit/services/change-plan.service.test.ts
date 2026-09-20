@@ -1,3 +1,4 @@
+import { computeAcceptanceDigest } from '../../../src/types/change.js';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import * as fs from 'node:fs';
 import { vol } from 'memfs';
@@ -396,5 +397,72 @@ ${scale ? `scale: ${scale}\n` : ''}`;
     expect(result.createdFiles).toContain('.prospec/changes/light/plan.md');
     expect(result.createdFiles).toContain('.prospec/changes/light/delta-spec.md');
     expect(fs.readFileSync(`${changeDir}/metadata.yaml`, 'utf-8')).toContain('status: plan');
+  });
+
+  it('refuses to plan when acceptance scenarios are pending (unfrozen)', async () => {
+    vol.fromJSON({
+      '/project/.prospec.yaml': 'project:\n  name: test\n',
+      [`${changeDir}/proposal.md`]: '# Proposal\n',
+      [`${changeDir}/metadata.yaml`]: `name: light
+created_at: "2026-01-01T00:00:00.000Z"
+status: story
+scale: standard
+acceptance:
+  version: 1
+  revisions: []
+`,
+    });
+
+    await expect(execute({ change: 'light', cwd: '/project' })).rejects.toMatchObject({
+      message: expect.stringContaining('acceptance scenarios have not been frozen'),
+      suggestion: expect.stringContaining('--freeze-scenarios'),
+    });
+  });
+
+  it('allows plan when acceptance scenarios are frozen', async () => {
+    vol.fromJSON({
+      '/project/.prospec.yaml': 'project:\n  name: test\n',
+      [`${changeDir}/proposal.md`]: '# Proposal\n',
+      [`${changeDir}/metadata.yaml`]: `name: light
+created_at: "2026-01-01T00:00:00.000Z"
+status: story
+scale: standard
+acceptance:
+  version: 1
+  current_revision: 1
+  revisions:
+    - revision: 1
+      digest: ${computeAcceptanceDigest([{ id: 'US-1.1', text: 't' }])}
+      captured_at: "2026-01-01T00:00:00.000Z"
+      captured_status: story
+      origin: story
+      reason: initial
+      scenarios:
+        - id: US-1.1
+          story_id: US-1
+          text: t
+          source: proposal.md:1
+`,
+    });
+
+    const result = await execute({ change: 'light', cwd: '/project' });
+    expect(result.createdFiles).toContain('.prospec/changes/light/plan.md');
+    expect(result.legacyBaseline).toBeFalsy();
+  });
+
+  it('allows plan on legacy metadata without acceptance field and reports legacyBaseline', async () => {
+    vol.fromJSON({
+      '/project/.prospec.yaml': 'project:\n  name: test\n',
+      [`${changeDir}/proposal.md`]: '# Proposal\n',
+      [`${changeDir}/metadata.yaml`]: `name: light
+created_at: "2026-01-01T00:00:00.000Z"
+status: story
+scale: standard
+`,
+    });
+
+    const result = await execute({ change: 'light', cwd: '/project' });
+    expect(result.createdFiles).toContain('.prospec/changes/light/plan.md');
+    expect(result.legacyBaseline).toBe(true);
   });
 });

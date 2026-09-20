@@ -54,6 +54,12 @@ describe('status CLI e2e — escalation loops and output formatting (T19, REQ-CL
 
   it('escalates on 3 consecutive plan verifier FLAWS (Loop 1)', async () => {
     await runCli(['change', 'story', 'loop1', '--description', 'loop 1 test']);
+    const proposalPath1 = path.join(tmpDir, '.prospec', 'changes', 'loop1', 'proposal.md');
+    await fs.promises.writeFile(
+      proposalPath1,
+      '# Proposal: loop1\n\n## User Story\n\n### US-1: Title [P1]\n\n**Acceptance Scenarios:**\n- WHEN action THEN result\n',
+    );
+    await runCli(['change', 'story', 'loop1', '--freeze-scenarios']);
     await runCli(['change', 'plan']);
 
     const reportFile = writeReport('plan-flaws.json', planReport('FLAWS'));
@@ -89,6 +95,12 @@ describe('status CLI e2e — escalation loops and output formatting (T19, REQ-CL
 
   it('escalates on 3 consecutive tasks verifier FLAWS (Loop 2)', async () => {
     await runCli(['change', 'story', 'loop2', '--description', 'loop 2 test']);
+    const proposalPath2 = path.join(tmpDir, '.prospec', 'changes', 'loop2', 'proposal.md');
+    await fs.promises.writeFile(
+      proposalPath2,
+      '# Proposal: loop2\n\n## User Story\n\n### US-1: Title [P1]\n\n**Acceptance Scenarios:**\n- WHEN action THEN result\n',
+    );
+    await runCli(['change', 'story', 'loop2', '--freeze-scenarios']);
     await runCli(['change', 'plan']);
     await runCli(['change', 'tasks']);
 

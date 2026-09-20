@@ -31,7 +31,7 @@ One or more INVEST-compliant User Stories, each with Priority and acceptance sce
 ```markdown
 ## User Stories
 
-### US-1: [Short title] [P1]
+### US-1: [Short title] [P0]
 
 As a [role],
 I want [feature],
@@ -46,12 +46,17 @@ So that [value].
 [How to verify this story works in isolation]
 ```
 
-**Priority levels:** P1 (must-have), P2 (should-have), P3 (nice-to-have)
+**Priority levels:** P0 (must-have), P1 (should-have), P2 (nice-to-have)
 
 **Guidelines:**
 - Each Story should be independently developable, testable, and deployable
 - If a Story has more than 5 acceptance scenarios, consider splitting it
 - Use concrete, measurable outcomes in WHEN/THEN (not vague descriptions)
+
+**Acceptance Scenarios Baseline & Amendment:**
+- Substantive acceptance scenarios in `User Stories` are frozen into metadata baseline via `prospec change story <name> --freeze-scenarios` upon completing proposal authoring.
+- If scenarios need to change later, amendment must be done via `prospec change story <name> --amend-scenarios --reason "<reason>" --expected-digest <sha256>`.
+- Never manually edit `metadata.yaml` or fabricate revision history.
 
 ---
 

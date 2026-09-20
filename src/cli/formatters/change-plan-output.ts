@@ -28,6 +28,11 @@ export function formatChangePlanOutput(
   // 2. Status update
   lines.push(`${pc.green('✓')} Updated metadata.yaml status → ${pc.cyan('plan')}`);
 
+  // 2b. Legacy limitation (if any)
+  if (result.legacyBaseline) {
+    lines.push(`${pc.yellow('●')} Limitation: acceptance baseline is unavailable (legacy change)`);
+  }
+
   // 3. Related modules
   if (result.relatedModules.length > 0) {
     lines.push('');

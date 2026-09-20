@@ -12,6 +12,8 @@
 | `knowledge/*.hbs` (6) | `module-readme`, `index.md` + `_index-auto-block`, `raw-scan.md` (incl. the `Directories Without Source Files` evidence block), `module-map.yaml`, `feature-map.yaml` |
 | `change/*.hbs` (5) | proposal / plan / delta-spec / tasks scaffolds, plus `auto-draft-proposal` (the drift-derived body `auto-draft.service` hands to `change-story.service`); metadata.yaml is serialized in `change-story.service`, not templated |
 | `init/*.hbs` (9) | `prospec.yaml`, readme, Constitution, conventions, status-lifecycle, `prospec-check.yml` CI drift gate |
+| `skills/*.hbs` (17) | Shipped SDD station skills (incl. `prospec-new-story`/`ff` baseline freeze instructions, `prospec-verify` fixed inputs / per-REQ compliance evidence) |
+| `references/*.hbs` (30) | Reference documents (incl. `metadata-format`, `proposal-format`, `delegated-evidence-format`, `verify-backfill`) |
 | `agent-configs/entry.md.hbs` (1) | Shared entry config; renders host-labelled explicit-invocation guidance from `invocation_guidance` while keeping `prospec-<name>` canonical and implicit discovery separate; registry shape follows `surfaces_skill_frontmatter`, and the Station Transition Protocol branches on `skill_lifecycle_persistent` (native invoke/re-invoke with a file fallback, or status-then-read) — the conservative branch is what an absent context renders |
 | `references/config-example.yaml.hbs` (1) | The complete annotated `.prospec.yaml` printed by `prospec config example` — top-level, not a per-skill reference |
 

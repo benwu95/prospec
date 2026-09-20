@@ -4,7 +4,7 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg?style=flat-square)](LICENSE)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.9-blue?style=flat-square&logo=typescript)](https://www.typescriptlang.org/)
-[![Tests](https://img.shields.io/badge/tests-5855%20total-success?style=flat-square)](tests/)
+[![Tests](https://img.shields.io/badge/tests-6056%20total-success?style=flat-square)](tests/)
 [![Node](https://img.shields.io/badge/node-%3E%3D22.13-brightgreen?style=flat-square&logo=node.js)](https://nodejs.org/)
 [![pnpm](https://img.shields.io/badge/pnpm-%3E%3D11-orange?style=flat-square&logo=pnpm)](https://pnpm.io/)
 
@@ -515,6 +515,8 @@ The few command details a reader most often needs from here:
 
 - **`prospec validate <kind> <file>`** — validates one artifact against its schema; `<kind>` is one of
   `slug`, `backfill-draft`, `promote-scaffold`, `design-spec`, `module-readme`.
+- **`prospec change story <name> --freeze-scenarios` / `--amend-scenarios`** — freezes acceptance scenarios from `proposal.md` into `metadata.yaml` baseline (or appends a controlled revision with `--reason` and `--expected-digest`). Planning and tasks require a frozen baseline; legacy changes lacking baselines are admitted with disclosure (capped below grade S). Baseline modifications on verified/archived changes face terminal refusal. Note that baseline digests and verification context provide audit traceability, not sandbox or permission isolation.
+- **`prospec verify context --change <name>`** — writes deterministic `verify-context.json` combining spec, frozen baseline, proposal, code snapshot, and test attempt facts before grading; verified by `verify record` during per-REQ evaluation.
 - **`prospec change log --skill <skill> --verifier-report <file>`** — records a planning verifier's own
   report; a `FLAWS` verdict maps to `result: FAIL`. The gate is **per-change**: a sibling change's
   stale evidence never blocks this one. (`prospec status` is what prefixes its routing reason with a
@@ -661,7 +663,7 @@ templates alongside). The layer-by-layer breakdown and the tech-stack list are i
 ## Testing
 
 ```bash
-# Run all tests (5855 total; 4 skipped)
+# Run all tests (6056 total; 4 skipped)
 pnpm test
 
 # Watch mode
@@ -674,11 +676,11 @@ pnpm run typecheck
 pnpm run lint
 ```
 
-**Test Coverage**: 5855 total tests (5851 passed; 4 skipped) across 4 categories:
-- Unit tests (types + lib + services + cli): 4230 tests
-- Contract tests (CLI output + Skill format): 1353 tests
-- Integration tests: 104 tests
-- E2E tests: 168 tests
+**Test Coverage**: 6056 total tests (6052 passed; 4 skipped) across 4 categories:
+- Unit tests (types + lib + services + cli): 4404 tests
+- Contract tests (CLI output + Skill format): 1362 tests
+- Integration tests: 121 tests
+- E2E tests: 169 tests
 
 The suite includes a real `init` + `agent sync` generation contract (`tests/integration/skill-contract.test.ts`) asserting agent-specific reference paths, no dangling references, canonical convention docs, `base_dir`-relative spec paths, and `.agents` convergence.
 

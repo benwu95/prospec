@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
-import { formatChangeStoryOutput } from '../../../src/cli/formatters/change-story-output.js';
+import { formatChangeStoryOutput, formatChangeAcceptanceOutput } from '../../../src/cli/formatters/change-story-output.js';
 import type { ChangeStoryResult } from '../../../src/services/change-story.service.js';
+import type { ChangeAcceptanceResult } from '../../../src/services/change-acceptance.service.js';
 
 function makeResult(overrides: Partial<ChangeStoryResult> = {}): ChangeStoryResult {
   return {
@@ -162,5 +163,81 @@ describe('formatChangeStoryOutput', () => {
     const text = out.calls();
     expect(text.indexOf('desc-marker')).toBeLessThan(text.indexOf('mod-marker'));
     out.restore();
+  });
+});
+
+describe('formatChangeAcceptanceOutput', () => {
+  function makeAcceptanceResult(overrides: Partial<ChangeAcceptanceResult> = {}): ChangeAcceptanceResult {
+    return {
+      changeName: 'my-change',
+      mode: 'freeze',
+      revision: 1,
+      digest: '0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef',
+      origin: 'story',
+      capturedStatus: 'story',
+      scenariosCount: 3,
+      noop: false,
+      ...overrides,
+    };
+  }
+
+  function captureStdout(): { calls: () => string; restore: () => void } {
+    const spy = vi.spyOn(process.stdout, 'write').mockImplementation(() => true);
+    return {
+      calls: () => spy.mock.calls.map((c) => String(c[0])).join(''),
+      restore: () => spy.mockRestore(),
+    };
+  }
+
+  it('prints frozen output with revision, digest, origin, and scenario count', () => {
+    const cap = captureStdout();
+    formatChangeAcceptanceOutput(makeAcceptanceResult(), 'normal');
+    const out = cap.calls();
+    cap.restore();
+    expect(out).toContain('Frozen acceptance scenarios (revision 1)');
+    expect(out).toContain('Change:          my-change');
+    expect(out).toContain('Digest:          0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef');
+    expect(out).toContain('Origin:          story');
+    expect(out).toContain('Captured status: story');
+    expect(out).toContain('Scenarios count: 3');
+  });
+
+  it('prints amended output when mode is amend', () => {
+    const cap = captureStdout();
+    formatChangeAcceptanceOutput(makeAcceptanceResult({ mode: 'amend', revision: 2 }), 'normal');
+    const out = cap.calls();
+    cap.restore();
+    expect(out).toContain('Amended acceptance scenarios (revision 2)');
+  });
+
+  it('prints no-op message when noop is true', () => {
+    const cap = captureStdout();
+    formatChangeAcceptanceOutput(makeAcceptanceResult({ noop: true }), 'normal');
+    const out = cap.calls();
+    cap.restore();
+    expect(out).toContain('Acceptance scenarios unchanged (revision 1, no-op)');
+  });
+
+  it('strips terminal control codes from all fields', () => {
+    const BEL = String.fromCharCode(0x07);
+    const cap = captureStdout();
+    formatChangeAcceptanceOutput(
+      makeAcceptanceResult({
+        changeName: `change${BEL}name`,
+        digest: `digest${BEL}value`,
+      }),
+      'normal',
+    );
+    const out = cap.calls();
+    cap.restore();
+    expect(out.includes(BEL)).toBe(false);
+    expect(out).toContain('changename');
+  });
+
+  it('writes nothing in quiet mode', () => {
+    const spy = vi.spyOn(process.stdout, 'write').mockImplementation(() => true);
+    formatChangeAcceptanceOutput(makeAcceptanceResult(), 'quiet');
+    expect(spy).not.toHaveBeenCalled();
+    spy.mockRestore();
   });
 });

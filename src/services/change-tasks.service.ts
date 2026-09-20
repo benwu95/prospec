@@ -6,6 +6,7 @@ import { atomicWrite } from '../lib/fs-utils.js';
 import { renderTemplate } from '../lib/template.js';
 import { readChangeMetadata, writeChangeMetadataDoc } from '../lib/change-metadata.js';
 import { forbiddenArtifacts, isStatusBefore } from '../types/change.js';
+import { checkAcceptanceReadiness } from '../lib/acceptance-baseline.js';
 import { resolveChange } from './change-resolver.js';
 
 export interface ChangeTasksOptions {
@@ -21,6 +22,7 @@ export interface ChangeTasksResult {
   changeDir: string;
   createdFiles: string[];
   relatedModules: string[];
+  legacyBaseline?: boolean;
 }
 
 /**
@@ -72,6 +74,7 @@ export async function execute(options: ChangeTasksOptions): Promise<ChangeTasksR
   // skipping the plan check would leave it with none at all.
   const planPath = path.join(changeDir, 'plan.md');
   const proposalPath = path.join(changeDir, 'proposal.md');
+  let legacyBaseline = false;
   if (forbidden.includes('plan.md')) {
     if (!fs.existsSync(proposalPath)) {
       throw new PrerequisiteError(
@@ -79,11 +82,28 @@ export async function execute(options: ChangeTasksOptions): Promise<ChangeTasksR
         'Run `prospec change story` first — with no plan by contract, tasks are decomposed from proposal.md',
       );
     }
+    if (meta) {
+      const readiness = checkAcceptanceReadiness(meta.metadata);
+      if (!readiness.ready) {
+        throw new PrerequisiteError(
+          readiness.reason ?? 'acceptance scenarios have not been frozen',
+          readiness.suggestion,
+        );
+      }
+      if (readiness.legacy) {
+        legacyBaseline = true;
+      }
+    }
   } else if (!fs.existsSync(planPath)) {
     throw new PrerequisiteError(
       `plan.md does not exist in .prospec/changes/${changeName}/`,
       'Run `prospec change plan` first to generate an implementation plan',
     );
+  } else if (meta) {
+    const readiness = checkAcceptanceReadiness(meta.metadata);
+    if (readiness.legacy) {
+      legacyBaseline = true;
+    }
   }
 
   // 3c. Refuse to clobber an existing tasks.md (which may carry progress edits)
@@ -122,5 +142,6 @@ export async function execute(options: ChangeTasksOptions): Promise<ChangeTasksR
     changeDir,
     createdFiles,
     relatedModules,
+    legacyBaseline: legacyBaseline || undefined,
   };
 }
