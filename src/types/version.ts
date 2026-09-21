@@ -27,12 +27,12 @@ export const PROSPEC_VERSION: string = process.env.PROSPEC_VERSION || pkgVersion
  * every skill's startup probe STOPs when the installed `prospec --version` is
  * older, because the skill's deterministic steps call commands this version
  * introduced. Bump ONLY when a skill starts calling a CLI surface added in a
- * newer version — never as a routine release chore. It names the version that
- * SHIPS the complete command contract, so during development it runs ahead of
- * `package.json` until the release bumps to match. `2.2.0` is the release that
+ * newer published version — never as a routine release chore or ahead of an
+ * unfinished release. Unreleased command additions are exercised from source
+ * while developing this repository. `2.2.0` is the release that
  * ships the command contract used by the current skills — `prospec-plan`,
  * `prospec-tasks` and `prospec-ff` call `prospec change log --verifier-report`, an
  * option 2.1.x does not accept — so a lower floor would let a 2.1.x binary pass the
  * probe and then die mid-station on commander's unknown-option error.
  */
-export const MINIMUM_CLI_VERSION = '2.3.0';
+export const MINIMUM_CLI_VERSION = '2.2.0';
