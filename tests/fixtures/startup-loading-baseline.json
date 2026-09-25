@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "cumulative_ceiling_tokens": 88754,
+  "cumulative_ceiling_tokens": 88766,
   "skills": {
     "prospec-archive": {
       "items": [
@@ -64,7 +64,7 @@
         "{{knowledge_base_path}}/_playbook.md"
       ],
       "mandatory": 2,
-      "mandatory_context_tokens": 4538
+      "mandatory_context_tokens": 4550
     },
     "prospec-knowledge-generate": {
       "items": [
@@ -177,7 +177,7 @@
       "mandatory_context_tokens": 10614
     }
   },
-  "reference_ceiling_tokens": 49005,
+  "reference_ceiling_tokens": 49102,
   "references": {
     "adapter-figma": 589,
     "adapter-html": 663,
@@ -204,7 +204,7 @@
     "promotion-format": 1622,
     "proposal-format": 1211,
     "review-format": 2589,
-    "review-lenses-content": 2863,
+    "review-lenses-content": 2960,
     "spec-graduation": 892,
     "tasks-format": 1549,
     "tasks-verifier-rubric": 1837,

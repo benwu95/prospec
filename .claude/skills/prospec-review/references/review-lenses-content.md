@@ -111,6 +111,7 @@ Applies when the change adds or edits README/doc/spec prose that claims behavior
 | A count/attribution stated in prose that the code does not back (the deterministic `mcp-readme-counts` check covers only MCP-registration counts, so general count/attribution prose still needs this lens) | major |
 | **Enforcement face** — a claim that a property is *guaranteed / enforced / cannot happen* names the mechanism but not **who runs it and when**; a checker with no executor is not a gate. A passive-voice assertion with no subject ("is enforced", "cannot happen", "is refused") is the tell — supply the subject, then confirm that subject actually runs | critical (mechanism with no executor) / major |
 | **Universal claims without executor** — a module README or convention declares a universal rule ("EVERY X must Y", "all sinks must call Z") but no contract/structural test enforces it across the family; an ungrounded universal claim must be paired with an automated executor test | critical (ungrounded universal rule) / major |
+| **Qualifier face** — a scope, precondition, ownership subject or ordinal the reader does not need to act is one more falsifiable claim: leave it out, or verify it against the code path like any other claim | major |
 | **No-enforcer face** — a doc states a **shape** nothing enforces (a commit-subject form, a naming pattern, a message template); it is dated the moment it is written. Name the enforcer, or state only what the artifact *carries* (the stable part) and send the reader to the live source (`git log`, the registry, the schema). A repeatedly-refuted claim converges by **deletion**, not by weakening | major |
 
 ---
@@ -134,7 +135,7 @@ Applies when the change adds or edits tests (esp. contract/structural assertions
 | Criterion | Default severity |
 |-----------|------------------|
 | A contract assertion is not **section-scoped** (slices the whole file, not heading → next heading; no non-empty guard) | major (false-green risk) |
-| Content-presence asserted but **structural invariants** (item-set vs a version-controlled baseline, ordering, contiguity) and **negative assertions** for "must NOT appear" rules are missing | major |
+| Content-presence asserted but **structural invariants** (item-set vs a version-controlled baseline, ordering, contiguity) and **negative assertions** for "must NOT appear" rules are missing — a "must NOT appear" rule pins the **set or structure** (item-set, closed enum, directory enumeration), never a keyword, whose coverage equals the author's vocabulary | major |
 | A new assertion class was never **mutation-verified** (delete/corrupt the asserted feature → the test must go red) | major (an unmutated assertion may be a tautology) |
 | An assertion passes **vacuously** — the slice, glob, or collection it inspects can be empty and the expectation still holds (`expect(found).not.toContain(x)` over an empty `found`) | major (the recurring shape: a mutation that makes extraction return nothing satisfies the test) |
 

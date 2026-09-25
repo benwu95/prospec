@@ -542,7 +542,7 @@
   },
   "mandatory_policies": {
     "ceilings": {
-      "quick": 16505,
+      "quick": 16516,
       "standard-ui": 15380,
       "proven-backfill": 23556,
       "equivalent-commit": 12794,

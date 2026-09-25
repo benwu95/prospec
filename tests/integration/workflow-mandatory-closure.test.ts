@@ -69,9 +69,12 @@ function declaredMandatory(skillPath: string, instructions: Record<string, strin
  * the sign-off selection row and gate, the cascade Step 5 its sign-off HALT, archive the
  * Plan Decision carry-over, metadata-format the `signoff_option` stamp, and ff / cascade-protocol
  * the NEVER rule on the `PROSPEC_PAUSE_AT` override.
+ *
+ * `quick` 16_505 → 16_516 when the 2026-09-25 learn Sweep synced PB-001's set-or-structure
+ * clause into the `prospec-implement` NEVER list (quick routes through implement).
  */
 const CEILING_ANCHORS: Record<string, number> = {
-  quick: 16_505, 'standard-ui': 15_380, 'proven-backfill': 23_556, 'equivalent-commit': 12_794,
+  quick: 16_516, 'standard-ui': 15_380, 'proven-backfill': 23_556, 'equivalent-commit': 12_794,
   'reverify-c': 15_678, 'missing-receipt': 5_891, 'stale-delta': 12_939, 'multi-change': 12_794,
 };
 

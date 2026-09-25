@@ -3594,7 +3594,7 @@ describe('Boilerplate partials single source + generated marker (REQ-TEMPLATES-1
 // once a row here and belongs in review-format.md instead.
 const TEST_QUALITY_CRITERIA = [
   'A contract assertion is not **section-scoped** (slices the whole file, not heading → next heading; no non-empty guard)',
-  'Content-presence asserted but **structural invariants** (item-set vs a version-controlled baseline, ordering, contiguity) and **negative assertions** for "must NOT appear" rules are missing',
+  'Content-presence asserted but **structural invariants** (item-set vs a version-controlled baseline, ordering, contiguity) and **negative assertions** for "must NOT appear" rules are missing — a "must NOT appear" rule pins the **set or structure** (item-set, closed enum, directory enumeration), never a keyword, whose coverage equals the author\'s vocabulary',
   'A new assertion class was never **mutation-verified** (delete/corrupt the asserted feature → the test must go red)',
   'An assertion passes **vacuously** — the slice, glob, or collection it inspects can be empty and the expectation still holds (`expect(found).not.toContain(x)` over an empty `found`)',
 ];
@@ -4283,9 +4283,13 @@ describe('Startup Loading cache-stable prefix ordering (REQ-TEMPLATES-080/081)',
    * plan / ff / cascade-protocol gained the NEVER rule on the `PROSPEC_PAUSE_AT` override, and
    * candidate-evaluation its per-dimension winner rule and decision re-validation, and
    * metadata-format the `audited_option` stamp (add-plan-signoff-pause).
+   *
+   * Reference anchor raised 49_005 → 49_102 and cumulative anchor raised 88_754 → 88_766
+   * when the 2026-09-25 learn Sweep synced PB-001's set-or-structure clause and PB-003's
+   * qualifier face into `review-lenses-content` and the `prospec-implement` NEVER list.
    */
-  const REFERENCE_CEILING_ANCHOR = 49_005;
-  const CUMULATIVE_CEILING_ANCHOR = 88_754;
+  const REFERENCE_CEILING_ANCHOR = 49_102;
+  const CUMULATIVE_CEILING_ANCHOR = 88_766;
 
   const renderSkill = (name: string) => {
     const skill = SKILL_DEFINITIONS.find((s) => s.name === name)!;
@@ -6031,11 +6035,16 @@ describe('detect-inlined-gate-desync — Inlined/Mechanized annotation anchors (
     }
   });
 
-  it('the docs-claims and parallel-site lenses carry PB-003/PB-007 CURRENT strengthened clauses', () => {
+  it('the docs-claims, parallel-site and test-quality lenses carry PB-001/PB-003/PB-007 CURRENT strengthened clauses', () => {
     const lenses = renderLenses();
     const docs = sectionOf(lenses, '## Docs-Claims / Measurement-Attribution Lens');
     expect(docs).toContain('who runs it and when'); // PB-003 2026-08-03 enforcement face
     expect(docs).toContain('nothing enforces'); // PB-003 2026-08-06 no-enforcer face
+    expect(docs).toContain('**Qualifier face**'); // PB-003 2026-09-03 qualifier face
+    const tq = sectionOf(lenses, '## Test-Quality Lens');
+    expect(tq).toContain('never a keyword'); // PB-001 2026-09-03 set-or-structure face
+    const implementNever = sectionOf(renderTemplate('skills/prospec-implement.hbs', TEMPLATE_CONTEXT), '## NEVER');
+    expect(implementNever).toContain('pin the set or structure, never a keyword'); // PB-001 second Landing
     const par = sectionOf(lenses, '## Parallel-Site Completeness Lens');
     expect(par).toContain('re-running the full lens each round'); // PB-007 2026-07-31 remediation
   });
