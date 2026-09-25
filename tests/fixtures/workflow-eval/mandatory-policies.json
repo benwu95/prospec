@@ -1,15 +1,15 @@
 {
   "version": 1,
-  "note": "Route-specific mandatory inventories plus the pre-change token ceiling each scenario must stay at or below. Derived from each routed station's Startup Loading MANDATORY items, then reviewed; an inventory of what the instructions require, never of what a run read. Re-measured 2026-09-07: the inventory is now derived from each deployed skill's own **MANDATORY** markers instead of a hand-written list, which added the implement station's mandatory `prospec/ai-knowledge/_conventions.md` (measured from this repository's copy, since it is a project file rather than a shipped skill). Only `quick` routes through implement, so only its ceiling moved (15,096 → 16,347). The shipped instructions did not change — the measure got wider. Known bound: the inventory is derived from the literal `**MANDATORY**` marker, so a mandatory load declared another way is absent from it — today that is `prospec-verify`'s `**SCALE: BACKFILL MANDATORY ROUTING**` requirement to read `references/verify-backfill.md` (~982 tokens) under `scale: backfill`, which the `proven-backfill` ceiling therefore does not include. Re-measured 2026-09-16: every skill description gained a negative-scope clause (one clause per skill, rendered into each SKILL.md frontmatter), so every scenario's ceiling moved by the clauses of the skills on its route (quick 16,347 → 16,382; standard-ui 15,244 → 15,282; proven-backfill 23,279 → 23,318; equivalent-commit / multi-change 12,651 → 12,676; reverify-c 15,439 → 15,463; missing-receipt 5,613 → 5,627; stale-delta 12,792 → 12,818). A deliberate shipped-instruction cost, reviewed with that change.",
+  "note": "Route-specific mandatory inventories plus the pre-change token ceiling each scenario must stay at or below. Derived from each routed station's Startup Loading MANDATORY items, then reviewed; an inventory of what the instructions require, never of what a run read. Re-measured 2026-09-07: the inventory is now derived from each deployed skill's own **MANDATORY** markers instead of a hand-written list, which added the implement station's mandatory `prospec/ai-knowledge/_conventions.md` (measured from this repository's copy, since it is a project file rather than a shipped skill). Only `quick` routes through implement, so only its ceiling moved (15,096 → 16,347). The shipped instructions did not change — the measure got wider. Known bound: the inventory is derived from the literal `**MANDATORY**` marker, so a mandatory load declared another way is absent from it — today that is `prospec-verify`'s `**SCALE: BACKFILL MANDATORY ROUTING**` requirement to read `references/verify-backfill.md` (~982 tokens) under `scale: backfill`, which the `proven-backfill` ceiling therefore does not include. Re-measured 2026-09-16: every skill description gained a negative-scope clause (one clause per skill, rendered into each SKILL.md frontmatter), so every scenario's ceiling moved by the clauses of the skills on its route (quick 16,347 → 16,382; standard-ui 15,244 → 15,282; proven-backfill 23,279 → 23,318; equivalent-commit / multi-change 12,651 → 12,676; reverify-c 15,439 → 15,463; missing-receipt 5,613 → 5,627; stale-delta 12,792 → 12,818). A deliberate shipped-instruction cost, reviewed with that change. Re-measured 2026-09-24: the opt-in plan sign-off pause added ff's sign-off selection row and gate, the cascade Step 5 sign-off HALT, the archive Plan Decision carry-over and metadata-format's `signoff_option` stamp, and ff / cascade-protocol gained the NEVER rule on the `PROSPEC_PAUSE_AT` override (quick 16,382 → 16,505; standard-ui 15,282 → 15,380; proven-backfill 23,372 → 23,556; equivalent-commit / multi-change 12,676 → 12,794; reverify-c 15,463 → 15,678; missing-receipt 5,627 → 5,891; stale-delta 12,872 → 12,939). A deliberate shipped-instruction cost, reviewed with that change. Re-measured 2026-09-25: the learn Sweep synced PB-001's set-or-structure clause into the prospec-implement NEVER list (quick 16,505 → 16,516).",
   "ceilings": {
-    "quick": 16382,
-    "standard-ui": 15282,
-    "proven-backfill": 23372,
-    "equivalent-commit": 12676,
-    "reverify-c": 15463,
-    "missing-receipt": 5627,
-    "stale-delta": 12872,
-    "multi-change": 12676
+    "quick": 16516,
+    "standard-ui": 15380,
+    "proven-backfill": 23556,
+    "equivalent-commit": 12794,
+    "reverify-c": 15678,
+    "missing-receipt": 5891,
+    "stale-delta": 12939,
+    "multi-change": 12794
   },
   "policies": {
     "quick": {

@@ -3531,6 +3531,14 @@ describe('readGateResults', () => {
     ]);
   });
 
+  it('drops a plan sign-off entry — provenance, not a gate outcome (REQ-LIB-088)', () => {
+    const gates = readGateResults([
+      { skill: 'prospec-plan', date: '2026-09-24', result: 'WARN', verifier_verdict: 'WARN' },
+      { skill: 'prospec-plan', date: '2026-09-24', result: 'PASS', signoff_option: 'option-a' },
+    ]);
+    expect(gates).toEqual([{ skill: 'prospec-plan', result: 'WARN' }]);
+  });
+
   it('keeps a round-less prospec-review entry (round === undefined is a close/gate entry)', () => {
     const gates = readGateResults([
       { skill: 'prospec-review', date: '2026-09-19', result: 'PASS' },

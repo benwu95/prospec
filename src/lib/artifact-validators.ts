@@ -1,4 +1,14 @@
+import { posix } from 'node:path';
 import { forbiddenArtifacts } from '../types/change.js';
+import {
+  CandidatePayloadSchema,
+  DecisionPayloadSchema,
+  type CandidatePayload,
+  type DecisionGradedBy,
+  type DecisionPayload,
+} from '../types/station.js';
+import type { PlanDecisionOption } from '../types/change.js';
+import type { DependencyRules } from './drift-checker.js';
 import { isSafeResourceName } from './knowledge-reader.js';
 
 /**
@@ -240,3 +250,248 @@ export function coverageGap(allFeatures: string[], coveredFeatures: string[]): s
   const covered = new Set(coveredFeatures);
   return allFeatures.filter((f) => !covered.has(f));
 }
+
+// --- validate candidates (complete verdict + metrics facts) ---
+
+/** One candidate or decision file as the service read it; `content: null` = unreadable. */
+export interface CandidateFileInput {
+  file: string;
+  content: string | null;
+}
+
+export interface CandidatesInputs {
+  candidates: CandidateFileInput[];
+  /** null when `candidates/decision.json` is absent. */
+  decision: CandidateFileInput | null;
+  rules: DependencyRules;
+  /** Repo-relative path → module, from the shared `moduleAttributor`. */
+  attribute: (relPath: string) => string | null;
+}
+
+export interface CandidateMetricsRow {
+  id: string;
+  title: string;
+  direction_violations: number;
+  violating_edges: Array<{ from: string; to: string }>;
+  touched_modules_count: number;
+  touched_modules: string[];
+  estimated_lines: number | null;
+  unknown_references: string[];
+}
+
+export interface CandidateMetricsFacts {
+  rule_source: DependencyRules['source'];
+  /** Exactly one valid candidate — a disclosed degraded selection, not a failure. */
+  degraded: boolean;
+  metrics: CandidateMetricsRow[];
+  decision:
+    | { state: 'absent' | 'invalid' }
+    | { state: 'valid'; recommended_option: PlanDecisionOption; graded_by: DecisionGradedBy };
+}
+
+export interface CandidatesReport extends ValidationVerdict {
+  facts: CandidateMetricsFacts;
+}
+
+const HOP_SEPARATOR = /→|->/;
+
+/** A path token as prose writes it: markdown quoting, a leading `./` and trailing
+ *  punctuation are not the path, and `..` is resolved so a literal prefix cannot
+ *  misattribute it. Null when the path escapes the repository root. */
+function normalizePathToken(token: string): string | null {
+  const stripped = token.replace(/\\/g, '/').replace(/^[`'"(]+/, '').replace(/[`'"),.;:]+$/, '');
+  const normalized = posix.normalize(stripped);
+  return normalized === '..' || normalized.startsWith('../') || normalized.startsWith('/') ? null : normalized;
+}
+
+/** Resolve one hop: the first whitespace token containing `/` or `\` — other than a
+ *  route that begins with `/` — is a repo-relative path for the attributor; a hop
+ *  without one resolves only by an exact module name. A hop that is neither is an entry
+ *  label (`prospec status`, `POST /api/users`) and returns `label`. */
+function resolveHop(
+  hop: string,
+  attribute: CandidatesInputs['attribute'],
+  known: ReadonlySet<string>,
+): { module: string } | { unknown: string } | 'label' {
+  const tokens = hop.trim().split(/\s+/).filter((t) => t !== '');
+  const pathToken = tokens.find((t) => /[\\/]/.test(t) && !/^[`'"(]*\//.test(t));
+  if (pathToken !== undefined) {
+    const normalized = normalizePathToken(pathToken);
+    const module = normalized === null ? null : attribute(normalized);
+    return module === null ? { unknown: pathToken } : { module };
+  }
+  const first = tokens[0];
+  return first !== undefined && known.has(first) ? { module: first } : 'label';
+}
+
+export function computeCandidateMetrics(
+  candidate: CandidatePayload,
+  rules: DependencyRules,
+  attribute: CandidatesInputs['attribute'],
+): CandidateMetricsRow {
+  const known = new Set(rules.allowed.keys());
+  const touched = new Set<string>();
+  const unknown = new Set<string>();
+  const violations = new Map<string, { from: string; to: string }>();
+
+  for (const declared of candidate.touched_modules ?? []) {
+    if (known.has(declared)) touched.add(declared);
+    else unknown.add(declared);
+  }
+  for (const chain of candidate.call_chain ?? []) {
+    let previous: string | null = null;
+    for (const hop of chain.split(HOP_SEPARATOR)) {
+      const resolved = resolveHop(hop, attribute, known);
+      if (resolved === 'label' || 'unknown' in resolved) {
+        if (resolved !== 'label') unknown.add(resolved.unknown);
+        previous = null;
+        continue;
+      }
+      touched.add(resolved.module);
+      if (previous !== null && previous !== resolved.module && !rules.allowed.get(previous)?.has(resolved.module)) {
+        violations.set(`${previous}→${resolved.module}`, { from: previous, to: resolved.module });
+      }
+      previous = resolved.module;
+    }
+  }
+
+  return {
+    id: candidate.id,
+    title: candidate.title,
+    direction_violations: violations.size,
+    violating_edges: [...violations.values()],
+    touched_modules_count: touched.size,
+    touched_modules: [...touched].sort(),
+    estimated_lines: candidate.estimated_lines ?? null,
+    unknown_references: [...unknown].sort(),
+  };
+}
+
+function parseJson(content: string): unknown {
+  try {
+    return JSON.parse(content);
+  } catch {
+    return undefined;
+  }
+}
+
+export type DecisionState =
+  | { state: 'absent' }
+  | { state: 'invalid'; where: string }
+  | { state: 'valid'; payload: DecisionPayload };
+
+/** The one reading of `candidates/decision.json` every consumer shares. */
+export function parseDecision(input: CandidateFileInput | null): DecisionState {
+  if (input === null) return { state: 'absent' };
+  if (input.content === null) return { state: 'invalid', where: 'unreadable' };
+  const parsed = DecisionPayloadSchema.safeParse(parseJson(input.content));
+  if (!parsed.success) {
+    return { state: 'invalid', where: parsed.error.issues.map((i) => i.path.join('.') || '(root)').join(', ') };
+  }
+  return { state: 'valid', payload: parsed.data };
+}
+
+export interface CandidateSetVerdict extends ValidationVerdict {
+  valid: CandidatePayload[];
+  decision: DecisionState;
+}
+
+/**
+ * The candidate-set verdict without metrics — shared by `validate candidates` and the
+ * plan sign-off, so a set the validator FAILs can never be signed. Every candidate file
+ * must be readable, schema-valid and named after its own id, at least one must be
+ * valid, and a present decision must be schema-valid and name only valid candidates
+ * (a `hybrid` recommendation needs its text and at least two valid candidates).
+ */
+export function checkCandidateSet(
+  candidates: readonly CandidateFileInput[],
+  decisionFile: CandidateFileInput | null,
+): CandidateSetVerdict {
+  const findings: ValidationFinding[] = [];
+  const valid: CandidatePayload[] = [];
+
+  for (const input of candidates) {
+    if (input.content === null) {
+      findings.push({ level: 'FAIL', message: `${input.file}: unreadable` });
+      continue;
+    }
+    const parsed = CandidatePayloadSchema.safeParse(parseJson(input.content));
+    if (!parsed.success) {
+      const where = parsed.error.issues.map((i) => i.path.join('.') || '(root)').join(', ');
+      findings.push({ level: 'FAIL', message: `${input.file}: not a valid candidate payload (${where})` });
+      continue;
+    }
+    if (input.file !== `${parsed.data.id}.json`) {
+      findings.push({ level: 'FAIL', message: `${input.file}: file name does not match its id '${parsed.data.id}'` });
+      continue;
+    }
+    valid.push(parsed.data);
+  }
+  if (valid.length === 0) {
+    findings.push({ level: 'FAIL', message: 'no valid candidate payload under candidates/' });
+  }
+
+  const decision = parseDecision(decisionFile);
+  if (decision.state === 'invalid') {
+    findings.push({ level: 'FAIL', message: `decision.json: not a valid decision payload (${decision.where}; a legacy file may lack graded_by)` });
+  } else if (decision.state === 'valid') {
+    const ids = new Set<string>(valid.map((c) => c.id));
+    const { recommended_option: recommended, hybrid_recommendation: hybrid, evaluation_matrix: matrix } = decision.payload;
+    if (recommended === 'hybrid') {
+      if (hybrid === undefined || hybrid.trim() === '') {
+        findings.push({ level: 'FAIL', message: 'decision.json: recommended_option hybrid needs a hybrid_recommendation' });
+      }
+      if (valid.length < 2) {
+        findings.push({ level: 'FAIL', message: 'decision.json: recommended_option hybrid needs at least two valid candidates' });
+      }
+    } else if (!ids.has(recommended)) {
+      findings.push({ level: 'FAIL', message: `decision.json: recommended_option '${recommended}' is not a valid candidate` });
+    }
+    for (const row of matrix) {
+      if (row.winner !== 'tie' && !ids.has(row.winner)) {
+        findings.push({ level: 'FAIL', message: `decision.json: ${row.dimension} winner '${row.winner}' is not a valid candidate` });
+      }
+    }
+  }
+
+  return { ok: !findings.some((f) => f.level === 'FAIL'), findings, valid, decision };
+}
+
+/**
+ * The `candidates` verdict (`checkCandidateSet`) plus per-candidate metrics. Metrics are
+ * comparison data for the selection, never a gate — violations, unknown references and
+ * a single candidate are INFO.
+ */
+export function validateCandidates(inputs: CandidatesInputs): CandidatesReport {
+  const set = checkCandidateSet(inputs.candidates, inputs.decision);
+  const findings = [...set.findings];
+  const metrics = set.valid.map((candidate) => computeCandidateMetrics(candidate, inputs.rules, inputs.attribute));
+  for (const row of metrics) {
+    if (row.direction_violations > 0) {
+      const edges = row.violating_edges.map((e) => `${e.from} → ${e.to}`).join(', ');
+      findings.push({ level: 'INFO', message: `${row.id}: ${row.direction_violations} dependency-direction violation(s): ${edges}` });
+    }
+    if (row.unknown_references.length > 0) {
+      findings.push({ level: 'INFO', message: `${row.id}: unattributed references: ${row.unknown_references.join(', ')}` });
+    }
+  }
+  const degraded = metrics.length === 1;
+  if (degraded) {
+    findings.push({ level: 'INFO', message: 'only one valid candidate — degraded selection, disclose it' });
+  }
+  const decision: CandidateMetricsFacts['decision'] =
+    set.decision.state === 'valid'
+      ? {
+          state: 'valid',
+          recommended_option: set.decision.payload.recommended_option,
+          graded_by: set.decision.payload.graded_by,
+        }
+      : { state: set.decision.state };
+
+  return {
+    ok: set.ok,
+    findings,
+    facts: { rule_source: inputs.rules.source, degraded, metrics, decision },
+  };
+}
+

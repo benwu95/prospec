@@ -4,7 +4,7 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg?style=flat-square)](LICENSE)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.9-blue?style=flat-square&logo=typescript)](https://www.typescriptlang.org/)
-[![測試](https://img.shields.io/badge/測試-6056%20總計-success?style=flat-square)](tests/)
+[![測試](https://img.shields.io/badge/測試-6202%20總計-success?style=flat-square)](tests/)
 [![Node](https://img.shields.io/badge/node-%3E%3D22.13-brightgreen?style=flat-square&logo=node.js)](https://nodejs.org/)
 [![pnpm](https://img.shields.io/badge/pnpm-%3E%3D11-orange?style=flat-square&logo=pnpm)](https://pnpm.io/)
 
@@ -233,7 +233,7 @@ Agent 接手需求並執行 prospec-ff：
                            → 你核准 commit 與 archive ✓
 ```
 
-在 `prospec-ff` cascading mode 中，machine gates 通過後會自動進入下一站。Cascade 只在需要釐清、gate 失敗或 circuit breaker，以及最後的 Tastemaker sign-off 停下。到達該邊界時，Agent 會呈現 diff 與 evidence；未經你的明確核准，絕不 commit、push 或 archive。Cascade 之外的個別 station Skills 仍會以 status-aware handoff 結束，因此你也能逐站驅動同一條流程。
+在 `prospec-ff` cascading mode 中，machine gates 通過後會自動進入下一站。Cascade 只在需要釐清、gate 失敗或 circuit breaker，以及最後的 Tastemaker sign-off 停下——若以 `workflow.pause_at: [plan]` opt-in，`scale: full` 變更還會在 plan 後停下等你簽核，讓你在寫任何程式碼前審閱量測過的候選架構並簽核推薦方案（改選其他候選時，agent 會先修訂計畫並重跑 verifier）。環境變數 `PROSPEC_PAUSE_AT` 可逐次覆寫（空值或 `none`＝不停；Windows shell 會把空值變數移除，請用 `none`），讓雲端或排程 agent 保持全自動、本機 session 照樣停下。沒有停頓時，agent 會自行選定候選方案，絕不停下來詢問。到達該邊界時，Agent 會呈現 diff 與 evidence；未經你的明確核准，絕不 commit、push 或 archive。Cascade 之外的個別 station Skills 仍會以 status-aware handoff 結束，因此你也能逐站驅動同一條流程。
 
 想自己逐步驅動？也可以明確執行：
 
@@ -464,7 +464,7 @@ Prospec 生成 17 個 Skills —— 15 個涵蓋完整 SDD 生命週期，外加
 |-------|---------|
 | `quick` | 精簡 proposal（單 Story、免 FR/SC 枚舉）、**完全跳過 plan 階段**（`story → tasks`）、不載入模組 README；review/verify 的 delta-spec 維度標示 `not-applicable`（絕不偽裝 PASS） |
 | `standard`（預設；既有變更無欄位即此級） | 現行精簡流程 —— plan ≤ 120 行，結尾必含 **Simpler Alternative** 段落（實質更簡單的替代方案或明文 concede，附檔數/行數變更表面估算） |
-| `full` | 完整架構分析 —— 擴充 Technical Summary、逐進入點 Call Chain、Best-of-N 候選架構錦標賽（其非選中候選記錄替代 Simpler Alternative 段落） |
+| `full` | 完整架構分析 —— 擴充 Technical Summary、逐進入點 Call Chain、Best-of-N 候選架構選定，以 `prospec validate candidates` 量測（其非選中候選記錄替代 Simpler Alternative 段落） |
 
 兩道誠實的 backstop 防止 `quick` 變成 spec drift 破口：評估階段就把「預期影響 spec-covered 行為」的變更**否決出 quick**；`prospec-archive` Entry Gate 再以**實際 diff** 複核 —— 有 spec 影響即阻擋歸檔，直到補上極簡 Spec Impact 段落，knowledge-sync gate 則改由 diff 檔案路徑推導受影響模組（不依賴缺席的 delta-spec）。Forward-change scales 保留 TDD、對抗式審查與 Constitution 稽核；proven backfill 採獨立 fidelity contract，code review 為 optional。
 
@@ -493,12 +493,13 @@ check 與 token 量測）在 **[CLI 參考 — CLI 命令](./reference/cli-refer
 讀者最常需要留在此處的幾項命令細節：
 
 - **`prospec validate <kind> <file>`** — 依 schema 驗證單一工件；`<kind>` 為
-  `slug`、`backfill-draft`、`promote-scaffold`、`design-spec`、`module-readme` 之一。
+  `slug`、`backfill-draft`、`promote-scaffold`、`design-spec`、`module-readme`、`candidates` 之一。
 - **`prospec change story <name> --freeze-scenarios` / `--amend-scenarios`** — 將 `proposal.md` 的實質驗收場景凍結進 `metadata.yaml` 的基準（或以 `--reason` 與 `--expected-digest` 受控追加新修訂版）。進入 plan 與 tasks 均要求凍結基準；既有未凍結變更雖允許推進但會揭露限制（評級 S 不可達）。已 verified/archived 的變更執行凍結或修訂面臨終端拒絕。請注意基準 digest 與驗證上下文提供的是審計可追溯性，並非沙盒或權限隔離。
 - **`prospec verify context --change <name>`** — 在評級前寫出確定性的 `verify-context.json`，固定規格、凍結基準、提案、程式碼快照與測試事實；由 `verify record` 在逐 REQ 評定時核對。
 - **`prospec change log --skill <skill> --verifier-report <file>`** — 記錄 planning verifier 自己的
   報告；`FLAWS` 對應 `result: FAIL`。此閘門是 **per-change**：sibling change 的過期證據不會擋住
-  這一個。（以 `[CODE]` 標示 CLI 自有判定的是 `prospec status` 的路由理由行。）
+  這一個。（以 `[CODE]` 標示 CLI 自有判定的是 `prospec status` 的路由理由行。）在停頓中的 full-scale plan，
+  改以 `--skill prospec-plan --signoff <option>` 記錄人類的簽核。
 - **`prospec check --record-tests`** — 記錄測試執行（`snapshot-v2` fingerprint、`repository-inputs-v2`
   範圍、`change-and-restore` 偵測），讓 verify 5/5 成為機器判定。
 - **CI 閘門** — `prospec check --strict` 由 `.github/workflows/prospec-check.yml` 執行；drift check 的
@@ -637,7 +638,7 @@ Prospec 採用 **Pragmatic Layered Architecture**（`cli → services → lib �
 ## 測試
 
 ```bash
-# 執行所有測試（共 6056 個；4 個略過）
+# 執行所有測試（共 6202 個；4 個略過）
 pnpm test
 
 # Watch 模式
@@ -650,11 +651,11 @@ pnpm run typecheck
 pnpm run lint
 ```
 
-**測試覆蓋率**：共 6056 個測試（6052 個通過；4 個略過），橫跨 4 大類：
-- Unit tests（types + lib + services + cli）：4404 tests
-- Contract tests（CLI 輸出 + Skill 格式）：1362 tests
+**測試覆蓋率**：共 6202 個測試（6198 個通過；4 個略過），橫跨 4 大類：
+- Unit tests（types + lib + services + cli）：4522 tests
+- Contract tests（CLI 輸出 + Skill 格式）：1386 tests
 - Integration tests：121 tests
-- E2E tests：169 tests
+- E2E tests：173 tests
 
 測試套件內含真實 `init` + `agent sync` 生成契約（`tests/integration/skill-contract.test.ts`）：檢查 agent 專屬的 reference 路徑、無 dangling reference、canonical convention 文件、`base_dir` 相對的 spec 路徑，以及 antigravity/codex/copilot 收斂至 `.agents/skills` + `AGENTS.md`。
 

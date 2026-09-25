@@ -24,5 +24,15 @@ export function formatValidateOutput(
       lines.push(pc.dim(`    L${m.line}: ${sanitizeTerminal(m.text)}`));
     }
   }
+  if (result.facts && 'metrics' in result.facts && result.facts.metrics.length > 0) {
+    lines.push(pc.dim(`  metrics (dependency rules: ${result.facts.rule_source}):`));
+    lines.push('  | option | direction_violations | touched_modules | estimated_lines | unknown_references |');
+    lines.push('  |---|---|---|---|---|');
+    for (const row of result.facts.metrics) {
+      lines.push(
+        `  | ${row.id} | ${row.direction_violations} | ${row.touched_modules_count} | ${row.estimated_lines ?? '—'} | ${row.unknown_references.length} |`,
+      );
+    }
+  }
   process.stdout.write(lines.join('\n') + '\n');
 }

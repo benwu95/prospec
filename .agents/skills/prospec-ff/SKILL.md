@@ -103,14 +103,16 @@ Loading is still read). Status advances `story → tasks` directly
 | Step | Action |
 |------|--------|
 | Knowledge | Layer 1 (prospec/index.md) → Layer 2 (related module READMEs + any `{sub-module}.md` they link) |
-| Station | Enter the `prospec-plan` station per the Station Transition Protocol and run its phases there: `prospec change plan` scaffold, plan/delta-spec authoring per [`references/plan-format.md`](references/plan-format.md) + [`references/delta-spec-format.md`](references/delta-spec-format.md) (full: the candidate tournament), and the Architecture Verification with its **Physical Receipt Verification Protocol** ([`references/plan-verifier-rubric.md`](references/plan-verifier-rubric.md)). This table is the entry checklist, not a second copy of that flow |
+| Station | Enter the `prospec-plan` station per the Station Transition Protocol and run its phases there: `prospec change plan` scaffold, plan/delta-spec authoring per [`references/plan-format.md`](references/plan-format.md) + [`references/delta-spec-format.md`](references/delta-spec-format.md) (full: the candidate selection with mechanical metrics), and the Architecture Verification with its **Physical Receipt Verification Protocol** ([`references/plan-verifier-rubric.md`](references/plan-verifier-rubric.md)). This table is the entry checklist, not a second copy of that flow |
 | Receipt | Apply the **Physical Receipt Verification Protocol** to the verifier report: a readable regular file exists with `size > 0`; when a completion claim precedes the write, inspect abstract subagent lifecycle state or transcript logs and await it; a crash, timeout or spawn failure takes the station's explicit, disclosed Harness Degradation path; never fabricate a mock report or a synthetic PASS (zero-mock) |
 | Verdict | Record the report via `prospec change log --skill prospec-plan --verifier-report <file>` — the CLI validates it against the rubric-owned schema (verdict "PASS" | "WARN" | "FLAWS") and records `FLAWS` as `result: FAIL`; an invalid or missing report is refused, never worked around. Then run `prospec status`: a recorded FAIL routes back to plan until a later verifier PASS/WARN, or a documented Break-Glass `--result WARN --warning "Manual override: <rationale>"`, supersedes it |
+| Selection | (full) On `AWAITING_HUMAN_PLAN_SIGNOFF`, STOP after plan — present the candidate summary, metrics table, in-session rationale and plan verifier report, and do not generate tasks until the human signs off (`prospec change log --skill prospec-plan --signoff <option>`, never run without an explicit human instruction). Without the pause, keep the in-session selection (`graded_by: in-session`) and continue to Phase 4 — NEVER ask the human to choose |
 
 > **Phase 3 Gate** — proceed when:
 > - [ ] (standard/full) `plan.md` + `delta-spec.md` created, status → `plan`
 > - [ ] (standard/full) Architecture Verifier report recorded via `prospec change log --verifier-report` with result PASS/WARN (or a documented Break-Glass override)
 > - [ ] (quick) phase marked skipped per `scale: quick` — no plan artifacts produced
+> - [ ] (full) `prospec status` does not report `AWAITING_HUMAN_PLAN_SIGNOFF` — otherwise ff halts here
 
 ### Phase 4: Tasks Generation
 
@@ -126,7 +128,7 @@ Loading is still read). Status advances `story → tasks` directly
 
 ### Phase 5: Autonomous Execution & Cascading (when cascading active)
 
-**Autonomous Pipeline Cascading**: in cascading mode, execution advances seamlessly across `story → [plan] → tasks → implement → review → verify → knowledge-update` as machine verifiers PASS, protected by Circuit Breakers, halting strictly at Tastemaker presentation for human sign-off.
+**Autonomous Pipeline Cascading**: in cascading mode, execution advances seamlessly across `story → [plan] → tasks → implement → review → verify → knowledge-update` as machine verifiers PASS, protected by Circuit Breakers, halting strictly at Tastemaker presentation for human sign-off — and, when the project opts in to the plan sign-off pause, also after plan on a `scale: full` change.
 
 **Station Transition & Receipt Protocol**: On advancing to each station, re-read and reload that downstream skill to ensure full compliance with its receipt contracts and entry gates.
 
@@ -201,6 +203,7 @@ Verify the output against each phase's **site-specific** Constitution rule (INVE
 - **NEVER** skip Layer 2 knowledge loading for standard/full — Plan phase must load related module AI Knowledge (quick skips Plan and loads none)
 - **NEVER** skip Phase 3 without a `scale: quick` in metadata.yaml — confirmed by the user, or assigned by `prospec change auto-draft` from the drift check it drafted for; skipping plan is an explicit contract, not a shortcut
 - **NEVER** take verbal shortcuts, bypass receipt gates, or fabricate mock payloads during fast-forward cascading — all subagent outputs must be physically verified
+- **NEVER** run `prospec change log --signoff`, or set `PROSPEC_PAUSE_AT` to skip a pause, without an explicit human instruction — both are the human's decision, not the agent's
 - **NEVER** relay a plan/tasks verifier verdict by hand — `prospec change log --skill <station> --verifier-report <file>` is the only sink; `prospec status` is the only transition authority the cascade consults
 - **NEVER** automatically commit, push, or archive during autonomous cascading without explicit human Tastemaker approval
 - **NEVER** continue cascading past a tripped circuit breaker or unresolved critical findings

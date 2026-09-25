@@ -135,7 +135,7 @@ so that I clearly know which modules to change, what the steps are, and the REQ 
 #### REQ-TEMPLATES-059: Plan Call Chain, Architecture Verification, and Multi-Candidate Selection
 Plan Call Chain, architecture verification, and multi-candidate selection in `/prospec-plan` and plan-format.
 - WHEN prospec-plan produces plan.md, THEN include a Call Chain section (and plan-format.hbs defines it)
-- WHEN metadata.scale is full, THEN Phase 4 performs Best-of-N candidate architecture generation and pairwise tournament selection
+- WHEN metadata.scale is full, THEN Phase 4 performs Best-of-N candidate architecture generation and selects by the mechanical metrics table plus an in-session rationale, with a human sign-off when the pause applies
 - WHEN Plan Phase 6 runs, THEN an independent Architecture Verifier audits the plan and delta-spec against project architecture principles and the orthogonal rubric
 - WHEN verify dimension 3/5 runs, THEN re-check layering against the Constitution
 
@@ -257,22 +257,24 @@ tasks.md ends with a Summary section (total tasks, total lines, parallelizable c
 - WHEN tasks complete, THEN metadata status → `tasks`
 
 #### REQ-TEMPLATES-184: Candidate Evaluation Reference Template
-A structured candidate evaluation rubric template (`candidate-evaluation.md`) defining orthogonal architecture generation and symmetric pairwise tournament selection.
+A structured candidate evaluation rubric template (`candidate-evaluation.md`) defining orthogonal architecture generation, CLI-computed mechanical metrics, an in-session one-way rationale, and two selection paths.
 - WHEN `candidate-evaluation.md` is rendered, THEN it defines orthogonal candidate generation guidelines (Option A Pragmatic/Minimal Surface vs Option B Decoupled/Clean Architecture)
 - WHEN evaluating candidates, THEN it instructs dynamic anchoring to the project's manifests and `_conventions.md`
-- WHEN conducting tournament comparison, THEN it uses position-swapped pairwise comparison across Blast Radius & Complexity, Constitution & Layering Adherence, and Extensibility vs Simplicity
+- WHEN comparing candidates, THEN blast radius and layering winners follow the `prospec validate candidates` metrics table, extensibility follows an in-session one-way rationale, and no Tournament Judge sub-agent or position-swapped scoring is required
 - WHEN measured for knowledge token budget, THEN the template size remains within the `reference_per_file` budget
-- WHEN a Candidate or Tournament Judge writes a delegated report, THEN this reference owns its JSON schema and required closed fields; the orchestrator accepts only a readable non-empty schema-valid file, probes lifecycle while pending, discloses terminal degradation, and NEVER substitutes a verbal or mock record
+- WHEN a Candidate generator writes a delegated report, THEN this reference documents the JSON schema owned by `CandidatePayloadSchema` / `DecisionPayloadSchema`, a contract test pins the documented field set to the schema keys, and the orchestrator accepts only a readable non-empty schema-valid file, probes lifecycle while pending, discloses terminal degradation, and NEVER substitutes a verbal or mock record
+- WHEN selecting, THEN without a pause the agent records `graded_by: in-session` in decision.json and continues, and with the pause the human's `--signoff` records `graded_by: human`
 
 ---
 
 #### REQ-TEMPLATES-185: Multi-Candidate Architecture Selection in prospec-plan
-Phase 4 of `/prospec-plan` performs multi-candidate architecture selection and tournament evaluation for `scale: full` changes.
+Phase 4 of `/prospec-plan` performs multi-candidate architecture selection with mechanical metrics for `scale: full` changes.
 - WHEN `metadata.scale` is `full` (or requested on-demand), THEN Phase 4 loads `references/candidate-evaluation.md` in-phase on-demand without preloading into Startup Loading
-- WHEN generating candidate architectures, THEN generate 2-3 orthogonal options and execute symmetric pairwise tournament selection
-- WHEN running in a subagent-capable environment, THEN parallelize candidate generation and tournament judging; degrade to sequential prompt isolation in single-context environments
+- WHEN generating candidate architectures, THEN generate 2-3 orthogonal options, run `prospec validate candidates` for the metrics table, and write an in-session one-way rationale
+- WHEN running in a subagent-capable environment, THEN parallelize candidate generation; degrade to sequential prompt isolation in single-context environments
 - WHEN finalizing plan.md, THEN record trade-off analysis, winning option rationale, and non-selected candidate summaries in Technical Summary and Risk Assessment
-- WHEN any Candidate or Tournament Judge returns a path or completion prose, THEN Phase 4 MUST verify the physical non-empty report against the reference-owned schema before selection, inspect lifecycle/transcript evidence while pending, and NEVER fabricate an option or decision; terminal failure uses the disclosed sequential degraded path
+- WHEN any Candidate generator returns a path or completion prose, THEN Phase 4 MUST verify the physical non-empty report against the types-owned schema the reference documents before selection, inspect lifecycle/transcript evidence while pending, and NEVER fabricate an option or decision; terminal failure uses the disclosed sequential degraded path
+- WHEN `prospec status` returns `AWAITING_HUMAN_PLAN_SIGNOFF` after the verifier is recorded, THEN the station HALTs for the human sign-off instead of recommending tasks
 
 ---
 
@@ -395,7 +397,7 @@ The template library includes skill references for cascading execution, circuit 
 
 #### REQ-TEMPLATES-193: Autonomous Pipeline Cascading Integration in Prospec Skills
 Prospec skill templates instruct AI agents to perform autonomous pipeline cascading gated on machine verifiers and human sign-off.
-- WHEN cascading mode is triggered, THEN the agent advances sequentially through planning, implementation, review, and verification whenever verifiers pass
+- WHEN cascading mode is triggered, THEN the agent advances sequentially through planning, implementation, review, and verification whenever verifiers pass, except that an opt-in plan sign-off pause (`AWAITING_HUMAN_PLAN_SIGNOFF`) halts after plan until the human signs off
 - WHEN Grade S/A is reached in verification, THEN the agent presents the Tastemaker summary and halts for human sign-off before any commit or archive
 - WHEN cascading enters a delegated station or receives its subagent result, THEN it MUST reload and follow that station's receipt/schema contract, MUST stop on a missing or invalid payload, and MUST NEVER use a verbal/mock shortcut or claim a fresh-context PASS without a verified physical report
 - WHEN `prospec-ff` Phase 2 runs the INVEST check, THEN it is advisory — concerns are recorded via `prospec change log --result WARN` and never pause the Story — consistent with `prospec-new-story` and `cascade-protocol`
@@ -414,7 +416,7 @@ The test suite validates pipeline cascading components, oscillation breakers, pr
 The cascading protocol defines a per-station execution loop whose first step loads the station instructions using the rendered host capability policy on every transition and re-entry.
 - WHEN a station is entered during cascading, THEN the loop runs Step 1 [LOAD] (invoke or reinvoke the station skill for persistent-reattach; otherwise run prospec status and read its SKILL.md, with native-load failure using the same fallback) → Step 2 [ENTRY] (station entry gates) → Step 3 [EXEC] (per SKILL.md and its on-demand references) → Step 4 [GATE] (machine verifiers; FAIL trips the Oscillation Breaker) → Step 5 [NEXT] (prospec status, then back to Step 1).
 - WHEN the loop identifies the skill, THEN it uses the canonical skill identity and harness-neutral guidance; fallback paths derive from deployment metadata, never an absolute or hardcoded installation root.
-- WHEN Step 5 [NEXT] reads a route whose `code` is `ESCALATE_TO_HUMAN`, THEN the loop HALTs and emits an `EscalationReport` (`type: station_retry_limit_exceeded`) instead of returning to Step 1, and the Station Transition Gates table's Next Station column is left unchanged (the escalation is a loop-exit, not a routed station)
+- WHEN Step 5 [NEXT] reads a route whose `code` is `ESCALATE_TO_HUMAN`, THEN the loop HALTs and emits an `EscalationReport` (`type: station_retry_limit_exceeded`) instead of returning to Step 1; WHEN the `code` is `AWAITING_HUMAN_PLAN_SIGNOFF`, THEN the loop HALTs and presents the sign-off material without an `EscalationReport`, resuming at Step 1 after the sign-off; the Station Transition Gates table's Next Station column is left unchanged (both are loop-exits, not routed stations)
 
 ---
 
@@ -446,8 +448,8 @@ A pure resolver derives the next station's canonical skill identity from STATION
 #### REQ-SERVICES-092: status service attaches the resolved skill path
 The status service enriches each route with the next station's canonical skill identity and any resolvable deployment path, using the pure resolvers.
 - WHEN the service routes a change whose route resolves a next station (`next !== null`), THEN it calls the identity resolver with the routed next station and sets nextSkill, and separately resolves nextSkillPath from the configured agents.
-- WHEN config cannot be read or declares no agents, THEN nextSkill still identifies the routed station, nextSkillPath stays absent and routing is otherwise unchanged.
-- WHEN the route has no next station (`next === null` — terminal `archived` or an `ESCALATE_TO_HUMAN` escalation), THEN no nextSkill, skill path or reference map is fabricated.
+- WHEN config cannot be read or declares no agents, THEN nextSkill still identifies the routed station, nextSkillPath stays absent and routing is otherwise unchanged — except that an unreadable or unparseable `.prospec.yaml` resolves the opt-in pause as on, with a disclosed reason (REQ-SERVICES-116).
+- WHEN the route has no next station (`next === null` — terminal `archived` or a `HUMAN_HALT_CODES` route), THEN no nextSkill, skill path or reference map is fabricated.
 - WHEN enrichment runs, THEN the filesystem stays byte-identical and current, next, code, blocking gates and reasons are unchanged; the existing reference-map projection and filtering are retained.
 
 ---
@@ -456,7 +458,7 @@ The status service enriches each route with the next station's canonical skill i
 prospec status presents the canonical next-station skill identity as the primary actionable target and a resolvable skill path as a separate fallback field. It does not infer the running host or promise any lifecycle capability.
 - WHEN a routed change has nextSkill, THEN an action line below next names invoke skill prospec-<name> with guidance to follow the host loading policy; a nextSkillPath, if present, is printed separately as fallback: read <path> before station checks.
 - WHEN a route resolves a next station but has no configured agent, THEN the skill action is still present without a fabricated fallback directory.
-- WHEN the route has no next station (`next === null`), THEN no station action or fallback is printed; the terminal `archived` guidance is retained, and an `ESCALATE_TO_HUMAN` escalation prints its own HALT guidance (REQ-CLI-023) instead.
+- WHEN the route has no next station (`next === null`), THEN no station action or fallback is printed; the terminal `archived` guidance is retained, an `ESCALATE_TO_HUMAN` escalation prints its own HALT guidance (REQ-CLI-023), and an `AWAITING_HUMAN_PLAN_SIGNOFF` route prints its sign-off HALT guidance (REQ-CLI-056).
 - WHEN formatting, THEN existing status, issue, next, reference-map, gate, reason and warning output is retained, repository-derived values including fallback paths are sanitized, and no routing or capability decision is made by the formatter.
 
 ---

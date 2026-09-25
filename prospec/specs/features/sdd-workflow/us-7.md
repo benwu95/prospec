@@ -107,7 +107,7 @@ I want to generate all planning artifacts at once (story → plan → tasks),
 so that when requirements are clear I can advance quickly, without triggering the three skills step by step.
 
 **Acceptance Scenarios:**
-- WHEN running `/prospec-ff` THEN run story → plan → tasks in order (`scale: quick`: story → tasks, skipping plan)
+- WHEN running `/prospec-ff` THEN run story → plan → tasks in order (`scale: quick`: story → tasks, skipping plan; under the opt-in plan pause a full-scale run stops after plan until the human signs off)
 - WHEN any phase fails THEN stop and report progress
 - WHEN all complete THEN metadata.yaml status: `tasks`
 

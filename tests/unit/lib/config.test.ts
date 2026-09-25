@@ -2,8 +2,8 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { vol } from 'memfs';
-import { resolveConfigPath, readConfig, validateConfig, writeConfig, resolveBasePaths, isArtifactLanguageUnset, resolveKnowledgeTokenBudget, resolveTestCommand, resolveMaxStationRetries } from '../../../src/lib/config.js';
-import { ConfigNotFound, ConfigInvalid } from '../../../src/types/errors.js';
+import { resolveConfigPath, readConfig, validateConfig, writeConfig, resolveBasePaths, isArtifactLanguageUnset, resolveKnowledgeTokenBudget, resolveTestCommand, resolveMaxStationRetries, resolvePauseAt } from '../../../src/lib/config.js';
+import { ConfigNotFound, ConfigInvalid, PauseAtInvalid } from '../../../src/types/errors.js';
 import { DEFAULT_KNOWLEDGE_TOKEN_BUDGET, DEFAULT_MAX_STATION_RETRIES, ProspecConfigSchema, SHIPPED_BUDGET_FIELDS, isShippedBudgetField, type ProspecConfig } from '../../../src/types/config.js';
 
 vi.mock('node:fs', async () => {
@@ -451,6 +451,96 @@ describe('resolveMaxStationRetries (REQ-LIB-082, REQ-TESTS-122)', () => {
       workflow: { max_station_retries: Number.NaN },
     };
     expect(resolveMaxStationRetries(configNaN)).toBe(DEFAULT_MAX_STATION_RETRIES);
+  });
+});
+
+describe('resolvePauseAt (REQ-LIB-086)', () => {
+  const withPause = (pause_at: unknown): ProspecConfig =>
+    ({ project: { name: 'p' }, workflow: { pause_at } }) as ProspecConfig;
+
+  // REQ-TESTS-124: every env state crossed with every config state. A set env decides
+  // alone (the config is never read, so an invalid one never throws); an unset env
+  // defers to the config.
+  const ENV_STATES: Array<[string, string | undefined, string[] | 'throws' | 'config']> = [
+    ['unset', undefined, 'config'],
+    ['empty', '', []],
+    ['whitespace', '   ', []],
+    ['none', 'none', []],
+    ['valid', 'plan', ['plan']],
+    ['duplicated', 'plan, plan', ['plan']],
+    ['invalid', 'bogus', 'throws'],
+  ];
+  const CONFIG_STATES: Array<[string, ProspecConfig | null, string[] | 'throws']> = [
+    ['absent', null, []],
+    ['valid', withPause(['plan']), ['plan']],
+    ['invalid', withPause('plan'), 'throws'],
+  ];
+  const CROSS = ENV_STATES.flatMap(([envName, env, envExpect]) =>
+    CONFIG_STATES.map(([configName, config, configExpect]) => ({
+      envName, env, configName, config, expected: envExpect === 'config' ? configExpect : envExpect,
+    })),
+  );
+  it.each(CROSS)('env $envName × config $configName', ({ env, config, expected }) => {
+    const run = () => resolvePauseAt(config, env === undefined ? {} : { PROSPEC_PAUSE_AT: env });
+    if (expected === 'throws') expect(run).toThrow(PauseAtInvalid);
+    else expect(run()).toEqual(expected);
+  });
+
+  it('resolves no pause when neither the env nor the config sets one', () => {
+    expect(resolvePauseAt(null, {})).toEqual([]);
+    expect(resolvePauseAt(undefined, {})).toEqual([]);
+    expect(resolvePauseAt({ project: { name: 'p' } } as ProspecConfig, {})).toEqual([]);
+    expect(resolvePauseAt(withPause([]), {})).toEqual([]);
+  });
+
+  it('reads workflow.pause_at when PROSPEC_PAUSE_AT is unset', () => {
+    expect(resolvePauseAt(withPause(['plan']), {})).toEqual(['plan']);
+    expect(resolvePauseAt(withPause([' plan ', 'plan', '']), {})).toEqual(['plan']);
+  });
+
+  it('lets a set PROSPEC_PAUSE_AT decide alone — empty and whitespace mean no pause', () => {
+    expect(resolvePauseAt(withPause(['plan']), { PROSPEC_PAUSE_AT: '' })).toEqual([]);
+    expect(resolvePauseAt(withPause(['plan']), { PROSPEC_PAUSE_AT: '   ' })).toEqual([]);
+    expect(resolvePauseAt(null, { PROSPEC_PAUSE_AT: 'plan' })).toEqual(['plan']);
+    expect(resolvePauseAt(withPause([]), { PROSPEC_PAUSE_AT: ' plan , plan ,' })).toEqual(['plan']);
+    // an invalid config value is never read while the env decides
+    expect(resolvePauseAt(withPause('bogus'), { PROSPEC_PAUSE_AT: '' })).toEqual([]);
+  });
+
+  it('reads PROSPEC_PAUSE_AT=none as no pause — the form Windows shells can pass — but only on its own', () => {
+    expect(resolvePauseAt(withPause(['plan']), { PROSPEC_PAUSE_AT: 'none' })).toEqual([]);
+    expect(resolvePauseAt(withPause(['plan']), { PROSPEC_PAUSE_AT: ' none ' })).toEqual([]);
+    expect(() => resolvePauseAt(null, { PROSPEC_PAUSE_AT: 'none,plan' })).toThrow(PauseAtInvalid);
+    expect(() => resolvePauseAt(withPause(['none']), {})).toThrow(PauseAtInvalid);
+  });
+
+  it('throws PauseAtInvalid naming the source and value for an unknown env station', () => {
+    expect(() => resolvePauseAt(null, { PROSPEC_PAUSE_AT: 'plan,tasks' })).toThrow(PauseAtInvalid);
+    try {
+      resolvePauseAt(null, { PROSPEC_PAUSE_AT: 'bogus' });
+      expect.unreachable();
+    } catch (err) {
+      expect((err as PauseAtInvalid).code).toBe('PAUSE_AT_INVALID');
+      expect((err as PauseAtInvalid).message).toContain('PROSPEC_PAUSE_AT');
+      expect((err as PauseAtInvalid).message).toContain('bogus');
+      expect((err as PauseAtInvalid).suggestion).toContain('plan');
+    }
+  });
+
+  it('throws for a config value of the wrong shape or an unknown station — never a silent no-pause', () => {
+    for (const bad of ['plan', { plan: true }, [1], ['tasks']]) {
+      expect(() => resolvePauseAt(withPause(bad), {}), JSON.stringify(bad)).toThrow(PauseAtInvalid);
+    }
+    expect(() => resolvePauseAt(withPause('plan'), {})).toThrow(/workflow\.pause_at/);
+  });
+
+  it('keeps a mistyped pause_at from failing the whole config parse', () => {
+    const parsed = ProspecConfigSchema.safeParse({
+      project: { name: 'p' },
+      tech_stack: { language: 'typescript' },
+      workflow: { pause_at: 'plan' },
+    });
+    expect(parsed.success).toBe(true);
   });
 });
 

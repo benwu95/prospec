@@ -136,6 +136,12 @@ quality_log:
     warnings:
       - "reuse: existing owner bypassed"
     verifier_verdict: FLAWS        # plan/tasks verifier sink only (`change log --verifier-report`)
+    audited_option: option-a       # plan verifier sink only: the decision.json recommendation audited
+  - skill: prospec-plan
+    date: 2026-07-14
+    result: PASS
+    warnings: []                   # the human's notes, if any
+    signoff_option: option-a       # plan sign-off only (`change log --signoff`)
   - skill: prospec-verify
     date: 2026-07-13
     result: PASS                   # still the gate three-state
@@ -185,6 +191,16 @@ quality_log:
   later stamped `PASS`/`WARN` supersedes a stamped `FLAWS`, and a station's own Exit Gate entry under
   the same skill (unstamped) is never read as one. The one unstamped entry that also counts is a
   Break-Glass `WARN` whose warning opens with `Manual override:`.
+- **`audited_option`** (plan only) is stamped by the same sink from a schema-valid
+  `candidates/decision.json` — the recommendation the verifier audited. A sign-off must name the latest report's stamp (a
+  later Break-Glass WARN audited nothing), so a recommendation changed after the audit needs a
+  re-recorded verifier first.
+- **`signoff_option`** (plan only) is written solely by `prospec change log --signoff` — the human's
+  plan sign-off (`option-a` | `option-b` | `option-c` | `hybrid`), accepted only when it equals
+  `candidates/decision.json` `recommended_option`, the candidate set passes `prospec validate candidates`,
+  and the latest plan verifier result is PASS/WARN and the latest verifier report's `audited_option` is that option. It
+  releases the opt-in plan pause only while no later verifier entry follows it, and it is provenance,
+  not a gate result: it neither counts as a verifier result nor hides an unresolved WARN.
 - `warnings` is always present (use `[]` when none); each entry is one string.
 - Omit the optional keys entirely when they do not apply — do not write them as `null`/empty.
 

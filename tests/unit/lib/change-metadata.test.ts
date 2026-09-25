@@ -8,6 +8,11 @@ import {
   appendQualityLogEntry,
   upsertReviewRoundEntry,
   normalizeIssueRef,
+  verifierGateResultOf,
+  latestVerifierResult,
+  latestFreshPlanSignoff,
+  hasPlanSignoffAfterVerifier,
+  isPlanSignoffEntry,
 } from '../../../src/lib/change-metadata.js';
 import { MetadataValidationError, YamlParseError } from '../../../src/types/errors.js';
 
@@ -587,3 +592,71 @@ it('orders evidence fields without losing attached comments or unknown fields', 
   expect(raw).toContain('# attempt note');
   expect(raw).toContain('custom: kept');
 });
+
+describe('plan verifier provenance and sign-off freshness (REQ-LIB-088)', () => {
+  const verifier = (verdict: 'PASS' | 'WARN' | 'FLAWS') => ({
+    skill: 'prospec-plan',
+    date: '2026-09-24',
+    result: verdict === 'FLAWS' ? 'FAIL' : verdict,
+    warnings: [],
+    verifier_verdict: verdict,
+  });
+  const signoff = (option: 'option-a' | 'option-b' | 'hybrid') => ({
+    skill: 'prospec-plan',
+    date: '2026-09-24',
+    result: 'PASS',
+    warnings: [],
+    signoff_option: option,
+  });
+  const exitGate = { skill: 'prospec-plan', date: '2026-09-24', result: 'PASS', warnings: [] };
+  const breakGlass = { skill: 'prospec-plan', date: '2026-09-24', result: 'WARN', warnings: ['Manual override: false positive'] };
+
+  it('verifierGateResultOf reads only a known stamp or a Break-Glass WARN', () => {
+    expect(verifierGateResultOf(verifier('FLAWS'))).toBe('FAIL');
+    expect(verifierGateResultOf(verifier('WARN'))).toBe('WARN');
+    expect(verifierGateResultOf(breakGlass)).toBe('WARN');
+    expect(verifierGateResultOf(exitGate)).toBeNull();
+    expect(verifierGateResultOf(signoff('option-a'))).toBeNull();
+    expect(verifierGateResultOf({ ...exitGate, verifier_verdict: 'MAYBE' })).toBeNull();
+  });
+
+  it('latestVerifierResult skips non-verifier entries, sign-offs included', () => {
+    expect(latestVerifierResult(undefined, 'prospec-plan')).toBeNull();
+    expect(latestVerifierResult([verifier('FLAWS'), verifier('PASS'), signoff('option-a'), exitGate], 'prospec-plan')).toBe('PASS');
+    expect(latestVerifierResult([verifier('PASS')], 'prospec-tasks')).toBeNull();
+  });
+
+  it('counts a sign-off positioned after a PASS/WARN verifier result', () => {
+    expect(latestFreshPlanSignoff([verifier('WARN'), signoff('option-a')])).toBe('option-a');
+    expect(latestFreshPlanSignoff([breakGlass, exitGate, signoff('hybrid')])).toBe('hybrid');
+    expect(hasPlanSignoffAfterVerifier([verifier('PASS'), signoff('option-b')])).toBe(true);
+  });
+
+  it('takes the latest sign-off when several follow the verifier', () => {
+    expect(latestFreshPlanSignoff([verifier('PASS'), signoff('option-a'), signoff('option-b')])).toBe('option-b');
+  });
+
+  it('drops a sign-off a later verifier entry supersedes, or one no PASS/WARN precedes', () => {
+    expect(latestFreshPlanSignoff([verifier('PASS'), signoff('option-a'), verifier('PASS')])).toBeNull();
+    expect(latestFreshPlanSignoff([verifier('PASS'), signoff('option-a'), verifier('FLAWS')])).toBeNull();
+    expect(latestFreshPlanSignoff([signoff('option-a')])).toBeNull();
+    expect(latestFreshPlanSignoff([verifier('FLAWS'), signoff('option-a')])).toBeNull();
+    expect(hasPlanSignoffAfterVerifier(undefined)).toBe(false);
+  });
+
+  it('isPlanSignoffEntry recognizes only a stamped prospec-plan entry', () => {
+    expect(isPlanSignoffEntry(signoff('option-a'))).toBe(true);
+    expect(isPlanSignoffEntry(exitGate)).toBe(false);
+    expect(isPlanSignoffEntry({ skill: 'prospec-tasks', signoff_option: 'option-a' })).toBe(false);
+  });
+
+  it('appendQualityLogEntry keeps signoff_option in the canonical serialization', async () => {
+    vol.fromJSON({ [PATH]: VALID });
+    const { doc } = readChangeMetadata(PATH, 'add-widget');
+    appendQualityLogEntry(doc, { skill: 'prospec-plan', date: '2026-09-24', result: 'PASS', warnings: [], signoff_option: 'option-a' });
+    await writeChangeMetadataDoc(PATH, doc, 'add-widget');
+    const written = vol.readFileSync(PATH, 'utf-8') as string;
+    expect(written).toMatch(/- skill: prospec-plan\n {4}date: 2026-09-24\n {4}result: PASS\n {4}warnings: \[\]\n {4}signoff_option: option-a/);
+  });
+});
+

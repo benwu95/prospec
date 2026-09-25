@@ -215,7 +215,7 @@ Use a table to list risks, impacts, and mitigation strategies:
 
 ### 8. Simpler Alternative (required under `standard`)
 
-Placed **after Risk Assessment**. A `standard` plan MUST carry this section; under `full` the tournament's recorded non-selected candidates (Risk Assessment) stand in for it, so it is not repeated.
+Placed **after Risk Assessment**. A `standard` plan MUST carry this section; under `full` the recorded non-selected candidates (Risk Assessment) stand in for it, so it is not repeated.
 
 Either propose a **materially simpler** alternative to the chosen approach, or concede in one sentence that none exists and say why. Attach a change-surface estimate of the chosen approach in files and lines order of magnitude, so "simpler" is a comparable downstream review/verify cost claim, not an adjective. When you propose an alternative, estimate it side by side; when you concede, the Alternative row names the nearest alternative you considered and shows it is not smaller — or is omitted, with the reason in the concession sentence. The Architecture Verifier's Reuse & Single-Source dimension (`plan-verifier-rubric.md`) treats a missing section as an unargued rewrite.
 
@@ -240,7 +240,7 @@ Plan depth follows the change's `metadata.scale`:
 |-------|-------------|
 | `quick` | No plan at all — `prospec-plan` exits at its Entry Gate; proceed to tasks |
 | `standard` (or absent) | Concise plan, keep under **120 lines** (the conditional Section 5 User Story Flow diagram block is excluded from the count), including the required Section 8 Simpler Alternative — the default below |
-| `full` | Complete architecture analysis — expanded Technical Summary, one Call Chain per entry point, trade-off notes in Risk Assessment (the tournament record stands in for Simpler Alternative); the 120-line cap does not apply |
+| `full` | Complete architecture analysis — expanded Technical Summary, one Call Chain per entry point, trade-off notes in Risk Assessment (the recorded candidates stand in for Simpler Alternative); the 120-line cap does not apply |
 
 ---
 

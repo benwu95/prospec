@@ -1,5 +1,6 @@
 import type { ChangeScale, ChangeStatus, GateResult, VerifyGrade } from './change.js';
 import type { ReferenceLoadKind } from './station-references.js';
+import { PAUSE_AT_ENV_VAR, PAUSE_AT_NONE } from './config.js';
 
 /**
  * SDD station-routing contract — the types behind `prospec status`.
@@ -72,6 +73,8 @@ export const WORKFLOW_REASON_CODES = [
   'KNOWLEDGE_UNSYNCED',
   'TERMINAL',
   'ESCALATE_TO_HUMAN',
+  'AWAITING_HUMAN_PLAN_SIGNOFF',
+  'PLAN_VERIFIER_PENDING',
   // archive Entry Gate
   'CHECK_UNPROVABLE',
   'TASKS_INCOMPLETE',
@@ -82,6 +85,21 @@ export const WORKFLOW_REASON_CODES = [
 ] as const;
 
 export type WorkflowReasonCode = (typeof WORKFLOW_REASON_CODES)[number];
+
+/**
+ * The route codes that stop the loop for a human rather than naming a station:
+ * a non-archived route with `next: null` carries one of these, never anything else.
+ */
+export const HUMAN_HALT_CODES = ['ESCALATE_TO_HUMAN', 'AWAITING_HUMAN_PLAN_SIGNOFF'] as const;
+export type HumanHaltCode = (typeof HUMAN_HALT_CODES)[number];
+
+export function isHumanHaltCode(code: WorkflowReasonCode): code is HumanHaltCode {
+  return (HUMAN_HALT_CODES as readonly WorkflowReasonCode[]).includes(code);
+}
+
+/** The ways out of a plan sign-off pause that cannot be signed — one text for the router's
+ *  AWAITING reason and the `--signoff` refusal, so the two never disagree. */
+export const PLAN_SIGNOFF_REMEDIES = `record the plan verifier report after candidates/decision.json is written (re-running the Phase 4 candidate selection first when there is none), add \`graded_by\` to a legacy decision.json and re-record the plan verifier, or — only on the human's instruction — skip the pause for one run with ${PAUSE_AT_ENV_VAR} set to ${PAUSE_AT_NONE} or empty`;
 
 /**
  * The Break-Glass marker: a `WARN` quality_log entry whose warning opens with this
@@ -104,7 +122,9 @@ export type UiScope = (typeof UI_SCOPES)[number];
 
 /**
  * One unresolved WARN surfaced from a change's `quality_log`: a single warning
- * string from the latest entry, per skill, whose `result` is `WARN`. Display
+ * string from the latest entry, per skill, whose `result` is `WARN` — a plan
+ * sign-off entry is provenance, not a gate result, so it never counts as that
+ * latest entry. Display
  * data only — `prospec status` lists it so a station skill need not re-read the
  * `quality_log` itself.
  */
@@ -153,6 +173,12 @@ export interface ChangeRouteFacts {
   tasksFlawsStreak: number;
   /** Resolved maximum station retries bound. */
   maxStationRetries: number;
+  /** Whether the resolved pause stations (`PROSPEC_PAUSE_AT` / `workflow.pause_at`)
+   *  include `plan`. The router alone decides whether the scale is eligible. */
+  pauseAtPlan: boolean;
+  /** Whether a plan sign-off sits after the latest plan verifier result (and
+   *  that result is PASS/WARN) — judged by quality_log position, not by date. */
+  planSignedOff: boolean;
   /** Whether affected-module Knowledge is confirmed synced for this change. */
   hasKnowledgeSync: boolean;
   /** Unresolved WARNs computed from this change's `quality_log` (empty when
@@ -189,25 +215,26 @@ export interface ChangeRoute {
   scale: ChangeScale;
   /** The last completed station (what `status` records). */
   current: SddStation;
-  /** Suggested next station; null only at the terminal `archived`. */
+  /** Suggested next station; null at the terminal `archived` and on a
+   *  `HUMAN_HALT_CODES` route, where the next actor is a human. */
   next: SddStation | null;
   /** Why the change was placed here, as a stable code (`reasons` carries the prose). */
   code: WorkflowReasonCode;
   /** Canonical skill identity for `next` (`STATION_SKILLS[next]`, e.g. `prospec-verify`),
    *  so `prospec status` can hand the agent a target its own skill mechanism can load.
-   *  Present for every non-terminal route — including one whose agent configuration is
-   *  missing or unreadable, because the identity does not depend on a deployment root.
-   *  Absent only at the terminal `archived`. Display data: it decides no routing.
+   *  Present for every route with a next station — including one whose agent configuration
+   *  is missing or unreadable, because the identity does not depend on a deployment root.
+   *  Absent whenever `next` is null. Display data: it decides no routing.
    *  Filled by the service; the router leaves it unset. */
   nextSkill?: string;
   /** Resolved skill file path for `next` (e.g. `.claude/skills/prospec-verify/SKILL.md`),
-   *  the FALLBACK for a host with no skill-loading mechanism of its own. Absent when the
-   *  change is terminal (`next` is null) or the project configures no agent — never a
+   *  the FALLBACK for a host with no skill-loading mechanism of its own. Absent when
+   *  `next` is null or the project configures no agent — never a
    *  hardcoded skills directory. Filled by the service; the router leaves it unset. */
   nextSkillPath?: string;
   /** The next station's reference map, filtered to this change's known scale and
    *  UI scope and resolved against the same agent deployment `nextSkillPath` uses.
-   *  Additive and display-only: absent when the route is terminal, when no agent
+   *  Additive and display-only: absent when `next` is null, when no agent
    *  is configured, and empty when the next station deploys no references. */
   nextReferenceMap?: StationReferenceMapRow[];
   /** Gate/precondition text for the edge to `next`, from the lifecycle table. */

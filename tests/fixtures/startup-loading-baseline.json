@@ -1,13 +1,13 @@
 {
   "version": 1,
-  "cumulative_ceiling_tokens": 88253,
+  "cumulative_ceiling_tokens": 88766,
   "skills": {
     "prospec-archive": {
       "items": [
         ".prospec/changes/"
       ],
       "mandatory": 0,
-      "mandatory_context_tokens": 7708
+      "mandatory_context_tokens": 7728
     },
     "prospec-backfill-spec": {
       "items": [
@@ -52,7 +52,7 @@
         "{{constitution_path}}"
       ],
       "mandatory": 0,
-      "mandatory_context_tokens": 4842
+      "mandatory_context_tokens": 5059
     },
     "prospec-implement": {
       "items": [
@@ -64,7 +64,7 @@
         "{{knowledge_base_path}}/_playbook.md"
       ],
       "mandatory": 2,
-      "mandatory_context_tokens": 4538
+      "mandatory_context_tokens": 4550
     },
     "prospec-knowledge-generate": {
       "items": [
@@ -136,7 +136,7 @@
         "{{knowledge_base_path}}/_playbook.md"
       ],
       "mandatory": 0,
-      "mandatory_context_tokens": 5623
+      "mandatory_context_tokens": 5887
     },
     "prospec-review": {
       "items": [
@@ -177,15 +177,15 @@
       "mandatory_context_tokens": 10614
     }
   },
-  "reference_ceiling_tokens": 48101,
+  "reference_ceiling_tokens": 49102,
   "references": {
     "adapter-figma": 589,
     "adapter-html": 663,
     "adapter-pencil": 871,
     "adapter-penpot": 490,
-    "archive-format": 1211,
-    "candidate-evaluation": 2211,
-    "cascade-protocol": 2242,
+    "archive-format": 1319,
+    "candidate-evaluation": 2491,
+    "cascade-protocol": 2447,
     "circuit-breaker": 1339,
     "debug-recovery-format": 1307,
     "delegated-evidence-format": 3470,
@@ -196,15 +196,15 @@
     "feature-spec-format": 1185,
     "implementation-guide": 1075,
     "interaction-spec-format": 835,
-    "metadata-format": 3296,
-    "plan-format": 2476,
+    "metadata-format": 3610,
+    "plan-format": 2473,
     "plan-verifier-rubric": 2291,
     "product-spec-format": 1277,
     "project-test-runner": 799,
     "promotion-format": 1622,
     "proposal-format": 1211,
     "review-format": 2589,
-    "review-lenses-content": 2863,
+    "review-lenses-content": 2960,
     "spec-graduation": 892,
     "tasks-format": 1549,
     "tasks-verifier-rubric": 1837,

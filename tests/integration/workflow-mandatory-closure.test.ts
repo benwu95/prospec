@@ -61,10 +61,21 @@ function declaredMandatory(skillPath: string, instructions: Record<string, strin
  * test-failure metrics paragraph (fresh-test gates) — the duplicated test-policy prose
  * they replace was shorter than the new behavior they must name; `quick` absorbed the
  * implement skill's one-sentence change without moving.
+ *
+ * Every scenario raised by the opt-in plan sign-off pause (add-plan-signoff-pause):
+ * `quick` 16_382 → 16_505, `standard-ui` 15_282 → 15_380, `proven-backfill` 23_372 → 23_556,
+ * `equivalent-commit` / `multi-change` 12_676 → 12_794, `reverify-c` 15_463 → 15_678,
+ * `missing-receipt` 5_627 → 5_891, `stale-delta` 12_872 → 12_939 — ff's plan phase gained
+ * the sign-off selection row and gate, the cascade Step 5 its sign-off HALT, archive the
+ * Plan Decision carry-over, metadata-format the `signoff_option` stamp, and ff / cascade-protocol
+ * the NEVER rule on the `PROSPEC_PAUSE_AT` override.
+ *
+ * `quick` 16_505 → 16_516 when the 2026-09-25 learn Sweep synced PB-001's set-or-structure
+ * clause into the `prospec-implement` NEVER list (quick routes through implement).
  */
 const CEILING_ANCHORS: Record<string, number> = {
-  quick: 16_382, 'standard-ui': 15_282, 'proven-backfill': 23_372, 'equivalent-commit': 12_676,
-  'reverify-c': 15_463, 'missing-receipt': 5_627, 'stale-delta': 12_872, 'multi-change': 12_676,
+  quick: 16_516, 'standard-ui': 15_380, 'proven-backfill': 23_556, 'equivalent-commit': 12_794,
+  'reverify-c': 15_678, 'missing-receipt': 5_891, 'stale-delta': 12_939, 'multi-change': 12_794,
 };
 
 describe('scenario mandatory context closure (REQ-TEMPLATES-081, REQ-TESTS-116)', () => {

@@ -4,7 +4,7 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg?style=flat-square)](LICENSE)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.9-blue?style=flat-square&logo=typescript)](https://www.typescriptlang.org/)
-[![Tests](https://img.shields.io/badge/tests-6056%20total-success?style=flat-square)](tests/)
+[![Tests](https://img.shields.io/badge/tests-6202%20total-success?style=flat-square)](tests/)
 [![Node](https://img.shields.io/badge/node-%3E%3D22.13-brightgreen?style=flat-square&logo=node.js)](https://nodejs.org/)
 [![pnpm](https://img.shields.io/badge/pnpm-%3E%3D11-orange?style=flat-square&logo=pnpm)](https://pnpm.io/)
 
@@ -233,7 +233,7 @@ The agent picks up the request and runs prospec-ff:
                            → you approve the commit and archive ✓
 ```
 
-In `prospec-ff` cascading mode, the next station starts automatically as machine gates pass. The cascade pauses only for clarification, a failed gate or circuit breaker, and final Tastemaker sign-off. At that boundary the agent presents the diff and evidence; it never commits, pushes, or archives without your explicit approval. Individual station Skills outside the cascade still end with a status-aware handoff, so you can drive the same flow one station at a time.
+In `prospec-ff` cascading mode, the next station starts automatically as machine gates pass. The cascade pauses only for clarification, a failed gate or circuit breaker, and final Tastemaker sign-off — plus, if you opt in with `workflow.pause_at: [plan]`, a plan sign-off on `scale: full` changes, where you review the measured candidate architectures and sign off on the recommendation before any code is written (choosing another candidate sends the agent back to revise the plan and re-run its verifier first). The `PROSPEC_PAUSE_AT` environment variable overrides that per run (empty or `none` = no pause; use `none` on Windows, whose shells unset an empty variable), so cloud or scheduled agents can stay fully autonomous while your local sessions pause. Without the pause the agent selects a candidate itself and never stops to ask. At that boundary the agent presents the diff and evidence; it never commits, pushes, or archives without your explicit approval. Individual station Skills outside the cascade still end with a status-aware handoff, so you can drive the same flow one station at a time.
 
 Prefer to drive each step yourself? Run them explicitly:
 
@@ -469,7 +469,7 @@ Not every change deserves the full ceremony. At story time, `prospec-new-story` 
 |-------|--------------|
 | `quick` | Slim proposal (single story, no FR/SC enumeration), **plan phase skipped entirely** (`story → tasks`), no module-README loading; review/verify report their delta-spec dimensions as `not-applicable` (never a fake PASS) |
 | `standard` (default; absent on existing changes) | The current concise flow — plan ≤ 120 lines, closing with a required **Simpler Alternative** section (a materially simpler alternative or an explicit concession, plus a files/lines change-surface estimate) |
-| `full` | Complete architecture analysis — expanded Technical Summary, per-entry-point Call Chains, Best-of-N candidate tournament (its recorded non-selected candidates stand in for Simpler Alternative) |
+| `full` | Complete architecture analysis — expanded Technical Summary, per-entry-point Call Chains, Best-of-N candidate selection measured by `prospec validate candidates` (its recorded non-selected candidates stand in for Simpler Alternative) |
 
 Two honest backstops keep `quick` from becoming a spec-drift hole: a change expected to touch spec-covered behavior is **vetoed out of quick** at assessment time, and the `prospec-archive` Entry Gate re-checks the **actual diff** — spec impact blocks archiving until a minimal Spec Impact section is added, and the knowledge-sync gate derives affected modules from diff paths instead of the absent delta-spec. Forward-change scales keep TDD, adversarial review, and Constitution audits; proven backfill has a separate fidelity contract where code review is optional.
 
@@ -514,13 +514,14 @@ measurement) lives in **[CLI Reference — CLI Commands](./reference/cli-referen
 The few command details a reader most often needs from here:
 
 - **`prospec validate <kind> <file>`** — validates one artifact against its schema; `<kind>` is one of
-  `slug`, `backfill-draft`, `promote-scaffold`, `design-spec`, `module-readme`.
+  `slug`, `backfill-draft`, `promote-scaffold`, `design-spec`, `module-readme`, `candidates`.
 - **`prospec change story <name> --freeze-scenarios` / `--amend-scenarios`** — freezes acceptance scenarios from `proposal.md` into `metadata.yaml` baseline (or appends a controlled revision with `--reason` and `--expected-digest`). Planning and tasks require a frozen baseline; legacy changes lacking baselines are admitted with disclosure (capped below grade S). Baseline modifications on verified/archived changes face terminal refusal. Note that baseline digests and verification context provide audit traceability, not sandbox or permission isolation.
 - **`prospec verify context --change <name>`** — writes deterministic `verify-context.json` combining spec, frozen baseline, proposal, code snapshot, and test attempt facts before grading; verified by `verify record` during per-REQ evaluation.
 - **`prospec change log --skill <skill> --verifier-report <file>`** — records a planning verifier's own
   report; a `FLAWS` verdict maps to `result: FAIL`. The gate is **per-change**: a sibling change's
   stale evidence never blocks this one. (`prospec status` is what prefixes its routing reason with a
-  `[CODE]` marker.)
+  `[CODE]` marker.) At a paused full-scale plan, `--skill prospec-plan --signoff <option>` records
+  the human's sign-off instead.
 - **`prospec check --record-tests`** — records the suite run (`snapshot-v2` fingerprint over the
   `repository-inputs-v2` scope, `change-and-restore` detection) so verify 5/5 is a machine verdict.
 - **CI gate** — `prospec check --strict` runs from `.github/workflows/prospec-check.yml`; the drift
@@ -663,7 +664,7 @@ templates alongside). The layer-by-layer breakdown and the tech-stack list are i
 ## Testing
 
 ```bash
-# Run all tests (6056 total; 4 skipped)
+# Run all tests (6202 total; 4 skipped)
 pnpm test
 
 # Watch mode
@@ -676,11 +677,11 @@ pnpm run typecheck
 pnpm run lint
 ```
 
-**Test Coverage**: 6056 total tests (6052 passed; 4 skipped) across 4 categories:
-- Unit tests (types + lib + services + cli): 4404 tests
-- Contract tests (CLI output + Skill format): 1362 tests
+**Test Coverage**: 6202 total tests (6198 passed; 4 skipped) across 4 categories:
+- Unit tests (types + lib + services + cli): 4522 tests
+- Contract tests (CLI output + Skill format): 1386 tests
 - Integration tests: 121 tests
-- E2E tests: 169 tests
+- E2E tests: 173 tests
 
 The suite includes a real `init` + `agent sync` generation contract (`tests/integration/skill-contract.test.ts`) asserting agent-specific reference paths, no dangling references, canonical convention docs, `base_dir`-relative spec paths, and `.agents` convergence.
 

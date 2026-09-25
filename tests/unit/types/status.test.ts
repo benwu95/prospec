@@ -1,5 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import {
+  HUMAN_HALT_CODES,
+  isHumanHaltCode,
   SDD_STATIONS,
   STATION_SKILLS,
   UI_SCOPES,
@@ -138,3 +140,13 @@ describe('ChangeRoute next-station reference map', () => {
     expect(row.conditionHint).toBeTruthy();
   });
 });
+
+describe('isHumanHaltCode (REQ-TYPES-106)', () => {
+  it('is true exactly for the human stop codes', () => {
+    for (const code of HUMAN_HALT_CODES) expect(isHumanHaltCode(code)).toBe(true);
+    expect(isHumanHaltCode('PLAN_VERIFIER_PENDING')).toBe(false);
+    expect(isHumanHaltCode('TERMINAL')).toBe(false);
+    expect(isHumanHaltCode('LIFECYCLE_NEXT')).toBe(false);
+  });
+});
+

@@ -21,7 +21,8 @@ vi.mock('../../../src/lib/config.js', () => ({
 }));
 
 // git spawn is environment-bound; pin the trust-zone probe deterministically.
-vi.mock('node:child_process', () => ({
+vi.mock('node:child_process', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('node:child_process')>()),
   execFileSync: vi.fn().mockImplementation(() => {
     return globalThis.__validateGitPorcelain ?? '';
   }),
@@ -271,3 +272,58 @@ Core
     expect(escaped.findings.map((finding) => finding.message).join(' ')).toContain('not found');
   });
 });
+
+describe('validate candidates (REQ-SERVICES-118)', () => {
+  const DIR = '/repo/.prospec/changes/pick-arch';
+  const META = 'name: pick-arch\ncreated_at: 2026-09-24T00:00:00.000Z\nstatus: plan\nscale: full\n';
+  const MAP = `modules:
+  - name: types
+    paths: [src/types]
+    keywords: []
+    relationships: { depends_on: [] }
+  - name: lib
+    paths: [src/lib]
+    keywords: []
+    relationships: { depends_on: [types] }
+`;
+  const candidate = (id: string, chain: string[]) =>
+    JSON.stringify({ id, title: id, overview: 'o', trade_offs: { pros: [], cons: [], blast_radius: 'b' }, call_chain: chain });
+
+  it('reads the change\'s candidates, applies the module-map rules and writes nothing', async () => {
+    vol.fromJSON({
+      [`${DIR}/metadata.yaml`]: META,
+      [`${DIR}/candidates/option-a.json`]: candidate('option-a', ['src/lib/a.ts → src/types/a.ts']),
+      [`${DIR}/candidates/option-b.json`]: candidate('option-b', ['src/types/a.ts → src/lib/a.ts']),
+      [`${DIR}/candidates/notes.md`]: 'ignored',
+      '/repo/prospec/ai-knowledge/module-map.yaml': MAP,
+    });
+    const before = vol.toJSON();
+    const result = await execute({ kind: 'candidates', change: 'pick-arch', cwd: CWD });
+    expect(result.ok).toBe(true);
+    expect(result.target).toBe('.prospec/changes/pick-arch/candidates');
+    const facts = result.facts as { rule_source: string; metrics: Array<{ id: string; direction_violations: number }> };
+    expect(facts.rule_source).toBe('module-map');
+    expect(facts.metrics.map((m) => [m.id, m.direction_violations])).toEqual([['option-a', 0], ['option-b', 1]]);
+    expect(vol.toJSON()).toEqual(before);
+  });
+
+  it('falls back to the Constitution layering, reported as the rule source, when no module map exists', async () => {
+    vol.fromJSON({
+      [`${DIR}/metadata.yaml`]: META,
+      [`${DIR}/candidates/option-a.json`]: candidate('option-a', ['src/cli/a.ts → src/types/a.ts', 'src/types/b.ts → src/cli/b.ts']),
+    });
+    const result = await execute({ kind: 'candidates', change: 'pick-arch', cwd: CWD });
+    const facts = result.facts as { rule_source: string; degraded: boolean; metrics: Array<{ direction_violations: number }> };
+    expect(facts.rule_source).toBe('constitution-fallback');
+    expect(facts.degraded).toBe(true);
+    // types → cli is upward under the fallback layering; cli → types is allowed
+    expect(facts.metrics[0]?.direction_violations).toBe(1);
+  });
+
+  it('fails when the change has no candidate files at all', async () => {
+    vol.fromJSON({ [`${DIR}/metadata.yaml`]: META });
+    const result = await execute({ kind: 'candidates', change: 'pick-arch', cwd: CWD });
+    expect(result.ok).toBe(false);
+  });
+});
+

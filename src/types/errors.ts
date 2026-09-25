@@ -8,6 +8,7 @@
  */
 
 import type { CircuitBreakerState } from './cascade.js';
+import { PAUSE_AT_ENV_VAR, PAUSE_AT_NONE, PAUSE_STATIONS } from './config.js';
 import { TEST_GATE_NOT_ADJUDICATED, testGateRemediation, type TestGateEntrance } from './station.js';
 
 export class ProspecError extends Error {
@@ -50,6 +51,17 @@ export class ConfigInvalid extends ProspecError {
       'Check that the format of .prospec.yaml is correct',
     );
     this.name = 'ConfigInvalid';
+  }
+}
+
+export class PauseAtInvalid extends ProspecError {
+  constructor(source: string, value: string) {
+    super(
+      `Invalid pause setting in ${source}: ${value}`,
+      'PAUSE_AT_INVALID',
+      `Valid station names: ${PAUSE_STATIONS.join(', ')} (comma-separated in ${PAUSE_AT_ENV_VAR}, a YAML list such as [${PAUSE_STATIONS[0]}] in workflow.pause_at); only on the human's instruction, set ${PAUSE_AT_ENV_VAR} to ${PAUSE_AT_NONE} (or an empty string) to disable pausing for this run`,
+    );
+    this.name = 'PauseAtInvalid';
   }
 }
 

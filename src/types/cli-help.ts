@@ -49,6 +49,8 @@ export interface CommandHelpSpec {
   whenToUse: string;
   /** One complete, runnable command line, starting with `prospec <command>`. */
   example: string;
+  /** Further complete command lines for a command with more than one verdict form. */
+  additionalExamples?: string[];
   /** What the command prints and writes. */
   returns: string;
   escaping?: EscapingDisclosure;
@@ -65,15 +67,16 @@ export const COMMAND_HELP_SPECS: Record<HelpEnrichedCommand, CommandHelpSpec> = 
       'Run at the start of a session, before any station skill: it names the in-flight change and the next station to enter. Not for reading a change\'s artifacts (read the files) and not for advancing a status (`prospec change status`).',
     example: 'prospec status --json',
     returns:
-      'One block per in-flight change — name, status, the `next:` station, then the lines that apply: `issue:` when the change registered one, an `action:` line naming the next station\'s canonical Skill to invoke (`invoke skill prospec-<name>`) when a next station exists, a `fallback:` line giving the skill file to read when the host has no skill mechanism of its own — printed whenever the project configures an agent, absent for a terminal route — blocking `gate:` lines and unresolved `warn:` lines. With `--json` the same facts are written to stdout as JSON.',
+      'One block per in-flight change — name, status, the `next:` station, then the lines that apply: `issue:` when the change registered one, an `action:` line naming the next station\'s canonical Skill to invoke (`invoke skill prospec-<name>`) when a next station exists, a `fallback:` line giving the skill file to read when the host has no skill mechanism of its own — printed whenever the project configures an agent, absent when `next` is null — blocking `gate:` lines and unresolved `warn:` lines. A `HALT` next line (escalation, or `AWAITING_HUMAN_PLAN_SIGNOFF` for an opt-in plan pause) names no station: a human acts next. `PROSPEC_PAUSE_AT` overrides `workflow.pause_at` for this run (empty or `none` = no pause); an invalid value exits 1 with no report. With `--json` the same facts are written to stdout as JSON.',
   },
   'change log': {
     whenToUse:
-      'At a station\'s Exit Gate, to record its PASS/WARN/FAIL entry; at plan or tasks, to sink the verifier report with `--verifier-report` instead. Not for advancing a status (`prospec change status`) and not for review/test provenance (`prospec check --record-review` / `--record-tests`).',
+      'At a station\'s Exit Gate, to record its PASS/WARN/FAIL entry; at plan or tasks, to sink the verifier report with `--verifier-report` instead; at a paused full-scale plan, to record the human\'s sign-off with `--skill prospec-plan --signoff <option>` (only on explicit human instruction; the option must equal candidates/decision.json `recommended_option`). Not for advancing a status (`prospec change status`) and not for review/test provenance (`prospec check --record-review` / `--record-tests`).',
     example:
       'prospec change log --skill prospec-review --result WARN --warning "2 majors left open" --criticals-found 1 --criticals-fixed 1 --majors 2',
+    additionalExamples: ['prospec change log --skill prospec-plan --signoff option-a --warning "approved as recommended"'],
     returns:
-      'Appends one `quality_log` entry to metadata.yaml and prints its skill, date, result and warning count.',
+      'Appends one `quality_log` entry to metadata.yaml and prints its skill, date, result and warning count. A sign-off also sets decision.json `graded_by: human`.',
     escaping: {
       kind: 'yaml-scalar',
       text: 'Free text is serialized as YAML data by the yaml library (quoted only when YAML requires it), so metacharacters cannot corrupt the file; this command writes YAML, not a Markdown table, so no table escaping applies.',
@@ -120,7 +123,7 @@ export function renderCommandHelp(spec: CommandHelpSpec): string {
     `  ${spec.whenToUse}`,
     '',
     HELP_SECTION_LABELS.example,
-    `  $ ${spec.example}`,
+    ...[spec.example, ...(spec.additionalExamples ?? [])].map((example) => `  $ ${example}`),
     '',
     HELP_SECTION_LABELS.returns,
     `  ${returns}`,
