@@ -218,10 +218,10 @@ export const STATION_REFERENCES: Readonly<Record<string, StationReferenceEntry>>
         phase: 'Phase 4: Design plan.md',
         site: 'Core Workflow > Phase 4: Design plan.md',
         target: { kind: 'reference', reference: 'candidate-evaluation.md' },
-        purpose: 'the multi-candidate tournament and its receipt protocol',
+        purpose: 'the multi-candidate selection and its receipt protocol',
         loading: 'in-phase',
         scales: ['standard', 'full'],
-        conditionHint: 'full scale, or a standard change where the developer asks for the tournament',
+        conditionHint: 'full scale, or a standard change where the developer asks for candidate selection',
       },
       {
         id: 'phase-5-delta-spec-format',

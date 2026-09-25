@@ -9,16 +9,26 @@ import {
   validateBackfillDraft,
   validatePromoteScaffold,
   validateDesignSpec,
+  validateCandidates,
   coverageGap,
   type ValidationFinding,
   type BackfillDraftFacts,
+  type CandidateMetricsFacts,
   type DesignSpecFacts,
   type TrustZoneProbe,
 } from '../lib/artifact-validators.js';
 import { readChangeMetadata } from '../lib/change-metadata.js';
+import { CANDIDATES_DIR, readCandidateFiles } from '../lib/plan-candidates.js';
+import {
+  buildDependencyRules,
+  constitutionFallbackModuleMap,
+  constitutionFallbackRules,
+} from '../lib/drift-checker.js';
+import { moduleAttributor } from '../lib/drift-sources.js';
 import {
   listFeatureSpecs,
   loadFeatureMap,
+  loadModuleMap,
   readContainedText,
   readModuleReadme,
 } from '../lib/knowledge-reader.js';
@@ -44,7 +54,7 @@ export interface ValidateResult {
   ok: boolean;
   findings: ValidationFinding[];
   /** Structural facts for the subset kinds — the skill's judgment inputs. */
-  facts?: BackfillDraftFacts | DesignSpecFacts | ModuleReadmeFormatFacts;
+  facts?: BackfillDraftFacts | DesignSpecFacts | ModuleReadmeFormatFacts | CandidateMetricsFacts;
 }
 
 /**
@@ -135,6 +145,30 @@ export async function execute(options: ValidateOptions): Promise<ValidateResult>
       trustZoneProbe: await collectTrustZoneProbe(cwd),
     });
     return { kind: 'promote-scaffold', target: changeName, ...verdict };
+  }
+
+  if (options.kind === 'candidates') {
+    const changeName = await resolveChange(
+      cwd,
+      options.change ?? options.target,
+      options.quiet,
+      'Which change\'s plan candidates should be validated?',
+    );
+    const changeDir = path.join(cwd, '.prospec', 'changes', changeName);
+    const config = await readConfig(cwd);
+    const moduleMap = loadModuleMap(resolveBasePaths(config, cwd).knowledgePath, cwd);
+    const report = validateCandidates({
+      ...readCandidateFiles(changeDir),
+      // Same rule source as the dependency-direction check; the attributor is the
+      // shared path → module owner, never a second matcher.
+      rules: moduleMap === null ? constitutionFallbackRules() : buildDependencyRules(moduleMap),
+      attribute: moduleAttributor(moduleMap ?? constitutionFallbackModuleMap()),
+    });
+    return {
+      kind: 'candidates',
+      target: path.join('.prospec', 'changes', changeName, CANDIDATES_DIR),
+      ...report,
+    };
   }
 
   // backfill-draft / design-spec: explicit path, or the change's default artifact.

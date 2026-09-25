@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { WORKFLOW_REASON_CODES } from '../../src/types/status.js';
+import { HUMAN_HALT_CODES, WORKFLOW_REASON_CODES } from '../../src/types/status.js';
 import { EscalationReportSchema } from '../../src/types/cascade.js';
 import { validateConfig } from '../../src/lib/config.js';
 
@@ -20,6 +20,8 @@ describe('frozen registries append-only (T16, REQ-TYPES-070, REQ-TYPES-086, REQ-
       'KNOWLEDGE_UNSYNCED',
       'TERMINAL',
       'ESCALATE_TO_HUMAN',
+      'AWAITING_HUMAN_PLAN_SIGNOFF',
+      'PLAN_VERIFIER_PENDING',
     ];
 
     const expectedGateCodes = [
@@ -91,5 +93,12 @@ workflow:
 `;
     const parsedConfigured = validateConfig(configuredWorkflowYaml);
     expect(parsedConfigured.workflow?.max_station_retries).toBe(5);
+  });
+
+  it('HUMAN_HALT_CODES names exactly the two human stop codes, both routing members (REQ-TYPES-106)', () => {
+    expect([...HUMAN_HALT_CODES]).toEqual(['ESCALATE_TO_HUMAN', 'AWAITING_HUMAN_PLAN_SIGNOFF']);
+    for (const code of HUMAN_HALT_CODES) {
+      expect(WORKFLOW_REASON_CODES.indexOf(code)).toBeLessThan(WORKFLOW_REASON_CODES.indexOf('CHECK_UNPROVABLE'));
+    }
   });
 });

@@ -7,11 +7,14 @@ import {
   DEFAULT_BASE_DIR,
   DEFAULT_KNOWLEDGE_TOKEN_BUDGET,
   DEFAULT_MAX_STATION_RETRIES,
+  PAUSE_AT_ENV_VAR,
+  PAUSE_AT_NONE,
+  PAUSE_STATIONS,
   isShippedBudgetField,
   isDefaultArtifactLanguage,
 } from '../types/config.js';
-import type { ProspecConfig, KnowledgeSizeBudget, TokenBudget } from '../types/config.js';
-import { ConfigNotFound, ConfigInvalid } from '../types/errors.js';
+import type { ProspecConfig, KnowledgeSizeBudget, PauseStation, TokenBudget } from '../types/config.js';
+import { ConfigNotFound, ConfigInvalid, PauseAtInvalid } from '../types/errors.js';
 import { atomicWrite } from './fs-utils.js';
 import { parseYaml, parseYamlDocument, stringifyYamlDocument, mergeIntoDocument } from './yaml-utils.js';
 import { resolveProjectTestCommand } from './project-runner.js';
@@ -127,6 +130,84 @@ export function resolveMaxStationRetries(config?: ProspecConfig | null): number 
     return value;
   }
   return DEFAULT_MAX_STATION_RETRIES;
+}
+
+/**
+ * Resolve the stations a change pauses after (REQ-LIB-086).
+ *
+ * `PROSPEC_PAUSE_AT`, when set at all (the empty string included), decides alone, and
+ * `none` means no pause like the empty string —
+ * that is what lets a cloud or scheduled run opt out of a pause committed to
+ * `.prospec.yaml`. Otherwise `workflow.pause_at` decides. An invalid value throws
+ * rather than resolving to "no pause": a typo must never silently disable a pause.
+ * Pure resolver — the environment is a parameter.
+ */
+export function resolvePauseAt(
+  config: Pick<ProspecConfig, 'workflow'> | null | undefined,
+  env: Readonly<Record<string, string | undefined>>,
+): PauseStation[] {
+  const fromEnv = env[PAUSE_AT_ENV_VAR];
+  if (fromEnv !== undefined) {
+    if (fromEnv.trim() === PAUSE_AT_NONE) return [];
+    return validatePauseStations(fromEnv.split(','), PAUSE_AT_ENV_VAR, fromEnv);
+  }
+  const fromConfig = config?.workflow?.pause_at;
+  if (fromConfig === undefined) return [];
+  const source = '.prospec.yaml workflow.pause_at';
+  if (!Array.isArray(fromConfig)) {
+    throw new PauseAtInvalid(source, JSON.stringify(fromConfig));
+  }
+  return validatePauseStations(fromConfig, source, JSON.stringify(fromConfig));
+}
+
+export interface PauseAtFallback {
+  setting: Pick<ProspecConfig, 'workflow'> | null;
+  /** Why the pause is assumed rather than read (the file exists but is unreadable or
+   *  not YAML), for the caller to disclose; null when the setting was read or is absent. */
+  assumedBecause: string | null;
+}
+
+/**
+ * The pause setting alone, from a `.prospec.yaml` that failed validation: a schema
+ * error in an unrelated field must not silently disable a committed pause. An absent
+ * file has no setting. A file that exists but cannot be read, or is not YAML at all,
+ * cannot prove the pause off, so it resolves to every pause station (fail closed) and
+ * says why; `PROSPEC_PAUSE_AT` still decides alone.
+ */
+export async function readPauseAtFallback(cwd?: string): Promise<PauseAtFallback> {
+  const assumed = (assumedBecause: string): PauseAtFallback => ({
+    setting: { workflow: { pause_at: [...PAUSE_STATIONS] } },
+    assumedBecause,
+  });
+  let raw: string;
+  try {
+    raw = await fs.promises.readFile(resolveConfigPath(cwd), 'utf-8');
+  } catch (err) {
+    const code = (err as NodeJS.ErrnoException).code;
+    return code === 'ENOENT' ? { setting: null, assumedBecause: null } : assumed(`cannot be read (${code ?? 'error'})`);
+  }
+  let data: { workflow?: { pause_at?: unknown } } | null;
+  try {
+    data = parseYaml(raw);
+  } catch {
+    return assumed('is not parseable YAML');
+  }
+  const pauseAt = data?.workflow?.pause_at;
+  return { setting: pauseAt === undefined ? null : { workflow: { pause_at: pauseAt } }, assumedBecause: null };
+}
+
+function validatePauseStations(entries: readonly unknown[], source: string, raw: string): PauseStation[] {
+  const stations: PauseStation[] = [];
+  for (const entry of entries) {
+    if (typeof entry !== 'string') throw new PauseAtInvalid(source, raw);
+    const name = entry.trim();
+    if (name === '') continue;
+    if (!(PAUSE_STATIONS as readonly string[]).includes(name)) {
+      throw new PauseAtInvalid(source, name);
+    }
+    if (!stations.includes(name as PauseStation)) stations.push(name as PauseStation);
+  }
+  return stations;
 }
 
 /**

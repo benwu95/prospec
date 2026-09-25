@@ -915,6 +915,105 @@ describe('change log --verifier-report (REQ-CLI-053, issue #266)', () => {
     expect(neither.exitCode).toBe(1);
     expect(neither.stderr).toMatch(/--result|--verifier-report/);
   });
+
+  it('refuses --signoff alongside another verdict source or the composed-entry fields (usage error, REQ-CLI-056)', async () => {
+    await initChange();
+    for (const extra of [['--result', 'PASS'], ['--verifier-report', writeReport('r.json', planReport('PASS'))], ['--grade', 'S'], ['--dimension', 'tests=PASS'], ['--criticals-found', '1'], ['--criticals-fixed', '1'], ['--majors', '1']]) {
+      const both = await runCli(['change', 'log', '--skill', 'prospec-plan', '--signoff', 'option-a', ...extra]);
+      expect(both.exitCode, extra.join(' ')).not.toBe(0);
+      expect(both.stderr, extra.join(' ')).toMatch(/cannot be used with|conflicts/i);
+    }
+    const bogus = await runCli(['change', 'log', '--skill', 'prospec-plan', '--signoff', 'option-z']);
+    expect(bogus.exitCode).not.toBe(0);
+  });
+});
+
+describe('opt-in plan sign-off pause through the CLI (REQ-TESTS-124)', () => {
+  const planReport = {
+    verdict: 'PASS',
+    dimensions: Object.fromEntries(
+      ['project_layering', 'blast_radius', 'state_safety', 'delta_spec', 'reuse'].map((d) => [d, { result: 'PASS', rationale: `${d} assessed` }]),
+    ),
+    evidence: 'audit',
+  };
+  const candidate = (id: string, chain: string[]) => ({
+    id, title: id, overview: 'o', trade_offs: { pros: [], cons: [], blast_radius: 'b' }, call_chain: chain,
+  });
+  const decision = {
+    recommended_option: 'option-a',
+    evaluation_matrix: [
+      { dimension: 'blast_radius_complexity', winner: 'option-a', score_rationale: 'x' },
+      { dimension: 'constitution_layering', winner: 'tie', score_rationale: 'x' },
+      { dimension: 'extensibility_simplicity', winner: 'option-a', score_rationale: 'x' },
+    ],
+    rationale: 'in-session comparison',
+    graded_by: 'in-session',
+  };
+  async function initFullPlan(): Promise<string> {
+    await runCli(['init', '--name', 'e2e', '--agents', 'claude']);
+    await runCli(['change', 'story', 'pick-arch', '--description', 'fixture']);
+    const dir = path.join(tmpDir, '.prospec/changes/pick-arch');
+    await fs.promises.writeFile(
+      path.join(dir, 'proposal.md'),
+      '# Proposal: pick-arch\n\n## User Story\n\n### US-1: Title [P1]\n\n**Acceptance Scenarios:**\n- WHEN action THEN result\n',
+    );
+    await runCli(['change', 'story', 'pick-arch', '--freeze-scenarios']);
+    await runCli(['change', 'scale', 'full']);
+    await runCli(['change', 'plan']);
+    // Phase 4 writes the candidates and decision before Phase 6 records the verifier,
+    // which stamps the recommendation it audited.
+    fs.mkdirSync(path.join(dir, 'candidates'));
+    fs.writeFileSync(path.join(dir, 'candidates/option-a.json'), JSON.stringify(candidate('option-a', ['src/lib/a.ts → src/types/a.ts'])));
+    fs.writeFileSync(path.join(dir, 'candidates/option-b.json'), JSON.stringify(candidate('option-b', ['src/types/a.ts → src/lib/a.ts'])));
+    fs.writeFileSync(path.join(dir, 'candidates/decision.json'), JSON.stringify(decision));
+    const report = path.join(tmpDir, 'plan-verifier.json');
+    fs.writeFileSync(report, JSON.stringify(planReport));
+    expect((await runCli(['change', 'log', '--skill', 'prospec-plan', '--verifier-report', report])).exitCode).toBe(0);
+    return dir;
+  }
+  const routeOf = async () =>
+    (JSON.parse((await runCli(['status', '--json'])).stdout) as { changes: Array<{ next: string | null; code: string }> }).changes[0]!;
+
+  it('an invalid PROSPEC_PAUSE_AT exits 1 naming the valid station, with no report', async () => {
+    await runCli(['init', '--name', 'e2e', '--agents', 'claude']);
+    vi.stubEnv('PROSPEC_PAUSE_AT', 'bogus');
+    const result = await runCli(['status', '--json']);
+    expect(result.exitCode).toBe(1);
+    expect(result.stderr).toContain('Invalid pause setting in PROSPEC_PAUSE_AT: bogus');
+    expect(result.stderr).toMatch(/Valid station names: plan/);
+    expect(result.stdout.trim()).toBe('');
+  });
+
+  it('pause → AWAITING HALT → human sign-off → tasks; an empty override never pauses', async () => {
+    const dir = await initFullPlan();
+    expect((await routeOf()).next).toBe('tasks');
+
+    vi.stubEnv('PROSPEC_PAUSE_AT', 'plan');
+    const paused = await routeOf();
+    expect(paused.next).toBeNull();
+    expect(paused.code).toBe('AWAITING_HUMAN_PLAN_SIGNOFF');
+    expect((await runCli(['status'])).stdout).toContain('HALT (awaiting human plan sign-off)');
+
+    vi.stubEnv('PROSPEC_PAUSE_AT', '');
+    expect((await routeOf()).next).toBe('tasks');
+
+    vi.stubEnv('PROSPEC_PAUSE_AT', 'plan');
+    const refused = await runCli(['change', 'log', '--skill', 'prospec-plan', '--signoff', 'option-b']);
+    expect(refused.exitCode).toBe(1);
+    expect(refused.stderr).toContain('recommended_option');
+    const signed = await runCli(['change', 'log', '--skill', 'prospec-plan', '--signoff', 'option-a']);
+    expect(signed.exitCode).toBe(0);
+    expect(JSON.parse(fs.readFileSync(path.join(dir, 'candidates/decision.json'), 'utf-8')).graded_by).toBe('human');
+    expect((await routeOf()).next).toBe('tasks');
+  });
+
+  it('validate candidates prints the metrics table and exits 0 on valid payloads', async () => {
+    await initFullPlan();
+    const result = await runCli(['validate', 'candidates', '--change', 'pick-arch']);
+    expect(result.exitCode).toBe(0);
+    expect(result.stdout).toContain('| option | direction_violations | touched_modules | estimated_lines | unknown_references |');
+    expect(result.stdout).toMatch(/\| option-b \| 1 \|/);
+  });
 });
 
 describe('fresh-test gates through the CLI (REQ-SERVICES-103, REQ-CLI-028, REQ-CLI-043)', () => {

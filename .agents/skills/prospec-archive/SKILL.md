@@ -93,7 +93,7 @@ For each change to archive:
 The deterministic mutations are code-executed by the CLI — do not hand-run them. For each confirmed change:
 1. Preview: run `prospec archive <change-name> --dry-run` and show the planned mutations.
 2. Execute: run `prospec archive <change-name>` — it moves the bundle to `.prospec/archive/{YYYY-MM-DD}-{change-name}/`, sets `status: archived` + `archived_at`, and runs the mechanical Feature Spec / product.md `## Feature Map` / feature-map.yaml syncs (detailed in Phases 3.5–3.6). A `refused`/`not found` report means the target is not archivable — resolve it, never force.
-3. Overwrite the scaffold `summary.md` in the archive directory with the Phase 2 summary (the one carrying `## Review & Verify`) — the scaffold is the deterministic baseline; the Phase 2 summary is the record.
+3. Overwrite the scaffold `summary.md` in the archive directory with the Phase 2 summary (the one carrying `## Review & Verify`) — the scaffold is the deterministic baseline; the Phase 2 summary is the record. Carry the scaffold's `- **Plan Decision**:` line over verbatim when it has one.
 The `_archived-history` copy and the feature-spec counter reconciliation happen AFTER the judgment
 work, via `prospec archive finalize` in Phase 3.7 — running them here would copy the scaffold and
 count the pre-graduation spec text.

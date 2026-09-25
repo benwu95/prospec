@@ -1,6 +1,6 @@
 # Candidate Architecture Evaluation Reference
 
-This document defines the **orthogonal candidate generation** and **symmetric pairwise tournament selection** protocol used by `prospec-plan` (Phase 4) for `metadata.scale: full` (or on-demand standard) changes.
+This document defines the **orthogonal candidate generation**, **mechanical metrics**, and **selection paths** used by `prospec-plan` (Phase 4) for `metadata.scale: full` (or on-demand standard) changes.
 
 ---
 
@@ -8,10 +8,10 @@ This document defines the **orthogonal candidate generation** and **symmetric pa
 
 Complex, architectural changes (`scale: full`) are prone to the *Single Trajectory Trap* — where an AI assistant commits prematurely to its first intuitive approach, leading to over-engineering, brittle abstractions, or unnecessarily large blast radiuses.
 
-Grounded in the *LLM-as-a-Verifier* methodology (Best-of-N Candidate Generation + Probabilistic Pivot Tournament / Pairwise Comparison), this protocol forces orthogonal solution divergence, eliminates positional bias via position-swapped tournament comparisons, and records transparent trade-off rationale in `plan.md`.
+This protocol forces orthogonal solution divergence, measures what can be measured (blast radius and layering) with the CLI instead of asking a second model to re-read the same text, and leaves the one judgment the numbers cannot make — extensibility against simplicity — to a one-way rationale that a human can sign off when the project opts in to pausing after plan.
 
 > **Language- and Architecture-Agnostic Principle**:
-> Prospec is a language-agnostic and architecture-agnostic SDD framework. Candidate generation and tournament judging must dynamically anchor to the project's actual tech stack (detected from manifests such as `package.json`, `pyproject.toml`, `Cargo.toml`, `go.mod`, etc.), existing design patterns (L2 Module READMEs), and `{{knowledge_base_path}}/_conventions.md`. It **never** presumes specific language idioms or hardcodes internal framework assumptions.
+> Prospec is a language-agnostic and architecture-agnostic SDD framework. Candidate generation and comparison must dynamically anchor to the project's actual tech stack (detected from manifests such as `package.json`, `pyproject.toml`, `Cargo.toml`, `go.mod`, etc.), existing design patterns (L2 Module READMEs), and `{{knowledge_base_path}}/_conventions.md`. It **never** presumes specific language idioms or hardcodes internal framework assumptions.
 
 ---
 
@@ -32,88 +32,77 @@ When generating architecture options (`N <= 3`, default 2 orthogonal options):
 ### Option C: Domain-Specific Alternative (Optional)
 - When a distinct third architectural approach exists (e.g. event-driven vs synchronous, centralized vs distributed).
 
----
-
-## Tournament Evaluation Criteria
-
-> **Route the Tournament Judge to the strongest model / agent tier the harness makes available** — a
-> judgment gate's discrimination is bounded by its judge, so the strongest available tier is the goal
-> (named abstractly — never a specific model or vendor; "strongest available" is resolved by the
-> harness). In single-context degraded mode, disclose that the judge shares the generation context.
-
-The Tournament Judge evaluates each candidate across three orthogonal dimensions:
-
-### 1. Blast Radius & Complexity
-- **Checks**:
-  - Does the option minimize unnecessary file changes and cognitive overhead?
-  - Does it avoid over-engineering and premature abstraction?
-  - Can the changes be easily audited, tested, and rolled back?
-
-### 2. Constitution & Layering Adherence
-- **Checks**:
-  - Does the option strictly follow `{{constitution_path}}` and project layering conventions?
-  - Does it preserve unidirectional dependencies without cyclic or bypassing imports?
-  - Does it adhere to project error handling and state mutation invariants?
-
-### 3. Extensibility vs. Simplicity
-- **Checks**:
-  - Does the option satisfy all current requirements without excessive coupling?
-  - Is the balance between future adaptability and present simplicity well-calibrated (Simplicity First)?
+### Writing `call_chain`
+One entry per primary entry point, hops separated by `→`. Each hop starts with the **repo-relative path** of the file that runs it (optionally followed by the symbol), so the CLI can attribute it to a module; a leading entry label (the command or route) is allowed. List only code call or import edges — reading a template or data file is not a hop.
 
 ---
 
-## Symmetric Pairwise Tournament Protocol
+## Comparison Criteria
 
-To eliminate LLM **Positional Bias** (the tendency to favor the first presented option):
+### 1. Blast Radius & Complexity — measured
+- `touched_modules` and `estimated_lines` from the metrics table; fewer is better.
+- Can the changes be easily audited, tested, and rolled back?
 
-1. **Position-Swapped Evaluation**:
-   - Compare `Option A (First) vs Option B (Second)` with detailed scoring.
-   - Compare `Option B (First) vs Option A (Second)` with detailed scoring.
-   - Consolidate verdicts to determine the true dominant option.
-2. **Scoring Matrix & Decision**:
-   - For each criterion, assign win / loss / tie.
-   - The candidate winning the majority of orthogonal dimensions is selected as the **Recommended Architecture**.
-   - **Tie-Breaker Rule**: When scores are tied, favor the option with the smaller blast radius and higher simplicity (Simplicity First).
-3. **Synthesized / Hybrid Plan**:
-   - If Option B's clean boundary can be combined with Option A's minimal diff without adding friction, the Judge may recommend a synthesized approach.
+### 2. Constitution & Layering Adherence — measured
+- `direction_violations`: call-chain edges whose callee is not in the caller's `depends_on` in the module map (the same rules the dependency-direction check uses).
+- Does the option follow `{{constitution_path}}`, its error-handling and state-mutation invariants?
+
+### 3. Extensibility vs. Simplicity — judged
+- Does the option satisfy all current requirements without excessive coupling?
+- Is the balance between future adaptability and present simplicity well-calibrated (Simplicity First)?
+- This is the judgment the metrics cannot make; under the opt-in pause it is the human's call.
 
 ---
 
-## Candidate and Tournament Decision Payload Schema
+## Mechanical Metrics
 
-Delegated candidate generators and tournament judges write structured JSON to disk:
+After the candidate files are written, run `prospec validate candidates --change <name>`. It validates every candidate (and a present `decision.json`) against the executable schemas and prints the metrics table — `option | direction_violations | touched_modules | estimated_lines | unknown_references`. Paste the table into `plan.md` and the sign-off material. A FAIL verdict means a payload is invalid: fix the payload, never hand-edit the numbers. Unattributed references are disclosed, not counted as violations. After writing `decision.json`, re-run it: the verdict also FAILs a decision naming a candidate the set does not validly hold.
 
-Each payload is a closed top-level object: no additional top-level fields are accepted.
+## In-Session One-Way Rationale
 
-### Candidate Payload Schema (`candidate.json`)
-- `id`: `"option-a"` | `"option-b"` | `"option-c"` (required)
+The orchestrating session writes `candidates/decision.json` itself — no judge sub-agent, no position-swapped scoring:
+- Each measured winner follows its own metrics: `blast_radius_complexity` — fewer touched modules, then fewer estimated lines; `constitution_layering` — fewer direction violations; otherwise `tie`.
+- `extensibility_simplicity` follows a one-way rationale written from the candidates' own trade-offs.
+- `recommended_option` takes the majority of the three winners, so when the measured dimensions split, the extensibility rationale decides; a tie favors the smaller blast radius (Simplicity First). A `hybrid` names its synthesis in `hybrid_recommendation`.
+- `graded_by: in-session` — and say in `rationale` that the comparison shares the generation context.
+
+---
+
+## Candidate and Decision Payload Schema
+
+The executable contracts are `CandidatePayloadSchema` and `DecisionPayloadSchema`; `prospec validate candidates` enforces them and this section documents them. Each payload is a closed top-level object: no additional top-level fields are accepted.
+
+### Candidate Payload Schema (`candidates/<id>.json`)
+- `id`: `"option-a"` | `"option-b"` | `"option-c"` (required; the file is named `<id>.json`)
 - `title`: string (required)
 - `overview`: string summary of architecture (required)
 - `trade_offs`: object with exactly `pros` (string[]), `cons` (string[]), and `blast_radius` (string); no additional properties (required)
-- `call_chain`: string[] representation of module sequence (optional)
+- `call_chain`: string[] of hop chains written as above (optional)
 - `estimated_lines`: number (optional)
+- `touched_modules`: string[] of module-map names (optional)
 
-### Tournament Decision Payload Schema (`decision.json`)
+### Decision Payload Schema (`decision.json`)
 - `recommended_option`: `"option-a"` | `"option-b"` | `"option-c"` | `"hybrid"` (required)
-- `evaluation_matrix`: array containing the closed dimensions `blast_radius_complexity`, `constitution_layering`, and `extensibility_simplicity`; every item has exactly `dimension`, `winner` (`"option-a"` | `"option-b"` | `"option-c"` | `"tie"`), and `score_rationale`, with no additional properties (required)
+- `evaluation_matrix`: array containing the closed dimensions `blast_radius_complexity`, `constitution_layering`, and `extensibility_simplicity` once each; every item has exactly `dimension`, `winner` (`"option-a"` | `"option-b"` | `"option-c"` | `"tie"`), and `score_rationale`, with no additional properties (required)
 - `rationale`: string explanation of decision (required)
 - `hybrid_recommendation`: string optional synthesis details
+- `graded_by`: `"human"` | `"in-session"` — who selected (required)
 
 ### Delegated Return Contract
 
-Each Candidate generator and Tournament Judge MUST return only its JSON file path. It MUST NOT relay
-the candidate, decision, or evidence prose through the completion message.
+Each Candidate generator MUST return only its JSON file path. It MUST NOT relay the candidate or
+evidence prose through the completion message.
 
 ---
 
 ## Physical Receipt Verification Protocol
 
-Before consuming candidate proposals or tournament decisions:
+Before consuming candidate proposals:
 1. **Physical Existence & Non-Empty**: The orchestrator must verify that the target JSON output exists as a regular file on disk and has `size > 0` bytes.
-2. **Schema Validation**: Parse and validate the file content against the Candidate / Tournament Decision JSON schema.
+2. **Schema Validation**: Validate the files against the candidate schema with `prospec validate candidates`.
 3. **Lifecycle Probe & Await**: If the output file is missing when a completion message arrives, check abstract subagent lifecycle state or transcript logs and await completion.
 4. **Explicit Degradation**: On a confirmed crash, failure, or timeout, fall back to single-context degraded execution and honestly disclose the in-session mode.
-5. **Zero-Mock Rule**: NEVER create dummy candidate records or fake tournament decisions. Missing, empty, unreadable, malformed, or schema-invalid outputs fail closed with concrete I/O or parse errors.
+5. **Zero-Mock Rule**: NEVER create dummy candidate records or fake decisions. Missing, empty, unreadable, malformed, or schema-invalid outputs fail closed with concrete I/O or parse errors.
 
 ---
 
@@ -123,31 +112,30 @@ Before consuming candidate proposals or tournament decisions:
 1. Spawn Subagent 1: Generate Option A (Pragmatic) and write to JSON file.
 2. Spawn Subagent 2: Generate Option B (Decoupled) and write to JSON file.
 3. Verify candidate receipts via the Physical Receipt Verification Protocol.
-4. Spawn Tournament Judge Subagent: Perform position-swapped pairwise evaluation and write Decision Record to JSON file.
-5. Verify tournament decision receipt before presenting options to the developer.
+4. Write `decision.json` in-session from the metrics table and the one-way rationale.
 
 ### Single-Context Degraded Mode (`can_spawn_subagent: no` or spawn failure)
 1. Sequentially generate Option A and Option B in prompt-isolated steps.
-2. Execute the Tournament Judge persona to perform position-swapped comparison.
+2. Run the metrics and write `decision.json` as above.
 3. Explicitly notify the developer of the degraded sequential execution mode.
 
 ---
 
-## Human Choice Override
+## Selection Paths
 
-The Tournament Judge's decision is advisory and transparent:
-1. The evaluation matrix and recommendation are presented to the developer.
-2. The developer may choose to:
-   - Accept the recommended option.
-   - Override and select a different candidate option.
-   - Request a hybrid synthesis.
-3. The chosen architecture is reflected in `plan.md`'s Call Chain and Implementation Steps, with the full trade-off rationale preserved in `plan.md` Technical Summary and Risk Assessment.
+After the plan verifier is recorded, run `prospec status`:
+- **No pause** (the route continues to the next station): select the recommended option in-session, keep `graded_by: in-session`, and continue to the next station. NEVER ask the human to choose.
+- **Pause** (`code: AWAITING_HUMAN_PLAN_SIGNOFF`): HALT and present the candidate summary, the metrics table, the in-session rationale, and the plan verifier report. The human signs off with `prospec change log --skill prospec-plan --signoff <option>`, which sets `graded_by: human`. NEVER run the sign-off without an explicit human instruction.
+- **The human picks another option**: revise `plan.md`, `delta-spec.md`, and `decision.json` for it, re-record the plan verifier (a newer verifier entry supersedes any earlier sign-off), then the human signs off.
+- **`code: PLAN_VERIFIER_PENDING`**: record the plan verifier first — there is nothing to sign off yet.
+
+The chosen architecture is reflected in `plan.md`'s Call Chain and Implementation Steps, with the trade-off rationale preserved in `plan.md` Technical Summary and Risk Assessment.
 
 ---
 
 ## Language Policy
 
-Tournament comparison notes, rationale, and trade-off records must follow the project's configured `artifact_language` (e.g. Traditional Chinese for `.prospec/changes/**`). Technical identifiers, code symbols, and REQ IDs remain in English.
+Comparison notes, rationale, and trade-off records must follow the project's configured `artifact_language` (e.g. Traditional Chinese for `.prospec/changes/**`). Technical identifiers, code symbols, and REQ IDs remain in English.
 
 ---
 

@@ -13,15 +13,16 @@ import { resolveLogLevel } from '../log-level.js';
  *   prospec validate promote-scaffold [--change <name>]
  *   prospec validate design-spec [path] [--change <name>]
  *   prospec validate module-readme <module>
+ *   prospec validate candidates [--change <name>]
  *
  * A failing verdict exits 1 — this is a machine gate, like `check --strict`.
  */
 export function registerValidateCommand(program: Command): void {
   program
     .command('validate')
-    .description('Machine verdicts for artifact structure (slug / backfill-draft / promote-scaffold / design-spec / module-readme)')
+    .description('Machine verdicts for artifact structure (slug / backfill-draft / promote-scaffold / design-spec / module-readme / candidates)')
     .addArgument(new Argument('<kind>', 'Artifact kind').choices(VALIDATE_KINDS))
-    .argument('[target]', 'Slug/module name, or an explicit artifact path')
+    .argument('[target]', 'Slug/module name, an explicit artifact path, or (candidates) a change name')
     .option('--change <name>', 'Change providing the default artifact path')
     .action(async (kind: ValidateKind, target: string | undefined, options: { change?: string }) => {
       const globalOpts = program.opts<GlobalOptions>();

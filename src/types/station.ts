@@ -1,10 +1,12 @@
 import { z } from 'zod';
 import {
+  CANDIDATE_IDS,
   CHANGE_SCALES,
   DIMENSION_ADJUDICATORS,
   DIMENSION_GRADED_BY,
   DIMENSION_RESULTS,
   PLANNING_VERDICTS,
+  PLAN_DECISION_OPTIONS,
   AcceptanceScenarioSchema,
   type DimensionResult,
   type GateResult,
@@ -616,8 +618,8 @@ export type LessonInput = z.infer<typeof LessonInputSchema>;
 // --- validate (`prospec validate <kind>`) ---
 
 /**
- * Artifact kinds `prospec validate` grades. `slug`, `promote-scaffold`, and
- * `module-readme` are complete machine verdicts; `backfill-draft` and `design-spec` report the
+ * Artifact kinds `prospec validate` grades. `slug`, `promote-scaffold`,
+ * `module-readme` and `candidates` are complete machine verdicts; `backfill-draft` and `design-spec` report the
  * structural subset only (sections, headers, NEEDS-CLARIFICATION count and
  * locations) — ratio-exemption classification and component-set extraction are
  * semantic judgment and stay in the skill.
@@ -628,8 +630,59 @@ export const VALIDATE_KINDS = [
   'promote-scaffold',
   'design-spec',
   'module-readme',
+  'candidates',
 ] as const;
 export type ValidateKind = (typeof VALIDATE_KINDS)[number];
+
+// --- plan candidate selection (`prospec validate candidates`, `change log --signoff`) ---
+
+/** Who selected the plan decision. Distinct from the judgment-dimension `graded_by`
+ *  (fresh-subagent | in-session): here the question is human vs the orchestrating session. */
+export const DECISION_GRADED_BY = ['human', 'in-session'] as const;
+export type DecisionGradedBy = (typeof DECISION_GRADED_BY)[number];
+
+export const DECISION_DIMENSIONS = [
+  'blast_radius_complexity',
+  'constitution_layering',
+  'extensibility_simplicity',
+] as const;
+
+/** One candidate architecture (`candidates/option-*.json`), written by a generator. */
+export const CandidatePayloadSchema = z.strictObject({
+  id: z.enum(CANDIDATE_IDS),
+  title: z.string().min(1),
+  overview: z.string().min(1),
+  trade_offs: z.strictObject({
+    pros: z.array(z.string()),
+    cons: z.array(z.string()),
+    blast_radius: z.string(),
+  }),
+  call_chain: z.array(z.string()).optional(),
+  estimated_lines: z.number().nonnegative().optional(),
+  touched_modules: z.array(z.string()).optional(),
+});
+export type CandidatePayload = z.infer<typeof CandidatePayloadSchema>;
+
+/** The selection record (`candidates/decision.json`). */
+export const DecisionPayloadSchema = z.strictObject({
+  recommended_option: z.enum(PLAN_DECISION_OPTIONS),
+  evaluation_matrix: z
+    .array(
+      z.strictObject({
+        dimension: z.enum(DECISION_DIMENSIONS),
+        winner: z.enum([...CANDIDATE_IDS, 'tie']),
+        score_rationale: z.string().min(1),
+      }),
+    )
+    .length(DECISION_DIMENSIONS.length)
+    .refine((items) => new Set(items.map((i) => i.dimension)).size === items.length, {
+      message: 'each evaluation dimension must appear exactly once',
+    }),
+  rationale: z.string().min(1),
+  hybrid_recommendation: z.string().optional(),
+  graded_by: z.enum(DECISION_GRADED_BY),
+});
+export type DecisionPayload = z.infer<typeof DecisionPayloadSchema>;
 
 // --- learn lens yield (`prospec learn yield`) ---
 

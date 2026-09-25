@@ -3,7 +3,7 @@ import type {
   ChangeRouteFacts,
   SddStation,
 } from '../types/status.js';
-import { BREAK_GLASS_PREFIX, STATION_SKILLS } from '../types/status.js';
+import { BREAK_GLASS_PREFIX, PLAN_SIGNOFF_REMEDIES, STATION_SKILLS } from '../types/status.js';
 import { forbiddenArtifacts, isStatusBefore } from '../types/change.js';
 import { AGENT_CONFIGS } from '../types/skill.js';
 import type { ValidAgent } from '../types/config.js';
@@ -35,6 +35,9 @@ import type { ValidAgent } from '../types/config.js';
  * - plan / tasks: the station's latest recorded verifier result (the
  *   `change log --verifier-report` sink) — a FAIL routes back to that station
  *   until a PASS or a Break-Glass WARN supersedes it.
+ * - plan, opt-in pause: a `scale: full` change whose resolved pause stations
+ *   include `plan` waits for a verifier result, then for a human sign-off newer
+ *   than it, before any forward edge. The waiting code is not a failure.
  * - archive accepts only `verified` and re-confirms Knowledge sync.
  * - every route carries a stable `code` from `WORKFLOW_REASON_CODES`; `reasons`
  *   stays prose.
@@ -159,6 +162,37 @@ export function routeChange(facts: ChangeRouteFacts): ChangeRoute {
           ],
         };
       }
+      // The opt-in pause: judged only for `full`, and only after the FAIL branch, so a
+      // plan that failed its own audit is revised before a human is asked to sign it.
+      if (facts.scale === 'full' && facts.pauseAtPlan) {
+        if (facts.lastPlanVerifierResult === null) {
+          return {
+            ...base,
+            next: 'plan',
+            code: 'PLAN_VERIFIER_PENDING',
+            blockingGates: [
+              'Architecture Verifier PASS/WARN recorded via `prospec change log --skill prospec-plan --verifier-report <file>`',
+            ],
+            reasons: [
+              'scale: full with the plan sign-off pause enabled — no plan verifier result is recorded yet, so there is nothing for a human to sign off',
+            ],
+          };
+        }
+        if (!facts.planSignedOff) {
+          return {
+            ...base,
+            next: null,
+            code: 'AWAITING_HUMAN_PLAN_SIGNOFF',
+            blockingGates: [
+              'human plan sign-off newer than the latest plan verifier result, recorded via `prospec change log --skill prospec-plan --signoff <option>` (the option must equal candidates/decision.json `recommended_option`)',
+            ],
+            reasons: [
+              'scale: full with the plan sign-off pause enabled — HALT and present the candidate summary, metrics table, in-session rationale and plan verifier report for a human decision',
+              `no decision.json or plan verifier report to sign (e.g. after \`change scale full\`, or only a Break-Glass override)? ${PLAN_SIGNOFF_REMEDIES}`,
+            ],
+          };
+        }
+      }
       // Design hangs off the `plan` station, so a scale whose contract has no plan
       // is never routed to it — the lifecycle states this for quick, and keying it
       // on the registry rather than the scale name keeps the two from drifting.
@@ -178,6 +212,9 @@ export function routeChange(facts: ChangeRouteFacts): ChangeRoute {
         };
       }
       const reasons = ['status `plan` — next station per lifecycle order'];
+      if (facts.scale === 'full' && facts.pauseAtPlan) {
+        reasons.push('plan sign-off recorded — the opt-in pause is released');
+      }
       if (designApplies && facts.hasDesignSpec) {
         reasons.push('design-spec.md present — the design station has already run');
       }

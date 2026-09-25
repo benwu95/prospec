@@ -27,8 +27,8 @@ The cascading workflow dynamically adapts its trajectory based on `metadata.scal
 - **Linear Progression**: Each station advances immediately upon meeting its entry and exit gates.
 
 ### 3. Scale: Full (`scale: full`)
-- **Trajectory**: `story → plan (Tournament) → tasks → implement → review → verify → knowledge-update → Tastemaker Sign-off`
-- **Tournament Selection**: In Phase 4 of Plan, generates orthogonal candidate architectures and executes symmetric pairwise tournament evaluation before cascading into tasks.
+- **Trajectory**: `story → plan (candidates + metrics) → [plan sign-off, opt-in] → tasks → implement → review → verify → knowledge-update → Tastemaker Sign-off`
+- **Candidate Selection**: In Phase 4 of Plan, generates orthogonal candidate architectures, measures them with `prospec validate candidates`, and selects in-session. Without the opt-in pause the cascade continues into tasks and NEVER asks the human to choose; with it (`workflow.pause_at: [plan]`, overridable per run by `PROSPEC_PAUSE_AT`, empty or `none` = no pause), `prospec status` holds the change for a human plan sign-off — NEVER set `PROSPEC_PAUSE_AT` to skip it without an explicit human instruction.
 
 ### 4. Scale: Backfill (`scale: backfill`)
 - **Trajectory**: `promote → review → verify → knowledge-update → Tastemaker Sign-off`
@@ -46,7 +46,7 @@ Every station — whether reached via `prospec status` or by autonomous cascadin
 2. **Step 2 [ENTRY]** — Check the station's Entry Gates; if any FAILs, stop and resolve it before acting.
 3. **Step 3 [EXEC]** — Execute the station per its `SKILL.md` and the references it loads on demand; loading a station never means its references arrived.
 4. **Step 4 [GATE]** — Run the station's machine verifiers. On FAIL, apply the Oscillation Breaker (stop if state flips FAIL → PASS → FAIL ≥ 2) — never loop unbounded.
-5. **Step 5 [NEXT]** — Run `prospec status` for the next station. When the route carries `code: ESCALATE_TO_HUMAN`, HALT immediately and emit an `EscalationReport` (`type: station_retry_limit_exceeded`) summarizing the failure streak and reasons — do NOT return to Step 1. Otherwise, return to Step 1.
+5. **Step 5 [NEXT]** — Run `prospec status` for the next station. When the route carries `code: ESCALATE_TO_HUMAN`, HALT immediately and emit an `EscalationReport` (`type: station_retry_limit_exceeded`) summarizing the failure streak and reasons — do NOT return to Step 1. When it carries `code: AWAITING_HUMAN_PLAN_SIGNOFF`, HALT and present the candidate summary, metrics table, in-session rationale and plan verifier report — it is not a failure, so emit no `EscalationReport`; after the human signs off, resume at Step 1. Otherwise, return to Step 1.
 
 ---
 
@@ -57,7 +57,7 @@ An autonomous transition to the next station occurs **only** when all preconditi
 | Current Station | Next Station | Transition Gate |
 |-----------------|--------------|-----------------|
 | **story** | `plan` — or `tasks` (`scale: quick`), or `promote` (`scale: backfill`) | `proposal.md` written with `## Stated Assumptions`; INVEST advisory check completed (recorded, never blocking). |
-| **plan** | `design` (proposal `ui_scope` full/partial) — otherwise `tasks` | Architecture Verifier PASS (or advisory WARN) on five orthogonal dimensions, recorded via `prospec change log --skill prospec-plan --verifier-report <file>` (or a documented Break-Glass override); a recorded FLAWS keeps `prospec status` on plan until a later PASS/WARN. |
+| **plan** | `design` (proposal `ui_scope` full/partial) — otherwise `tasks` | Architecture Verifier PASS (or advisory WARN) on five orthogonal dimensions, recorded via `prospec change log --skill prospec-plan --verifier-report <file>` (or a documented Break-Glass override); a recorded FLAWS keeps `prospec status` on plan until a later PASS/WARN; under the opt-in pause a `scale: full` change also needs a human sign-off newer than that verifier result. |
 | **design** | `tasks` | `design-spec.md` + `interaction-spec.md` produced. |
 | **tasks** | `implement` | Task Contract Verifier PASS (or advisory WARN) on bidirectional coverage, DAG layering and TDD closure, recorded via `prospec change log --skill prospec-tasks --verifier-report <file>`; a recorded FLAWS keeps `prospec status` on tasks until a later PASS/WARN. |
 | **promote** | `review` | Promotion scaffold complete (`prospec validate promote-scaffold`) and `status: implemented` set — the backfill entry. |
@@ -86,7 +86,7 @@ When the pipeline completes Verification with Grade S/A (and subsequent Knowledg
    - The Agent **NEVER** automatically commits, pushes, or archives without explicit human approval.
    - Prompt the user to commit the change as a single atomic-by-feature commit folding implement, review, and verify fixes plus knowledge sync together (`feat: <description>`).
    - After the commit lands and before pushing, re-run the project's knowledge-sync mechanical gate if declared.
-4. **Sign-off Options for Developer**:
+4. **Sign-off Options for Developer** (the final delivery sign-off; the opt-in plan sign-off is a separate Step 5 loop-exit):
    - **Approve**: Run the git commit command and advance to `prospec-archive`.
    - **Steer / Adjust**: Request additional changes, refinements, or re-verification.
 

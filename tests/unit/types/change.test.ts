@@ -976,3 +976,16 @@ describe('AcceptanceBaselineSchema & AcceptanceRevision (REQ-TYPES-103)', () => 
     }
   });
 });
+
+describe('quality_log signoff_option stamp (REQ-TYPES-022)', () => {
+  const base = { skill: 'prospec-plan', date: '2026-09-24', result: 'PASS' as const, warnings: [] };
+
+  it('is optional and limited to the plan decision options', () => {
+    expect(NewQualityLogEntrySchema.safeParse(base).success).toBe(true);
+    for (const option of ['option-a', 'option-b', 'option-c', 'hybrid']) {
+      expect(NewQualityLogEntrySchema.safeParse({ ...base, signoff_option: option }).success, option).toBe(true);
+    }
+    expect(NewQualityLogEntrySchema.safeParse({ ...base, signoff_option: 'option-d' }).success).toBe(false);
+  });
+});
+

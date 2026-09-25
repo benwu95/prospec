@@ -17,6 +17,7 @@ import {
   PrerequisiteError,
   InvalidTransitionError,
   TestGateError,
+  PauseAtInvalid,
 } from '../../../src/types/errors.js';
 
 describe('ProspecError', () => {
@@ -323,3 +324,19 @@ describe('TestGateError (REQ-TYPES-086, REQ-CLI-043)', () => {
     expect(err.suggestion).toContain('prospec check --record-tests --change c');
   });
 });
+
+describe('PauseAtInvalid (REQ-TYPES-105)', () => {
+  it('names the source and value and suggests the valid stations and the empty override', () => {
+    const err = new PauseAtInvalid('PROSPEC_PAUSE_AT', 'tasks');
+    expect(err).toBeInstanceOf(ProspecError);
+    expect(err.code).toBe('PAUSE_AT_INVALID');
+    expect(err.name).toBe('PauseAtInvalid');
+    expect(err.message).toContain('PROSPEC_PAUSE_AT');
+    expect(err.message).toContain('tasks');
+    expect(err.suggestion).toContain('plan');
+    expect(err.suggestion).toContain('a YAML list such as [plan]');
+    // the override that disables a pause is the human's, never an autonomous remedy
+    expect(err.suggestion).toMatch(/only on the human's instruction, set PROSPEC_PAUSE_AT to none \(or an empty string\)/);
+  });
+});
+

@@ -199,6 +199,9 @@ const KnowledgeSchema = z.object({
 const WorkflowSchema = z
   .object({
     max_station_retries: z.number().optional(),
+    // Shape-agnostic on purpose: a mistyped value (a bare scalar, a map) must not
+    // fail the whole config; `resolvePauseAt` validates it and names the bad value.
+    pause_at: z.unknown().optional(),
   })
   .optional();
 
@@ -209,6 +212,17 @@ export type WorkflowConfig = z.infer<typeof WorkflowSchema>;
  * to human (REQ-TYPES-101).
  */
 export const DEFAULT_MAX_STATION_RETRIES = 3;
+
+/** Stations a change may opt in to pausing after (`workflow.pause_at`). */
+export const PAUSE_STATIONS = ['plan'] as const;
+export type PauseStation = (typeof PAUSE_STATIONS)[number];
+
+/** Per-run override of `workflow.pause_at`; set (even empty) it wins over the config. */
+export const PAUSE_AT_ENV_VAR = 'PROSPEC_PAUSE_AT';
+
+/** `PROSPEC_PAUSE_AT` value that disables pausing like the empty string — the portable
+ *  form, because Windows shells unset a variable assigned an empty value. */
+export const PAUSE_AT_NONE = 'none';
 
 export const DEFAULT_BASE_DIR = 'prospec';
 

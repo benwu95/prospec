@@ -2458,3 +2458,63 @@ describe('generateSummary issue registration', () => {
     expect(lines.filter((l) => l.startsWith('- **Issue**:'))).toHaveLength(1);
   });
 });
+
+describe('generateSummary — plan decision line (REQ-SERVICES-119)', () => {
+  const decision = (graded_by: string | null = 'in-session') =>
+    JSON.stringify({
+      recommended_option: 'option-b',
+      evaluation_matrix: [
+        { dimension: 'blast_radius_complexity', winner: 'option-b', score_rationale: 'x' },
+        { dimension: 'constitution_layering', winner: 'tie', score_rationale: 'x' },
+        { dimension: 'extensibility_simplicity', winner: 'option-b', score_rationale: 'x' },
+      ],
+      rationale: 'x',
+      ...(graded_by === null ? {} : { graded_by }),
+    });
+  const verifier = '  - skill: prospec-plan\n    date: 2026-09-24\n    result: PASS\n    warnings: []\n    verifier_verdict: PASS\n';
+  const signoff = '  - skill: prospec-plan\n    date: 2026-09-24\n    result: PASS\n    warnings: []\n    signoff_option: option-b\n';
+
+  it('names a fresh sign-off as graded_by: human, taking the option from quality_log', async () => {
+    // The decision file recommends option-b; the recorded sign-off names option-a. Only
+    // quality_log is authoritative, so the line must follow the sign-off, not the file.
+    vol.fromJSON({
+      '/archive/metadata.yaml': `status: verified\nquality_log:\n${verifier}${signoff.replace('option-b', 'option-a')}`,
+      '/archive/candidates/decision.json': decision('human'),
+    });
+    const { content } = await generateSummary('/archive', 'feat-a', '2026-01-01');
+    expect(content).toContain('- **Plan Decision**: option-a (graded_by: human)\n');
+  });
+
+  it('falls back to the decision as in-session — never trusting a decision that claims human without a sign-off', async () => {
+    vol.fromJSON({
+      '/archive/metadata.yaml': `status: verified\nquality_log:\n${verifier}`,
+      '/archive/candidates/decision.json': decision('human'),
+    });
+    const { content } = await generateSummary('/archive', 'feat-a', '2026-01-01');
+    expect(content).toContain('- **Plan Decision**: option-b (graded_by: in-session)\n');
+  });
+
+  it('treats a sign-off a later verifier entry superseded as absent', async () => {
+    vol.fromJSON({
+      '/archive/metadata.yaml': `status: verified\nquality_log:\n${verifier}${signoff}${verifier}`,
+      '/archive/candidates/decision.json': decision(),
+    });
+    const { content } = await generateSummary('/archive', 'feat-a', '2026-01-01');
+    expect(content).toContain('(graded_by: in-session)');
+  });
+
+  it('adds no line without a decision, or with a legacy decision lacking graded_by', async () => {
+    vol.fromJSON({ '/archive/metadata.yaml': 'status: verified\n' });
+    const bare = (await generateSummary('/archive', 'feat-a', '2026-01-01')).content;
+    expect(bare).not.toContain('Plan Decision');
+
+    vol.reset();
+    vol.fromJSON({
+      '/archive/metadata.yaml': 'status: verified\n',
+      '/archive/candidates/decision.json': decision(null),
+    });
+    const legacy = (await generateSummary('/archive', 'feat-a', '2026-01-01')).content;
+    expect(legacy).toBe(bare);
+  });
+});
+

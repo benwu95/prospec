@@ -252,8 +252,10 @@ describe('CLI Output Contract', () => {
           expect(output, `${commandPath}: missing ${label}`).toContain(label);
         }
         const spec = COMMAND_HELP_SPECS[commandPath];
-        expect(output).toContain(spec.example);
-        expect(spec.example.startsWith(`prospec ${commandPath}`), `${commandPath}: example must be a complete command line`).toBe(true);
+        for (const example of [spec.example, ...(spec.additionalExamples ?? [])]) {
+          expect(output).toContain(`$ ${example}`);
+          expect(example.startsWith(`prospec ${commandPath}`), `${commandPath}: example must be a complete command line`).toBe(true);
+        }
         // sections appear in order after the Options block
         const order = ['When to use:', 'Example:', 'Returns:'].map((l) => output.indexOf(l));
         expect(order[0]).toBeGreaterThan(output.indexOf('Options:'));
@@ -281,6 +283,20 @@ describe('CLI Output Contract', () => {
         expect(out, writer).toContain('\\|');
         expect(out, writer).toMatch(/identity/i);
       }
+    });
+
+    it('status help names the pause override and the halt codes; change log help names the human sign-off (REQ-CLI-056)', async () => {
+      const status = await helpOf('status');
+      expect(status).toContain('PROSPEC_PAUSE_AT');
+      expect(status).toContain('AWAITING_HUMAN_PLAN_SIGNOFF');
+      expect(status).toMatch(/fallback:[^.]*absent when `next` is null/i);
+      const changeLog = await helpOf('change log');
+      expect(changeLog).toContain('--signoff <option>');
+      expect(changeLog).toMatch(/explicit human instruction/);
+      expect(changeLog).toMatch(/recommended_option/);
+      // the Example block itself carries a runnable sign-off, not only the prose
+      const example = changeLog.slice(changeLog.indexOf('Example:'), changeLog.indexOf('Returns:'));
+      expect(example).toMatch(/\$ prospec change log --skill prospec-plan --signoff option-a/);
     });
 
     it('registry ↔ program: every registry key is a registered leaf command, and every command whose help carries the three sections is a registry key (bidirectional)', async () => {

@@ -64,6 +64,11 @@ export function formatStatusOutput(report: StatusReport, logLevel: LogLevel): vo
         console.log(
           `  action:  ${pc.red('HALT')} — human intervention required; station retry limit exceeded`,
         );
+      } else if (change.code === 'AWAITING_HUMAN_PLAN_SIGNOFF') {
+        console.log(`  next:    ${pc.yellow('— HALT (awaiting human plan sign-off)')}`);
+        console.log(
+          `  action:  ${pc.yellow('HALT')} — present the candidates, metrics table, rationale and plan verifier report; the human signs off with \`prospec change log --skill prospec-plan --signoff <option>\``,
+        );
       } else {
         console.log(`  next:    ${pc.dim('— terminal (periodic prospec-learn)')}`);
       }

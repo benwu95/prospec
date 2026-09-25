@@ -104,3 +104,39 @@ describe('validate-output', () => {
     expect(out).toContain('rawartifact line');
   });
 });
+
+describe('validate-output — candidate metrics table (REQ-CLI-056)', () => {
+  it('prints the columns in order, one row per candidate', () => {
+    const out = captureStdout(() =>
+      formatValidateOutput(
+        baseResult({
+          kind: 'candidates',
+          target: '.prospec/changes/x/candidates',
+          facts: {
+            rule_source: 'module-map',
+            degraded: false,
+            decision: { state: 'absent' },
+            metrics: [
+              { id: 'option-a', title: 'A', direction_violations: 0, violating_edges: [], touched_modules_count: 2, touched_modules: ['lib', 'types'], estimated_lines: 300, unknown_references: [] },
+              { id: 'option-b', title: 'B', direction_violations: 1, violating_edges: [{ from: 'cli', to: 'lib' }], touched_modules_count: 3, touched_modules: ['cli', 'lib', 'types'], estimated_lines: null, unknown_references: ['vendor/x.js'] },
+            ],
+          },
+        }),
+        'normal',
+      ),
+    );
+    const lines = out.split('\n').map((l) => l.trim());
+    const header = lines.indexOf('| option | direction_violations | touched_modules | estimated_lines | unknown_references |');
+    expect(header).toBeGreaterThan(-1);
+    expect(lines[header + 1]).toBe('|---|---|---|---|---|');
+    expect(lines[header + 2]).toBe('| option-a | 0 | 2 | 300 | 0 |');
+    expect(lines[header + 3]).toBe('| option-b | 1 | 3 | — | 1 |');
+    expect(out).toContain('dependency rules: module-map');
+  });
+
+  it('prints no table for a kind without metrics', () => {
+    const out = captureStdout(() => formatValidateOutput(baseResult(), 'normal'));
+    expect(out).not.toContain('direction_violations');
+  });
+});
+

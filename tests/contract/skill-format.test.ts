@@ -39,6 +39,8 @@ import {
   ScenarioFindingSchema,
   TASKS_VERIFIER_DIMENSIONS,
   VALIDATE_KINDS,
+  CandidatePayloadSchema,
+  DecisionPayloadSchema,
   VERIFIER_REPORT_SCHEMAS,
 } from '../../src/types/station.js';
 import { DEFAULT_CIRCUIT_BREAKER_CONFIG, EscalationReportSchema } from '../../src/types/cascade.js';
@@ -4272,9 +4274,18 @@ describe('Startup Loading cache-stable prefix ordering (REQ-TEMPLATES-080/081)',
    * Reference anchor raised 46_823 → 48_138 and cumulative anchor raised 87_953 → 88_253
    * when acceptance scenario baseline and verification context contracts were added
    * to references and skills (freeze-acceptance-evidence).
+   *
+   * Reference anchor raised 48_138 → 49_005 and cumulative anchor raised 88_253 → 88_754
+   * when the plan station gained the opt-in plan sign-off pause and the candidate
+   * tournament judge was replaced by CLI metrics plus selection paths: candidate-evaluation,
+   * cascade-protocol (Step 5 sign-off HALT), archive-format (Plan Decision line) and
+   * metadata-format (`signoff_option`) grew, as did the plan / ff / archive skill bodies, and
+   * plan / ff / cascade-protocol gained the NEVER rule on the `PROSPEC_PAUSE_AT` override, and
+   * candidate-evaluation its per-dimension winner rule and decision re-validation, and
+   * metadata-format the `audited_option` stamp (add-plan-signoff-pause).
    */
-  const REFERENCE_CEILING_ANCHOR = 48_138;
-  const CUMULATIVE_CEILING_ANCHOR = 88_253;
+  const REFERENCE_CEILING_ANCHOR = 49_005;
+  const CUMULATIVE_CEILING_ANCHOR = 88_754;
 
   const renderSkill = (name: string) => {
     const skill = SKILL_DEFINITIONS.find((s) => s.name === name)!;
@@ -6604,9 +6615,23 @@ describe('Structured quality_log + escaped-defect registration (issue #61)', () 
       'codex', 'copilot',
     ];
 
-    it.each(JUDGMENT_STATION_TEMPLATES)('%s routes to the strongest available tier, named abstractly', (tpl) => {
+    // candidate-evaluation delegates no judge (the comparison is metrics + an in-session
+    // rationale), so it carries no tier routing; its selection context is recorded in
+    // decision.json `graded_by` instead (REQ-TEMPLATES-199).
+    const TIER_ROUTED_TEMPLATES = JUDGMENT_STATION_TEMPLATES.filter((tpl) => !tpl.endsWith('candidate-evaluation.hbs'));
+
+    it.each(TIER_ROUTED_TEMPLATES)('%s routes to the strongest available tier', (tpl) => {
+      expect(flat(renderTemplate(tpl, TEMPLATE_CONTEXT))).toContain('strongest');
+    });
+
+    it('candidate-evaluation carries no tier routing and records its selection context in decision.json graded_by', () => {
+      const content = flat(renderTemplate('skills/references/candidate-evaluation.hbs', TEMPLATE_CONTEXT));
+      expect(content).not.toContain('strongest');
+      expect(content).toMatch(/`graded_by`: `"human"` \| `"in-session"`/);
+    });
+
+    it.each(JUDGMENT_STATION_TEMPLATES)('%s names no model, vendor or harness', (tpl) => {
       const content = renderTemplate(tpl, TEMPLATE_CONTEXT);
-      expect(flat(content)).toContain('strongest');
       const lower = content.toLowerCase();
       for (const name of FORBIDDEN_MODEL_NAMES) {
         expect(lower, `${tpl} must not name model/vendor "${name}"`).not.toContain(name);
@@ -7168,30 +7193,36 @@ describe('Multi-Candidate Architecture Selection in /prospec-plan (issue #180)',
     expect(tokens).toBeLessThanOrEqual(DEFAULT_KNOWLEDGE_TOKEN_BUDGET.reference_per_file);
   });
 
-  it('candidate-evaluation.md defines orthogonal candidate guidelines and symmetric tournament criteria', () => {
+  it('candidate-evaluation.md defines orthogonal candidates, measured and judged criteria, and no tournament judge (REQ-TEMPLATES-184)', () => {
     const content = renderTemplate('skills/references/candidate-evaluation.hbs', TEMPLATE_CONTEXT);
     expect(content).toContain('Language- and Architecture-Agnostic Principle');
     expect(content).toContain('Option A: Pragmatic / Minimal Surface');
     expect(content).toContain('Option B: Decoupled / Clean Architecture');
-    expect(content).toContain('Blast Radius & Complexity');
-    expect(content).toContain('Constitution & Layering Adherence');
-    expect(content).toContain('Extensibility vs. Simplicity');
-    expect(content).toContain('Symmetric Pairwise Tournament Protocol');
-    expect(content).toContain('Position-Swapped Evaluation');
-    expect(content).toContain('Human Choice Override');
+    // The criteria are `###` subsections, so slice from the heading to the next `##`.
+    const criteria = content.slice(content.indexOf('## Comparison Criteria'), content.indexOf('## Mechanical Metrics'));
+    expect(criteria.length).toBeGreaterThan(0);
+    expect(criteria).toContain('Blast Radius & Complexity — measured');
+    expect(criteria).toContain('Constitution & Layering Adherence — measured');
+    expect(criteria).toContain('Extensibility vs. Simplicity — judged');
+    expect(sectionOf(content, '## Mechanical Metrics')).toContain('prospec validate candidates');
+    expect(sectionOf(content, '## In-Session One-Way Rationale')).toMatch(/no judge sub-agent, no position-swapped scoring/);
+    // the removed protocol stays removed
+    for (const gone of ['Tournament Judge', 'Symmetric Pairwise Tournament Protocol', 'Position-Swapped Evaluation', 'Human Choice Override']) {
+      expect(content, gone).not.toContain(gone);
+    }
     // Must NOT hardcode CLI internal layers as universal rule
     expect(content).not.toContain('`cli → services → lib → types`');
   });
 
-  it('prospec-plan Phase 4 instructs multi-candidate generation and tournament selection for scale: full', () => {
+  it('prospec-plan Phase 4 instructs multi-candidate generation with mechanical metrics for scale: full (REQ-TEMPLATES-185)', () => {
     const plan = renderTemplate('skills/prospec-plan.hbs', TEMPLATE_CONTEXT);
     const phase4 = sectionOf(plan, '### Phase 4: Design plan.md');
     expect(phase4).toContain('references/candidate-evaluation.md');
-    expect(phase4).toContain('Best-of-N Candidate Generation');
-    expect(phase4).toContain('Symmetric Pairwise Tournament');
+    expect(phase4).toContain('Best-of-N Candidate Generation with Mechanical Metrics');
+    expect(phase4).toContain('prospec validate candidates');
     expect(phase4).toContain('can_spawn_subagent');
-    expect(phase4).toContain('Human Choice Override');
     expect(phase4).toContain('Record Trade-offs in `plan.md`');
+    expect(phase4).not.toMatch(/tournament judging|Symmetric Pairwise Tournament|Position-Swapped/);
   });
 
   it('no skill preloads candidate-evaluation in Startup Loading items (Prompt Prefix Cache protection)', () => {
@@ -7204,6 +7235,126 @@ describe('Multi-Candidate Architecture Selection in /prospec-plan (issue #180)',
         .join('\n');
       expect(items, `${skill.name} must not preload ${REF} in startup items`).not.toContain(REF);
     }
+  });
+});
+
+describe('opt-in plan sign-off pause and autonomous selection (REQ-TEMPLATES-236/237, REQ-TEMPLATES-195)', () => {
+  const render = (tpl: string) => renderTemplate(tpl, TEMPLATE_CONTEXT);
+  const oneLine = (text: string) => text.replace(/\s+/g, ' ');
+
+  // Each output's no-pause statement, located in the section that owns it.
+  const NO_PAUSE_SITES = [
+    { tpl: 'skills/references/candidate-evaluation.hbs', heading: '## Selection Paths' },
+    { tpl: 'skills/prospec-plan.hbs', heading: '### Phase 4: Design plan.md' },
+    { tpl: 'skills/prospec-ff.hbs', heading: '### Phase 3: Plan Generation (skipped when `scale: quick`)' },
+    { tpl: 'skills/references/cascade-protocol.hbs', heading: '### 3. Scale: Full (`scale: full`)' },
+  ];
+
+  it.each(NO_PAUSE_SITES)('$tpl states the no-pause path: select in-session, continue, never ask the human', ({ tpl, heading }) => {
+    const section = oneLine(sectionOf(render(tpl), heading));
+    expect(section).toMatch(/NEVER ask the human to choose|NEVER asks the human to choose/);
+    expect(section).toMatch(/in-session/);
+    expect(section).toMatch(/continue/i);
+  });
+
+  it.each(NO_PAUSE_SITES)('$tpl never requires an unconditional human choice', ({ tpl }) => {
+    const text = oneLine(render(tpl));
+    expect(text).not.toMatch(/Human Choice Override|Developer may override or select/);
+  });
+
+  it('the no-pause predicate goes red when the clause is removed from the bundle (mutation)', () => {
+    // Mutate the bundled source the renderer actually reads, then run the site
+    // predicate above against the re-rendered output.
+    const key = 'skills/references/candidate-evaluation.hbs';
+    const original = BUNDLED_TEMPLATES[key]!;
+    const mutated = original.replace('NEVER ask the human to choose', 'ask the human which option to use');
+    expect(mutated).not.toBe(original);
+    try {
+      BUNDLED_TEMPLATES[key] = mutated;
+      const section = oneLine(sectionOf(render(key), '## Selection Paths'));
+      expect(section).not.toMatch(/NEVER ask the human to choose|NEVER asks the human to choose/);
+    } finally {
+      BUNDLED_TEMPLATES[key] = original;
+    }
+    expect(oneLine(sectionOf(render(key), '## Selection Paths'))).toMatch(/NEVER ask the human to choose/);
+  });
+
+  it('cascade Step 5 HALTs on AWAITING_HUMAN_PLAN_SIGNOFF without an EscalationReport, and leaves the transition table unchanged', () => {
+    const cascade = render('skills/references/cascade-protocol.hbs');
+    const step5 = oneLine(cascade.split('\n').find((l) => l.includes('**Step 5 [NEXT]**')) ?? '');
+    expect(step5).toMatch(/`code: ESCALATE_TO_HUMAN`, HALT immediately and emit an `EscalationReport`/);
+    expect(step5).toMatch(/`code: AWAITING_HUMAN_PLAN_SIGNOFF`, HALT and present the candidate summary, metrics table, in-session rationale and plan verifier report — it is not a failure, so emit no `EscalationReport`/);
+    const table = sectionOf(cascade, '## Station Transition Gates');
+    expect(table).not.toMatch(/\|\s*`?AWAITING_HUMAN_PLAN_SIGNOFF`?\s*\|/);
+  });
+
+  it('ff stops after plan on the pause and does not generate tasks', () => {
+    const phase3 = oneLine(sectionOf(render('skills/prospec-ff.hbs'), '### Phase 3: Plan Generation (skipped when `scale: quick`)'));
+    expect(phase3).toMatch(/On `AWAITING_HUMAN_PLAN_SIGNOFF`, STOP after plan/);
+    expect(phase3).toMatch(/do not generate tasks until the human signs off/);
+    expect(phase3).toMatch(/does not report `AWAITING_HUMAN_PLAN_SIGNOFF` — otherwise ff halts here/);
+  });
+
+  it('plan Phase 8 HALTs on the pause instead of recommending tasks', () => {
+    const phase8 = oneLine(sectionOf(render('skills/prospec-plan.hbs'), '### Phase 8: Summary + Next Steps'));
+    expect(phase8).toMatch(/On `AWAITING_HUMAN_PLAN_SIGNOFF`, HALT .* do not recommend tasks/);
+    expect(phase8).toMatch(/`PLAN_VERIFIER_PENDING`, record the verifier first/);
+  });
+
+  it('every surface naming the sign-off forbids running it without an explicit human instruction', () => {
+    // The pause override is a human decision too: an agent handed the remedy at a HALT
+    // must be told it is not its own to take.
+    for (const skill of ['skills/prospec-plan.hbs', 'skills/prospec-ff.hbs']) {
+      expect(oneLine(sectionOf(render(skill), '## NEVER')), skill).toMatch(
+        /NEVER\*\* run `prospec change log --signoff`, or set `PROSPEC_PAUSE_AT` to skip a pause, without an explicit human instruction/,
+      );
+    }
+    expect(oneLine(sectionOf(render('skills/references/candidate-evaluation.hbs'), '## Selection Paths'))).toMatch(
+      /NEVER run the sign-off without an explicit human instruction/,
+    );
+    expect(oneLine(render('skills/references/cascade-protocol.hbs'))).toMatch(
+      /NEVER set `PROSPEC_PAUSE_AT` to skip it without an explicit human instruction/,
+    );
+    // the portable no-pause value, which Windows shells need, is named where the cascade reads it
+    expect(oneLine(render('skills/references/cascade-protocol.hbs'))).toContain('empty or `none` = no pause');
+  });
+
+  it('the human re-selection path revises the plan and re-records the verifier before signing off', () => {
+    const paths = oneLine(sectionOf(render('skills/references/candidate-evaluation.hbs'), '## Selection Paths'));
+    expect(paths).toMatch(/revise `plan\.md`, `delta-spec\.md`, and `decision\.json` for it, re-record the plan verifier/);
+  });
+
+  it('both lifecycle copies describe the pause, its override, both codes and the freshness rule — and the ff halt', () => {
+    for (const text of [
+      fs.readFileSync(path.resolve('prospec/ai-knowledge/_status-lifecycle.md'), 'utf-8'),
+      render('init/status-lifecycle.md.hbs'),
+    ]) {
+      const gates = oneLine(sectionOf(text, '## Gates (why some transitions are conditional)'));
+      for (const needle of ['workflow.pause_at', 'PROSPEC_PAUSE_AT', 'empty or `none` = no pause', 'PLAN_VERIFIER_PENDING', 'AWAITING_HUMAN_PLAN_SIGNOFF', '--signoff <option>', 'a later verifier entry supersedes it']) {
+        expect(gates, needle).toContain(needle);
+      }
+      expect(gates).toMatch(/also after plan \(it does not generate tasks until the human signs off\)/);
+    }
+  });
+
+  it('archive-format carries the optional Plan Decision line and prospec-archive carries it over verbatim', () => {
+    const overview = sectionOf(render('skills/references/archive-format.hbs'), '### 1. Change Overview');
+    expect(overview).toContain('- **Plan Decision**: {option} (graded_by: {human / in-session})');
+    expect(oneLine(overview)).toMatch(/Carry it over verbatim when the Phase 2 summary replaces the scaffold — never re-derive it/);
+    const phase3 = oneLine(sectionOf(render('skills/prospec-archive.hbs'), '### Phase 3: Execute Archive'));
+    expect(phase3).toMatch(/Carry the scaffold's `- \*\*Plan Decision\*\*:` line over verbatim/);
+  });
+
+  it('metadata-format documents the sign-off stamp as provenance written only by --signoff', () => {
+    const text = oneLine(render('skills/references/metadata-format.hbs'));
+    expect(text).toMatch(/\*\*`signoff_option`\*\* \(plan only\) is written solely by `prospec change log --signoff`/);
+    expect(text).toMatch(/neither counts as a verifier result nor hides an unresolved WARN/);
+  });
+
+  it('config-example ships the real pause_at key, empty, with its override documented', () => {
+    const example = render('references/config-example.yaml.hbs');
+    expect(example).toMatch(/^ {2}pause_at: \[\]$/m);
+    expect(example).toContain('PROSPEC_PAUSE_AT');
   });
 });
 
@@ -7505,7 +7656,7 @@ describe('reuse-and-single-source gate (issue #204)', () => {
     expect(s8).toMatch(/\bfiles\b/);
     expect(s8).toMatch(/\blines\b/);
     expect(s8).toMatch(/after Risk Assessment/);
-    expect(s8).toMatch(/tournament/);
+    expect(s8).toMatch(/recorded non-selected candidates/);
     // the concede branch is coherent: the Alternative row names the nearest alternative or is omitted with a reason
     expect(s8).toMatch(/nearest alternative/);
     // the fenced skeleton is pinned structurally, not by prose vocabulary
@@ -7519,11 +7670,11 @@ describe('reuse-and-single-source gate (issue #204)', () => {
     expect(pf.indexOf('### 7. Risk Assessment')).toBeLessThan(pf.indexOf(`### 8. ${SIMPLER}`));
   });
 
-  it('plan-format Scale Tiers requires Simpler Alternative under standard and lets the tournament record stand in under full', () => {
+  it('plan-format Scale Tiers requires Simpler Alternative under standard and lets the recorded candidates stand in under full', () => {
     const rows = sectionOf(renderPlanFormat(), '## Scale Tiers').split('\n');
     expect(findRow(rows, '| `standard` (or absent) |')).toContain(SIMPLER);
     const full = findRow(rows, '| `full` |');
-    expect(full).toMatch(/tournament/);
+    expect(full).toMatch(/recorded candidates stand in/);
     // pre-existing pin kept intact
     expect(full).toContain('the 120-line cap does not apply');
   });
@@ -7547,7 +7698,7 @@ describe('reuse-and-single-source gate (issue #204)', () => {
     const standardTier = findRow(lines, '- `standard` (or absent):');
     expect(standardTier).toContain('keep under 120 lines');
     expect(standardTier).toContain(SIMPLER);
-    expect(findRow(lines, '- `full`:')).toMatch(/tournament/);
+    expect(findRow(lines, '- `full`:')).toMatch(/recorded candidates stand in/);
     const gate = lines.filter((l) => l.startsWith('> - [ ]'));
     expect(gate.length).toBeGreaterThan(0);
     expect(gate.some((l) => l.includes(SIMPLER) && l.includes('`standard` (or absent)'))).toBe(true);
@@ -8097,9 +8248,9 @@ describe('split and trim references contract (REQ-TEMPLATES-215~220, REQ-AGNT-04
     };
 
     const expectCandidateSchemaContract = (content: string): void => {
-      const candidateRows = schemaRows(content, '### Candidate Payload Schema (`candidate.json`)');
+      const candidateRows = schemaRows(content, '### Candidate Payload Schema (`candidates/<id>.json`)');
       expect([...candidateRows.keys()]).toEqual([
-        'id', 'title', 'overview', 'trade_offs', 'call_chain', 'estimated_lines',
+        'id', 'title', 'overview', 'trade_offs', 'call_chain', 'estimated_lines', 'touched_modules',
       ]);
       expect(withoutCodeTicks(candidateRows.get('id'))).toContain(
         '"option-a" | "option-b" | "option-c"',
@@ -8108,13 +8259,18 @@ describe('split and trim references contract (REQ-TEMPLATES-215~220, REQ-AGNT-04
       expectDocumentedRequiredness(
         candidateRows,
         ['id', 'title', 'overview', 'trade_offs'],
-        ['call_chain', 'estimated_lines'],
+        ['call_chain', 'estimated_lines', 'touched_modules'],
       );
+      // The executable schema is the single source: the documented rows ARE its keys,
+      // with the same requiredness (REQ-TEMPLATES-184).
+      expectExecutableProjection(candidateRows, CandidatePayloadSchema.shape);
 
-      const decisionRows = schemaRows(content, '### Tournament Decision Payload Schema (`decision.json`)');
+      const decisionRows = schemaRows(content, '### Decision Payload Schema (`decision.json`)');
       expect([...decisionRows.keys()]).toEqual([
-        'recommended_option', 'evaluation_matrix', 'rationale', 'hybrid_recommendation',
+        'recommended_option', 'evaluation_matrix', 'rationale', 'hybrid_recommendation', 'graded_by',
       ]);
+      expectExecutableProjection(decisionRows, DecisionPayloadSchema.shape);
+      expect(withoutCodeTicks(decisionRows.get('graded_by'))).toContain('"human" | "in-session"');
       expect(withoutCodeTicks(decisionRows.get('recommended_option'))).toContain(
         '"option-a" | "option-b" | "option-c" | "hybrid"',
       );
@@ -8124,13 +8280,12 @@ describe('split and trim references contract (REQ-TEMPLATES-215~220, REQ-AGNT-04
       expect(decisionRows.get('evaluation_matrix')).toMatch(
         /winner.*score_rationale.*no additional/i,
       );
-      expectDocumentedRequiredness(
-        decisionRows,
-        ['recommended_option', 'evaluation_matrix', 'rationale'],
-        ['hybrid_recommendation'],
-      );
+      expect(decisionRows.get('hybrid_recommendation')).toMatch(/\boptional\b/i);
+      for (const field of ['recommended_option', 'evaluation_matrix', 'rationale', 'graded_by']) {
+        expect(decisionRows.get(field), field).toMatch(/\brequired\b/i);
+      }
       expect(sectionOf(content, '### Delegated Return Contract')).toMatch(/return only.*file path/i);
-      expect(sectionOf(content, '## Candidate and Tournament Decision Payload Schema')).toMatch(
+      expect(sectionOf(content, '## Candidate and Decision Payload Schema')).toMatch(
         /no additional top-level fields/i,
       );
     };
@@ -8953,7 +9108,9 @@ describe('one verdict vocabulary, one station route (issue #266 — REQ-TEMPLATE
       name: 'c', status: 'story', scale: 'standard', hasTasks: true, hasDesignSpec: false, uiScope: null,
       codeTasksTotal: 1, codeTasksDone: 0, hasReviewProvenance: false, lastVerifyGrade: null,
       lastPlanVerifierResult: null, lastTasksVerifierResult: null, hasKnowledgeSync: true,
-      verifyBelowBarStreak: 0, planFlawsStreak: 0, tasksFlawsStreak: 0, maxStationRetries: 3, ...over,
+      verifyBelowBarStreak: 0, planFlawsStreak: 0, tasksFlawsStreak: 0, maxStationRetries: 3,
+      // The opt-in pause is a loop-exit, not a routed station: parity is judged without it.
+      pauseAtPlan: false, planSignedOff: false, ...over,
     });
     const routed = (variants: Partial<ChangeRouteFacts>[]): Set<string> =>
       new Set(variants.map((v) => routeChange(facts(v)).next).filter((n): n is SddStation => n !== null));

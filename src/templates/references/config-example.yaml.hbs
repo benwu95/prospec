@@ -88,6 +88,13 @@ workflow:
   # Maximum consecutive failures in a station recovery loop (verify B/C/D, plan FLAWS,
   # tasks FLAWS) before escalating to human with ESCALATE_TO_HUMAN. Defaults to 3.
   max_station_retries: 3
+  # Stations to pause after for a human sign-off — only `plan` exists, and only
+  # scale: full changes pause. `[]` never pauses; use `[plan]` to opt in. The
+  # PROSPEC_PAUSE_AT environment variable overrides this per run: set (even to an
+  # empty string or `none`, both meaning no pause) it decides alone — e.g. cloud or
+  # scheduled agents set it to `none` to stay autonomous (`none` also works on
+  # Windows, whose shells unset an empty variable).
+  pause_at: []
 
 # Language for AI-generated change artifacts (and their archived summaries under
 # specs/_archived-history/). Code, identifiers, technical terms and commit messages

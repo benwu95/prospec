@@ -12,7 +12,7 @@
 | `verify-grade.ts` | The S/A/B/C/D decision table as code, plus `resultForGrade` / `gradeAdvancesStatus`, and the self-verification cap (`isSelfVerified`/`applySelfVerifiedCap`: any judgment dimension graded `in-session` makes S unattainable — capped to A without spending the WARN budget) |
 | `review-circuit-breaker.ts` | `ReviewCircuitBreaker` — `persistent_test_failure` (the CLI-fed streak vs `maxConsecutiveTestFailures`, judged first), oscillation flips, 3-5 round ceiling, fix-induced ratio and cumulative spend budget (dual-axis) |
 | `lessons-ledger.ts` | Ledger upsert + scoring + playbook TTL (per-entry blocks, retirement-marked entries skipped) |
-| `artifact-validators.ts` | Artifact structural verdicts (promote-scaffold covers promotion's own product, `delta-spec.md`, not only the artifacts backfill forbids) |
+| `artifact-validators.ts` | Artifact structural verdicts (promote-scaffold covers promotion's own product, `delta-spec.md`, not only the artifacts backfill forbids); the plan `candidates` verdict — `checkCandidateSet` (schema, file-name and decision ↔ candidate cross-checks; `validate candidates` and `--signoff` share it) plus `validateCandidates` metrics over the injected dependency rules and `moduleAttributor` |
 | `lens-yield.ts` | Calculate confirmed yield per lens, recommend lens retirement (`calculateLensYield`, `recommendLensRetirement`, `buildLensYieldReport`) |
 
 ## Public API

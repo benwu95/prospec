@@ -976,6 +976,151 @@ describe('status.service — latest planning verifier result (REQ-SERVICES-070 /
   });
 });
 
+describe('status.service — opt-in plan sign-off pause (REQ-SERVICES-116)', () => {
+  const PAUSED_CONFIG = 'project:\n  name: test\nagents:\n  - claude\nworkflow:\n  pause_at:\n    - plan\n';
+  const planChange = (log: string) => ({
+    [`${CWD}/.prospec/changes/add-auth/metadata.yaml`]: metadataYaml({
+      name: 'add-auth',
+      status: 'plan',
+      scale: 'full',
+      extra: `quality_log:\n${log}`,
+    }),
+  });
+  const VERIFIER_WARN =
+    '  - skill: prospec-plan\n    date: 2026-01-02\n    result: WARN\n    warnings:\n      - sizing note\n    verifier_verdict: WARN\n';
+  const SIGNOFF =
+    '  - skill: prospec-plan\n    date: 2026-01-03\n    result: PASS\n    warnings: []\n    signoff_option: option-a\n';
+
+  it('fills pauseAtPlan from the config and halts a full plan awaiting sign-off without enrichment', async () => {
+    vol.fromJSON({ [`${CWD}/.prospec.yaml`]: PAUSED_CONFIG, ...planChange(VERIFIER_WARN) });
+    const report = await execute({ cwd: CWD, env: {} });
+    expect(routedFacts[0]?.pauseAtPlan).toBe(true);
+    expect(routedFacts[0]?.planSignedOff).toBe(false);
+    const route = report.changes[0]!;
+    expect(route.code).toBe('AWAITING_HUMAN_PLAN_SIGNOFF');
+    expect(route.next).toBeNull();
+    expect(route.nextSkill).toBeUndefined();
+    expect(route.nextSkillPath).toBeUndefined();
+    expect(route.nextReferenceMap).toBeUndefined();
+  });
+
+  it('lets an empty PROSPEC_PAUSE_AT override the committed pause', async () => {
+    vol.fromJSON({ [`${CWD}/.prospec.yaml`]: PAUSED_CONFIG, ...planChange(VERIFIER_WARN) });
+    const report = await execute({ cwd: CWD, env: { PROSPEC_PAUSE_AT: '' } });
+    expect(routedFacts[0]?.pauseAtPlan).toBe(false);
+    expect(report.changes[0]?.next).toBe('tasks');
+  });
+
+  it('lets PROSPEC_PAUSE_AT=plan pause a project whose config sets none', async () => {
+    vol.fromJSON({ [`${CWD}/.prospec.yaml`]: 'project:\n  name: test\n', ...planChange(VERIFIER_WARN) });
+    const report = await execute({ cwd: CWD, env: { PROSPEC_PAUSE_AT: 'plan' } });
+    expect(report.changes[0]?.code).toBe('AWAITING_HUMAN_PLAN_SIGNOFF');
+  });
+
+  it('releases the pause on a fresh sign-off, and the sign-off never masks the plan WARN', async () => {
+    vol.fromJSON({ [`${CWD}/.prospec.yaml`]: PAUSED_CONFIG, ...planChange(VERIFIER_WARN + SIGNOFF) });
+    const report = await execute({ cwd: CWD, env: {} });
+    expect(routedFacts[0]?.planSignedOff).toBe(true);
+    expect(report.changes[0]?.next).toBe('tasks');
+    expect(routedFacts[0]?.unresolvedWarnings).toEqual([
+      { skill: 'prospec-plan', warning: 'sizing note', date: '2026-01-02' },
+    ]);
+    // the sign-off is neither a verifier result nor a FLAWS-streak reset input
+    expect(routedFacts[0]?.lastPlanVerifierResult).toBe('WARN');
+    expect(routedFacts[0]?.planFlawsStreak).toBe(0);
+  });
+
+  it('pauses again when a newer plan verifier result follows the sign-off', async () => {
+    const REVERIFIED =
+      '  - skill: prospec-plan\n    date: 2026-01-04\n    result: PASS\n    warnings: []\n    verifier_verdict: PASS\n';
+    vol.fromJSON({ [`${CWD}/.prospec.yaml`]: PAUSED_CONFIG, ...planChange(VERIFIER_WARN + SIGNOFF + REVERIFIED) });
+    const report = await execute({ cwd: CWD, env: {} });
+    expect(routedFacts[0]?.planSignedOff).toBe(false);
+    expect(report.changes[0]?.code).toBe('AWAITING_HUMAN_PLAN_SIGNOFF');
+  });
+
+  it('keeps a committed pause when an unrelated config field fails validation', async () => {
+    const invalidElsewhere = `${PAUSED_CONFIG}  max_station_retries: "3"\n`;
+    vol.fromJSON({ [`${CWD}/.prospec.yaml`]: invalidElsewhere, ...planChange(VERIFIER_WARN) });
+    const report = await execute({ cwd: CWD, env: {} });
+    expect(routedFacts[0]?.pauseAtPlan).toBe(true);
+    expect(report.changes[0]?.code).toBe('AWAITING_HUMAN_PLAN_SIGNOFF');
+  });
+
+  it('fails closed when .prospec.yaml is not YAML at all — naming why — unless PROSPEC_PAUSE_AT decides', async () => {
+    // Never opted in: the pause is assumed only because the file cannot prove it off.
+    vol.fromJSON({ [`${CWD}/.prospec.yaml`]: 'project:\n  name: test\nbad: [unclosed\n', ...planChange(VERIFIER_WARN) });
+    const route = (await execute({ cwd: CWD, env: {} })).changes[0]!;
+    expect(route.code).toBe('AWAITING_HUMAN_PLAN_SIGNOFF');
+    expect(route.reasons.join(' ')).toContain('.prospec.yaml is not parseable YAML, so the pause is assumed rather than read');
+    const overridden = (await execute({ cwd: CWD, env: { PROSPEC_PAUSE_AT: 'none' } })).changes[0]!;
+    expect(overridden.next).toBe('tasks');
+    expect(overridden.reasons.join(' ')).not.toContain('pause is assumed');
+    // an override that pauses decided it, so nothing was assumed
+    const envPaused = (await execute({ cwd: CWD, env: { PROSPEC_PAUSE_AT: 'plan' } })).changes[0]!;
+    expect(envPaused.code).toBe('AWAITING_HUMAN_PLAN_SIGNOFF');
+    expect(envPaused.reasons.join(' ')).not.toContain('pause is assumed');
+  });
+
+  it('discloses the assumed pause only on the routes the pause produces', async () => {
+    const unparseable = 'project:\n  name: test\nbad: [unclosed\n';
+    const tasksChange = {
+      [`${CWD}/.prospec/changes/add-auth/metadata.yaml`]: metadataYaml({ name: 'add-auth', status: 'tasks', scale: 'full' }),
+    };
+    vol.fromJSON({ [`${CWD}/.prospec.yaml`]: unparseable, ...tasksChange });
+    expect((await execute({ cwd: CWD, env: {} })).changes[0]?.reasons.join(' ')).not.toContain('pause is assumed');
+    vol.reset();
+    vol.fromJSON({
+      [`${CWD}/.prospec.yaml`]: unparseable,
+      [`${CWD}/.prospec/changes/add-auth/metadata.yaml`]: metadataYaml({ name: 'add-auth', status: 'plan', scale: 'full' }),
+    });
+    const pending = (await execute({ cwd: CWD, env: {} })).changes[0]!;
+    expect(pending.code).toBe('PLAN_VERIFIER_PENDING');
+    expect(pending.reasons.join(' ')).toContain('pause is assumed rather than read');
+  });
+
+  it('fails closed, naming the error, when .prospec.yaml exists but cannot be read', async () => {
+    vol.fromJSON(planChange(VERIFIER_WARN));
+    vol.mkdirSync(`${CWD}/.prospec.yaml`);
+    const route = (await execute({ cwd: CWD, env: {} })).changes[0]!;
+    expect(route.code).toBe('AWAITING_HUMAN_PLAN_SIGNOFF');
+    expect(route.reasons.join(' ')).toContain('.prospec.yaml cannot be read (EISDIR)');
+  });
+
+  it('reads an absent .prospec.yaml as no pause, and discloses nothing on a readable one', async () => {
+    vol.fromJSON(planChange(VERIFIER_WARN));
+    expect((await execute({ cwd: CWD, env: {} })).changes[0]?.next).toBe('tasks');
+    vol.reset();
+    vol.fromJSON({ [`${CWD}/.prospec.yaml`]: PAUSED_CONFIG, ...planChange(VERIFIER_WARN) });
+    expect((await execute({ cwd: CWD, env: {} })).changes[0]?.reasons.join(' ')).not.toContain('pause is assumed');
+  });
+
+  it('rejects an invalid pause setting before any route — with a change in flight', async () => {
+    vol.fromJSON({ [`${CWD}/.prospec.yaml`]: PAUSED_CONFIG, ...planChange(VERIFIER_WARN) });
+    await expect(execute({ cwd: CWD, env: { PROSPEC_PAUSE_AT: 'bogus' } })).rejects.toMatchObject({ code: 'PAUSE_AT_INVALID' });
+    expect(routedFacts).toEqual([]);
+  });
+
+  it('rejects an invalid pause setting in the clean state too, including a mistyped config shape', async () => {
+    vol.fromJSON({ [`${CWD}/.prospec.yaml`]: 'project:\n  name: test\nworkflow:\n  pause_at: plan\n' });
+    await expect(execute({ cwd: CWD, env: {} })).rejects.toMatchObject({ code: 'PAUSE_AT_INVALID' });
+  });
+
+  it('defaults to process.env when no env is injected', async () => {
+    vi.stubEnv('PROSPEC_PAUSE_AT', 'plan');
+    vol.fromJSON({ [`${CWD}/.prospec.yaml`]: 'project:\n  name: test\n', ...planChange(VERIFIER_WARN) });
+    const report = await execute({ cwd: CWD });
+    expect(report.changes[0]?.code).toBe('AWAITING_HUMAN_PLAN_SIGNOFF');
+  });
+
+  it('leaves the filesystem byte-identical while paused', async () => {
+    vol.fromJSON({ [`${CWD}/.prospec.yaml`]: PAUSED_CONFIG, ...planChange(VERIFIER_WARN) });
+    const before = vol.toJSON();
+    await execute({ cwd: CWD, env: {} });
+    expect(vol.toJSON()).toEqual(before);
+  });
+});
+
 describe('verifyBelowBarStreak (REQ-SERVICES-070, REQ-TESTS-122)', () => {
   it('returns 0 when quality_log is undefined or empty', () => {
     expect(verifyBelowBarStreak(undefined)).toBe(0);

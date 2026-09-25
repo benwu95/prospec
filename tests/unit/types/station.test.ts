@@ -23,6 +23,9 @@ import {
   JudgmentItemSchema,
   ScenarioFindingSchema,
   VerificationContextSchema,
+  CandidatePayloadSchema,
+  DecisionPayloadSchema,
+  DECISION_GRADED_BY,
 } from '../../../src/types/station.js';
 
 describe('ReviewFindingSchema', () => {
@@ -362,6 +365,7 @@ describe('VALIDATE_KINDS', () => {
       'promote-scaffold',
       'design-spec',
       'module-readme',
+      'candidates',
     ]);
   });
 });
@@ -660,3 +664,60 @@ describe('Per-requirement judgment and context contracts (REQ-TYPES-104)', () =>
     });
   });
 });
+
+describe('candidate and decision payload contracts (REQ-TYPES-107)', () => {
+  const candidate = {
+    id: 'option-a',
+    title: 'Minimal',
+    overview: 'Reuse the existing sink',
+    trade_offs: { pros: ['small'], cons: [], blast_radius: 'two modules' },
+  };
+  const decision = {
+    recommended_option: 'option-a',
+    evaluation_matrix: [
+      { dimension: 'blast_radius_complexity', winner: 'option-a', score_rationale: 'fewer modules' },
+      { dimension: 'constitution_layering', winner: 'tie', score_rationale: 'no violations' },
+      { dimension: 'extensibility_simplicity', winner: 'option-a', score_rationale: 'simpler' },
+    ],
+    rationale: 'in-session comparison',
+    graded_by: 'in-session',
+  };
+
+  it('accepts a minimal candidate and the optional metric inputs', () => {
+    expect(CandidatePayloadSchema.safeParse(candidate).success).toBe(true);
+    expect(
+      CandidatePayloadSchema.safeParse({ ...candidate, call_chain: ['a → b'], estimated_lines: 10, touched_modules: ['lib'] }).success,
+    ).toBe(true);
+  });
+
+  it('is closed — an unknown top-level or trade_offs key is refused', () => {
+    expect(CandidatePayloadSchema.safeParse({ ...candidate, extra: 1 }).success).toBe(false);
+    expect(
+      CandidatePayloadSchema.safeParse({ ...candidate, trade_offs: { ...candidate.trade_offs, risk: 'x' } }).success,
+    ).toBe(false);
+    expect(CandidatePayloadSchema.safeParse({ ...candidate, id: 'option-d' }).success).toBe(false);
+  });
+
+  it('requires graded_by on a decision, with its own vocabulary', () => {
+    expect(DECISION_GRADED_BY).toEqual(['human', 'in-session']);
+    expect(DecisionPayloadSchema.safeParse(decision).success).toBe(true);
+    const legacy: Record<string, unknown> = { ...decision };
+    delete legacy.graded_by;
+    expect(DecisionPayloadSchema.safeParse(legacy).success).toBe(false);
+    expect(DecisionPayloadSchema.safeParse({ ...decision, graded_by: 'fresh-subagent' }).success).toBe(false);
+  });
+
+  it('requires each evaluation dimension exactly once', () => {
+    const duplicated = {
+      ...decision,
+      evaluation_matrix: [decision.evaluation_matrix[0], decision.evaluation_matrix[0], decision.evaluation_matrix[2]],
+    };
+    expect(DecisionPayloadSchema.safeParse(duplicated).success).toBe(false);
+    expect(DecisionPayloadSchema.safeParse({ ...decision, evaluation_matrix: decision.evaluation_matrix.slice(0, 2) }).success).toBe(false);
+  });
+
+  it('lists candidates as a validate kind', () => {
+    expect(VALIDATE_KINDS).toContain('candidates');
+  });
+});
+

@@ -9,6 +9,7 @@ export default defineConfig({
     // Actions sets CI, which makes picocolors emit ANSI even without a TTY,
     // breaking plain-text substring/regex checks that pass locally.
     env: { NO_COLOR: '1' },
+    setupFiles: ['tests/setup-env.ts'],
     coverage: {
       provider: 'v8',
       include: ['src/**/*.ts', 'scripts/workflow-eval/**/*.ts', 'scripts/evaluate-workflow.ts'],

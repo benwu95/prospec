@@ -4,6 +4,8 @@ import {
   SDD_STATIONS,
   STATION_SKILLS,
   WORKFLOW_REASON_CODES,
+  isHumanHaltCode,
+  PLAN_SIGNOFF_REMEDIES,
   type ChangeRouteFacts,
 } from '../../../src/types/status.js';
 import { CHANGE_SCALES, CHANGE_STATUSES } from '../../../src/types/change.js';
@@ -34,6 +36,8 @@ function facts(overrides: Partial<ChangeRouteFacts> = {}): ChangeRouteFacts {
     planFlawsStreak: 0,
     tasksFlawsStreak: 0,
     maxStationRetries: 3,
+    pauseAtPlan: false,
+    planSignedOff: false,
     ...overrides,
   };
 }
@@ -492,6 +496,73 @@ describe('status-router — escalation bounds on consecutive failures (REQ-LIB-0
 });
 
 
+describe('status-router — opt-in plan sign-off pause (REQ-LIB-087)', () => {
+  const atPlan = (overrides: Partial<ChangeRouteFacts> = {}) =>
+    facts({ status: 'plan', scale: 'full', pauseAtPlan: true, lastPlanVerifierResult: 'PASS', ...overrides });
+
+  it('pause + full + verifier PASS/WARN + no sign-off → HALT for the human (next null)', () => {
+    for (const verdict of ['PASS', 'WARN'] as const) {
+      const route = routeChange(atPlan({ lastPlanVerifierResult: verdict }));
+      expect(route.next).toBeNull();
+      expect(route.code).toBe('AWAITING_HUMAN_PLAN_SIGNOFF');
+      expect(route.current).toBe('plan');
+      expect(route.blockingGates.join(' ')).toContain('--signoff <option>');
+      expect(route.reasons.join(' ')).toMatch(/only on the human's instruction — skip the pause for one run with PROSPEC_PAUSE_AT set to none or empty/);
+      // the router and the --signoff refusal share one remedy text
+      expect(route.reasons.join(' ')).toContain(PLAN_SIGNOFF_REMEDIES);
+    }
+  });
+
+  it('no pause + full → tasks, exactly as before', () => {
+    const route = routeChange(atPlan({ pauseAtPlan: false }));
+    expect(route.next).toBe('tasks');
+    expect(route.code).toBe('LIFECYCLE_NEXT');
+    expect(route.reasons).toEqual(['status `plan` — next station per lifecycle order']);
+  });
+
+  it('pause + a non-full scale → routing unchanged', () => {
+    for (const scale of ['standard', 'quick', 'backfill'] as const) {
+      const paused = routeChange(atPlan({ scale }));
+      const unpaused = routeChange(atPlan({ scale, pauseAtPlan: false }));
+      expect(paused, scale).toEqual(unpaused);
+      expect(paused.code, scale).not.toBe('AWAITING_HUMAN_PLAN_SIGNOFF');
+    }
+  });
+
+  it('a fresh sign-off releases the pause to tasks', () => {
+    const route = routeChange(atPlan({ planSignedOff: true }));
+    expect(route.next).toBe('tasks');
+    expect(route.code).toBe('LIFECYCLE_NEXT');
+    expect(route.reasons.join(' ')).toContain('plan sign-off recorded');
+  });
+
+  it('pause + no verifier result → back to plan with PLAN_VERIFIER_PENDING, not a human halt', () => {
+    const route = routeChange(atPlan({ lastPlanVerifierResult: null }));
+    expect(route.next).toBe('plan');
+    expect(route.code).toBe('PLAN_VERIFIER_PENDING');
+    expect(route.blockingGates.join(' ')).toContain('--verifier-report');
+  });
+
+  it('a verifier FAIL outranks the pause, and escalation outranks the route-back', () => {
+    expect(routeChange(atPlan({ lastPlanVerifierResult: 'FAIL', planFlawsStreak: 1 })).code).toBe('PLAN_VERIFIER_FAILED');
+    expect(routeChange(atPlan({ lastPlanVerifierResult: 'FAIL', planFlawsStreak: 3 })).code).toBe('ESCALATE_TO_HUMAN');
+  });
+
+  it('the pause precedes design; after the sign-off design inserts as before', () => {
+    expect(routeChange(atPlan({ uiScope: 'full' })).code).toBe('AWAITING_HUMAN_PLAN_SIGNOFF');
+    const signed = routeChange(atPlan({ uiScope: 'full', planSignedOff: true }));
+    expect(signed.next).toBe('design');
+    expect(signed.code).toBe('DESIGN_REQUIRED');
+  });
+
+  it('never applies outside status plan', () => {
+    for (const status of ['story', 'tasks', 'implemented', 'verified'] as const) {
+      const paused = routeChange(atPlan({ status }));
+      expect(paused, status).toEqual(routeChange(atPlan({ status, pauseAtPlan: false })));
+    }
+  });
+});
+
 describe('status-router — backfill entry (never a skipped station)', () => {
   it('backfill at implemented is a legal entry, not a skip', () => {
     const route = routeChange(facts({ status: 'implemented', scale: 'backfill' }));
@@ -584,6 +655,37 @@ describe('status-router — full status × scale matrix stays lifecycle-consiste
       });
     }
   }
+
+  // REQ-TYPES-106: a non-archived route that names no station always names a human
+  // halt, so `status` and the cascade can never read a change awaiting a human as
+  // terminal. Crossed with every fact that can empty `next`.
+  it('routes every non-archived null next to a HUMAN_HALT_CODES code', () => {
+    const halts = new Set<string>();
+    for (const status of CHANGE_STATUSES) {
+      if (status === 'archived') continue;
+      for (const scale of CHANGE_SCALES) {
+        for (const pauseAtPlan of [false, true]) {
+          for (const planSignedOff of [false, true]) {
+            for (const lastPlanVerifierResult of [null, 'PASS', 'WARN', 'FAIL'] as const) {
+              for (const streak of [0, 3]) {
+                const route = routeChange(facts({
+                  status, scale, pauseAtPlan, planSignedOff, lastPlanVerifierResult,
+                  lastTasksVerifierResult: lastPlanVerifierResult,
+                  planFlawsStreak: streak, tasksFlawsStreak: streak, verifyBelowBarStreak: streak,
+                  lastVerifyGrade: streak > 0 ? 'C' : null, maxStationRetries: 3,
+                }));
+                if (route.next !== null) continue;
+                halts.add(route.code);
+                expect(isHumanHaltCode(route.code), `${status} × ${scale} → ${route.code}`).toBe(true);
+              }
+            }
+          }
+        }
+      }
+    }
+    // both halts are reached, so the invariant is not vacuously true
+    expect([...halts].sort()).toEqual(['AWAITING_HUMAN_PLAN_SIGNOFF', 'ESCALATE_TO_HUMAN']);
+  });
 
   for (const scale of CHANGE_SCALES) {
     it(`verified × ${scale} routes to knowledge-update when hasKnowledgeSync is false`, () => {

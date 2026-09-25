@@ -398,3 +398,51 @@ describe('status-output — identity-first action and fallback', () => {
     expect(text).toContain('[REVIEW_PENDING]');
   });
 });
+
+describe('status-output — human halt routes (REQ-CLI-056, REQ-CLI-039)', () => {
+  const route = (code: 'AWAITING_HUMAN_PLAN_SIGNOFF' | 'ESCALATE_TO_HUMAN' | 'PLAN_VERIFIER_PENDING', next: 'plan' | null) =>
+    ({
+      clean: false,
+      changes: [
+        {
+          name: 'pick-arch',
+          status: 'plan',
+          scale: 'full',
+          current: 'plan',
+          next,
+          code,
+          blockingGates: ['gate text'],
+          reasons: ['reason text'],
+          ...(next === null ? {} : { nextSkill: 'prospec-plan' }),
+        },
+      ],
+      errors: [],
+    }) as StatusReport;
+
+  it('prints the plan sign-off HALT with the --signoff command and no station action', () => {
+    formatStatusOutput(route('AWAITING_HUMAN_PLAN_SIGNOFF', null), 'normal');
+    const text = output();
+    expect(text).toContain('HALT (awaiting human plan sign-off)');
+    expect(text).toContain('prospec change log --skill prospec-plan --signoff <option>');
+    expect(text).not.toContain('invoke skill');
+    expect(text).not.toContain('escalated to human');
+    expect(text).not.toContain('terminal');
+    expect(text).toContain('[AWAITING_HUMAN_PLAN_SIGNOFF]');
+  });
+
+  it('keeps the escalation HALT distinct', () => {
+    formatStatusOutput(route('ESCALATE_TO_HUMAN', null), 'normal');
+    const text = output();
+    expect(text).toContain('HALT (escalated to human)');
+    expect(text).not.toContain('awaiting human plan sign-off');
+  });
+
+  it('prints PLAN_VERIFIER_PENDING as an ordinary route back to plan', () => {
+    formatStatusOutput(route('PLAN_VERIFIER_PENDING', 'plan'), 'normal');
+    const text = output();
+    expect(text).toContain('invoke skill prospec-plan');
+    expect(text).not.toContain('HALT');
+    expect(text).toContain('[PLAN_VERIFIER_PENDING]');
+  });
+});
+

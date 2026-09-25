@@ -122,6 +122,29 @@ describe('change-log service — planning verifier report (REQ-SERVICES-109)', (
     expect(written).toContain('verifier_verdict: PASS');
   });
 
+  it('stamps the plan verifier entry with the decision.json recommendation it audited, and only a valid one', async () => {
+    const decision = {
+      recommended_option: 'option-b',
+      evaluation_matrix: ['blast_radius_complexity', 'constitution_layering', 'extensibility_simplicity'].map((dimension) => ({ dimension, winner: 'tie', score_rationale: 'x' })),
+      rationale: 'x',
+      graded_by: 'in-session',
+    };
+    const decisionPath = '/repo/.prospec/changes/add-widget/candidates/decision.json';
+    const seedDecision = (value: unknown) => {
+      vol.mkdirSync('/repo/.prospec/changes/add-widget/candidates', { recursive: true });
+      vol.writeFileSync(decisionPath, JSON.stringify(value));
+    };
+    seedReport(payload());
+    seedDecision(decision);
+    expect((await record()).entry.audited_option).toBe('option-b');
+    expect(vol.readFileSync(PATH, 'utf-8')).toContain('audited_option: option-b');
+
+    seedReport(payload());
+    seedDecision({ ...decision, graded_by: undefined });
+    expect((await record()).entry.audited_option).toBeUndefined();
+    await expect(execute({ cwd: CWD, entry: { skill: 'prospec-plan', result: 'PASS', warnings: [], audited_option: 'option-a' } })).rejects.toThrow(/may not carry verifier_verdict or audited_option/);
+  });
+
   it('maps FLAWS to FAIL and folds the payload warnings plus each non-PASS dimension rationale into warnings', async () => {
     seedReport(payload({ verdict: 'FLAWS', dimensions: { ...dims(), reuse: { result: 'FLAWS', rationale: 'owner bypassed' } }, warnings: ['tighten step 3'] }));
     const result = await record();
@@ -169,7 +192,7 @@ describe('change-log service — planning verifier report (REQ-SERVICES-109)', (
     seedReport(payload());
     await expect(
       execute({ cwd: CWD, entry: { skill: 'prospec-plan', result: 'PASS', warnings: [] }, verifierReport: { skill: 'prospec-plan', path: REPORT } }),
-    ).rejects.toThrow(/Both a composed entry and a verifier report/);
+    ).rejects.toThrow(/More than one verdict source/);
     await expect(execute({ cwd: CWD })).rejects.toThrow(/Nothing to record/);
     unchanged();
   });
@@ -342,3 +365,155 @@ describe('change-log service — review round counts audit (REQ-SERVICES-112, RE
     ]);
   });
 });
+
+describe('change-log service — plan sign-off (REQ-SERVICES-117)', () => {
+  const DIR = '/repo/.prospec/changes/add-widget';
+  const PLAN_METADATA = `name: add-widget
+created_at: 2026-07-13T09:51:00.000Z
+status: plan
+scale: full
+quality_log:
+  - skill: prospec-plan
+    date: 2026-09-24
+    result: WARN
+    warnings:
+      - sizing note
+    verifier_verdict: WARN
+    audited_option: option-a
+`;
+  const candidate = (id: string) =>
+    JSON.stringify({ id, title: id, overview: 'o', trade_offs: { pros: [], cons: [], blast_radius: 'b' } });
+  const decision = (overrides: Record<string, unknown> = {}) =>
+    `${JSON.stringify(
+      {
+        recommended_option: 'option-a',
+        evaluation_matrix: [
+          { dimension: 'blast_radius_complexity', winner: 'option-a', score_rationale: 'x' },
+          { dimension: 'constitution_layering', winner: 'tie', score_rationale: 'x' },
+          { dimension: 'extensibility_simplicity', winner: 'option-a', score_rationale: 'x' },
+        ],
+        rationale: 'in-session',
+        graded_by: 'in-session',
+        ...overrides,
+      },
+      null,
+      2,
+    )}\n`;
+  function seedPlan(files: Record<string, string | null> = {}): void {
+    const tree: Record<string, string> = {
+      [PATH]: PLAN_METADATA,
+      [`${DIR}/candidates/option-a.json`]: candidate('option-a'),
+      [`${DIR}/candidates/option-b.json`]: candidate('option-b'),
+      [`${DIR}/candidates/decision.json`]: decision(),
+    };
+    for (const [file, content] of Object.entries(files)) {
+      if (content === null) delete tree[file];
+      else tree[file] = content;
+    }
+    vol.fromJSON(tree);
+  }
+  const snapshot = () => vol.toJSON();
+
+  it('records the sign-off: decision.json graded_by → human, then a stamped PASS entry', async () => {
+    seedPlan();
+    const result = await execute({
+      cwd: CWD,
+      signoff: { skill: 'prospec-plan', option: 'option-a', notes: ['looks right'], date: '2026-09-25' },
+    });
+    expect(result.entry).toEqual({
+      skill: 'prospec-plan',
+      date: '2026-09-25',
+      result: 'PASS',
+      warnings: ['looks right'],
+      signoff_option: 'option-a',
+    });
+    const written = JSON.parse(vol.readFileSync(`${DIR}/candidates/decision.json`, 'utf-8') as string);
+    expect(written.graded_by).toBe('human');
+    expect(written.recommended_option).toBe('option-a');
+    expect(vol.readFileSync(PATH, 'utf-8')).toContain('signoff_option: option-a');
+  });
+
+  it('is idempotent to re-run after a partial failure left decision.json already human', async () => {
+    seedPlan({ [`${DIR}/candidates/decision.json`]: decision({ graded_by: 'human' }) });
+    await execute({ cwd: CWD, signoff: { skill: 'prospec-plan', option: 'option-a' } });
+    expect(vol.readFileSync(PATH, 'utf-8')).toContain('signoff_option: option-a');
+  });
+
+  it('accepts hybrid without a candidate file when the decision recommends hybrid', async () => {
+    seedPlan({
+      [PATH]: PLAN_METADATA.replace('audited_option: option-a', 'audited_option: hybrid'),
+      [`${DIR}/candidates/decision.json`]: decision({ recommended_option: 'hybrid', hybrid_recommendation: 'a + b' }),
+    });
+    const result = await execute({ cwd: CWD, signoff: { skill: 'prospec-plan', option: 'hybrid' } });
+    expect(result.entry.signoff_option).toBe('hybrid');
+  });
+
+  const refusals: Array<[string, () => void, { skill?: string; option?: string }, RegExp]> = [
+    ['a non-plan skill', () => seedPlan(), { skill: 'prospec-tasks' }, /not defined for skill/],
+    ['an unknown option', () => seedPlan(), { option: 'option-z' }, /not one of/],
+    ['no plan verifier result', () => seedPlan({ [PATH]: PLAN_METADATA.replace(/quality_log:[\s\S]*/, '') }), {}, /No plan verifier result/],
+    ['a latest verifier FAIL', () => seedPlan({ [PATH]: PLAN_METADATA.replace('result: WARN', 'result: FAIL').replace('verifier_verdict: WARN', 'verifier_verdict: FLAWS') }), {}, /is FAIL/],
+    ['a missing candidate file', () => seedPlan({ [`${DIR}/candidates/option-a.json`]: null }), {}, /recommended_option 'option-a' is not a valid candidate/],
+    ['a candidate file carrying another id', () => seedPlan({ [`${DIR}/candidates/option-a.json`]: candidate('option-b') }), {}, /option-a\.json: file name does not match its id/],
+    ['a matrix winner naming no valid candidate', () => seedPlan({ [`${DIR}/candidates/option-b.json`]: null, [`${DIR}/candidates/decision.json`]: decision({ evaluation_matrix: [
+      { dimension: 'blast_radius_complexity', winner: 'option-b', score_rationale: 'x' },
+      { dimension: 'constitution_layering', winner: 'tie', score_rationale: 'x' },
+      { dimension: 'extensibility_simplicity', winner: 'option-a', score_rationale: 'x' },
+    ] }) }), {}, /blast_radius_complexity winner 'option-b' is not a valid candidate/],
+    ['a hybrid recommendation without its text', () => seedPlan({ [`${DIR}/candidates/decision.json`]: decision({ recommended_option: 'hybrid' }) }), { option: 'hybrid' }, /hybrid needs a hybrid_recommendation/],
+    ['a hybrid recommendation over one valid candidate', () => seedPlan({ [`${DIR}/candidates/option-b.json`]: null, [`${DIR}/candidates/decision.json`]: decision({ recommended_option: 'hybrid', hybrid_recommendation: 'a + b' }) }), { option: 'hybrid' }, /hybrid needs at least two valid candidates/],
+    ['a missing decision.json', () => seedPlan({ [`${DIR}/candidates/decision.json`]: null }), {}, /decision\.json is missing/],
+    ['a legacy decision.json without graded_by', () => seedPlan({ [`${DIR}/candidates/decision.json`]: decision({ graded_by: undefined }) }), {}, /failed validation/],
+    ['an option other than the recommendation', () => seedPlan(), { option: 'option-b' }, /differs from decision\.json recommended_option/],
+    ['a decision rewritten after the verifier audited another option', () => seedPlan({ [`${DIR}/candidates/decision.json`]: decision({ recommended_option: 'option-b' }) }), { option: 'option-b' }, /the latest plan verifier report audited option-a/],
+    ['a recommendation changed after the audit behind a Break-Glass WARN', () => seedPlan({
+      [PATH]: `${PLAN_METADATA}  - skill: prospec-plan\n    date: 2026-09-24\n    result: WARN\n    warnings:\n      - "Manual override: accept"\n`,
+      [`${DIR}/candidates/decision.json`]: decision({ recommended_option: 'option-b' }),
+    }), { option: 'option-b' }, /the latest plan verifier report audited option-a/],
+    ['a Break-Glass override with no verifier report at all', () => seedPlan({
+      [PATH]: PLAN_METADATA.replace(/ {2}- skill: prospec-plan[\s\S]*/, '  - skill: prospec-plan\n    date: 2026-09-24\n    result: WARN\n    warnings:\n      - "Manual override: verifier unavailable"\n'),
+    }), {}, /No plan verifier report is recorded \(only a Break-Glass override\)/],
+    ['a verifier entry recorded before decision.json existed', () => seedPlan({ [PATH]: PLAN_METADATA.replace('    audited_option: option-a\n', '') }), {}, /stamps no audited recommendation/],
+  ];
+
+  it.each(refusals)('refuses %s and writes nothing', async (_label, arrange, overrides, message) => {
+    arrange();
+    const before = snapshot();
+    await expect(
+      execute({ cwd: CWD, signoff: { skill: overrides.skill ?? 'prospec-plan', option: overrides.option ?? 'option-a' } }),
+    ).rejects.toThrow(message);
+    expect(snapshot()).toEqual(before);
+  });
+
+  it('names the remedies when the decision cannot be signed', async () => {
+    seedPlan({ [`${DIR}/candidates/decision.json`]: null });
+    await expect(execute({ cwd: CWD, signoff: { skill: 'prospec-plan', option: 'option-a' } })).rejects.toMatchObject({
+      suggestion: expect.stringMatching(/record the plan verifier report after candidates\/decision\.json is written.*add `graded_by` to a legacy decision\.json and re-record the plan verifier.*PROSPEC_PAUSE_AT/),
+    });
+  });
+
+  it('names the re-selection path when the option differs from the recommendation', async () => {
+    seedPlan();
+    await expect(execute({ cwd: CWD, signoff: { skill: 'prospec-plan', option: 'option-b' } })).rejects.toMatchObject({
+      suggestion: expect.stringMatching(/revise plan\.md.*re-record the plan verifier/),
+    });
+  });
+
+  it('refuses a composed entry forging signoff_option', async () => {
+    seedPlan();
+    const before = snapshot();
+    await expect(
+      execute({ cwd: CWD, entry: { skill: 'prospec-plan', result: 'PASS', warnings: [], signoff_option: 'option-a' } }),
+    ).rejects.toThrow(/may not carry signoff_option/);
+    expect(snapshot()).toEqual(before);
+  });
+
+  it('refuses two verdict sources, and names all three forms when none is given', async () => {
+    seedPlan();
+    await expect(
+      execute({ cwd: CWD, entry: { skill: 'prospec-plan', result: 'PASS', warnings: [] }, signoff: { skill: 'prospec-plan', option: 'option-a' } }),
+    ).rejects.toThrow(PrerequisiteError);
+    await expect(execute({ cwd: CWD })).rejects.toThrow(/--result, --verifier-report or --signoff/);
+  });
+});
+

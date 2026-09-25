@@ -1,15 +1,25 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
-import { isReviewRoundCountsEntry, normalizeIssueRef, readChangeMetadata } from '../lib/change-metadata.js';
-import { readConfig, resolveBasePaths, resolveMaxStationRetries } from '../lib/config.js';
-import type { ProspecConfig } from '../types/config.js';
+import {
+  hasPlanSignoffAfterVerifier,
+  isPlanSignoffEntry,
+  isReviewRoundCountsEntry,
+  latestVerifierResult,
+  normalizeIssueRef,
+  readChangeMetadata,
+  verifierGateResultOf,
+} from '../lib/change-metadata.js';
+import {
+  readConfig,
+  readPauseAtFallback,
+  resolveBasePaths,
+  resolveMaxStationRetries,
+  resolvePauseAt,
+} from '../lib/config.js';
+import { PAUSE_AT_ENV_VAR, type ProspecConfig } from '../types/config.js';
 import { isDraftableFinding } from '../lib/draftable-findings.js';
 import { assessCurrentDrift } from '../lib/drift-assessment.js';
-import { EVIDENCE_SCOPE, FINGERPRINT_VERSION, PLANNING_VERDICTS } from '../types/change.js';
-import { planningVerdictToGateResult } from '../types/station.js';
-import { z } from 'zod';
-
-const PlanningVerdictSchema = z.enum(PLANNING_VERDICTS);
+import { EVIDENCE_SCOPE, FINGERPRINT_VERSION } from '../types/change.js';
 import { readFileIfExists } from '../lib/fs-utils.js';
 import { checkKnowledgeSync } from '../lib/knowledge-sync.js';
 import {
@@ -20,9 +30,8 @@ import {
 } from '../lib/status-router.js';
 import { projectStatusReferenceMap } from '../lib/skill-reference-map.js';
 import { parseTaskLine } from '../lib/task-markers.js';
-import type { GateResult, VerifyGrade } from '../types/change.js';
+import type { VerifyGrade } from '../types/change.js';
 import {
-  BREAK_GLASS_PREFIX,
   type ChangeRoute,
   type ChangeRouteError,
   type ChangeRouteFacts,
@@ -52,6 +61,8 @@ import { DRIFT_REPORT_FILENAME, DriftReportSchema } from '../types/drift-report.
 
 export interface StatusOptions {
   cwd?: string;
+  /** Environment the pause override is read from (default `process.env`). */
+  env?: Readonly<Record<string, string | undefined>>;
 }
 
 export async function execute(options: StatusOptions = {}): Promise<StatusReport> {
@@ -66,6 +77,14 @@ export async function execute(options: StatusOptions = {}): Promise<StatusReport
   // collectFacts — knowledge-sync would otherwise re-read it per verified change.
   // The router stays I/O-free.
   const config = await readConfig(cwd).catch(() => null);
+  // Resolved once, outside the per-change try/catch: an invalid pause setting must
+  // fail the whole command (clean state included) rather than route anything.
+  const env = options.env ?? process.env;
+  const fallback = config === null ? await readPauseAtFallback(cwd) : null;
+  const pauseAtPlan = resolvePauseAt(config ?? fallback?.setting, env).includes('plan');
+  // Only disclosed when the assumption is what paused: an env override decides alone.
+  const pauseAssumedBecause =
+    pauseAtPlan && env[PAUSE_AT_ENV_VAR] === undefined ? (fallback?.assumedBecause ?? null) : null;
   const agentNames = config?.agents ?? [];
   // Resolves the project-file load points a station declares (the implement
   // station's conventions); null leaves them out rather than printing a token.
@@ -90,13 +109,21 @@ export async function execute(options: StatusOptions = {}): Promise<StatusReport
       try {
         const { metadata } = readChangeMetadata(metadataPath, name);
         if (metadata.status === 'archived') continue;
-        const facts = await collectFacts(changeDir, name, metadata, cwd, config);
+        const facts = await collectFacts(changeDir, name, metadata, cwd, config, pauseAtPlan);
         const route = routeChange(facts);
+        if (
+          pauseAssumedBecause !== null &&
+          (route.code === 'AWAITING_HUMAN_PLAN_SIGNOFF' || route.code === 'PLAN_VERIFIER_PENDING')
+        ) {
+          route.reasons.push(
+            `.prospec.yaml ${pauseAssumedBecause}, so the pause is assumed rather than read — fix the file (the pause then follows workflow.pause_at)`,
+          );
+        }
         // Identity first, and independent of the agent configuration: it is what a
         // host's own skill mechanism loads, so an unreadable or empty config costs
         // the fallback path below, never the station the agent is being sent to.
         // Enrichment runs only when the route resolves a next station (next !== null).
-        // A null next — terminal archived or an ESCALATE_TO_HUMAN escalation — fabricates
+        // A null next — terminal archived or a HUMAN_HALT_CODES halt — fabricates
         // no nextSkill, skill path, or reference map (REQ-SERVICES-092).
         if (route.next !== null) {
           const skill = resolveNextSkill(route.next);
@@ -197,6 +224,7 @@ async function collectFacts(
   metadata: ReturnType<typeof readChangeMetadata>['metadata'],
   cwd: string,
   config: ProspecConfig | null,
+  pauseAtPlan: boolean,
 ): Promise<ChangeRouteFacts> {
   const issue = normalizeIssueRef(metadata.issue);
   const tasksText = await readFileIfExists(path.join(changeDir, 'tasks.md'));
@@ -217,11 +245,13 @@ async function collectFacts(
     hasReviewProvenance: metadata.review_provenance !== undefined,
     lastVerifyGrade: lastVerifyGrade(metadata.quality_log),
     verifyBelowBarStreak: verifyBelowBarStreak(metadata.quality_log),
-    lastPlanVerifierResult: latestGateResult(metadata.quality_log, 'prospec-plan'),
+    lastPlanVerifierResult: latestVerifierResult(metadata.quality_log, 'prospec-plan'),
     planFlawsStreak: planningFlawsStreak(metadata.quality_log, 'prospec-plan'),
-    lastTasksVerifierResult: latestGateResult(metadata.quality_log, 'prospec-tasks'),
+    lastTasksVerifierResult: latestVerifierResult(metadata.quality_log, 'prospec-tasks'),
     tasksFlawsStreak: planningFlawsStreak(metadata.quality_log, 'prospec-tasks'),
     maxStationRetries: resolveMaxStationRetries(config),
+    pauseAtPlan,
+    planSignedOff: hasPlanSignoffAfterVerifier(metadata.quality_log),
     unresolvedWarnings: unresolvedWarnings(metadata.quality_log),
     hasKnowledgeSync:
       metadata.status === 'verified'
@@ -239,7 +269,7 @@ async function collectFacts(
  */
 function unresolvedWarnings(
   qualityLog:
-    | Array<{ skill: string; date: string; result: string; warnings?: string[]; round?: number }>
+    | Array<{ skill: string; date: string; result: string; warnings?: string[]; round?: number; signoff_option?: string }>
     | undefined,
 ): UnresolvedWarning[] {
   if (qualityLog === undefined) return [];
@@ -249,6 +279,9 @@ function unresolvedWarnings(
     // carries `warnings: []`, so letting it win last-per-skill would mask the round-less
     // close entry's WARN. Exclude it, mirroring the round-advance filter.
     if (isReviewRoundCountsEntry(entry)) continue;
+    // A plan sign-off is provenance, not a gate result: it must not supersede the
+    // plan verifier's WARN the human signed off over.
+    if (isPlanSignoffEntry(entry)) continue;
     latest.set(entry.skill, entry);
   }
   const out: UnresolvedWarning[] = [];
@@ -278,42 +311,6 @@ function parseUiScope(proposalText: string): UiScope | null {
   // partial | none` must not parse as a chosen `full`.
   const value = /^\*\*Scope:\*\*\s*(full|partial|none)\s*$/im.exec(body)?.[1];
   return value === undefined ? null : (value.toLowerCase() as UiScope);
-}
-
-/**
- * A station's latest recorded verifier result. Scanned from the latest entry
- * backwards, and keyed on PROVENANCE, not on `result`: only an entry the sink
- * (`change log --verifier-report`) stamped with `verifier_verdict` is the
- * verifier's word (`FLAWS` → FAIL, else PASS/WARN — a verifier WARN supersedes an
- * earlier FLAWS exactly as the rubric promises), plus a Break-Glass `WARN` whose
- * warning opens with `BREAK_GLASS_PREFIX`. Every other entry under the skill —
- * the station's own Exit Gate or Knowledge Gate note, PASS/WARN/FAIL alike — is
- * neither a verifier result nor able to hide one, so it is skipped.
- */
-function latestGateResult(
-  qualityLog:
-    | Array<{ skill: string; result: string; warnings?: string[]; verifier_verdict?: string }>
-    | undefined,
-  skill: string,
-): GateResult | null {
-  if (qualityLog === undefined) return null;
-  for (let i = qualityLog.length - 1; i >= 0; i--) {
-    const entry = qualityLog[i];
-    if (entry === undefined || entry.skill !== skill) continue;
-    if (entry.verifier_verdict !== undefined) {
-      const parsed = PlanningVerdictSchema.safeParse(entry.verifier_verdict);
-      // An unknown stamp is not a verdict — skip it rather than default to PASS.
-      if (!parsed.success) continue;
-      return planningVerdictToGateResult(parsed.data);
-    }
-    if (
-      entry.result === 'WARN' &&
-      (entry.warnings ?? []).some((w) => w.trimStart().startsWith(BREAK_GLASS_PREFIX))
-    ) {
-      return 'WARN';
-    }
-  }
-  return null;
 }
 
 /** Latest recorded `prospec-verify` grade, null when none. */
@@ -358,7 +355,7 @@ export function verifyBelowBarStreak(
  * Consecutive verifier FAIL results for a station from the tail of quality_log.
  *
  * Scanned from the latest entry backwards, using the identical provenance rule as
- * `latestGateResult`: only an entry the sink stamped with `verifier_verdict` counts
+ * `latestVerifierResult` (`lib/change-metadata`): only an entry the sink stamped with `verifier_verdict` counts
  * (`FLAWS` → FAIL, `PASS` or `WARN` resets the streak), plus a Break-Glass `WARN`
  * whose warning opens with `BREAK_GLASS_PREFIX` (resets the streak). Every other
  * entry under the skill (the station's own unstamped Exit Gate PASS/WARN/FAIL) is
@@ -375,23 +372,11 @@ export function planningFlawsStreak(
   for (let i = qualityLog.length - 1; i >= 0; i--) {
     const entry = qualityLog[i];
     if (entry === undefined || entry.skill !== skill) continue;
-    if (entry.verifier_verdict !== undefined) {
-      const parsed = PlanningVerdictSchema.safeParse(entry.verifier_verdict);
-      if (!parsed.success) continue;
-      const gateResult = planningVerdictToGateResult(parsed.data);
-      if (gateResult === 'FAIL') {
-        streak++;
-      } else {
-        // PASS or WARN resets the streak
-        break;
-      }
-    } else if (
-      entry.result === 'WARN' &&
-      (entry.warnings ?? []).some((w) => w.trimStart().startsWith(BREAK_GLASS_PREFIX))
-    ) {
-      // Break-Glass WARN resets the streak
-      break;
-    }
+    const result = verifierGateResultOf(entry);
+    if (result === null) continue;
+    // PASS, WARN or a Break-Glass WARN resets the streak
+    if (result !== 'FAIL') break;
+    streak++;
   }
   return streak;
 }

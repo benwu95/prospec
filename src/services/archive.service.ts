@@ -14,7 +14,7 @@ import { constitutionFallbackModuleMap } from '../lib/drift-checker.js';
 import { renderTemplate } from '../lib/template.js';
 import { escapeTableCell } from '../lib/markdown-table.js';
 import { stripTrailingCr } from '../lib/text-lines.js';
-import { normalizeIssueRef } from '../lib/change-metadata.js';
+import { latestFreshPlanSignoff, normalizeIssueRef } from '../lib/change-metadata.js';
 import {
   assessDrops,
   classifyBlockTerminator,
@@ -42,7 +42,9 @@ export {
   whenThenBullets,
 };
 export type { BlockTerminator, Bullet, DeltaBlock, DeltaBlockTruncation };
-import type { ChangeStatus } from '../types/change.js';
+import { PLAN_DECISION_OPTIONS, type ChangeStatus, type PlanDecisionOption } from '../types/change.js';
+import { parseDecision } from '../lib/artifact-validators.js';
+import { readCandidateFiles } from '../lib/plan-candidates.js';
 import type { ProspecConfig } from '../types/config.js';
 import { assessCurrentDrift } from '../lib/drift-assessment.js';
 import type { CurrentDriftAssessment } from '../types/drift-report.js';
@@ -383,6 +385,35 @@ export async function moveToArchive(
 }
 
 /**
+ * The Plan Decision value, or undefined when the change recorded none. `graded_by`
+ * comes from quality_log alone: a fresh sign-off is `human`; otherwise a schema-valid
+ * decision.json's recommendation is `in-session` — a decision file claiming `human`
+ * without a sign-off entry is not trusted. Every value is an enum, so nothing a file
+ * carries can inject a line break into the committed history.
+ */
+function resolvePlanDecisionLine(rawLog: unknown, archiveDir: string): string | undefined {
+  const log = Array.isArray(rawLog)
+    ? rawLog.flatMap((raw) => {
+        if (raw === null || typeof raw !== 'object') return [];
+        const e = raw as Record<string, unknown>;
+        if (typeof e.skill !== 'string' || typeof e.result !== 'string') return [];
+        const option = PLAN_DECISION_OPTIONS.find((o) => o === e.signoff_option);
+        return [{
+          skill: e.skill,
+          result: e.result,
+          warnings: Array.isArray(e.warnings) ? e.warnings.filter((w): w is string => typeof w === 'string') : [],
+          ...(typeof e.verifier_verdict === 'string' ? { verifier_verdict: e.verifier_verdict } : {}),
+          ...(option === undefined ? {} : { signoff_option: option satisfies PlanDecisionOption }),
+        }];
+      })
+    : [];
+  const signedOff = latestFreshPlanSignoff(log);
+  if (signedOff !== null) return `${signedOff} (graded_by: human)`;
+  const decision = parseDecision(readCandidateFiles(archiveDir).decision);
+  return decision.state === 'valid' ? `${decision.payload.recommended_option} (graded_by: in-session)` : undefined;
+}
+
+/**
  * Generate summary.md from proposal.md and delta-spec.md.
  * Returns the summary content string and list of affected modules.
  */
@@ -434,6 +465,7 @@ export async function generateSummary(
   const metadataPath = path.join(archiveDir, 'metadata.yaml');
   let qualityGrade = 'Unverified';
   let issue: string | undefined;
+  let planDecision: string | undefined;
   if (fs.existsSync(metadataPath)) {
     const metaContent = await fs.promises.readFile(metadataPath, 'utf-8');
     const meta = parseYaml<Record<string, unknown>>(metaContent, metadataPath);
@@ -446,6 +478,7 @@ export async function generateSummary(
     // `- **Quality Grade**:` row below the real one. It also absorbs the lenient
     // read here (a non-string value reads as nothing registered).
     issue = normalizeIssueRef(meta.issue);
+    planDecision = resolvePlanDecisionLine(meta.quality_log, archiveDir);
   }
 
   const today = new Date().toISOString().slice(0, 10);
@@ -454,7 +487,7 @@ export async function generateSummary(
 - **Archived**: ${today}
 - **Original Created**: ${createdDate}
 - **Quality Grade**: ${qualityGrade}
-${issue === undefined ? '' : `- **Issue**: ${issue}\n`}
+${issue === undefined ? '' : `- **Issue**: ${issue}\n`}${planDecision === undefined ? '' : `- **Plan Decision**: ${planDecision}\n`}
 ## User Story
 
 ${userStory}

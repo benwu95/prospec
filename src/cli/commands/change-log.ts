@@ -1,6 +1,7 @@
 import { InvalidArgumentError, Option, type Command } from 'commander';
 import {
   GATE_RESULTS,
+  PLAN_DECISION_OPTIONS,
   VERIFY_GRADES,
   DIMENSION_RESULTS,
   DIMENSION_ADJUDICATORS,
@@ -82,14 +83,23 @@ export function registerChangeLogCommand(program: Command): void {
     .description('Append a structured quality_log entry to a change')
     .addHelpText('after', renderCommandHelp(COMMAND_HELP_SPECS['change log']))
     .requiredOption('--skill <station>', 'Station name (e.g. prospec-review)')
-    // Two verdict sources, mutually exclusive at BOTH layers (commander usage
+    // Three verdict sources, mutually exclusive at BOTH layers (commander usage
     // error here, PrerequisiteError in the service): a composed entry
-    // (`--result` + the station's fields), or a planning verifier report the
-    // service validates against the station's schema and derives the entry from.
+    // (`--result` + the station's fields), a planning verifier report the
+    // service validates against the station's schema and derives the entry from,
+    // or a human plan sign-off.
     .addOption(
-      new Option('--result <result>', 'Gate three-state result (required unless --verifier-report)')
+      new Option('--result <result>', 'Gate three-state result (required unless --verifier-report or --signoff)')
         .choices(GATE_RESULTS)
-        .conflicts(['verifierReport']),
+        .conflicts(['verifierReport', 'signoff']),
+    )
+    .addOption(
+      new Option(
+        '--signoff <option>',
+        'Human plan sign-off (prospec-plan only) — must equal candidates/decision.json recommended_option; --warning adds notes',
+      )
+        .choices(PLAN_DECISION_OPTIONS)
+        .conflicts(['result', 'verifierReport', 'grade', 'dimension', 'criticalsFound', 'criticalsFixed', 'majors']),
     )
     .addOption(
       new Option(
@@ -117,6 +127,7 @@ export function registerChangeLogCommand(program: Command): void {
         skill: string;
         result?: (typeof GATE_RESULTS)[number];
         verifierReport?: string;
+        signoff?: string;
         warning: string[];
         grade?: (typeof VERIFY_GRADES)[number];
         dimension: QualityDimension[];
@@ -133,7 +144,16 @@ export function registerChangeLogCommand(program: Command): void {
           const result = await execute({
             change: options.change,
             quiet: globalOpts.quiet,
-            ...(options.verifierReport !== undefined
+            ...(options.signoff !== undefined
+              ? {
+                  signoff: {
+                    skill: options.skill,
+                    option: options.signoff,
+                    notes: options.warning,
+                    ...(options.date !== undefined ? { date: options.date } : {}),
+                  },
+                }
+              : options.verifierReport !== undefined
               ? {
                   verifierReport: {
                     skill: options.skill,
