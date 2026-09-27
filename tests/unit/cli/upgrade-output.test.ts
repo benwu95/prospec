@@ -104,6 +104,7 @@ describe('formatUpgradeOutput', () => {
           description: 'Change artifacts under `.prospec/changes/**` are written in Japanese.',
           rationale: 'One resolved path set generates both documents.',
           check: 'Files under `.prospec/changes/**` are written in Japanese.',
+          stations: 'all',
         },
       }),
     );
@@ -112,7 +113,7 @@ describe('formatUpgradeOutput', () => {
     expect(stdout()).toContain('### [MUST] Language Policy');
     expect(stdout()).toContain('**Description**: Change artifacts under `.prospec/changes/**`');
     expect(stdout()).toContain('**Rationale**: One resolved path set');
-    expect(stdout()).toContain('**Verify**: Files under `.prospec/changes/**`');
+    expect(stdout()).toContain('**Verify**: stations: all; Files under `.prospec/changes/**`');
   });
 
   it('prints no rule block when the wording is current', () => {

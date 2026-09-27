@@ -33,7 +33,7 @@ Evidence uses `snapshot-v2` / `repository-inputs-v2`: repository input content, 
 
 ## Startup Loading
 
-1. [STABLE] Read `prospec/CONSTITUTION.md` — principles and dependency/layering rule
+1. [STABLE] Run `prospec constitution show --station review` (Bash)
 2. [STABLE] **MANDATORY** — Read [`references/review-format.md`](references/review-format.md) for the severity contract, review.md format, and reviewer lenses
 3. [DYNAMIC] Read `.prospec/changes/[name]/tasks.md`, `plan.md`, `delta-spec.md`, `proposal.md` — the contract this change must honour
 4. [DYNAMIC] Read `prospec/ai-knowledge/_conventions.md` + each affected module `README.md` — patterns and ripple effects

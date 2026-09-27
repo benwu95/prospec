@@ -115,7 +115,7 @@ structured facts behind its `detail` (additive, so a report without it still val
 ```jsonc
 {
   "rules": [
-    { "name": "Language Policy", "severity": "MUST", "has_verify_hint": true, "line": 10, "check_id": "language-policy-drift", "coverage": "Description matches generated text" },
+    { "name": "Language Policy", "severity": "MUST", "has_verify_hint": true, "line": 10, "check_id": "language-policy-drift", "coverage": "Description matches generated text", "stations": "all" },
     { "name": "Legacy untagged rule", "severity": null, "has_verify_hint": false, "line": 42 }
   ]
 }
@@ -123,6 +123,7 @@ structured facts behind its `detail` (additive, so a report without it still val
 
 - One entry per `###` heading in the Constitution's `## Principles` section, in file order.
 - Each entry carries `name`, `severity`, `has_verify_hint`, `line`, plus optional `check_id` and `coverage` when declared in a `**Verify**:` line (`check: <id>[; covers: <scope>]`).
+- `stations` comes from the `stations: <s1>, <s2> | all` clause (a reserved word on that line; any order): `"all"`, the lower-cased `SDD_STATIONS` names, or `null` = undeclared. A list containing `all` means every station; `constitution-severity` warns on an unknown name, `all` mixed with names, or an empty list.
 - `severity` ∈ `MUST` | `SHOULD` | `MAY` | `null`. `null` = no RFC-2119 tag — **never** defaulted;
   `constitution-severity` warns on it.
 - When the inventory has rules but **no project-authored** principle (only the seeded examples +

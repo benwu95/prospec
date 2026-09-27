@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { vol } from 'memfs';
-import { execute, executeYield } from '../../../src/services/learn.service.js';
+import { execute, executePlaybook, executeYield } from '../../../src/services/learn.service.js';
 import { PrerequisiteError } from '../../../src/types/errors.js';
 
 vi.mock('node:fs', async () => {
@@ -183,5 +183,88 @@ describe('learn yield service', () => {
     };
 
     await expect(executeYield({ cwd: CWD })).rejects.toThrow(PrerequisiteError);
+  });
+});
+
+// REQ-SERVICES-123 — the per-change playbook reader: readPlaybook → catalog engine.
+describe('learn playbook service', () => {
+  const PLAYBOOK = '/repo/prospec/ai-knowledge/_playbook.md';
+  const CONTENT = `## Entries
+
+### PB-001: Lib rule
+- **Source**: a · **Criteria**: freq=3, modules=2 (lib, cli) · **Kind**: convention · **Approved-by**: x · **Date**: 2026-06-13
+- **TTL**: review by 2027-01-01
+- **Guidance**: lib.
+
+### PB-002: Templates rule
+- **Source**: b · **Criteria**: freq=3, modules=1 (templates) · **Kind**: playbook · **Approved-by**: x · **Date**: 2026-06-13
+- **TTL**: review by 2027-01-01
+- **Guidance**: templates.
+
+## Retired Entries
+
+### PB-003: Gone
+- **Source**: c · **Criteria**: freq=3, modules=1 (lib) · **Kind**: playbook · **Approved-by**: x · **Date**: 2026-06-13
+- **RETIRED 2026-08-04**: gone.
+`;
+
+  it('returns the whole active catalog with module matches first', async () => {
+    vol.fromJSON({ [PLAYBOOK]: CONTENT });
+    const r = await executePlaybook({ cwd: CWD, modules: ['lib,services'] });
+    expect(r.available).toBe(true);
+    expect(r.path).toBe('prospec/ai-knowledge/_playbook.md');
+    expect(r.catalog.map((c) => [c.entry.id, c.matched])).toEqual([
+      ['PB-001', true],
+      ['PB-002', false],
+    ]);
+    expect(r.entry).toBeNull();
+  });
+
+  it('returns one entry by id and refuses an unknown or retired id by name', async () => {
+    vol.fromJSON({ [PLAYBOOK]: CONTENT });
+    expect((await executePlaybook({ cwd: CWD, id: 'PB-002' })).entry?.id).toBe('PB-002');
+    await expect(executePlaybook({ cwd: CWD, id: 'PB-999' })).rejects.toThrow(/PB-999/);
+    await expect(executePlaybook({ cwd: CWD, id: 'PB-003' })).rejects.toThrow(PrerequisiteError);
+  });
+
+  it('reports an absent playbook as unavailable with an empty catalog, never an error', async () => {
+    vol.fromJSON({ '/repo/prospec/ai-knowledge/.keep': '' });
+    expect(await executePlaybook({ cwd: CWD, modules: ['lib'] })).toEqual({
+      path: 'prospec/ai-knowledge/_playbook.md',
+      available: false,
+      catalog: [],
+      entry: null,
+    });
+  });
+
+  it('refuses a playbook that exists but cannot be read, naming the path and the reason — never an empty catalog', async () => {
+    // a directory where the file should be: exists, contained, unreadable
+    vol.mkdirSync(PLAYBOOK, { recursive: true });
+    const err = await executePlaybook({ cwd: CWD, modules: ['lib'] }).catch((e: unknown) => e);
+    expect(err).toBeInstanceOf(PrerequisiteError);
+    expect((err as PrerequisiteError).message).toContain('prospec/ai-knowledge/_playbook.md');
+    expect((err as PrerequisiteError).message).toContain('unreadable');
+    expect((err as PrerequisiteError).suggestion).toBe('Make it a readable file');
+  });
+
+  it('refuses a playbook that resolves outside the knowledge directory, naming the path and the reason', async () => {
+    vol.fromJSON({ '/repo/outside.md': CONTENT, '/repo/prospec/ai-knowledge/.keep': '' });
+    vol.symlinkSync('/repo/outside.md', PLAYBOOK);
+    const err = await executePlaybook({ cwd: CWD, id: 'PB-001' }).catch((e: unknown) => e);
+    expect(err).toBeInstanceOf(PrerequisiteError);
+    expect((err as PrerequisiteError).message).toContain('prospec/ai-knowledge/_playbook.md');
+    expect((err as PrerequisiteError).message).toContain('escaped');
+    expect((err as PrerequisiteError).suggestion).toContain('outside the knowledge directory');
+  });
+
+  it('refuses when neither selector, both selectors, or no usable module name is given, naming the flags', async () => {
+    vol.fromJSON({ [PLAYBOOK]: CONTENT });
+    for (const options of [{ cwd: CWD }, { cwd: CWD, modules: ['lib'], id: 'PB-001' }]) {
+      const err = await executePlaybook(options).catch((e: unknown) => e);
+      expect(err).toBeInstanceOf(PrerequisiteError);
+      expect((err as PrerequisiteError).message).toContain('--modules');
+      expect((err as PrerequisiteError).message).toContain('--id');
+    }
+    await expect(executePlaybook({ cwd: CWD, modules: [' , '] })).rejects.toThrow(/--modules/);
   });
 });

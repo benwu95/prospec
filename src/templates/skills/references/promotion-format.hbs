@@ -64,10 +64,12 @@ Order human-review queue by knowledge freshness: cross-reference `impact_modules
 
 ```markdown
 ### PB-{NNN}: {one-line rule}
-- **Source**: {change(s)} · **Criteria**: freq=N, modules=M · **Kind**: {convention|playbook} · **Approved-by**: {name} · **Date**: {YYYY-MM-DD}
+- **Source**: {change(s)} · **Criteria**: freq=N, modules=M ({module}, …) · **Kind**: {convention|playbook} · **Approved-by**: {name} · **Date**: {YYYY-MM-DD}
 - **TTL**: {date or "review by …"}
 - **Guidance**: {what to do / avoid, and why}
 ```
+
+`modules=M (…)` is required: `prospec learn playbook --modules` matches on it (`--id` reads one entry).
 
 ---
 

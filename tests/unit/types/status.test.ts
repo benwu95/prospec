@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import {
   HUMAN_HALT_CODES,
   isHumanHaltCode,
+  normalizeStationName,
   SDD_STATIONS,
   STATION_SKILLS,
   UI_SCOPES,
@@ -150,3 +151,29 @@ describe('isHumanHaltCode (REQ-TYPES-106)', () => {
   });
 });
 
+
+// One resolver for a station name however it is written — the CLI's `--station`
+// flag and a Constitution `stations:` token both pass through it, so a skill
+// name declared in the file matches the same flag value.
+describe('normalizeStationName', () => {
+  it('resolves case, the prospec- prefix and skill names to the SDD_STATIONS member', () => {
+    expect(normalizeStationName('plan')).toBe('plan');
+    expect(normalizeStationName('Plan')).toBe('plan');
+    expect(normalizeStationName('prospec-plan')).toBe('plan');
+    expect(normalizeStationName('new-story')).toBe('story');
+    expect(normalizeStationName('prospec-new-story')).toBe('story');
+    expect(normalizeStationName('promote-backfill')).toBe('promote');
+    expect(normalizeStationName(' Knowledge-Update ')).toBe('knowledge-update');
+    for (const station of SDD_STATIONS) {
+      expect(normalizeStationName(station)).toBe(station);
+      expect(normalizeStationName(STATION_SKILLS[station])).toBe(station);
+    }
+  });
+
+  it('refuses a name outside the station vocabulary', () => {
+    expect(normalizeStationName('learn')).toBeNull();
+    expect(normalizeStationName('all')).toBeNull();
+    expect(normalizeStationName('bogus')).toBeNull();
+    expect(normalizeStationName('')).toBeNull();
+  });
+});

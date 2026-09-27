@@ -10,7 +10,7 @@ import {
 } from '../types/station.js';
 import { readConfig, resolveBasePaths } from '../lib/config.js';
 import { atomicWrite, readFileIfExists } from '../lib/fs-utils.js';
-import { loadModuleMap } from '../lib/knowledge-reader.js';
+import { loadModuleMap, readContained } from '../lib/knowledge-reader.js';
 import { todayIso } from '../lib/date-utils.js';
 import {
   parseLedger,
@@ -19,7 +19,11 @@ import {
   scoreLessons,
   renderLedgerDocument,
   expiredPlaybookEntries,
+  parsePlaybookEntries,
+  selectPlaybookEntries,
   DEFAULT_SCORE_THRESHOLDS,
+  type PlaybookCatalogItem,
+  type PlaybookEntry,
   type ScoreSuggestion,
   type ScoreThresholds,
   type PlaybookTtl,
@@ -232,6 +236,83 @@ export async function execute(options: LearnUpsertOptions): Promise<LearnUpsertR
     expiredPlaybook,
     escapedCells: escapedCellsFor(scored.entries, upserted.action, lesson.key),
   };
+}
+
+export interface LearnPlaybookOptions {
+  cwd?: string;
+  /** Module names; each entry may itself be a comma-separated list. */
+  modules?: string[];
+  /** One entry id (`PB-007`). */
+  id?: string;
+}
+
+export interface LearnPlaybookResult {
+  /** Repo-relative path of the playbook that was (or would have been) read. */
+  path: string;
+  /** False when `_playbook.md` is absent — an empty catalog, never an error. */
+  available: boolean;
+  /** `--modules`: every active entry, module matches first. */
+  catalog: PlaybookCatalogItem[];
+  /** `--id`: the selected entry. */
+  entry: PlaybookEntry | null;
+}
+
+export type { PlaybookCatalogItem, PlaybookEntry } from '../lib/lessons-ledger.js';
+
+/**
+ * `prospec learn playbook` — the per-change playbook read (REQ-SERVICES-123):
+ * the catalog names every active entry, and only the module-matched bodies (or
+ * one `--id`) are printed. Parsing and selection live in lib/lessons-ledger.
+ */
+export async function executePlaybook(options: LearnPlaybookOptions): Promise<LearnPlaybookResult> {
+  const cwd = options.cwd ?? process.cwd();
+  const modules = options.modules
+    ?.flatMap((m) => m.split(','))
+    .map((m) => m.trim())
+    .filter((m) => m.length > 0);
+  if ((options.modules === undefined) === (options.id === undefined)) {
+    throw new PrerequisiteError(
+      'exactly one of --modules or --id',
+      'Pass --modules <m,…> for the catalog with module-matched bodies, or --id <PB-NNN> for one entry',
+    );
+  }
+  if (modules !== undefined && modules.length === 0) {
+    throw new PrerequisiteError(
+      'no usable module name in --modules',
+      'Pass the change\'s related modules, e.g. --modules lib,cli',
+    );
+  }
+
+  const config = await readConfig(cwd);
+  const { knowledgePath } = resolveBasePaths(config, cwd);
+  const playbookPath = path.join(knowledgePath, '_playbook.md');
+  const relPath = path.relative(cwd, playbookPath).replace(/\\/g, '/');
+  // Only ABSENCE is the neutral empty catalog. A playbook that exists but cannot
+  // be read, or resolves outside the knowledge directory, must stay loud: this
+  // runs unattended at plan/implement Startup Loading, and "no team lessons" is
+  // what an agent would act on.
+  const read = readContained(playbookPath, knowledgePath);
+  if (!read.ok) {
+    if (read.reason === 'absent') return { path: relPath, available: false, catalog: [], entry: null };
+    throw new PrerequisiteError(
+      `playbook ${relPath} exists but is ${read.reason}`,
+      read.reason === 'escaped'
+        ? 'It resolves outside the knowledge directory — replace the link with a file under it'
+        : 'Make it a readable file',
+    );
+  }
+
+  const entries = parsePlaybookEntries(read.text);
+  const selection = selectPlaybookEntries(entries, modules !== undefined ? { modules } : { id: options.id ?? '' });
+  if (selection.kind === 'miss') {
+    throw new PrerequisiteError(
+      `unknown playbook entry "${selection.id}" in ${relPath}`,
+      `Active entries: ${entries.filter((e) => !e.retired).map((e) => e.id).join(', ')}`,
+    );
+  }
+  return selection.kind === 'catalog'
+    ? { path: relPath, available: true, catalog: selection.catalog, entry: null }
+    : { path: relPath, available: true, catalog: [], entry: selection.entry };
 }
 
 /**

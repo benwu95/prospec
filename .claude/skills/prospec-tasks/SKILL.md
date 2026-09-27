@@ -34,7 +34,7 @@ nondeterministic serialization this contract exists to remove.
 
 ## Startup Loading
 
-1. [STABLE] Read `prospec/CONSTITUTION.md` — prepare test coverage check
+1. [STABLE] Run `prospec constitution show --station tasks` (Bash)
 2. [STABLE] **MANDATORY** — Read [`references/tasks-format.md`](references/tasks-format.md) for tasks.md format
 3. [DYNAMIC] Read `.prospec/changes/[name]/plan.md` — parse implementation steps
 4. [DYNAMIC] Read `.prospec/changes/[name]/delta-spec.md` — parse file changes and specifications
@@ -108,7 +108,7 @@ Add a Total Tasks count at end of file; Parallelizable Tasks / Total Estimated L
 Run an independent task contract verification of `tasks.md` against `delta-spec.md` (or `proposal.md` under `scale: quick`) and `plan.md` before proceeding to implementation.
 
 **Step 1 — Load Rubric & Rules:**
-Read [`references/tasks-verifier-rubric.md`](references/tasks-verifier-rubric.md) **on demand at this step** (In-Phase On-Demand read; NEVER in Startup Loading). Dynamically inspect the project's `prospec/CONSTITUTION.md`, `prospec/ai-knowledge/_conventions.md`, and `module-map.yaml` to evaluate the 4 orthogonal dimensions:
+Read [`references/tasks-verifier-rubric.md`](references/tasks-verifier-rubric.md) **on demand at this step** (In-Phase On-Demand read; NEVER in Startup Loading). Inspect `prospec constitution show --station tasks`, `prospec/ai-knowledge/_conventions.md`, and `module-map.yaml` to evaluate the 4 orthogonal dimensions:
 1. **Bidirectional Contract Coverage**: 100% forward coverage of `delta-spec.md` REQ-IDs (or `proposal.md` acceptance scenarios for `scale: quick`) in `tasks.md`, and 100% backward traceability of tasks to `plan.md` steps.
 2. **DAG Dependency & Layering Topological Order**: Tasks strictly sequenced from lowest dependency (core domain, models, shared libs) to highest dependency (services, handlers, entry points, CLI, UI).
 3. **TDD Module Test Closure**: Every modified or added module in `plan.md` (or `delta-spec.md`) has at least 1 corresponding test task in the `Tests` section.

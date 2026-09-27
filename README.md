@@ -4,7 +4,7 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg?style=flat-square)](LICENSE)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.9-blue?style=flat-square&logo=typescript)](https://www.typescriptlang.org/)
-[![Tests](https://img.shields.io/badge/tests-6491%20total-success?style=flat-square)](tests/)
+[![Tests](https://img.shields.io/badge/tests-6588%20total-success?style=flat-square)](tests/)
 [![Node](https://img.shields.io/badge/node-%3E%3D22.13-brightgreen?style=flat-square&logo=node.js)](https://nodejs.org/)
 [![pnpm](https://img.shields.io/badge/pnpm-%3E%3D11-orange?style=flat-square&logo=pnpm)](https://pnpm.io/)
 
@@ -543,6 +543,16 @@ The few command details a reader most often needs from here:
   returning, content outside the project, or pushes to any remote — while tags a `git fetch`
   auto-follows do change the refs facet. Delegations of several changes in one repository are not
   isolated from one another.
+- **`prospec constitution show --station <s>`** — prints the Constitution slice one station needs:
+  every section outside `## Principles`, plus each rule whose `**Verify**:` line declares
+  `stations: all`, names the station, or declares nothing. With no declarations to slice by it fails
+  open — the whole file on stdout, one `WARN` on stderr, exit 0. On this repository the slices are
+  1,627–1,797 of the Constitution's 3,949 tokens (measured 2026-09-27 with
+  `prospec constitution show --station <s>`, whose stderr `tokens:` line reports `estimateTokens`).
+  `--rule <name>` prints one rule.
+- **`prospec learn playbook --modules <m,…>`** — the per-change playbook reader: one catalog line for
+  every active entry, the full text of entries whose `modules=M (…)` list matches, any other by
+  `--id <PB-NNN>`.
 - **`prospec check --record-tests`** — records the suite run (`snapshot-v2` fingerprint over the
   `repository-inputs-v2` scope, `change-and-restore` detection) so verify 5/5 is a machine verdict.
 - **CI gate** — `prospec check --strict` runs from `.github/workflows/prospec-check.yml`; the drift
@@ -685,7 +695,7 @@ templates alongside). The layer-by-layer breakdown and the tech-stack list are i
 ## Testing
 
 ```bash
-# Run all tests (6491 total; 4 skipped)
+# Run all tests (6588 total; 4 skipped)
 pnpm test
 
 # Watch mode
@@ -698,11 +708,11 @@ pnpm run typecheck
 pnpm run lint
 ```
 
-**Test Coverage**: 6491 total tests (6487 passed; 4 skipped) across 4 categories:
-- Unit tests (types + lib + services + cli): 4776 tests
-- Contract tests (CLI output + Skill format): 1408 tests
+**Test Coverage**: 6588 total tests (6584 passed; 4 skipped) across 4 categories:
+- Unit tests (types + lib + services + cli): 4851 tests
+- Contract tests (CLI output + Skill format): 1420 tests
 - Integration tests: 121 tests
-- E2E tests: 186 tests
+- E2E tests: 196 tests
 
 The suite includes a real `init` + `agent sync` generation contract (`tests/integration/skill-contract.test.ts`) asserting agent-specific reference paths, no dangling references, canonical convention docs, `base_dir`-relative spec paths, and `.agents` convergence.
 

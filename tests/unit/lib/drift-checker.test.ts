@@ -2039,6 +2039,29 @@ describe('evaluateConstitutionSeverity (REQ-LIB-032)', () => {
     expect(finding?.line).toBeUndefined();
   });
 
+  it('warns per unknown station token and per list mixing all with names, naming the rule and token', () => {
+    const r = evaluateConstitutionSeverity(
+      src([
+        { name: 'Good', severity: 'MUST', has_verify_hint: true, line: 3, stations: ['plan', 'review'] },
+        { name: 'All only', severity: 'MUST', has_verify_hint: true, line: 6, stations: 'all' },
+        { name: 'Undeclared', severity: 'MUST', has_verify_hint: true, line: 9, stations: null },
+        { name: 'Skill name', severity: 'MUST', has_verify_hint: true, line: 12, stations: ['new-story', 'bogus'] },
+        { name: 'Mixed', severity: 'SHOULD', has_verify_hint: true, line: 15, stations: ['all', 'plan'] },
+        { name: 'Empty', severity: 'SHOULD', has_verify_hint: true, line: 18, stations: [] },
+      ]),
+    );
+    const stationFindings = r.findings.filter((f) => f.detail.includes('stations'));
+    expect(stationFindings.map((f) => f.line)).toEqual([12, 12, 15, 18]);
+    expect(stationFindings.every((f) => f.severity === 'warn')).toBe(true);
+    expect(stationFindings[0]?.detail).toContain('"Skill name"');
+    expect(stationFindings[0]?.detail).toContain('"new-story"');
+    expect(stationFindings[1]?.detail).toContain('"bogus"');
+    expect(stationFindings[2]?.detail).toContain('"Mixed"');
+    expect(stationFindings[2]?.detail).toContain('all');
+    expect(stationFindings[3]?.detail).toContain('"Empty"');
+    expect(r.result.status).toBe('warn');
+  });
+
   it('does not flag no-project-authored when at least one authored rule exists (issue #228)', () => {
     const r = evaluateConstitutionSeverity(
       src([

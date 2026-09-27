@@ -575,6 +575,11 @@ describe('CLI E2E — station commands', () => {
       const parsed = parseConstitutionRules(constitutionWithAuthorRule);
       expect(parsed.length).toBeGreaterThan(1);
       expect(parsed.every((r) => r.check_id === undefined && r.coverage === undefined)).toBe(true);
+      // The seeded Language Policy alone declares every station; the rest stay undeclared.
+      expect(parsed.map((r) => [r.name, r.stations])).toEqual(
+        parsed.map((r) => [r.name, r.name === 'Language Policy' ? 'all' : null]),
+      );
+      expect(parsed.filter((r) => r.stations === 'all')).toHaveLength(1);
 
       const configPath = path.join(tmpDir, '.prospec.yaml');
       const { parseDocument } = await import('yaml');
@@ -1649,5 +1654,211 @@ describe('CLI E2E — delegation tickets (REQ-TESTS-125, REQ-CLI-057)', () => {
     const merge = await runCli(['review', 'merge', '--findings', findings]);
     expect(merge.exitCode).toBe(0);
     expect(merge.stdout).toContain('Delegation: not covered by delegate mutation detection — no unsettled delegation ticket (none was issued, or an earlier run of this command already settled them)');
+  });
+});
+
+describe('CLI E2E — constitution show and learn playbook (REQ-CLI-058, REQ-CLI-059, REQ-TESTS-127)', () => {
+  const constitutionFile = () => path.join(tmpDir, 'prospec', 'CONSTITUTION.md');
+  const playbookFile = () => path.join(tmpDir, 'prospec', 'ai-knowledge', '_playbook.md');
+
+  async function initProject(): Promise<void> {
+    await fs.promises.writeFile(path.join(tmpDir, 'package.json'), JSON.stringify({ name: 'slice-test' }));
+    await runCli(['init', '--name', 'slice-test', '--agents', 'claude']);
+  }
+
+  const MULTI_STATION = `# Project Constitution: slice-test
+
+> Preamble.
+
+## Principles
+
+### [MUST] Language Policy
+
+**Verify**: stations: all; Documents are in English.
+
+---
+### [MUST] Story Rule
+
+**Verify**: stations: story; Stories follow INVEST.
+
+---
+### [MUST] Plan And Review Rule
+
+**Verify**: stations: plan, review; check: import-direction; covers: layering.
+
+---
+### [MUST] Tasks Rule
+
+**Verify**: stations: tasks; check: test-provenance; covers: suite.
+
+---
+### [MUST] Verify Rule
+
+**Verify**: stations: verify; Commits are atomic.
+
+---
+### [SHOULD] Undeclared Rule
+
+**Verify**: Reviewed by hand.
+
+---
+
+## Quality Standards
+
+- **Testing**: all public functions have tests
+`;
+
+  it('slices each of the four stations smaller than the file, keeping every line verbatim and the undeclared rule', async () => {
+    await initProject();
+    await fs.promises.writeFile(constitutionFile(), MULTI_STATION);
+    const own: Record<string, string> = {
+      story: 'Story Rule',
+      plan: 'Plan And Review Rule',
+      tasks: 'Tasks Rule',
+      review: 'Plan And Review Rule',
+    };
+    for (const [station, rule] of Object.entries(own)) {
+      const { stdout, stderr, exitCode } = await runCli(['constitution', 'show', '--station', station]);
+      expect(exitCode, stderr).toBe(0);
+      expect(stdout.length).toBeLessThan(MULTI_STATION.length);
+      for (const line of stdout.split('\n')) expect(MULTI_STATION.split('\n')).toContain(line);
+      expect(stdout).toContain(`### [MUST] ${rule}`);
+      expect(stdout).toContain('### [MUST] Language Policy');
+      expect(stdout).toContain('### [SHOULD] Undeclared Rule');
+      expect(stdout).toContain('## Quality Standards');
+      expect(stdout).not.toContain('### [MUST] Verify Rule');
+      expect(stderr).toContain('included 1 undeclared rule(s)');
+    }
+  });
+
+  it.each([
+    ['no-principles', '# C\n\n## Quality Standards\n\n- x\n'],
+    ['no-declarations', '# C\n\n## Principles\n\n### [MUST] A\n\n**Verify**: prose.\n\n## Quality Standards\n'],
+    ['no-match', '# C\n\n## Principles\n\n### [MUST] A\n\n**Verify**: stations: verify; prose.\n\n## Quality Standards\n'],
+  ])('fails open on %s: stdout is byte-identical to the file, one stderr WARN, exit 0', async (reason, doc) => {
+    await initProject();
+    await fs.promises.writeFile(constitutionFile(), doc);
+    const { stdout, stderr, exitCode } = await runCli(['constitution', 'show', '--station', 'plan']);
+    expect(exitCode).toBe(0);
+    expect(stdout).toBe(doc);
+    const lines = stderr.trimEnd().split('\n');
+    expect(lines).toHaveLength(2);
+    expect(lines[0]).toContain('WARN');
+    expect(lines[0]).toContain(reason);
+    expect(lines[1]).toMatch(/^tokens: full \d+$/);
+  });
+
+  // The one documented exception to "byte-identical": the shared formatter
+  // sanitizer strips CR (and other control bytes), so a CRLF file round-trips
+  // as LF — disclosed here rather than left to the LF fixtures above.
+  it('fails open on a CRLF file as the file with every CR removed, exit 0', async () => {
+    await initProject();
+    const doc = '# C\r\n\r\n## Principles\r\n\r\n### [MUST] A\r\n\r\n**Verify**: prose.\r\n';
+    await fs.promises.writeFile(constitutionFile(), doc);
+    const { stdout, stderr, exitCode } = await runCli(['constitution', 'show', '--station', 'plan']);
+    expect(exitCode).toBe(0);
+    expect(doc).toContain('\r');
+    expect(stdout).toBe(doc.replace(/\r/g, ''));
+    expect(stderr).toContain('no-declarations');
+  });
+
+  it('reports the slice and full token counts on stderr, so the documented numbers are reproducible with the command', async () => {
+    await initProject();
+    await fs.promises.writeFile(constitutionFile(), MULTI_STATION);
+    const { stdout, stderr, exitCode } = await runCli(['constitution', 'show', '--station', 'tasks']);
+    expect(exitCode).toBe(0);
+    const tokens = /^tokens: slice (\d+) \/ full (\d+) \(estimateTokens\)$/m.exec(stderr);
+    expect(tokens, stderr).not.toBeNull();
+    expect(Number(tokens![1])).toBe(Math.ceil(stdout.length / 4));
+    expect(Number(tokens![2])).toBe(Math.ceil(MULTI_STATION.length / 4));
+    expect(Number(tokens![1])).toBeLessThan(Number(tokens![2]));
+  });
+
+  it('keeps the seeded Constitution whole at every station — only its Language Policy declares stations', async () => {
+    await initProject();
+    const seeded = await fs.promises.readFile(constitutionFile(), 'utf-8');
+    const { stdout, stderr, exitCode } = await runCli(['constitution', 'show', '--station', 'new-story']);
+    expect(exitCode).toBe(0);
+    expect(stdout).toBe(seeded);
+    expect(stderr).toMatch(/included [1-9]\d* undeclared rule\(s\)/);
+  });
+
+  it('prints one rule by name and exits 1 on a missing rule, unknown station or missing selector', async () => {
+    await initProject();
+    await fs.promises.writeFile(constitutionFile(), MULTI_STATION);
+    const hit = await runCli(['constitution', 'show', '--rule', 'Tasks Rule']);
+    expect(hit.exitCode).toBe(0);
+    expect(hit.stdout.startsWith('### [MUST] Tasks Rule')).toBe(true);
+    expect(hit.stdout).not.toContain('Story Rule');
+
+    const miss = await runCli(['constitution', 'show', '--rule', 'Nope']);
+    expect(miss.exitCode).toBe(1);
+    expect(miss.stdout).toBe('');
+    expect(miss.stderr).toContain('Language Policy, Story Rule');
+
+    const unknown = await runCli(['constitution', 'show', '--station', 'learn']);
+    expect(unknown.exitCode).toBe(1);
+    expect(unknown.stderr).toContain('story, plan');
+
+    const neither = await runCli(['constitution', 'show']);
+    expect(neither.exitCode).toBe(1);
+    expect(neither.stderr).toContain('--station');
+  });
+
+  const PLAYBOOK = `# Team Playbook
+
+\`\`\`markdown
+### PB-{NNN}: {one-line rule}
+- **Source**: {change(s)} · **Criteria**: freq=N, modules=M ({module}, …) · **Approved-by**: {name}
+\`\`\`
+
+## Entries
+
+### PB-001: Lib rule
+- **Source**: a · **Criteria**: freq=3, modules=2 (lib, cli) · **Kind**: convention · **Approved-by**: x · **Date**: 2026-06-13
+- **TTL**: review by 2027-01-01
+- **Guidance**: lib guidance.
+
+### PB-002: Templates rule
+- **Source**: b · **Criteria**: freq=3, modules=1 (templates) · **Kind**: playbook · **Approved-by**: x · **Date**: 2026-06-13
+- **TTL**: review by 2027-01-01
+- **Guidance**: templates guidance.
+
+## Retired Entries
+
+### PB-003: Retired rule
+- **Source**: c · **Criteria**: freq=3, modules=1 (lib) · **Kind**: playbook · **Approved-by**: x · **Date**: 2026-06-13
+- **RETIRED 2026-08-04**: gone.
+`;
+
+  it('learn playbook lists every active entry once, prints matched bodies, reads one by id, and refuses an unknown id', async () => {
+    await initProject();
+    await fs.promises.writeFile(playbookFile(), PLAYBOOK);
+
+    const cat = await runCli(['learn', 'playbook', '--modules', 'lib', '--modules', 'services']);
+    expect(cat.exitCode, cat.stderr).toBe(0);
+    const catalogLines = cat.stdout.split('\n').filter((l) => /^PB-\d+ · /.test(l));
+    expect(catalogLines.map((l) => l.split(' · ')[0])).toEqual(['PB-001', 'PB-002']);
+    expect(catalogLines[0]).toContain('relevance: module-match');
+    expect(cat.stdout).toContain('- **Guidance**: lib guidance.');
+    expect(cat.stdout).not.toContain('templates guidance');
+    expect(cat.stdout).not.toContain('PB-003');
+
+    const one = await runCli(['learn', 'playbook', '--id', 'PB-002']);
+    expect(one.exitCode).toBe(0);
+    expect(one.stdout.startsWith('### PB-002: Templates rule')).toBe(true);
+    expect(one.stdout).not.toContain('PB-001');
+
+    const unknown = await runCli(['learn', 'playbook', '--id', 'PB-003']);
+    expect(unknown.exitCode).toBe(1);
+    expect(unknown.stderr).toContain('PB-003');
+  });
+
+  it('learn playbook reports an absent playbook in one line and exits 0', async () => {
+    await initProject();
+    const { stdout, exitCode } = await runCli(['learn', 'playbook', '--modules', 'lib']);
+    expect(exitCode).toBe(0);
+    expect(stdout.trimEnd().split('\n')).toHaveLength(1);
+    expect(stdout).toContain('_playbook.md');
   });
 });

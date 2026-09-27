@@ -7,6 +7,7 @@ import {
   type FindTableOptions,
 } from './markdown-table.js';
 import { stripTrailingCr } from './text-lines.js';
+import { withoutFencedBlocks } from './markdown-fences.js';
 
 /**
  * Deterministic mechanics for the lessons ledger
@@ -264,35 +265,144 @@ export interface PlaybookTtl {
  */
 const PLAYBOOK_RETIRED_MARKER = /^\s*-\s+\*\*RETIRED\b(?!.*UN-RETIRED)/m;
 
+const PLAYBOOK_TTL = /\*\*TTL\*\*:\s*(?:review by\s*)?(\d{4}-\d{2}-\d{2})/;
+
+/** One `###`-headed block of `_playbook.md`: the heading text, its raw body lines
+ *  (whatever endings the file uses) and the 1-based heading line. */
+export interface PlaybookBlock {
+  heading: string;
+  lines: string[];
+  line: number;
+}
+
+/** A `#`/`##` heading ends the block above it — `## Retired Entries` follows the last live entry. */
+const PLAYBOOK_SECTION_HEADING = /^#{1,2}\s/;
+
+/** THE rule for what one playbook block is — a `###` heading up to the next
+ *  `###`, or to the `#`/`##` heading that ends its section — shared by the TTL
+ *  report and the catalog, so the two cannot disagree. Headings are judged on
+ *  the fence-blanked view (as the Constitution parser judges its rules), so a
+ *  `# comment` inside a Guidance code fence splits nothing; the body lines are
+ *  collected raw, so a block keeps its fences and whatever endings the file uses. */
+export function splitPlaybookBlocks(playbookContent: string): PlaybookBlock[] {
+  const raw = playbookContent.split('\n');
+  const blocks: PlaybookBlock[] = [];
+  let current: PlaybookBlock | null = null;
+  withoutFencedBlocks(raw).forEach((view, i) => {
+    const line = stripTrailingCr(view);
+    const heading = /^###\s+(.+)$/.exec(line);
+    if (heading) {
+      current = { heading: heading[1]!.trim(), lines: [], line: i + 1 };
+      blocks.push(current);
+      return;
+    }
+    if (PLAYBOOK_SECTION_HEADING.test(line)) {
+      current = null;
+      return;
+    }
+    current?.lines.push(raw[i]!);
+  });
+  return blocks;
+}
+
 /** Parse playbook TTL lines; entries whose review-by date is before `today`
  *  belong on the needs-review list, except entries already retired.
  *  Conflict detection stays LLM judgment. */
 export function expiredPlaybookEntries(playbookContent: string, today: string): PlaybookTtl[] {
   const expired: PlaybookTtl[] = [];
-  let currentEntry = '';
-  let body: string[] = [];
-  const flush = () => {
-    if (!currentEntry) return;
-    const block = body.join('\n');
+  for (const { heading, lines } of splitPlaybookBlocks(playbookContent)) {
+    const block = lines.join('\n');
     // A retired entry's TTL is spent by definition — re-reporting it would
     // re-open a decision already made, so the needs-review list would grow
     // monotonically with dead rules.
-    if (PLAYBOOK_RETIRED_MARKER.test(block)) return;
-    const ttl = /\*\*TTL\*\*:\s*(?:review by\s*)?(\d{4}-\d{2}-\d{2})/.exec(block);
-    if (ttl && ttl[1]! < today) expired.push({ entry: currentEntry, reviewBy: ttl[1]! });
-  };
-  for (const line of playbookContent.split('\n')) {
-    // `\r`-stripped view only: the body lines are collected raw, so a block keeps
-    // whatever endings the file uses.
-    const heading = /^###\s+(.+)$/.exec(stripTrailingCr(line));
-    if (heading) {
-      flush();
-      currentEntry = heading[1]!.trim();
-      body = [];
-      continue;
-    }
-    body.push(line);
+    if (PLAYBOOK_RETIRED_MARKER.test(block)) continue;
+    const ttl = PLAYBOOK_TTL.exec(block);
+    if (ttl && ttl[1]! < today) expired.push({ entry: heading, reviewBy: ttl[1]! });
   }
-  flush();
   return expired;
+}
+
+/** A promoted playbook entry, as the catalog reads it. */
+export interface PlaybookEntry {
+  id: string;
+  title: string;
+  kind: string | null;
+  /** The Source line's `modules=N (a, b)` list; null when the list is absent. */
+  modules: string[] | null;
+  /** The `review by` date; null on a retired entry. */
+  ttl: string | null;
+  retired: boolean;
+  /** The block verbatim, heading included, trailing blank lines trimmed. */
+  text: string;
+}
+
+export interface PlaybookCatalogItem {
+  entry: PlaybookEntry;
+  /** The entry's modules intersect the request — its full text is printed. */
+  matched: boolean;
+}
+
+export type PlaybookSelection =
+  | { kind: 'catalog'; catalog: PlaybookCatalogItem[] }
+  | { kind: 'entry'; entry: PlaybookEntry }
+  | { kind: 'miss'; id: string };
+
+/** `PB-{NNN}` — the format block's placeholder — is not an entry. */
+const PLAYBOOK_ENTRY_HEADING = /^(PB-\d+):\s*(.+)$/;
+const PLAYBOOK_SOURCE_LINE = /^\s*-\s+\*\*Source\*\*/;
+/** The Source line's first module list — later bullets (`Strengthened …`) repeat
+ *  `modules=N (…)` for the absorbed key, which is provenance, not the entry's scope. */
+const PLAYBOOK_MODULES = /modules=\d+\s*\(([^)]*)\)/;
+const PLAYBOOK_KIND = /\*\*Kind\*\*:\s*([^·]+?)\s*(?:·|$)/;
+
+export function parsePlaybookEntries(playbookContent: string): PlaybookEntry[] {
+  const entries: PlaybookEntry[] = [];
+  for (const block of splitPlaybookBlocks(playbookContent)) {
+    const heading = PLAYBOOK_ENTRY_HEADING.exec(block.heading);
+    if (heading === null) continue;
+    const body = [...block.lines];
+    while (body.length > 0 && stripTrailingCr(body[body.length - 1]!).trim() === '') body.pop();
+    const bodyText = body.join('\n');
+    const source = body.find((l) => PLAYBOOK_SOURCE_LINE.test(l)) ?? '';
+    const moduleList = PLAYBOOK_MODULES.exec(source)?.[1];
+    const retired = PLAYBOOK_RETIRED_MARKER.test(bodyText);
+    entries.push({
+      id: heading[1]!,
+      title: heading[2]!.trim(),
+      kind: PLAYBOOK_KIND.exec(stripTrailingCr(source))?.[1] ?? null,
+      modules:
+        moduleList === undefined
+          ? null
+          : moduleList
+              .split(',')
+              .map((m) => m.trim())
+              .filter((m) => m.length > 0),
+      ttl: retired ? null : (PLAYBOOK_TTL.exec(bodyText)?.[1] ?? null),
+      retired,
+      text: [`### ${block.heading}`, ...body].join('\n'),
+    });
+  }
+  return entries;
+}
+
+/**
+ * The per-change playbook view: every active entry in the catalog (module
+ * intersection decides only whose text is printed, never who is listed), or one
+ * active entry by exact id. Retired entries are never selected.
+ */
+export function selectPlaybookEntries(
+  entries: PlaybookEntry[],
+  selector: { modules: string[] } | { id: string },
+): PlaybookSelection {
+  const active = entries.filter((e) => !e.retired);
+  if ('id' in selector) {
+    const entry = active.find((e) => e.id === selector.id);
+    return entry === undefined ? { kind: 'miss', id: selector.id } : { kind: 'entry', entry };
+  }
+  const wanted = new Set(selector.modules.map((m) => m.trim()).filter((m) => m.length > 0));
+  const items = active.map((entry) => ({
+    entry,
+    matched: entry.modules !== null && entry.modules.some((m) => wanted.has(m)),
+  }));
+  return { kind: 'catalog', catalog: [...items.filter((i) => i.matched), ...items.filter((i) => !i.matched)] };
 }

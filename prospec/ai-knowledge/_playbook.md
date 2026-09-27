@@ -9,7 +9,7 @@ Format (one entry per promoted lesson) — see `.claude/skills/prospec-learn/ref
 
 ```markdown
 ### PB-{NNN}: {one-line rule}
-- **Source**: {change(s)} · **Criteria**: freq=N, modules=M · **Approved-by**: {name} · **Date**: {YYYY-MM-DD}
+- **Source**: {change(s)} · **Criteria**: freq=N, modules=M ({module}, …) · **Kind**: {convention|playbook} · **Approved-by**: {name} · **Date**: {YYYY-MM-DD}
 - **TTL**: {date or "review by …"}
 - **Guidance**: {what to do / avoid, and why}
 ```

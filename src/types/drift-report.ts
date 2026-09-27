@@ -337,6 +337,9 @@ export const ConstitutionRuleEntrySchema = z.object({
   check_id: z.string().nullable().optional(),
   /** The declared scope covered by the check; absent when undeclared (additive). */
   coverage: z.string().optional(),
+  /** The declared `stations:` — `'all'`, the lower-cased tokens, or null when
+   *  undeclared (never "no station"); absent in reports written before it (additive). */
+  stations: z.union([z.literal('all'), z.array(z.string())]).nullable().optional(),
 });
 
 /**

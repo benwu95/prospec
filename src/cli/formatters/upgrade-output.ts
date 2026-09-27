@@ -1,6 +1,7 @@
 import pc from 'picocolors';
 import type { LogLevel } from '../../types/config.js';
 import type { UpgradeResult } from '../../services/upgrade.service.js';
+import { formatVerifyHint } from '../../types/constitution.js';
 import { sanitizeTerminal } from './sanitize.js';
 
 /**
@@ -88,9 +89,10 @@ export function formatUpgradeOutput(
       lines.push(`**Description**: ${sanitizeTerminal(rule.description)}`);
       lines.push('');
       lines.push(`**Rationale**: ${sanitizeTerminal(rule.rationale)}`);
-      if (rule.check) {
+      const verifyHint = formatVerifyHint(rule);
+      if (verifyHint !== '') {
         lines.push('');
-        lines.push(`**Verify**: ${sanitizeTerminal(rule.check)}`);
+        lines.push(`**Verify**: ${sanitizeTerminal(verifyHint)}`);
       }
     }
   }

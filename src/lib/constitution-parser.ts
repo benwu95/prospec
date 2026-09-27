@@ -1,4 +1,5 @@
 import { withoutFencedBlocks } from './markdown-fences.js';
+import { normalizeStationName } from '../types/status.js';
 import {
   CONSTITUTION_SEVERITIES,
   type ConstitutionRuleEntry,
@@ -38,6 +39,50 @@ const VERIFY_HINT = ruleFieldLabel('Verify');
 const SEVERITIES = new Set<string>(CONSTITUTION_SEVERITIES);
 
 const CHECK_DECLARATION = /\bcheck:\s*([a-zA-Z0-9_-]+)(?:[;,]?\s*covers:\s*(.+?))?(?:\.\s+|;\s*|$|\.\s*$)/;
+/** `stations:` is a reserved word on a `**Verify**:` line (any case); the clause
+ *  runs to the next `;`, sentence end, end of line, or the next `check:` /
+ *  `covers:` keyword — a comma before that keyword is the clause's, not a token. */
+const STATIONS_LABEL = /\bstations:/i;
+const STATIONS_CLAUSE_END = /;|\.(?:\s|$)|,?\s*(?=\b(?:check|covers):)/;
+/** A whole-line thematic break closes a rule block (judged on fence-blanked lines,
+ *  so a table row `|---|` or a fenced `---` never does). */
+const RULE_BLOCK_BREAK = /^-{3,}\s*$/;
+
+export interface VerifyDeclarations {
+  check_id?: string;
+  coverage?: string;
+  /** `'all'`, the lower-cased tokens as written, or null when no clause is present. */
+  stations: 'all' | string[] | null;
+}
+
+/**
+ * Parse the machine declarations on one `**Verify**:` line. The `stations:` clause
+ * is cut out first, so the lazy `covers:` capture can neither swallow it nor be
+ * cut short by it, whatever the clause order. Splitting on commas AND whitespace
+ * keeps a comma-less or capitalised list whole, so every token reaches the
+ * evaluator instead of the first one silently standing for the list. Each token
+ * is resolved as the CLI resolves `--station` (`new-story` → `story`); a token
+ * outside the vocabulary stays as written so the evaluator can name it.
+ */
+export function parseVerifyDeclarations(hint: string): VerifyDeclarations {
+  const label = STATIONS_LABEL.exec(hint);
+  let rest = hint;
+  let stations: VerifyDeclarations['stations'] = null;
+  if (label !== null) {
+    const after = hint.slice(label.index + label[0].length);
+    const stop = STATIONS_CLAUSE_END.exec(after);
+    const body = stop === null ? after : after.slice(0, stop.index);
+    const tail = stop === null ? '' : after.slice(stop.index + stop[0].length);
+    const tokens = body
+      .split(/[,\s]+/)
+      .map((t) => t.toLowerCase())
+      .filter((t) => t.length > 0)
+      .map((t) => normalizeStationName(t) ?? t);
+    stations = tokens.length === 1 && tokens[0] === 'all' ? 'all' : tokens;
+    rest = `${hint.slice(0, label.index)}${tail}`;
+  }
+  return { ...parseCheckDeclaration(rest), stations };
+}
 
 function parseCheckDeclaration(line: string): { check_id?: string; coverage?: string } {
   const match = CHECK_DECLARATION.exec(line);
@@ -52,6 +97,21 @@ function parseCheckDeclaration(line: string): { check_id?: string; coverage?: st
   };
 }
 
+/** One rule's inventory entry plus its block extent — 0-based line indices,
+ *  `end` exclusive: the heading through the next `###`, a whole-line `---`, or
+ *  the section end. `####` headings belong to the block above them. */
+export interface ConstitutionRuleBlock {
+  entry: ConstitutionRuleEntry;
+  start: number;
+  end: number;
+}
+
+export interface ConstitutionLayout {
+  /** The `## Principles` section as 0-based `[start, end)` from its heading; null when absent. */
+  principles: { start: number; end: number } | null;
+  rules: ConstitutionRuleBlock[];
+}
+
 /**
  * Parse the `## Principles` section into one entry per `###` rule heading.
  *
@@ -61,36 +121,64 @@ function parseCheckDeclaration(line: string): { check_id?: string; coverage?: st
  * declares nothing.
  */
 export function parseConstitutionRules(markdown: string): ConstitutionRuleEntry[] {
+  return locateConstitutionRules(markdown).rules.map((r) => r.entry);
+}
+
+/**
+ * The one walk over the Constitution's section and rule boundaries — the
+ * inventory reads its entries, the station slicer its line extents, so the two
+ * cannot disagree about where a rule starts or what belongs to Principles.
+ */
+export function locateConstitutionRules(markdown: string): ConstitutionLayout {
   const lines = withoutFencedBlocks(markdown.split('\n'));
   const start = lines.findIndex((l) => PRINCIPLES_HEADING.test(l));
-  if (start === -1) return [];
+  if (start === -1) return { principles: null, rules: [] };
 
-  const rules: ConstitutionRuleEntry[] = [];
-  let current: ConstitutionRuleEntry | null = null;
+  const rules: ConstitutionRuleBlock[] = [];
+  let current: ConstitutionRuleBlock | null = null;
+  let open = false;
+  let end = lines.length;
   for (let i = start + 1; i < lines.length; i += 1) {
     const line = lines[i] ?? '';
-    if (SECTION_CLOSING_HEADING.test(line)) break;
+    if (SECTION_CLOSING_HEADING.test(line)) {
+      end = i;
+      break;
+    }
 
     const heading = RULE_HEADING.exec(line);
     if (heading !== null && heading[1] !== undefined) {
-      current = { ...parseRuleHeading(heading[1]), has_verify_hint: false, line: i + 1 };
+      if (current !== null && open) current.end = i;
+      current = {
+        entry: { ...parseRuleHeading(heading[1]), has_verify_hint: false, line: i + 1, stations: null },
+        start: i,
+        end: i + 1,
+      };
+      open = true;
       rules.push(current);
       continue;
     }
-    // A hint before the first rule heading belongs to no rule — ignore it rather
-    // than attributing it to the section.
-    if (current !== null && VERIFY_HINT.test(line.trimStart())) {
-      current.has_verify_hint = true;
-      const decl = parseCheckDeclaration(line);
+    if (current !== null && open && RULE_BLOCK_BREAK.test(line)) {
+      current.end = i;
+      open = false;
+    }
+    // A hint before the first rule heading belongs to no rule, and one after the
+    // `---` that closed a block is outside every block — the slicer's extent and
+    // the inventory's attribution must agree, so neither is attributed.
+    if (current !== null && open && VERIFY_HINT.test(line.trimStart())) {
+      const entry = current.entry;
+      entry.has_verify_hint = true;
+      const decl = parseVerifyDeclarations(line);
       if (decl.check_id !== undefined) {
-        current.check_id = decl.check_id;
+        entry.check_id = decl.check_id;
         if (decl.coverage !== undefined) {
-          current.coverage = decl.coverage;
+          entry.coverage = decl.coverage;
         }
       }
+      if (decl.stations !== null) entry.stations = decl.stations;
     }
   }
-  return rules;
+  if (current !== null && open) current.end = end;
+  return { principles: { start, end }, rules };
 }
 
 /** Split `[MUST] Name` into severity + name; an untagged or unknown-tag heading

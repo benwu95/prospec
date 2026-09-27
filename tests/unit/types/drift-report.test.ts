@@ -286,6 +286,39 @@ describe('DriftReportSchema', () => {
     }
   });
 
+  it('carries the optional stations declaration and still reads a report written before it', () => {
+    const r = DriftReportSchema.safeParse({
+      ...baseReport,
+      structural: {
+        ...baseReport.structural,
+        constitution: {
+          rules: [
+            { name: 'Language Policy', severity: 'MUST', has_verify_hint: true, line: 10, stations: 'all' },
+            { name: 'One-way', severity: 'SHOULD', has_verify_hint: true, line: 20, stations: ['plan', 'review'] },
+            { name: 'Undeclared', severity: 'MUST', has_verify_hint: true, line: 30, stations: null },
+            { name: 'Legacy rule', severity: null, has_verify_hint: false, line: 42 },
+          ],
+        },
+      },
+    });
+    expect(r.success).toBe(true);
+    if (r.success && r.data.structural.constitution) {
+      const rules = r.data.structural.constitution.rules;
+      expect(rules[0]?.stations).toBe('all');
+      expect(rules[1]?.stations).toEqual(['plan', 'review']);
+      expect(rules[2]?.stations).toBeNull();
+      expect('stations' in (rules[3] ?? {})).toBe(false);
+    }
+    const bad = DriftReportSchema.safeParse({
+      ...baseReport,
+      structural: {
+        ...baseReport.structural,
+        constitution: { rules: [{ name: 'X', severity: 'MUST', has_verify_hint: true, line: 3, stations: 'plan' }] },
+      },
+    });
+    expect(bad.success).toBe(false);
+  });
+
 
   it('rejects an unknown severity and a non-positive line in the inventory', () => {
     for (const rule of [
