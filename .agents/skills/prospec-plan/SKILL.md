@@ -39,7 +39,7 @@ nondeterministic serialization this contract exists to remove.
 3. [DYNAMIC] Read `prospec/index.md` — identify related modules (Layer 1)
 4. [DYNAMIC] Run `prospec spec show <feature> --story <ids>` (Bash) — features from `prospec/ai-knowledge/feature-map.yaml`, ids from that spec's story list
 5. [DYNAMIC] Read `prospec/specs/product.md` — understand product-level overview and feature map
-6. [DYNAMIC] Run `prospec learn playbook --modules <related_modules>` (Bash) — `_playbook.md` catalog + bodies of matching entries
+6. [DYNAMIC] Run `prospec learn playbook --station plan --modules <related_modules>` — `_playbook.md` catalog + station bodies
 
 **Do NOT** load all module AI Knowledge at once — load L2 per-module **during architecture design** (each README and any linked `{sub-module}.md`), following `prospec/index.md`'s Progressive Knowledge Loading Strategy (the canonical layer/budget table).
 

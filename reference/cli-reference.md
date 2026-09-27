@@ -218,7 +218,7 @@ Entry Points, Dependencies, and Config Files have no per-language override — t
 | `prospec verify context --change <name>` | Project deterministic verification context (`verify-context.json`) combining baseline, spec, proposal, code snapshot, and test facts |
 | `prospec verify record [options]` | Compute S/A/B/C/D grade from machine/judgment dimensions, validate against context and baseline, and advance to verified (refused while a verify delegation is unsettled) |
 | `prospec learn upsert --lesson <file> [options]` | Idempotent lesson ledger upsert and evaluate promotion rules |
-| `prospec learn playbook --modules <m,…> \| --id <PB-NNN>` | Read-only per-change playbook view: a catalog line for every active entry, full text for module matches, one entry by id |
+| `prospec learn playbook --station <s> [--modules <m,…>] \| --modules <m,…> \| --id <PB-NNN>` | Read-only playbook catalog with station-selected bodies, legacy module selection, or one entry by id |
 | `prospec learn yield [options]` | Calculate lens yield statistics and retirement recommendations from archived reviews |
 | `prospec validate <kind> [target] [options]` | Machine validation of artifact structural integrity (exits 1 on failure) |
 
@@ -357,9 +357,10 @@ Entry Points, Dependencies, and Config Files have no per-language override — t
   - **Escaping**: inside a table cell `|` is written as `\|` and a newline is flattened to a space; identity is the ledger `key`, never the description text; the success output adds one line when at least one cell was escaped.
   - **Key Details**: Evaluates `freq ≥ 3 ∧ modules ≥ 2` promotion rule for playbook promotion and checks playbook TTL validity.
 
-- **`prospec learn playbook --modules <m,…> | --id <PB-NNN>`**
-  - **Purpose**: The per-change playbook reader plan and implement run at Startup Loading, instead of reading `_playbook.md` whole (`/prospec-learn` still reads it in full).
-  - **Key Details**: Prints one catalog line per active entry — id, title, kind, modules (or `modules: undeclared`), TTL — with the entries whose Criteria `modules=M (…)` list intersects `--modules` first, each followed by its full text and `relevance: module-match`; retired entries never appear. `--id` prints one entry and exits 1 on an unknown id; a missing `_playbook.md` prints one line and exits 0, while one that exists but is unreadable or resolves outside the knowledge directory exits 1 naming the reason — never an empty catalog.
+- **`prospec learn playbook --station <s> [--modules <m,…>] | --modules <m,…> | --id <PB-NNN>`**
+  - **Purpose**: Plan and implement load station-selected playbook bodies at Startup Loading; `/prospec-learn` still reads the full file.
+  - **Key Details**: Station mode prints one catalog line per active entry — id, title, kind, modules (or `modules: undeclared`), TTL — and full text only for entries whose `Stations` line names the station or `all`. It recognizes SDD station names and Skill aliases. `--modules` only sorts module matches first within station mode; it never decides which bodies load. If no active entry declares `Stations`, station mode warns and falls back to legacy module selection. `--modules` alone retains legacy module selection and `relevance: module-match`; `--id` prints one entry and exits 1 on an unknown id. Retired entries never appear. An unknown declared station warns on stderr. An entry exceeding the 300-token advisory cap warns on stderr, with no stdout truncation. A missing `_playbook.md` prints one line and exits 0; an unreadable file or path outside the knowledge directory exits 1 naming the reason.
+  - **Measured scope**: On this repository, actual CLI stdout across all 10 stations is 1,107–6,368 `estimateTokens` versus 8,965 for the full playbook, a 28%–88% reduction (revision `3ade165b` plus this working tree). The change's `playbook-measurements.md` records commands, each station's tokens and selected ids.
 
 - **`prospec learn yield [--consecutive-zero <n>] [--min-invocations <n>] [--min-yield <ratio>] [--corpus <dir>] [--json]`**
   - **Purpose**: Calculate confirmed yield statistics per review lens and recommend retirements from archived reviews.

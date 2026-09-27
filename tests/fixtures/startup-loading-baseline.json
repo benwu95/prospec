@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "note": "Exact per-skill mandatory context and per-reference sizes (the larger capability branch), anchored by REFERENCE_CEILING_ANCHOR / CUMULATIVE_CEILING_ANCHOR in tests/contract/skill-format.test.ts, whose comment records every rebaseline and its reason. Re-captured on base 099a25b by the change slice-constitution-and-playbook (four station skills run `prospec constitution show --station`, plan and implement run `prospec learn playbook`, plan reads Feature Specs through `prospec spec show --story`; item keys are those command strings; cumulative lowered 88,545 → 88,535 (review round 1: the plan item 4 clause names `{{knowledge_base_path}}/feature-map.yaml`, one token shorter); reference ceiling 50,977 → 51,089 for the `stations` field in drift-report-format and the parsed module list in promotion-format).",
+  "note": "Exact per-skill mandatory context and per-reference sizes (the larger capability branch), anchored by REFERENCE_CEILING_ANCHOR / CUMULATIVE_CEILING_ANCHOR in tests/contract/skill-format.test.ts, whose comment records every rebaseline and its reason. Re-captured on base 099a25b by the change slice-constitution-and-playbook (four station skills run `prospec constitution show --station`, plan and implement run `prospec learn playbook`, plan reads Feature Specs through `prospec spec show --story`; item keys are those command strings; cumulative lowered 88,545 → 88,535 (review round 1: the plan item 4 clause names `{{knowledge_base_path}}/feature-map.yaml`, one token shorter); reference ceiling 50,977 → 51,089 for the `stations` field in drift-report-format and the parsed module list in promotion-format). Re-captured for route-playbook-by-station after station-load wording and promotion-format compaction; ceilings remain unchanged.",
   "cumulative_ceiling_tokens": 88535,
   "skills": {
     "prospec-archive": {
@@ -60,7 +60,7 @@
         ".prospec/changes/[name]/delta-spec.md",
         ".prospec/changes/[name]/plan.md",
         ".prospec/changes/[name]/tasks.md",
-        "prospec learn playbook --modules <related_modules>",
+        "prospec learn playbook --station implement --modules <related_modules>",
         "references/implementation-guide.md",
         "{{knowledge_base_path}}/_conventions.md"
       ],
@@ -100,7 +100,7 @@
         "{{knowledge_base_path}}/module-map.yaml"
       ],
       "mandatory": 1,
-      "mandatory_context_tokens": 5638
+      "mandatory_context_tokens": 5612
     },
     "prospec-new-story": {
       "items": [
@@ -131,13 +131,13 @@
       "items": [
         ".prospec/changes/[name]/proposal.md",
         "prospec constitution show --station plan",
-        "prospec learn playbook --modules <related_modules>",
+        "prospec learn playbook --station plan --modules <related_modules>",
         "prospec spec show <feature> --story <ids>",
         "{{base_dir}}/index.md",
         "{{base_dir}}/specs/product.md"
       ],
       "mandatory": 0,
-      "mandatory_context_tokens": 5788
+      "mandatory_context_tokens": 5787
     },
     "prospec-review": {
       "items": [
@@ -203,7 +203,7 @@
     "plan-verifier-rubric": 2167,
     "product-spec-format": 1277,
     "project-test-runner": 799,
-    "promotion-format": 1651,
+    "promotion-format": 1645,
     "proposal-format": 1211,
     "review-format": 2589,
     "review-lenses-content": 2960,

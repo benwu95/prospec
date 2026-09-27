@@ -8,7 +8,7 @@
 |------|---------|
 | `skills/prospec-*.hbs` (17) | Skill definitions → `SKILL.md` per agent on `agent sync`; frontmatter description single-sourced from `types/skill.ts`; canonical references use bare `prospec-<name>`, while host-specific syntax is confined to the entry-config matrix |
 | `skills/_*.hbs` (8) | Shared partials: `cli-probe` (the required-CLI probe), `harness-capabilities` (per-agent capability flags + the degradation floor; consumers pass their own `degraded_action`), `next-step-handoff`, `output-summary-note`, `generated-notice`, `language-policy` (path-scoped), `knowledge-loading-rules`, `verifier-rubric-base` (shared LLM-as-Verifier scaffold for the plan/tasks verifier rubrics) |
-| `skills/references/*.hbs` (30) | Per-skill format specs + design adapters, rendered to `.md` on demand — `metadata-format` guides the **CLI-written** metadata.yaml; `review-format` pins the 7-column findings table, its evidence section, **and the finding-CONTENT rules** (a Summary claiming mutation verification must name each mutation and its outcome) |
+| `skills/references/*.hbs` (31) | Per-skill format specs + design adapters, rendered to `.md` on demand — `metadata-format` guides the **CLI-written** metadata.yaml; `review-format` pins the 7-column findings table, its evidence section, **and the finding-CONTENT rules** (a Summary claiming mutation verification must name each mutation and its outcome) |
 
 ## Public API
 
@@ -20,6 +20,8 @@
 **Used by:** `services/agent-sync.service.ts` → `.claude/skills/` + `.agents/skills/`; `tests/contract/skill-format.test.ts`
 
 ## Modification Guide
+
+For Playbook loads, keep plan and implement Startup item 6 on `learn playbook --station`; keep learn's Sweep on the full file. Edit `promotion-format.hbs` for entry grammar, cap, cleanup/approval, prose ownership and history rules, then re-render both hosts and verify the startup/reference token ceilings without raising them.
 
 1. **Add a skill** — create `skills/prospec-{name}.hbs` with `{{> cli-probe}}` exactly once (ahead of any deterministic step) and `{{> next-step-handoff}}` at the end, register in `SKILL_DEFINITIONS` (`types/skill.ts`), run `prospec agent sync` (needs `## Output Contract` before `## NEVER`).
 2. **Add a reference** — create `skills/references/{name}.hbs`, declare it in `types`' `STATION_REFERENCES` (once per skill that needs it — a shared reference is registered per station, never cross-linked) with a load point per place the skill reads it, then cite it from the skill at exactly those places; an enumerated map is rendered by `{{stationReferences skill slot}}` rather than hand-written. `prospec check`'s `skill-reference-map` fails a deployment whose citations no longer match.

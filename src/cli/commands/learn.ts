@@ -11,7 +11,7 @@ import { COMMAND_HELP_SPECS, renderCommandHelp } from '../../types/cli-help.js';
  *
  * Usage:
  *   prospec learn upsert --lesson <lesson.json>
- *   prospec learn playbook --modules <m,…> | --id <PB-NNN>
+ *   prospec learn playbook --station <name> [--modules <m,…>] | --modules <m,…> | --id <PB-NNN>
  *   prospec learn yield [--consecutive-zero <n>] [--min-invocations <n>] [--min-yield <ratio>] [--corpus <dir>] [--json]
  */
 export function registerLearnCommand(program: Command): void {
@@ -42,17 +42,19 @@ export function registerLearnCommand(program: Command): void {
 
   learn
     .command('playbook')
-    .description('Print the playbook catalog for the given modules, or one entry by id')
+    .description('Print the playbook catalog and station-selected bodies, or one entry by id')
     .addHelpText('after', renderCommandHelp(COMMAND_HELP_SPECS['learn playbook']))
     .option('--modules <names>', 'Related module (repeatable; comma-separated accepted)', collect, [])
+    .option('--station <name>', 'SDD station selecting entry bodies')
     .option('--id <id>', 'One playbook entry id, such as PB-007')
-    .action(async (options: { modules: string[]; id?: string }) => {
+    .action(async (options: { modules: string[]; station?: string; id?: string }) => {
       const globalOpts = program.opts<GlobalOptions>();
       try {
         const { executePlaybook } = await import('../../services/learn.service.js');
         const result = await executePlaybook({
           modules: options.modules.length > 0 ? options.modules : undefined,
           id: options.id,
+          station: options.station,
         });
         formatLearnPlaybookOutput(result);
       } catch (err) {
@@ -112,5 +114,3 @@ export function registerLearnCommand(program: Command): void {
       },
     );
 }
-
-

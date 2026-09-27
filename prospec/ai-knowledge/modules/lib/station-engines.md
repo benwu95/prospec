@@ -17,6 +17,7 @@
 
 ## Public API
 
+- `lessons-ledger.ts` owns `parsePlaybookEntries` and `selectPlaybookEntries`: the first unfenced `Stations` line determines body routing, `all` includes every station, missing declarations trigger legacy fallback only when all active entries lack them, and modules sort station catalogs without selecting bodies. `parseStationTokens` in `constitution-parser.ts` provides the shared token grammar; `estimateTokens` drives the over-300 advisory warning without truncation.
 - `findTable` / `renderMarkdownTable` / `replaceTableInDocument` / `splitTableRow` / `escapeTableCell`
 - `renderEvidenceBlock` / `renderEvidenceSection` (heading is a parameter) / `splitEvidenceSection` (→ `{before, blocks, after}`) / `containsEvidenceMarker` / `findUnsafeBlockField`
 - `parseReviewRows` / `parseReviewDocument` / `parseReviewMetrics` / `parseReviewMetricsStrict` / `readTestFailureStreak` / `reduceTestFailureStreak` / `renderReviewMetricsComment` / `replaceReviewMetrics` / `mergeFindings` / `roundCounts` / `renderReviewDocument` / `evidenceBlocksFor` / `applyCleanReviewSentence` / `stripCleanReviewBlock`; `ReviewCircuitBreaker.setTestFailureStreak` / `getMaxConsecutiveTestFailures`

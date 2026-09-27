@@ -55,6 +55,17 @@ export interface VerifyDeclarations {
   stations: 'all' | string[] | null;
 }
 
+/** Shared declaration vocabulary for Constitution hints and playbook metadata. */
+export function parseStationTokens(value: string): 'all' | string[] {
+  const tokens = value
+    .split(/[,\s]+/)
+    .map((token) => token.toLowerCase())
+    .filter((token) => token.length > 0)
+    .map((token) => normalizeStationName(token) ?? token);
+  if (tokens.length === 1 && tokens[0] === 'all') return 'all';
+  return tokens;
+}
+
 /**
  * Parse the machine declarations on one `**Verify**:` line. The `stations:` clause
  * is cut out first, so the lazy `covers:` capture can neither swallow it nor be
@@ -73,12 +84,7 @@ export function parseVerifyDeclarations(hint: string): VerifyDeclarations {
     const stop = STATIONS_CLAUSE_END.exec(after);
     const body = stop === null ? after : after.slice(0, stop.index);
     const tail = stop === null ? '' : after.slice(stop.index + stop[0].length);
-    const tokens = body
-      .split(/[,\s]+/)
-      .map((t) => t.toLowerCase())
-      .filter((t) => t.length > 0)
-      .map((t) => normalizeStationName(t) ?? t);
-    stations = tokens.length === 1 && tokens[0] === 'all' ? 'all' : tokens;
+    stations = parseStationTokens(body);
     rest = `${hint.slice(0, label.index)}${tail}`;
   }
   return { ...parseCheckDeclaration(rest), stations };

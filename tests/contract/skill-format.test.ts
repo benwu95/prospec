@@ -29,7 +29,7 @@ import { isLegalCheckId } from '../../src/lib/constitution-audit.js';
 import { parseConstitutionRules } from '../../src/lib/constitution-parser.js';
 import { sliceConstitution } from '../../src/lib/constitution-slice.js';
 import { formatVerifyHint } from '../../src/types/constitution.js';
-import { parsePlaybookEntries, selectPlaybookEntries } from '../../src/lib/lessons-ledger.js';
+import { parsePlaybookEntries, selectPlaybookEntries, PLAYBOOK_ENTRY_TOKEN_LIMIT } from '../../src/lib/lessons-ledger.js';
 import { DEFAULT_KNOWLEDGE_TOKEN_BUDGET, isShippedBudgetField } from '../../src/types/config.js';
 import {
   DELEGATION_AWAIT,
@@ -76,6 +76,7 @@ import { estimateTokens } from '../../src/lib/token-accounting.js';
 import { DECLARED_NON_SHIPPED, mandatoryCitations, referenceOf, startupLoadingSection as sharedStartupLoadingSection } from '../helpers/mandatory-loads.js';
 
 const TEMPLATE_CONTEXT = {
+  playbook_entry_token_limit: PLAYBOOK_ENTRY_TOKEN_LIMIT,
   project_name: 'test-project',
   knowledge_base_path: 'prospec/ai-knowledge',
   constitution_path: 'prospec/CONSTITUTION.md',
@@ -276,6 +277,21 @@ describe('Shipped budgets never reach a project loading table', () => {
       for (const layer of ['L1', 'L2', 'Spec', 'Demand']) expect(content).toContain(`**${layer}**`);
     }
   });
+});
+
+describe('public playbook station documentation (REQ-CLI-059)', () => {
+  for (const file of ['README.md', 'README.zh-TW.md', 'reference/cli-reference.md', 'reference/cli-reference.zh-TW.md']) {
+    it(`${file} documents station routing and the measured scope`, () => {
+      const content = fs.readFileSync(path.resolve(file), 'utf8');
+      const start = content.lastIndexOf('prospec learn playbook --station');
+      expect(start, file).toBeGreaterThan(-1);
+      const section = content.slice(start, start + 1800);
+      expect(section, file).toContain('--modules');
+      expect(section, file).toContain('--id');
+      expect(section, file).toContain('300');
+      expect(section, file).toContain('28%–88%');
+    });
+  }
 });
 
 describe('Knowledge budget rendering (no leaked symbol, values from injected context)', () => {
@@ -3365,13 +3381,45 @@ describe('Skill Format Contract', () => {
       expect(sweep).toMatch(/Mechanized ≠ retired/);
       expect(sweep).toMatch(/`personal` row is the opposite case/);
       expect(sweep).toMatch(/never compressed/);
+      // Retained governance clauses in REQ-TEMPLATES-072 must live in Sweep.
+      const crossReferences = sweep.split('\n').find((line) => line.startsWith('- **Stale cross-references**:'));
+      expect(crossReferences).toBeDefined();
+      for (const scope of ['ledger', 'playbook', 'skills', 'shipped Feature Specs']) {
+        expect(crossReferences).toContain(scope);
+      }
+      expect(crossReferences).toMatch(/only.*MODIFIED REQ.*archive/);
+      const ownership = sweep.split('\n').find((line) => line.startsWith('- **Prose ownership**:'));
+      expect(ownership).toBeDefined();
+      expect(ownership).toMatch(/one tier.*promoted.*playbook/);
+      expect(ownership).toMatch(/personal.*promotion evidence.*never compressed/);
+      const history = sweep.split('\n').find((line) => line.startsWith('- **History**:'));
+      expect(history).toBeDefined();
+      expect(history).toMatch(/ledger.*git log -p/);
+      expect(history).toMatch(/_archived-history\/.*only.*after.*convention/);
     });
 
     it('prospec-plan and prospec-implement load relevant playbook lessons', () => {
       for (const s of ['prospec-plan', 'prospec-implement']) {
         const c = renderTemplate(`skills/${s}.hbs`, TEMPLATE_CONTEXT);
         expect(c).toContain('_playbook');
+        const loading = sectionOf(c, '## Startup Loading');
+        const line = loading.split('\n').find((text) => /^6\. \[DYNAMIC\]/.test(text));
+        expect(line).toContain(`--station ${s === 'prospec-plan' ? 'plan' : 'implement'}`);
+        expect(line).toContain('--modules <related_modules>');
       }
+    });
+
+    it('promotion-format defines station declarations, advisory cap and both cleanup tests', () => {
+      const format = renderTemplate('skills/references/promotion-format.hbs', TEMPLATE_CONTEXT);
+      const entry = sectionOf(format, '## Team Playbook Entry (`_playbook.md`)');
+      expect(entry).toContain('- **Stations**:');
+      expect(entry).toContain('300');
+      expect(entry).toContain('estimateTokens');
+      expect(entry).toContain('Landing:');
+      const sweep = sectionOf(format, '## Staleness Sweep (pre-Collect)');
+      expect(sweep).toContain('| mechanized compaction |');
+      expect(sweep).toContain('| over-limit cleanup |');
+      expect(sweep).toMatch(/per-entry human approval/i);
     });
   });
 
@@ -9806,7 +9854,8 @@ describe('Constitution station slices and playbook catalog on this repository (R
     it('exactly plan and implement run learn playbook, still naming the file they catalogue', () => {
       expect(citing(/prospec learn playbook/)).toEqual(['prospec-implement', 'prospec-plan']);
       for (const name of ['prospec-plan', 'prospec-implement']) {
-        expect(startup(name)).toContain('`prospec learn playbook --modules <related_modules>`');
+        const station = name.slice('prospec-'.length);
+        expect(startup(name)).toContain(`\`prospec learn playbook --station ${station} --modules <related_modules>\``);
         expect(startup(name)).toContain('_playbook');
       }
     });

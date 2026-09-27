@@ -1,13 +1,13 @@
 # Contract Guards
 
-> Sub-module of [Verification Suite](./README.md) — the 26 `tests/contract/` files that pin generated output, the frozen registries and the trust zone against the code, plus the assertion discipline that keeps those pins falsifiable.
+> Sub-module of [Verification Suite](./README.md) — the 28 `tests/contract/` files that pin generated output, the frozen registries and the trust zone against the code, plus the assertion discipline that keeps those pins falsifiable.
 
 ## Key Files
 
 | File | Purpose |
 |------|---------|
 | `test-gate-docs.test.ts` | The fresh-test gate's public-doc pins: each CLI reference's `change status` / `review merge` entry carries the same refusal, remediation, exemption and observed-attempt tokens (compared across both languages), and both READMEs' workflow row names the requirement. Its template half lives in `skill-format`. |
-| `skill-format.test.ts` | All 17 skills' format/gate/flywheel/Startup-Loading contract and the 30 shipped references, plus bare Skill identity, host matrices, README parity, deployed artifacts, status hand-offs, and the public website's lifecycle/runtime/MCP/version/social-preview/i18n contract; assertions stay section-scoped and mutation-verified. Baseline-backed pins: per-skill mandatory Startup-Loading context and the references' total may only shrink, every JSON example parses against its schema owner, relocated README sections resolve in BOTH `reference/cli-reference.md(.zh-TW)`, and each guarantee is attributed to CLI, skill or model. |
+| `skill-format.test.ts` | All 17 skills' format/gate/flywheel/Startup-Loading contract and the 31 shipped references, plus bare Skill identity, host matrices, README parity, deployed artifacts, status hand-offs, and the public website's lifecycle/runtime/MCP/version/social-preview/i18n contract; assertions stay section-scoped and mutation-verified. Baseline-backed pins: per-skill mandatory Startup-Loading context and the references' total may only shrink, every JSON example parses against its schema owner, relocated README sections resolve in BOTH `reference/cli-reference.md(.zh-TW)`, and each guarantee is attributed to CLI, skill or model. |
 | `knowledge-format.test.ts`, `cli-output.test.ts`, `change-artifact-format.test.ts` | Output-format pins through the real `renderTemplate()`, never mocks. `change-artifact-format` renders `change/proposal.md.hbs` and pins that a module name is bolded exactly once, with a `****` negative; `knowledge-format` also pins raw-scan's disclosure block — item-set, caps, empty placeholder, fallback-exception sentence, and order-independence. |
 | `init-doc-registry.test.ts`, `bundled-templates-sync.test.ts`, `generated-artifacts-single-source.test.ts`, `config-example.test.ts`, `ci-workflow.test.ts` | Registry ⇄ producer equality — init docs ≡ `INIT_DOC_REGISTRY`, bundle ≡ `src/templates`, each generated-artifact entry ≡ the path its producer writes. |
 | `own-knowledge-sync.test.ts`, `spec-req-body-ledger.test.ts` | Self-referential trust-zone guards: `index.md`'s module table ≡ `module-map.yaml` regenerated through `collectAllModules`+`buildIndexRow` (a count or curated cell living only in the generated file is a pending revert); and a shrink-only set-equality ledger of the legacy body-less REQs — repairing one requires deleting its `LEGACY_BODYLESS` entry. |
@@ -17,7 +17,8 @@
 
 ## Public API
 
-- No exports — `pnpm vitest run tests/contract/` (26 files).
+- `playbook-station.test.ts` anchors this repository's active IDs and station declarations, 8 approved compact entries, the complete per-station catalog and output smaller than the full Playbook. `skill-format.test.ts` pins generated Startup/learn rules, UTF-8 baselines with unchanged ceilings, and bilingual station docs; unit and E2E tests exercise parser, selector, warnings and legacy paths, with fixed full stdout bytes for fallback. Compact-entry guards allow only Guidance not covered by the named Landing.
+- No exports — `pnpm vitest run tests/contract/` (28 files).
 
 ## Dependencies
 

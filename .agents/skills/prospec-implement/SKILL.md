@@ -36,7 +36,7 @@ nondeterministic serialization this contract exists to remove.
 3. [DYNAMIC] Read `.prospec/changes/[name]/tasks.md` — find the first uncompleted task
 4. [DYNAMIC] Read `.prospec/changes/[name]/plan.md` — understand design intent
 5. [DYNAMIC] Read `.prospec/changes/[name]/delta-spec.md` — understand file specifications
-6. [DYNAMIC] Run `prospec learn playbook --modules <related_modules>` (Bash) — `_playbook.md` catalog + bodies of matching entries
+6. [DYNAMIC] Run `prospec learn playbook --station implement --modules <related_modules>` — `_playbook.md` catalog + station bodies
 
 **Do NOT** load all module AI Knowledge at once — load L2 per-module **when starting a task** (each README and any linked `{sub-module}.md`: APIs, modification patterns, ripple effects), following `prospec/index.md`'s Progressive Knowledge Loading Strategy (the canonical layer/budget table). (plan/delta-spec absent for `scale: quick` by contract — proposal.md is the spec source.)
 

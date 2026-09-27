@@ -217,7 +217,7 @@ Entry Points、Dependencies、Config Files 沒有逐語言覆寫機制——未�
 | `prospec verify context --change <name>` | 投影確定性驗證上下文（`verify-context.json`），固定基準、規格、提案、程式碼快照與測試事實 |
 | `prospec verify record [options]` | 彙整機器與判斷維度計算評級（S/A/B/C/D），依據上下文與基準核對，達標時推進 verified（verify 委派未結清時拒絕） |
 | `prospec learn upsert --lesson <file> [options]` | 冪等寫入經驗帳本，依規則判定是否晉升 Playbook |
-| `prospec learn playbook --modules <m,…> \| --id <PB-NNN>` | 唯讀的 per-change playbook 讀法：每條 active 條目一行目錄、模組命中者印全文、`--id` 按需讀單條 |
+| `prospec learn playbook --station <s> [--modules <m,…>] \| --modules <m,…> \| --id <PB-NNN>` | 唯讀的 Playbook 目錄與本站正文；亦支援舊的模組選取及按 id 讀取 |
 | `prospec learn yield [options]` | 從已封存審查計算鏡角產出率統計與淘汰建議 |
 | `prospec validate <kind> [target] [options]` | 機械式驗證工件結構完整性（不符時 exit 1） |
 
@@ -356,9 +356,10 @@ Entry Points、Dependencies、Config Files 沒有逐語言覆寫機制——未�
   - **跳脫規則**：表格 cell 內的 `|` 寫成 `\|`、換行摺成一個空白；同一性以 ledger `key` 判定，不比對 description 文字；至少一個 cell 被跳脫時，成功輸出多印一行提示。
   - **重點條列**：依 `頻率 ≥ 3 且影響模組 ≥ 2` 規則自動評分是否晉升至 Playbook，並自動掃描 Playbook 條目的 TTL 狀態。
 
-- **`prospec learn playbook --modules <m,…> | --id <PB-NNN>`**
-  - **核心用途**：plan 與 implement 在 Startup Loading 執行的 per-change playbook 讀法，取代整份讀取 `_playbook.md`（`/prospec-learn` 仍讀全文）。
-  - **重點條列**：每條 active 條目印一行目錄——id、標題、kind、modules（或 `modules: undeclared`）、TTL；Criteria 的 `modules=M (…)` 清單與 `--modules` 有交集者置頂，並接著印全文與 `relevance: module-match`；retired 條目永不出現。`--id` 只印單一條目，id 不存在時 exit 1；`_playbook.md` 不存在時印一行說明並 exit 0，但檔案存在卻無法讀取、或解析到 knowledge 目錄之外時 exit 1 並說明原因——絕不回空目錄。
+- **`prospec learn playbook --station <s> [--modules <m,…>] | --modules <m,…> | --id <PB-NNN>`**
+  - **核心用途**：plan 與 implement 在 Startup Loading 讀取本站的 Playbook 正文；`/prospec-learn` 仍讀全文。
+  - **重點條列**：station 模式對每條 active 條目印一行目錄——id、標題、kind、modules（或 `modules: undeclared`）、TTL；僅 `Stations` 宣告本站或 `all` 的條目印正文。站名接受 SDD 名稱與 Skill 別名。`--modules` 在此模式只將模組命中的目錄列排前，不改變正文選取。所有 active 條目均未宣告 `Stations` 時，以 `WARN` 提示並退回舊模組選取。單獨使用 `--modules` 維持舊的 `relevance: module-match` 選取；`--id` 讀單條，不存在時 exit 1。retired 條目不顯示；未知的宣告站名在 stderr 警示。條目超過 300-token 建議上限時也在 stderr 警示，stdout 不截斷。`_playbook.md` 不存在時印一行並 exit 0；檔案不可讀或路徑逸出 knowledge 目錄時 exit 1 並指出原因。
+  - **實測範圍**：本 repository 的實際 CLI stdout，全部 10 站為 1,107–6,368 `estimateTokens`，全文為 8,965，減少 28%–88%（revision `3ade165b` 加上本次工作樹）。change 的 `playbook-measurements.md` 記載指令、逐站 tokens 與正文 ids。
 
 - **`prospec learn yield [--consecutive-zero <n>] [--min-invocations <n>] [--min-yield <ratio>] [--corpus <dir>] [--json]`**
   - **核心用途**：從歷史封存的審查記錄中計算各審查鏡角（lens）的確認產出率統計與淘汰建議。

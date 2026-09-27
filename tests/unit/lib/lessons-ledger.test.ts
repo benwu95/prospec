@@ -9,6 +9,7 @@ import {
   selectPlaybookEntries,
   splitPlaybookBlocks,
   DEFAULT_SCORE_THRESHOLDS,
+  PLAYBOOK_ENTRY_TOKEN_LIMIT,
   escapedCellsFor,
   type LedgerEntry,
 } from '../../../src/lib/lessons-ledger.js';
@@ -469,6 +470,32 @@ Format:
 `;
 
 describe('parsePlaybookEntries', () => {
+  it('reads the first unfenced Stations line without changing raw text', () => {
+    const content = [
+      '### PB-123: Station rule',
+      '- **Source**: x · **Criteria**: freq=3, modules=1 (lib) · **Kind**: playbook',
+      '```md',
+      '- **Stations**: archive',
+      '```',
+      '- **Stations**: Plan, prospec-new-story, bogus',
+      '- **Stations**: verify',
+      '- **TTL**: review by 2027-01-01',
+    ].join('\n');
+    const [entry] = parsePlaybookEntries(content);
+    expect(entry).toMatchObject({ stations: ['plan', 'story', 'bogus'], retired: false });
+    expect(entry?.text).toBe(content);
+    expect(parsePlaybookEntries('### PB-124: empty\n- **Stations**:   ')[0]?.stations).toBeNull();
+  });
+
+  it('warns only above 300 tokens of the complete parsed entry', () => {
+    expect(PLAYBOOK_ENTRY_TOKEN_LIMIT).toBe(300);
+    for (const [chars, tokens, overLimit] of [[1196, 299, false], [1200, 300, false], [1204, 301, true]] as const) {
+      const prefix = '### PB-125: Size\n- **Stations**: plan\n';
+      const content = prefix + 'x'.repeat(chars - prefix.length);
+      expect(content.length).toBe(chars);
+      expect(parsePlaybookEntries(content)[0]).toMatchObject({ tokens, overLimit });
+    }
+  });
   it('parses one entry per PB-<digits> heading, never the template placeholder', () => {
     const entries = parsePlaybookEntries(CATALOG_PLAYBOOK);
     expect(entries.map((e) => e.id)).toEqual(['PB-001', 'PB-002', 'PB-003', 'PB-010', 'PB-004']);
@@ -505,6 +532,86 @@ describe('parsePlaybookEntries', () => {
 });
 
 describe('selectPlaybookEntries', () => {
+  it('uses station for bodies and modules only for stable catalog ordering', () => {
+    const entries = parsePlaybookEntries([
+      '### PB-101: A', '- **Source**: a · **Criteria**: freq=3, modules=1 (lib)', '- **Stations**: plan',
+      '### PB-102: B', '- **Source**: b · **Criteria**: freq=3, modules=1 (cli)', '- **Stations**: implement',
+      '### PB-103: C', '- **Source**: c · **Criteria**: freq=3, modules=1 (lib)', '- **Stations**: implement',
+    ].join('\n'));
+    const selection = selectPlaybookEntries(entries, { station: 'implement', modules: ['cli'] });
+    expect(selection).toMatchObject({ kind: 'catalog', mode: 'station' });
+    if (selection.kind !== 'catalog') return;
+    expect(selection.catalog.map(({ entry, matched, bodySelected }) => [entry.id, matched, bodySelected])).toEqual([
+      ['PB-102', true, true], ['PB-101', false, false], ['PB-103', false, true],
+    ]);
+  });
+
+  it('does not print a module match assigned to another station', () => {
+    const entries = parsePlaybookEntries([
+      '### PB-111: Other station', '- **Source**: a · **Criteria**: freq=3, modules=1 (lib)', '- **Stations**: plan',
+      '### PB-112: This station', '- **Source**: b · **Criteria**: freq=3, modules=1 (services)', '- **Stations**: implement',
+    ].join('\n'));
+    const result = selectPlaybookEntries(entries, { station: 'implement', modules: ['lib'] });
+    if (result.kind !== 'catalog') throw new Error('expected catalog');
+    expect(result.catalog.map((item) => [item.entry.id, item.matched, item.bodySelected])).toEqual([
+      ['PB-111', true, false], ['PB-112', false, true],
+    ]);
+  });
+
+  it('keeps legacy selection when all active declarations are absent', () => {
+    const entries = parsePlaybookEntries(CATALOG_PLAYBOOK);
+    const legacy = selectPlaybookEntries(entries, { modules: ['cli'] });
+    const fallback = selectPlaybookEntries(entries, { station: 'plan', modules: ['cli'] });
+    expect(fallback).toMatchObject({ kind: 'catalog', mode: 'legacy-fallback' });
+    if (legacy.kind !== 'catalog' || fallback.kind !== 'catalog') return;
+    expect(fallback.catalog.map(({ entry, matched }) => [entry.id, matched]))
+      .toEqual(legacy.catalog.map(({ entry, matched }) => [entry.id, matched]));
+    expect(fallback.catalog.map(({ bodySelected }) => bodySelected))
+      .toEqual(legacy.catalog.map(({ matched }) => matched));
+  });
+
+  it('uses the active module union for station-only fallback and excludes retired entries', () => {
+    const entries = parsePlaybookEntries(CATALOG_PLAYBOOK);
+    const result = selectPlaybookEntries(entries, { station: 'plan' });
+    if (result.kind !== 'catalog') throw new Error('expected catalog');
+    expect(result.mode).toBe('legacy-fallback');
+    expect(result.warnings.filter((w) => w.kind === 'fallback')).toHaveLength(1);
+    expect(result.catalog.find((c) => c.entry.id === 'PB-003')?.bodySelected).toBe(false);
+    expect(result.catalog.some((c) => c.entry.id === 'PB-004')).toBe(false);
+  });
+
+  it('an unknown declaration blocks fallback and warns once alongside all active over-limit entries', () => {
+    const content = [
+      '### PB-201: Unknown', '- **Source**: a · **Criteria**: freq=3, modules=1 (lib)', '- **Stations**: bogus, BOGUS',
+      '- **Guidance**: ' + 'x'.repeat(1200),
+      '### PB-202: Undeclared', '- **Source**: b · **Criteria**: freq=3, modules=1 (cli)',
+      '- **Guidance**: ' + 'y'.repeat(1200),
+      '## Retired Entries', '### PB-203: Retired', '- **Stations**: wrong', '- **RETIRED 2026-09-01**',
+    ].join('\n');
+    const entries = parsePlaybookEntries(content);
+    const result = selectPlaybookEntries(entries, { station: 'plan' });
+    if (result.kind !== 'catalog') throw new Error('expected catalog');
+    expect(result.mode).toBe('station');
+    expect(result.catalog.map((c) => [c.entry.id, c.bodySelected])).toEqual([['PB-201', false], ['PB-202', false]]);
+    expect(result.warnings).toEqual([
+      { kind: 'unknown-station', id: 'PB-201', token: 'bogus' },
+      { kind: 'over-limit', id: 'PB-201', tokens: entries[0]?.tokens, limit: PLAYBOOK_ENTRY_TOKEN_LIMIT },
+      { kind: 'over-limit', id: 'PB-202', tokens: entries[1]?.tokens, limit: PLAYBOOK_ENTRY_TOKEN_LIMIT },
+    ]);
+    expect(selectPlaybookEntries(entries, { id: 'PB-202' })).toMatchObject({
+      kind: 'entry', warnings: [{ kind: 'over-limit', id: 'PB-202' }],
+    });
+  });
+
+  it('treats empty declarations as absent and still falls back with no active entries', () => {
+    const blank = parsePlaybookEntries('### PB-204: Blank\n- **Stations**:  \n- **Guidance**: keep');
+    const result = selectPlaybookEntries(blank, { station: 'plan' });
+    if (result.kind !== 'catalog') throw new Error('expected catalog');
+    expect(result.mode).toBe('legacy-fallback');
+    const empty = selectPlaybookEntries([], { station: 'plan' });
+    expect(empty).toMatchObject({ kind: 'catalog', mode: 'legacy-fallback', catalog: [], warnings: [{ kind: 'fallback' }] });
+  });
+
   const entries = parsePlaybookEntries(CATALOG_PLAYBOOK);
 
   it('lists every active entry, module matches first in file order, the rest after in file order', () => {

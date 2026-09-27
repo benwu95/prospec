@@ -1,122 +1,105 @@
 # Feedback Promotion Format Reference
 
-This document defines the **explicit promotion rule** and structured formats used by the **prospec-learn** Skill.
-
----
-
 ## Promotion Rule (explicit, reproducible)
 
-Applied per lesson ledger entry (defaults in `.prospec.yaml` → `learn.thresholds`):
+Defaults: `.prospec.yaml` → `learn.thresholds`:
 
 ```
 suggest_promote = (frequency ≥ 3) AND (|impact_modules| ≥ 2)
 tier:
-  kind == "constitution" → CONSTITUTION.md (ConstitutionRule)   # hard, verify-graded principle (MUST/SHOULD)
-  otherwise              → _playbook.md                          # team lesson — L2 on-demand + TTL-governed
+  kind == "constitution" → CONSTITUTION.md (ConstitutionRule; verify-graded)
+  otherwise → _playbook.md (team; L2 on-demand; TTL)
 ```
 
-- `frequency`: Count of distinct changes the lesson recurred across.
-- `|impact_modules|`: Count of modules touched from `module-map.yaml`.
-- `kind`: `convention` (coding standard) | `playbook` (process/gotcha) | `constitution` (enforceable principle).
+- `frequency`: Distinct source changes.
+- `|impact_modules|`: Modules from `module-map.yaml`.
 - Below thresholds: Stays `personal`.
-- Emit score detail: `frequency=N · impact_modules=M · kind=… · rule=freq≥3 ∧ modules≥2 ⇒ suggest`.
-- **Duplicate check**: If a lesson matches an existing Constitution rule, suggest strengthening the existing rule.
-
----
+- Score detail: `frequency=N · impact_modules=M · kind=… · rule=freq≥3 ∧ modules≥2 ⇒ suggest`.
+- **Duplicate check**: Strengthen a matching Constitution rule.
 
 ## Lessons Ledger (`prospec/ai-knowledge/_lessons-ledger.md`)
 
 ```markdown
 | key | description | frequency | impact_modules | kind | source_changes | status |
-|-----|-------------|-----------|----------------|------|----------------|--------|
-| test/toContain-false-green | section-scope contract slices + mutation-verify | 3 | 2 (templates,tests) | convention | add-output-contract, add-entry-exit-gates | suggest-promote |
+|---|---|---|---|---|---|---|
+| test/scope | section-scope assertions | 3 | 2 (templates,tests) | convention | change-a, change-b, change-c | suggest-promote |
 ```
 
-- **key**: Normalized signature (rule/REQ/file pattern in English).
+- **key**: Normalized English rule/REQ/file signature.
 - **description**: written in the language of the original correction (Language Policy names this column as a trust-zone exception); every other column is an identifier or enum and stays English.
 - **kind**: `convention` | `playbook` | `constitution`.
-- **status**: `personal` | `suggest-promote` | `promoted` | `declined` | `retired` — a **bare token** only; narrative details or timestamps are never appended to this column.
-
----
+- **status**: `personal` | `suggest-promote` | `promoted` | `declined` | `retired` — a **bare token**. Approval/scoring/retirement provenance, dates and narrative belong in description, never appended to this column.
 
 ## Harvest (archive-time auto-extraction)
 
-When archiving a change, auto-extract generalizable lessons from `.prospec/archive/{date}-{name}/` and point evidence to committed `prospec/specs/_archived-history/{date}-{name}/verify.md` and `review.md`. Auto-harvest is idempotent; tasks marked with `[M]` or corrections that produce a `kind: playbook` / `_conventions.md` rule are captured. Note that auto-harvest ≠ auto-promote (never auto-write to team playbook or Constitution without human approval). A `retired` row is never raised by harvest (`prospec learn upsert` leaves `retired` rows untouched).
-
----
+At archive, harvest `.prospec/archive/{date}-{name}/`; cite evidence in committed `prospec/specs/_archived-history/{date}-{name}/verify.md` and `review.md`. Auto-harvest is idempotent: include `[M]` tasks and `kind: playbook` / `_conventions.md` corrections. Auto-harvest ≠ auto-promote: no shared-tier auto-write. A `retired` row is never raised by harvest (`prospec learn upsert`); it stays untouched.
 
 ## Generalizability Heuristic
 
-Used for conversational correction capture (Harvest's structured sources are NOT re-filtered):
-- **Capture**: Cross-file rules — architecture boundaries/layering, type-contract discipline, testing standards, security.
-- **Exclude**: One-off mocks, copy/string tweaks, temporary hacks, or transient business logic.
-- Name this project's modules from `module-map.yaml` and glossary terms from `_glossary.md`.
-
----
+For conversational corrections only; Harvest's structured sources are NOT re-filtered:
+- **Capture**: Cross-file architecture/layering, type-contract, testing or security rules.
+- **Exclude**: One-off mock, business-string or copy tweaks, temporary hacks, pure business changes.
+- Use this project's modules from `module-map.yaml` and terms from `_glossary.md`.
 
 ## Review-Queue Prioritization (knowledge_health)
 
-Order human-review queue by knowledge freshness: cross-reference `impact_modules` with stale modules from `structural.knowledge_health.modules[]` in `prospec-report.json`. Never auto-write promotions.
-
----
+Prioritize review: match `impact_modules` to stale `structural.knowledge_health.modules[]` in `prospec-report.json`; never auto-write promotions.
 
 ## Team Playbook Entry (`_playbook.md`)
 
 ```markdown
 ### PB-{NNN}: {one-line rule}
 - **Source**: {change(s)} · **Criteria**: freq=N, modules=M ({module}, …) · **Kind**: {convention|playbook} · **Approved-by**: {name} · **Date**: {YYYY-MM-DD}
+- **Stations**: {s1}, {s2} or all
 - **TTL**: {date or "review by …"}
 - **Guidance**: {what to do / avoid, and why}
 ```
 
-`modules=M (…)` is required: `prospec learn playbook --modules` matches on it (`--id` reads one entry).
+Required Source field: `modules=M (…)`; follow with `- **Stations**: <s1>, <s2>` or `all` (SDD stations/skill aliases). `learn playbook --station` catalogs all active entries and selects bodies; `--modules` only sorts. All-undeclared uses legacy module selection. `--modules` alone stays legacy; `--id` reads an entry.
 
----
+Advisory cap: 300 `estimateTokens` over the full entry (heading, metadata, Landing, body). Warn on stderr only above cap; never truncate stdout. No override.
+
+Mechanized compact form: permanent PB id/one-line rule, Source/Criteria/Kind/approval, Stations, `Landing:`, TTL. Remove covered Guidance and Re-evidence/Strengthened/Broadened narrative; retain clauses the mechanism and executor do not cover. History: see Sweep.
 
 ## Constitution Promotion
 
 Emit a `ConstitutionRule` (RFC-2119 format): `{ severity: MUST|SHOULD|MAY, name, description, rationale, check }`.
 
----
-
 ## Regression Pin Promotion to Contract Tests
 
-Review fix-loops introduce regression pins in tests. When adjudicating pins during archive / learn:
-- **Promote to Contract Test**: If the pin enforces a structural, architectural, or security invariant across a whole component family or directory (e.g. all formatters sanitize terminal output, all issue metadata sinks normalize input, all CLI commands declare flags). The promoted contract test dynamically enumerates the family (e.g. `fs.readdirSync`), asserts structural compliance, and includes mutation verification.
-- **Keep in Unit/Integration Test**: If the pin is local to a single service's specific business logic, string formatting, or transient edge case.
-
----
+- **Promote to Contract Test**: For a structural, architectural or security family invariant, enumerate the family, assert structure and mutation-verify.
+- **Keep in Unit/Integration Test**: For service-local behavior or formatting.
 
 ## Approval Record
 
-Mandatory for team/Constitution writes: capture **source changes**, **criteria fired**, **approver**, and **date**.
-
----
+Shared writes record **source changes**, **criteria fired**, **approver**, **date**.
 
 ## Staleness Sweep (pre-Collect)
 
 | test | question | evidence that settles it |
 |---|---|---|
-| mechanized | enforced by gate, test, or CLI? | mechanism (`file:line`, check ID, test name) + runner + no post-fix occurrences |
-| no longer applicable | governed artifact/command gone? | removal commit / absent path + no recent occurrences |
-| contradicted | conflicts with Constitution/specs? | conflicting statements quoted side by side for human arbitration |
-| desynchronized | annotated as inlined, but missing from gate? | `Landing:` anchor and missing clause in gate file |
-| zero-yield lens | marked retire/review by `prospec learn yield`? | yield report with declared invocations ≥ min_invocations |
+| mechanized | enforced? | mechanism (`file:line`/check/test) + runner + no post-fix occurrence |
+| no longer applicable | artifact/command gone? | removal commit/path + no recurrence |
+| contradicted | conflicts? | quote both rules for arbitration |
+| desynchronized | inlined but absent from gate? | `Landing:` and missing gate clause |
+| mechanized compaction | compact form possible? | complete before/after, mechanism AND executor, clause coverage, history |
+| over-limit cleanup | over cap, splittable? | `estimateTokens`, before/after, retained clause coverage |
+| zero-yield lens | `prospec learn yield` says retire/review? | declared invocations ≥ min_invocations |
 
-- **Ledger retirement**: A retired row is **never deleted, never re-keyed**. It transitions to `status: retired` while `frequency`, `impact_modules` and `source_changes` stay untouched; a retired row is never re-opened.
-- **Playbook retirement**: PB numbers are permanent and never reused. Retired entries replace TTL + Guidance with `- **RETIRED {date}**: {reason}` and move under `## Retired Entries` (a retired entry never returns to the needs-review list). Mechanized ≠ retired: Mechanized entries retain canonical rationale with `- **Inlined into gate {date}**` carrying a `Landing: \`path\` (marker)` anchor. A `personal` row is the opposite case and never compressed.
-- **Lens retirement**: Zero-yield lens entries are retired when yield reports indicate no findings across declared invocations ≥ min_invocations.
-
----
+- **Ledger retirement**: A row is **never deleted, never re-keyed**. Set `status: retired`; `frequency`, `impact_modules` and `source_changes` stay untouched; it is never re-opened.
+- **Playbook retirement**: PB numbers are permanent and never reused. Replace TTL + Guidance with `- **RETIRED {date}**: {reason}` under `## Retired Entries`; a retired entry never returns to the needs-review list. Mechanized ≠ retired: keep rationale and `- **Inlined into gate {date}**` with `Landing: \`path\` (marker)`. A `personal` row is the opposite case and never compressed.
+- **Lens retirement**: Retire zero-yield entries after declared invocations ≥ min_invocations.
+- **Cleanup approval**: Both cleanup tests require per-entry human approval before writes. Keep unapproved entries, uncovered clauses, ids and ledger counters. Resync strengthened clauses missing from Landing; never delete them for the cap.
+- **Stale cross-references**: Sweep ledger, playbook, skills and shipped Feature Specs for stale references; only a MODIFIED REQ graduated at archive may correct Feature Specs.
+- **Prose ownership**: Only one tier owns prose: promoted narratives live in the playbook; personal descriptions are promotion evidence, never compressed.
+- **History**: Recover compressed per-occurrence narratives from ledger `git log -p`; `_archived-history/` resolves only for changes archived after that convention existed.
 
 ## Governance — TTL & Conflict
 
-Surfaces rules past TTL, in conflict, or matching staleness sweep tests for human arbitration.
-
----
+Send expired, conflicting or sweep-matched rules to human arbitration.
 
 ## Reference Information
 
-- Project name: `prospec`
+- Project: `prospec`
 - Tiers: accumulating `prospec/ai-knowledge/_lessons-ledger.md` → team `_playbook.md` → `CONSTITUTION.md`.
-- Constitution file: `prospec/CONSTITUTION.md`
+- Constitution: `prospec/CONSTITUTION.md`

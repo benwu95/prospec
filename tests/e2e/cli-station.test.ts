@@ -1861,4 +1861,46 @@ describe('CLI E2E — constitution show and learn playbook (REQ-CLI-058, REQ-CLI
     expect(stdout.trimEnd().split('\n')).toHaveLength(1);
     expect(stdout).toContain('_playbook.md');
   });
+
+  it('keeps legacy stdout byte-identical for station plus modules when every entry is undeclared', async () => {
+    await initProject();
+    await fs.promises.writeFile(playbookFile(), PLAYBOOK);
+    const legacy = await runCli(['learn', 'playbook', '--modules', 'lib']);
+    const fallback = await runCli(['learn', 'playbook', '--station', 'implement', '--modules', 'lib']);
+    // Frozen legacy bytes, independent of both selector/formatter executions.
+    const expected = 'Playbook catalog (prospec/ai-knowledge/_playbook.md): 2 active, 1 module-matched with full text; read any other with `prospec learn playbook --id <id>`\n'
+      + '\nPB-001 · Lib rule · kind: convention · modules: lib, cli · TTL: 2027-01-01 · relevance: module-match\n'
+      + '### PB-001: Lib rule\n'
+      + '- **Source**: a · **Criteria**: freq=3, modules=2 (lib, cli) · **Kind**: convention · **Approved-by**: x · **Date**: 2026-06-13\n'
+      + '- **TTL**: review by 2027-01-01\n'
+      + '- **Guidance**: lib guidance.\n'
+      + '\nPB-002 · Templates rule · kind: playbook · modules: templates · TTL: 2027-01-01\n';
+    expect(legacy.exitCode).toBe(0);
+    expect(fallback.exitCode).toBe(0);
+    expect(legacy.stdout).toBe(expected);
+    expect(fallback.stdout).toBe(expected);
+    expect(fallback.stdout).toBe(legacy.stdout);
+    expect(fallback.stderr.split('\n').filter((line) => line.includes('fallback'))).toHaveLength(1);
+    expect(fallback.stdout).not.toContain('WARN');
+  });
+
+  it('selects station bodies independently of module order and refuses invalid selector combinations', async () => {
+    await initProject();
+    const declared = PLAYBOOK.replace('- **Guidance**: lib guidance.', '- **Stations**: plan\n- **Guidance**: lib guidance.')
+      .replace('- **Guidance**: templates guidance.', '- **Stations**: implement\n- **Guidance**: templates guidance.');
+    await fs.promises.writeFile(playbookFile(), declared);
+    const result = await runCli(['learn', 'playbook', '--station', 'implement', '--modules', 'lib']);
+    expect(result.exitCode).toBe(0);
+    expect(result.stdout).toContain('station-selected');
+    expect(result.stdout).toContain('templates guidance.');
+    expect(result.stdout).not.toContain('lib guidance.');
+    expect(result.stdout.indexOf('PB-001 ·')).toBeLessThan(result.stdout.indexOf('PB-002 ·'));
+    for (const args of [
+      ['--station', 'all'], ['--station', 'plan', '--id', 'PB-001'], ['--station', 'plan', '--modules', ','],
+    ]) {
+      const invalid = await runCli(['learn', 'playbook', ...args]);
+      expect(invalid.exitCode).toBe(1);
+      expect(invalid.stderr.length).toBeGreaterThan(0);
+    }
+  });
 });

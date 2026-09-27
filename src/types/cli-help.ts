@@ -124,11 +124,11 @@ export const COMMAND_HELP_SPECS: Record<HelpEnrichedCommand, CommandHelpSpec> = 
   },
   'learn playbook': {
     whenToUse:
-      'At plan or implement Startup, to load the team playbook for the change\'s related modules instead of reading `_playbook.md` whole: every active entry as one catalog line, the full text of the module-matched ones, any other entry by `--id` on demand. Not for promoting or retiring an entry (`/prospec-learn` with human approval) and not for the whole-file read `/prospec-learn` itself does.',
-    example: 'prospec learn playbook --modules lib,cli',
-    additionalExamples: ['prospec learn playbook --id PB-007'],
+      'At plan or implement Startup, use --station to select entry bodies and optional --modules to sort the catalog by module match. Read any other active entry with --id. Not for promoting or retiring an entry (`/prospec-learn` with human approval) or the whole-file read `/prospec-learn` itself does.',
+    example: 'prospec learn playbook --station implement --modules lib,cli',
+    additionalExamples: ['prospec learn playbook --modules lib,cli', 'prospec learn playbook --id PB-007'],
     returns:
-      'Prints one catalog line per active entry — id, title, kind, modules (or `modules: undeclared`), TTL — with module-matched entries first, each followed by its full text and `relevance: module-match`; retired entries never appear. `--id` prints that entry alone and exits 1 on an unknown id. A missing `_playbook.md` prints one line and exits 0.',
+      'Prints one catalog line per active entry — id, title, kind, modules (or `modules: undeclared`), TTL. In station mode, the station selects bodies and modules only sort the catalog; entries without a station declaration remain available by --id. If all active entries lack declarations, legacy fallback uses the module selector and warns on stderr. An entry over the advisory 300-token cap warns on stderr without truncating its text. Retired entries never appear; an unknown id exits 1. A missing `_playbook.md` prints one line and exits 0.',
   },
   'spec show': {
     whenToUse:

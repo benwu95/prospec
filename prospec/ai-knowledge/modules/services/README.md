@@ -27,6 +27,7 @@ Also: `quickstart` (init + agentSync), `agent-triggers` + `trigger-localization`
 
 ## Public API
 
+- `executePlaybook({ station, modules?, cwd? })` validates the station with `normalizeStationName` before reading `_playbook.md`, then delegates parsing and selection to `lib/lessons-ledger`; it returns catalog mode and structured warnings for the CLI formatter. `--id` and legacy modules-only reads remain available.
 - `execute(options)` per service → typed `Result`
 - `executeYield(options)` — per-lens confirmed yield statistics and retirement recommendations
 - `executeFinalize` / `executeForChange` / `executeWrite` — archive post-judgment; change-driven knowledge update; trigger write-back
