@@ -21,8 +21,8 @@
 
   var zh = {
     // ---- document / chrome ----
-    'doc.title': 'Prospec — 會自我稽核的規格驅動開發，為 AI coding agent 打造',
-    'doc.desc': 'Prospec 讓你的 AI coding agent 跑一條受治理的 story → plan → design → tasks → implement → review → verify → knowledge update → archive 迴圈，搭配對抗式審查、S 到 D 品質分級，以及每次變更都持續累積的專案知識。支援 Claude Code、Codex、Copilot 與 Antigravity。',
+    'doc.title': 'Prospec — 讓 AI coding agent 共用並接續專案開發',
+    'doc.desc': '把規格與專案規則留在程式碼旁，讓 AI coding agent 共用可接續的 story → plan → design → tasks → implement → review → verify → knowledge update → archive 流程。每站有操作說明，CLI 負責確定性的狀態與檢查。',
     'ui.skip': '跳至內容',
     'ui.langAria': '切換語言 / Switch language',
 
@@ -39,9 +39,9 @@
 
     // ---- hero ----
     'hero.eyebrow': '漸進式規格驅動開發',
-    'hero.h1': '規格驅動開發，<br>而且<span class="em">會自我稽核</span>。',
-    'hero.sub': '規格驅動開發，意思是你的 AI agent 依據寫好的規格來開發，而不是用過即丟的 prompt。Prospec 把這件事跑成一條受治理的迴圈：',
-    'hero.subtail': '再加上對抗式審查、S 到 D 品質分級，以及每次變更都持續累積的專案知識。',
+    'hero.h1': '同一套開發流程。<br><span class="em">換個 agent 也能接手。</span>',
+    'hero.sub': '把規格、專案規則與變更脈絡留在程式碼旁。Prospec 讓 AI coding agent 依同一條路徑完成變更：',
+    'hero.subtail': '每一站都有操作說明。工作交接時，<code>prospec status</code> 會指出下一個 Skill 與阻擋條件。',
     'hero.lbl1': '// 全域安裝一次即可',
     'hero.lbl2': '// 啟動任何專案 —— 新專案或既有專案皆可',
     'hero.ctaPrimary': '約 5 分鐘快速上手 <span class="arr" aria-hidden="true">→</span>',
@@ -51,7 +51,7 @@
     'hero.facts.principles': '<b>8</b> 條強制原則',
     'hero.facts.mcp': '唯讀 <b>MCP</b> server',
     'hero.agents': '不綁定 agent —— 支援 <b>Claude Code</b>、<b>Codex</b>、<b>Copilot</b> 與 <b>Antigravity</b>。',
-    'hero.model': '三個元件：<b>Skills</b> 在你的 agent 內驅動判斷面，<b>AI Knowledge</b> 是版控的專案記憶，而 <b>CLI</b> 在背景作為確定性執行引擎（Deterministic Engine）。',
+    'hero.model': '三個元件：<b>Skills</b> 指引各站的判斷工作，<b>AI Knowledge</b> 保存專案脈絡，<b>CLI</b> 負責確定性的狀態轉換、檢查與 spec sync。',
 
     // ---- proof (terminal transcript) ----
     'proof.aria': '終端機對話：開發者請 agent 為公開 API 加上流量限制；Prospec 在 gates 通過後自主前進、更新 Knowledge、達到 grade A，並於 commit 與 archive 前停在 Tastemaker sign-off。',
@@ -115,7 +115,7 @@
     // ---- how it works ----
     'how.eyebrow': '§02 · 運作原理',
     'how.h2': '一條線性流程。兩條回饋迴圈，餵入下一次變更。',
-    'how.lede': '多數規格工具止步於 <span class="ink-em">spec → plan → tasks → implement</span>。Prospec 繼續往前 —— 走過真正能抓出問題、並讓專案記憶持續成長的階段。',
+    'how.lede': '變更依序經過有操作說明的站點。規格、規則與進度留在專案裡，下一位 agent 讀取脈絡後，就能從 <code>prospec status</code> 指出的站點接續工作。',
     'how.diagramAria': 'Prospec 生命週期的流程圖。線性管線依序執行 Explore、Story、Plan、Design（UI 工作才需要）、Tasks、Implement、Review、Verify、Knowledge Update 與 Archive；Learn 則定期執行。Knowledge Update 餵入 AI Knowledge，Archive 讓 Feature Specs 畢業，Learn 餵入 Constitution 與 Playbook。三項資產都會作為 context 迴流到下一次變更的 Plan。',
     'how.dg.cap1': '單一變更 —— EXPLORE 到 ARCHIVE',
     'how.dg.periodic': '定期執行',
@@ -182,7 +182,7 @@
     // ---- verify (signature) ----
     'verify.eyebrow': '§05 · 驗證',
     'verify.h2': '從等級一眼讀出品質。',
-    'verify.lede': '多數規格工具止步於計劃。Prospec 以 5+1 個維度為每個變更評級，並且不讓你在及格線下 commit：grade S 或 A 才放行；B 以下會擋住 commit，直到修正完成。',
+    'verify.lede': 'Prospec 從 5+1 個維度為每個變更評級。S 或 A 會進入流程中的 commit 交接；B 以下會引導 agent 返回修正。實際 commit 仍由你決定。',
     'verify.reportAria': '範例 verify 成績單，顯示 grade A',
     'verify.reportHd': 'verify 報告',
     'verify.pass': '通過',

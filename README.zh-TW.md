@@ -8,9 +8,9 @@
 [![Node](https://img.shields.io/badge/node-%3E%3D22.13-brightgreen?style=flat-square&logo=node.js)](https://nodejs.org/)
 [![pnpm](https://img.shields.io/badge/pnpm-%3E%3D11-orange?style=flat-square&logo=pnpm)](https://pnpm.io/)
 
-**為 AI coding agent 打造的漸進式規格驅動開發 (SDD) 工具組**
+**讓 AI coding agent 共用、可接續的專案開發流程**
 
-*Host-aware Skills · 結構化 AI Knowledge · MCP server — 支援 Claude Code、Copilot、Codex*
+*專案內的規格與規則 · 分站 Skills · 確定性 CLI — 支援 Claude Code、Codex、Copilot、Antigravity*
 
 [English](./README.md) • [快速上手](#快速上手) • [為什麼選擇 Prospec？](#為什麼選擇-prospec) • [運作原理](#運作原理) • [AI Skills](#ai-skills) • [CLI 命令](#cli-命令)
 
@@ -54,7 +54,9 @@
 
 ## 什麼是 Prospec？
 
-Prospec 是一套 **CLI-first 的規格驅動開發（SDD）工具組**，為 AI coding agent 而設計。日常工作以 host-aware **Skills 在 Agent 內**驅動（Claude Code、Antigravity、Copilot、Codex）；Skills 執行的每一項**確定性操作**——scaffold、狀態轉換、quality-log 寫入、spec sync、評分——都在 **`prospec` CLI**（必裝的單一執行檔）內執行，同樣的 repo 狀態永遠產出相同的位元組。Skills 保留判斷面：訪談、prose、審查、裁決。你的 Agent 因此遵循一致的 `story → plan → design → tasks → implement → review → verify → knowledge-update → archive` 工作流，立基於結構化、版控的專案知識，不確定的部分被隔絕在簿記之外。Design 只在 UI scope 需要時執行；scale-aware 例外會在下文分開說明。
+Prospec 讓開發者與 AI coding agent **依據專案內的檔案，共用同一套開發流程**。Spec 記錄預期行為；Constitution、conventions 與模組知識留下開發規則及修改程式碼前需要注意的事。進行中的 change 檔案記錄需求、計畫與任務。工作暫停時，`prospec status` 會列出目前站點、下一個 Skill 與阻擋條件，讓使用同一專案的其他 agent 能依據已記錄的狀態接手。
+
+日常工作由 agent 內的 host-aware **Skills** 驅動（Claude Code、Antigravity、Copilot、Codex）。每一站都有操作說明，指引訪談、文件撰寫、審查與裁決等判斷工作；必裝的獨立執行檔 **`prospec` CLI** 則負責確定性的 scaffold、狀態轉換、結構化紀錄、檢查、評分與 spec sync。標準流程是 `story → plan → design → tasks → implement → review → verify → knowledge-update → archive`；Design 視 UI 範圍執行，change scale 也可能縮短流程。
 
 三個元件協同運作：
 
@@ -76,13 +78,14 @@ Prospec 是一套 **CLI-first 的規格驅動開發（SDD）工具組**，為 AI
 - **AI Knowledge** 是漸進式的專案記憶，Skills 讀取它、並隨每次變更擴充它。
 - **CLI** 是必裝的單一執行檔，**就在** runtime 迴圈內：Skills 需要的每個確定性操作 —— bootstrap、scaffold、生命週期轉換、結構化記錄、drift 檢查、評分、封存同步 —— 都以程式執行、位元可重現。
 
-**適合誰？** 使用 AI coding agent、希望在新專案（Greenfield）或既有程式碼庫（Brownfield）上獲得可重複、可審查工作流的開發者。
+**適合誰？** 使用 AI coding agent、希望工作在不同 session 或 agent 之間仍容易理解的團隊與個人開發者；新專案（Greenfield）和既有程式碼庫（Brownfield）都適用。
 
 ## 為什麼選擇 Prospec？
 
 | 挑戰 | Prospec 如何解決 |
 |------|------------------|
 | AI 不了解你的程式碼庫 | `prospec knowledge init` + `prospec-knowledge-generate` 自動掃描並生成 AI 可讀文件 |
+| 新 agent 不知道工作停在哪裡 | 專案內的 change artifacts 保留進行中的工作；`prospec status` 指出下一站與阻擋條件 |
 | Context window 限制 | 漸進式揭露：先載入摘要，細節按需取用；用 `prospec measure` 驗證你自己 session 的實際影響 |
 | AI 工作流不一致 | 結構化 Skills 強制執行 `story → plan → design → tasks → implement → review → verify → knowledge-update → archive`，條件分支也明確可見 |
 | 供應商鎖定 | 支援 4+ AI CLI，知識儲存在通用 Markdown 格式 |

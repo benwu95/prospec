@@ -8,9 +8,9 @@
 [![Node](https://img.shields.io/badge/node-%3E%3D22.13-brightgreen?style=flat-square&logo=node.js)](https://nodejs.org/)
 [![pnpm](https://img.shields.io/badge/pnpm-%3E%3D11-orange?style=flat-square&logo=pnpm)](https://pnpm.io/)
 
-**Progressive Spec-Driven Development (SDD) toolkit for AI coding agents**
+**A shared, resumable development workflow for AI coding agents**
 
-*Host-aware Skills · structured AI Knowledge · MCP server — for Claude Code, Copilot, Codex*
+*Project-local specs and rules · stage-by-stage Skills · deterministic CLI — for Claude Code, Codex, Copilot, Antigravity*
 
 [繁體中文](./README.zh-TW.md) • [Quickstart](#quickstart) • [Why Prospec?](#why-prospec) • [How It Works](#how-it-works) • [AI Skills](#ai-skills) • [CLI Commands](#cli-commands)
 
@@ -54,7 +54,9 @@
 
 ## What is Prospec?
 
-Prospec is a **CLI-first Spec-Driven Development (SDD) toolkit** for AI coding agents. You drive day-to-day work through host-aware **Skills inside your agent** (Claude Code, Antigravity, Copilot, Codex); every **deterministic operation** they perform — scaffolding, status transitions, quality-log writes, spec sync, grading — runs in the **`prospec` CLI** (a required standalone executable), so the same repo state always produces the same bytes. Skills keep the judgment: interviews, prose, reviews, verdicts. Your agent then follows one consistent `story → plan → design → tasks → implement → review → verify → knowledge-update → archive` workflow, grounded in structured, version-controlled project knowledge, with the nondeterministic parts kept out of the bookkeeping. Design is conditional on UI scope; the scale-aware exceptions are called out below.
+Prospec gives developers and AI coding agents a **shared workflow grounded in files inside the project**. Specs describe expected behavior; the Constitution, conventions, and module knowledge record project rules and things an agent needs to know before changing code. In-progress change files capture the request, plan, and tasks. When work pauses, `prospec status` reports the current station, next Skill, and blocking gates, so another agent working in the same project can resume from the recorded state.
+
+You work through host-aware **Skills inside your agent** (Claude Code, Antigravity, Copilot, Codex). Each station has instructions for the judgment it needs — interviews, prose, reviews, and verdicts — while the required standalone **`prospec` CLI** handles deterministic scaffolding, status transitions, structured records, checks, grading, and spec sync. The standard path is `story → plan → design → tasks → implement → review → verify → knowledge-update → archive`; Design is conditional on UI scope, and change scale can shorten the path.
 
 Three pieces work together:
 
@@ -76,13 +78,14 @@ Three pieces work together:
 - **AI Knowledge** is progressive project memory the Skills read and grow with each change.
 - **CLI** is a required standalone executable IN the runtime loop: every deterministic operation the Skills need — bootstrap, scaffolds, lifecycle transitions, structured records, drift checks, grading, archive sync — runs as code, byte-reproducibly.
 
-**Who is it for?** Developers using an AI coding agent who want repeatable, reviewable workflows on a new project (greenfield) or an existing codebase (brownfield).
+**Who is it for?** Teams and solo developers who use AI coding agents and want work to remain understandable across sessions or agents, in a new project (greenfield) or an existing codebase (brownfield).
 
 ## Why Prospec?
 
 | Challenge | How Prospec helps |
 |-----------|-------------------|
 | AI doesn't know your codebase | `prospec knowledge init` + `prospec-knowledge-generate` auto-scan and generate AI-readable docs |
+| A new agent cannot tell where work stopped | Project-local change artifacts preserve the current work; `prospec status` names the next station and its blocking gates |
 | Context window limits | Progressive disclosure: load a summary first, details on demand; verify the impact on your own sessions with `prospec measure` |
 | Inconsistent AI workflows | Structured Skills enforce `story → plan → design → tasks → implement → review → verify → knowledge-update → archive` with explicit conditional branches |
 | Vendor lock-in | Works with 4+ AI CLIs; knowledge stored as universal Markdown |
