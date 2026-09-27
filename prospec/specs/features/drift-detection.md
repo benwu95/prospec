@@ -1,7 +1,7 @@
 ---
 feature: drift-detection
 status: active
-last_updated: 2026-09-20
+last_updated: 2026-09-27
 story_count: 22
 req_count: 90
 ---
@@ -62,6 +62,7 @@ _(None)_
 
 | Date | Change | Impact | Stories/REQs |
 |------|--------|--------|--------------|
+| 2026-09-27 | slice-constitution-and-playbook | MODIFIED REQ-LIB-032; MODIFIED REQ-TYPES-065 | REQ-LIB-032, REQ-TYPES-065 |
 | 2026-09-20 | declare-constitution-checks | MODIFIED REQ-LIB-032 | REQ-LIB-032 |
 | 2026-09-18 | require-green-tests | MODIFIED REQ-LIB-033 | REQ-LIB-033 |
 | 2026-09-18 | internalize-skill-budgets | MODIFIED REQ-TYPES-061; MODIFIED REQ-LIB-028; MODIFIED REQ-TEMPLATES-149; MODIFIED REQ-TESTS-048 | REQ-TYPES-061, REQ-LIB-028, REQ-TEMPLATES-149, REQ-TESTS-048 |

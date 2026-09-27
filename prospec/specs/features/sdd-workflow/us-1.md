@@ -187,12 +187,14 @@ so that existing projects leverage Knowledge to produce precise plans, and brand
 ### Behavior Specifications
 
 #### REQ-TEMPLATES-033: Plan Skill Feature Spec Loading
+The plan skill loads its Layer 0 context at Startup: the Product Spec in full, and Feature Specs through `prospec spec show <feature> --story <ids>` for the features `feature-map.yaml` maps to the change's related modules (story ids taken from the feature hub file's story list), never the whole `specs/features/` directory; it then detects the Context Mode.
 - WHEN Startup Loading, THEN read Feature Specs + Product Spec as Layer 0 context + detect Context Mode
 - WHEN Brownfield, THEN synthesize Technical Summary (module overview + patterns + constraints)
 - WHEN Greenfield, THEN guide compensatory collection + suggest Knowledge generation
 - WHEN delta-spec generated, THEN each REQ includes Feature/Story routing fields
 - WHEN Phase ends, THEN execute Knowledge Quality Gate
 - WHEN delta-spec generated, THEN each MODIFIED/REMOVED REQ's `**Feature**` header is checked mechanically by `prospec check` to resolve to the feature that hosts the REQ id, while the ADDED `**Story**` follows the delta-spec-format reference's trust-zone numbering as an authoring rule rather than a mechanical check
+- WHEN the Feature Specs are read at Startup, THEN they are read story-by-story through `prospec spec show <feature> --story <ids>`, and the whole `specs/features/` directory is never read
 
 #### REQ-SPEC-012: Delta-Spec Feature Routing Metadata
 Each REQ in delta-spec.md adds Feature/Story routing fields, specifying which Feature Spec to write to at archive time. The `**Story**` value is a trust-zone story number, not a proposal.md number: archive routes an ADDED REQ to the slice owning that story, while a MODIFIED or REMOVED REQ is located by its REQ id and the field stays a human-read, auditable pointer to where the REQ already lives.
