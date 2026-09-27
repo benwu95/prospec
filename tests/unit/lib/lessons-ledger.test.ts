@@ -5,6 +5,9 @@ import {
   scoreLessons,
   renderLedgerDocument,
   expiredPlaybookEntries,
+  parsePlaybookEntries,
+  selectPlaybookEntries,
+  splitPlaybookBlocks,
   DEFAULT_SCORE_THRESHOLDS,
   escapedCellsFor,
   type LedgerEntry,
@@ -418,5 +421,200 @@ describe('escapedCellsFor (REQ-LIB-078) — counts only the row this upsert wrot
     expect(escapedCellsFor(result.entries, result.action, 'new/key')).toBe(1);
     const two = upsertLesson([], lesson({ key: 'k\nk', description: 'a | b' }));
     expect(escapedCellsFor(two.entries, two.action, 'k\nk')).toBe(2);
+  });
+});
+
+// REQ-LIB-094 — the playbook catalog: every active entry is listed, module
+// intersection only decides whose full text is printed.
+const CATALOG_PLAYBOOK = `# Team Playbook
+
+Format:
+
+\`\`\`markdown
+### PB-{NNN}: {one-line rule}
+- **Source**: {change(s)} · **Criteria**: freq=N, modules=M · **Approved-by**: {name} · **Date**: {YYYY-MM-DD}
+- **TTL**: {date or "review by …"}
+\`\`\`
+
+## Entries
+
+### PB-001: First rule
+- **Source**: a, b · **Criteria**: freq=6, modules=2 (tests, templates) · **Kind**: convention · **Approved-by**: x · **Date**: 2026-06-13
+- **TTL**: review by 2026-12-11
+- **Guidance**: do the first thing.
+- **Strengthened 2026-09-03** (absorbs ledger key \`k\`, freq=3, modules=2 (lib, services)) · **Approved-by**: x.
+
+### PB-002: Second rule with trailing prose
+- **Source**: c · **Criteria**: freq=1, modules=2 (lib, cli) — below the rule; early promotion · **Kind**: playbook · **Approved-by**: x · **Date**: 2026-06-12
+- **TTL**: review by 2026-12-12
+- **Guidance**: second.
+
+### PB-003: No module list
+- **Source**: d · **Criteria**: freq=3, modules=2 · **Kind**: playbook · **Approved-by**: x · **Date**: 2026-06-12
+- **TTL**: review by 2027-01-01
+- **Guidance**: third.
+- **Strengthened 2026-09-03** (absorbs ledger key \`k2\`, freq=3, modules=2 (lib, services)) · **Approved-by**: x.
+### PB-010: Services only
+- **Source**: e · **Criteria**: freq=3, modules=1 (services) · **Kind**: convention · **Approved-by**: x · **Date**: 2026-07-29
+- **TTL**: review by 2027-01-29
+- **Guidance**: tenth.
+
+## Retired Entries
+
+> Retired entries keep their id.
+
+### PB-004: Retired rule
+- **Source**: f · **Criteria**: freq=3, modules=2 (lib, tests) · **Kind**: playbook · **Approved-by**: x · **Date**: 2026-06-01
+- **RETIRED 2026-08-04**: promoted to Constitution.
+`;
+
+describe('parsePlaybookEntries', () => {
+  it('parses one entry per PB-<digits> heading, never the template placeholder', () => {
+    const entries = parsePlaybookEntries(CATALOG_PLAYBOOK);
+    expect(entries.map((e) => e.id)).toEqual(['PB-001', 'PB-002', 'PB-003', 'PB-010', 'PB-004']);
+    expect(entries.map((e) => e.title)).toEqual([
+      'First rule',
+      'Second rule with trailing prose',
+      'No module list',
+      'Services only',
+      'Retired rule',
+    ]);
+  });
+
+  it('takes modules from the Source line only — a Strengthened bullet never widens them — and trailing prose is ignored', () => {
+    const byId = new Map(parsePlaybookEntries(CATALOG_PLAYBOOK).map((e) => [e.id, e]));
+    expect(byId.get('PB-001')?.modules).toEqual(['tests', 'templates']);
+    expect(byId.get('PB-002')?.modules).toEqual(['lib', 'cli']);
+    expect(byId.get('PB-003')?.modules).toBeNull();
+  });
+
+  it('reads kind, TTL and the retirement marker, and keeps the block text verbatim without the next section heading', () => {
+    const byId = new Map(parsePlaybookEntries(CATALOG_PLAYBOOK).map((e) => [e.id, e]));
+    expect(byId.get('PB-001')).toMatchObject({ kind: 'convention', ttl: '2026-12-11', retired: false });
+    expect(byId.get('PB-004')).toMatchObject({ kind: 'playbook', ttl: null, retired: true });
+    expect(byId.get('PB-010')?.text).toBe(
+      [
+        '### PB-010: Services only',
+        '- **Source**: e · **Criteria**: freq=3, modules=1 (services) · **Kind**: convention · **Approved-by**: x · **Date**: 2026-07-29',
+        '- **TTL**: review by 2027-01-29',
+        '- **Guidance**: tenth.',
+      ].join('\n'),
+    );
+    expect(byId.get('PB-003')?.text.endsWith('**Approved-by**: x.')).toBe(true);
+  });
+});
+
+describe('selectPlaybookEntries', () => {
+  const entries = parsePlaybookEntries(CATALOG_PLAYBOOK);
+
+  it('lists every active entry, module matches first in file order, the rest after in file order', () => {
+    const r = selectPlaybookEntries(entries, { modules: ['cli', 'services'] });
+    expect(r.kind).toBe('catalog');
+    if (r.kind !== 'catalog') return;
+    expect(r.catalog.map((c) => [c.entry.id, c.matched])).toEqual([
+      ['PB-002', true],
+      ['PB-010', true],
+      ['PB-001', false],
+      ['PB-003', false],
+    ]);
+  });
+
+  it('never matches an entry with no module list, and never lists a retired entry', () => {
+    const r = selectPlaybookEntries(entries, { modules: ['lib', 'tests'] });
+    if (r.kind !== 'catalog') throw new Error('expected a catalog');
+    expect(r.catalog.find((c) => c.entry.id === 'PB-003')?.matched).toBe(false);
+    expect(r.catalog.some((c) => c.entry.id === 'PB-004')).toBe(false);
+    expect(r.catalog).toHaveLength(4);
+  });
+
+  it('matches the Source-line modules only, so a Strengthened modules list does not match', () => {
+    const r = selectPlaybookEntries(entries, { modules: ['services'] });
+    if (r.kind !== 'catalog') throw new Error('expected a catalog');
+    expect(r.catalog.filter((c) => c.matched).map((c) => c.entry.id)).toEqual(['PB-010']);
+  });
+
+  it('selects exactly one active entry by id and reports an unknown or retired id as a miss', () => {
+    expect(selectPlaybookEntries(entries, { id: 'PB-002' })).toMatchObject({ kind: 'entry', entry: { id: 'PB-002' } });
+    expect(selectPlaybookEntries(entries, { id: 'PB-999' })).toEqual({ kind: 'miss', id: 'PB-999' });
+    expect(selectPlaybookEntries(entries, { id: 'PB-004' })).toEqual({ kind: 'miss', id: 'PB-004' });
+  });
+});
+
+describe('splitPlaybookBlocks', () => {
+  it('splits on every ### heading, keeping raw body lines and the 1-based heading line', () => {
+    const blocks = splitPlaybookBlocks('intro\n### A\nbody a\r\n### B\nbody b');
+    expect(blocks).toEqual([
+      { heading: 'A', lines: ['body a\r'], line: 2 },
+      { heading: 'B', lines: ['body b'], line: 4 },
+    ]);
+  });
+
+  it('ends a block at a # or ## heading too, so a section preamble belongs to no entry', () => {
+    const blocks = splitPlaybookBlocks('### A\nbody a\n## Retired Entries\npreamble\n### B\nbody b\n# Appendix\ntail');
+    expect(blocks).toEqual([
+      { heading: 'A', lines: ['body a'], line: 1 },
+      { heading: 'B', lines: ['body b'], line: 5 },
+    ]);
+  });
+
+  it('judges headings on a fence-blanked view while keeping the fenced lines in the body', () => {
+    const blocks = splitPlaybookBlocks('### A\n```sh\n# comment\n## fake\n### PB-999: fake\n```\nafter');
+    expect(blocks).toEqual([{ heading: 'A', lines: ['```sh', '# comment', '## fake', '### PB-999: fake', '```', 'after'], line: 1 }]);
+  });
+});
+
+// The block definition is the ONE the TTL report and the catalog both consume
+// (REQ-LIB-094): the two fixtures below are exactly the shapes on which a second
+// heading rule in either consumer made them disagree about retired / TTL.
+describe('one playbook block definition for the TTL report and the catalog', () => {
+  const fencedGuidance = [
+    '### PB-001: Fenced guidance',
+    '- **Source**: c · **Criteria**: freq=3, modules=2 (lib, cli) · **Kind**: convention · **Approved-by**: x · **Date**: 2026-06-13',
+    '- **Guidance**: run',
+    '```sh',
+    '# comment',
+    '## fake',
+    '### PB-999: fake',
+    '```',
+    '- **TTL**: review by 2026-01-01',
+    '- **RETIRED 2026-02-01**: gone.',
+    '',
+    '### PB-002: Live',
+    '- **Source**: c · **Criteria**: freq=3, modules=1 (lib) · **Kind**: convention · **Approved-by**: x · **Date**: 2026-06-13',
+    '- **TTL**: review by 2026-01-01',
+  ].join('\n');
+
+  it('a fenced # / ## / ### line inside Guidance neither splits nor truncates the entry: both consumers see the TTL and marker after it', () => {
+    const entries = parsePlaybookEntries(fencedGuidance);
+    expect(entries.map((e) => e.id)).toEqual(['PB-001', 'PB-002']);
+    expect(entries[0]).toMatchObject({ retired: true, ttl: null });
+    expect(entries[0]?.text).toContain('### PB-999: fake');
+    expect(entries[0]?.text.endsWith('- **RETIRED 2026-02-01**: gone.')).toBe(true);
+    expect(entries[1]).toMatchObject({ retired: false, ttl: '2026-01-01' });
+    // the TTL report agrees: PB-001 is retired (skipped), PB-002 is live and expired
+    expect(expiredPlaybookEntries(fencedGuidance, '2026-09-27')).toEqual([{ entry: 'PB-002: Live', reviewBy: '2026-01-01' }]);
+  });
+
+  const retiredPreamble = [
+    '### PB-001: A',
+    '- **Source**: c · **Criteria**: freq=3, modules=2 (lib, cli) · **Kind**: convention · **Approved-by**: x · **Date**: 2026-06-13',
+    '- **TTL**: review by 2026-01-01',
+    '- **Guidance**: g',
+    '',
+    '## Retired Entries',
+    '- **RETIRED 2026-02-01**: preamble, not an entry',
+    '',
+    '### PB-002: B',
+    '- **RETIRED 2026-02-01**: gone',
+  ].join('\n');
+
+  it('## Retired Entries closes the last live entry: its preamble marker retires nothing, for both consumers', () => {
+    const entries = parsePlaybookEntries(retiredPreamble);
+    expect(entries.map((e) => [e.id, e.retired])).toEqual([
+      ['PB-001', false],
+      ['PB-002', true],
+    ]);
+    expect(entries[0]?.text.endsWith('- **Guidance**: g')).toBe(true);
+    expect(expiredPlaybookEntries(retiredPreamble, '2026-09-27')).toEqual([{ entry: 'PB-001: A', reviewBy: '2026-01-01' }]);
   });
 });

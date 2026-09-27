@@ -1,5 +1,9 @@
 import { describe, it, expect } from 'vitest';
-import { parseConstitutionRules } from '../../../src/lib/constitution-parser.js';
+import {
+  locateConstitutionRules,
+  parseConstitutionRules,
+  parseVerifyDeclarations,
+} from '../../../src/lib/constitution-parser.js';
 
 /** REQ-LIB-032 — the machine half of verify's Constitution audit. */
 
@@ -197,6 +201,138 @@ Prose only.
       expect(rules[0]?.coverage).toBeUndefined();
       expect(rules[0]?.has_verify_hint).toBe(true);
     });
+  });
+});
+
+describe('stations declaration (REQ-LIB-032)', () => {
+  const ruleWith = (verify: string) => `## Principles
+
+### [MUST] Declared
+
+**Verify**: ${verify}
+`;
+
+  it('reads stations before, between and after the check/covers grammar without losing either', () => {
+    for (const verify of [
+      'stations: plan, review; check: import-direction; covers: layer hierarchy. Prose.',
+      'check: import-direction; stations: plan, review; covers: layer hierarchy. Prose.',
+      'check: import-direction; covers: layer hierarchy; stations: plan, review. Prose.',
+    ]) {
+      const [rule] = parseConstitutionRules(ruleWith(verify));
+      expect(rule, verify).toMatchObject({
+        stations: ['plan', 'review'],
+        check_id: 'import-direction',
+        coverage: 'layer hierarchy',
+      });
+    }
+  });
+
+  it('collapses exactly `all` to the literal and keeps a mixed list as an array', () => {
+    expect(parseConstitutionRules(ruleWith('stations: all; Prose.'))[0]?.stations).toBe('all');
+    expect(parseConstitutionRules(ruleWith('stations: ALL'))[0]?.stations).toBe('all');
+    expect(parseConstitutionRules(ruleWith('stations: all, plan'))[0]?.stations).toEqual(['all', 'plan']);
+  });
+
+  it('keeps every token when commas are missing or names are capitalised', () => {
+    expect(parseConstitutionRules(ruleWith('stations: plan review'))[0]?.stations).toEqual(['plan', 'review']);
+    expect(parseConstitutionRules(ruleWith('stations: Plan,Tasks'))[0]?.stations).toEqual(['plan', 'tasks']);
+  });
+
+  it('resolves each token as the CLI resolves --station (skill name, prospec- prefix), leaving an unknown token as written', () => {
+    expect(parseConstitutionRules(ruleWith('stations: new-story, knowledge-update.'))[0]?.stations).toEqual([
+      'story',
+      'knowledge-update',
+    ]);
+    expect(parseConstitutionRules(ruleWith('stations: prospec-plan, Bogus'))[0]?.stations).toEqual(['plan', 'bogus']);
+  });
+
+  it('reads the label in any case: `Stations: plan` declares plan', () => {
+    expect(parseConstitutionRules(ruleWith('Stations: plan'))[0]?.stations).toEqual(['plan']);
+    expect(parseConstitutionRules(ruleWith('STATIONS: all'))[0]?.stations).toBe('all');
+  });
+
+  it('ends the stations clause before a check: or covers: keyword, so a comma-separated line keeps its check binding', () => {
+    expect(parseVerifyDeclarations('stations: plan, check: import-direction; covers: layering')).toEqual({
+      stations: ['plan'],
+      check_id: 'import-direction',
+      coverage: 'layering',
+    });
+    expect(parseVerifyDeclarations('stations: plan review check: import-direction')).toEqual({
+      stations: ['plan', 'review'],
+      check_id: 'import-direction',
+    });
+  });
+
+  it('reads an undeclared rule as null, never as an empty station list', () => {
+    const [rule] = parseConstitutionRules(ruleWith('check: test-provenance; covers: suite'));
+    expect(rule?.stations).toBeNull();
+    const [noHint] = parseConstitutionRules('## Principles\n\n### [MUST] No hint\n\nProse.\n');
+    expect(noHint?.stations).toBeNull();
+  });
+
+  it('does not let a covers: clause that follows swallow the declaration, nor a stations: clause swallow covers', () => {
+    const decl = parseVerifyDeclarations('check: x-check; covers: a b c; stations: verify');
+    expect(decl).toEqual({ check_id: 'x-check', coverage: 'a b c', stations: ['verify'] });
+    const word = parseVerifyDeclarations('Workstations: are not a declaration; check: y');
+    expect(word.stations).toBeNull();
+    expect(word.check_id).toBe('y');
+  });
+
+  it('parses a CRLF declaration exactly as its LF form', () => {
+    const doc = ruleWith('stations: plan, review');
+    expect(parseConstitutionRules(doc.replace(/\n/g, '\r\n'))).toEqual(parseConstitutionRules(doc));
+    expect(parseConstitutionRules(doc)[0]?.stations).toEqual(['plan', 'review']);
+  });
+
+  it('attaches a Verify hint only while the rule block is open — after the --- that closed it the hint belongs to no rule', () => {
+    const doc = '## Principles\n\n### [MUST] A\n\n---\n\n**Verify**: stations: review\n\n### [MUST] B\n\n**Verify**: stations: plan\n';
+    const [a, b] = parseConstitutionRules(doc);
+    expect(a).toMatchObject({ name: 'A', has_verify_hint: false, stations: null });
+    expect(b).toMatchObject({ name: 'B', has_verify_hint: true, stations: ['plan'] });
+  });
+});
+
+// Literal block extents: the slice engine masks lines by these numbers, so the
+// boundary rules are pinned here as data rather than re-derived from the parser.
+describe('locateConstitutionRules block extents', () => {
+  const DOC = [
+    /* 0 */ '# C',
+    /* 1 */ '',
+    /* 2 */ '## Principles',
+    /* 3 */ '',
+    /* 4 */ '### [MUST] A',
+    /* 5 */ '',
+    /* 6 */ '**Verify**: stations: all',
+    /* 7 */ '',
+    /* 8 */ '---',
+    /* 9 */ '### [MUST] B',
+    /* 10 */ '--- not a break',
+    /* 11 */ '|---|---|',
+    /* 12 */ '```text',
+    /* 13 */ '---',
+    /* 14 */ '```',
+    /* 15 */ '**Verify**: stations: plan',
+    /* 16 */ '',
+    /* 17 */ '---',
+    /* 18 */ '',
+    /* 19 */ 'trailing prose',
+    /* 20 */ '### [MAY] C',
+    /* 21 */ 'body',
+    /* 22 */ '## Constraints',
+    /* 23 */ '### not a principle',
+  ].join('\n');
+
+  it('runs each block from its heading to the whole-line --- (exclusive), the next ###, or the section end', () => {
+    const layout = locateConstitutionRules(DOC);
+    expect(layout.principles).toEqual({ start: 2, end: 22 });
+    expect(layout.rules.map((r) => [r.entry.name, r.start, r.end])).toEqual([
+      ['A', 4, 8],
+      ['B', 9, 17],
+      ['C', 20, 22],
+    ]);
+    // the `--- not a break`, table-row and fenced `---` lines did not close B: its
+    // Verify line after them still attached
+    expect(layout.rules[1]?.entry.stations).toEqual(['plan']);
   });
 });
 

@@ -6,6 +6,8 @@
  * of treating every principle equally.
  */
 
+import type { SddStation } from './status.js';
+
 /** RFC-2119 severity for a Constitution rule. */
 export type ConstitutionSeverity = 'MUST' | 'SHOULD' | 'MAY';
 
@@ -51,4 +53,19 @@ export interface ConstitutionRule {
   rationale: string;
   /** How to verify compliance — a hint for verify; mechanical where possible. */
   check?: string;
+  /** The stations whose Startup slice carries this rule; absent = undeclared. */
+  stations?: 'all' | SddStation[];
+}
+
+/**
+ * The `**Verify**:` line body for a rule — `stations: <list>; <check>` when the
+ * rule declares stations, the check text alone when it does not. One renderer
+ * for the init template and the upgrade formatter, so a seeded declaration
+ * cannot differ between the file init writes and the rule upgrade prints.
+ */
+export function formatVerifyHint(rule: Pick<ConstitutionRule, 'check' | 'stations'>): string {
+  const check = rule.check ?? '';
+  if (rule.stations === undefined) return check;
+  const clause = `stations: ${rule.stations === 'all' ? 'all' : rule.stations.join(', ')}`;
+  return check === '' ? clause : `${clause}; ${check}`;
 }

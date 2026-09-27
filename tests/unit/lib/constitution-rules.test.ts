@@ -78,6 +78,17 @@ describe('languagePolicyRule', () => {
     ...over,
   });
 
+  it('declares stations: all on every Language Policy form and on no stack example rule (REQ-LIB-095)', () => {
+    for (const s of [scope({ language: 'English', trustZoneLanguage: 'English' }), scope({ trustZoneLanguage: 'Japanese' }), scope()]) {
+      expect(languagePolicyRule(s).stations).toBe('all');
+    }
+    for (const language of ['python', 'typescript', 'rust', undefined]) {
+      for (const rule of exampleRulesFor({ language })) {
+        expect(rule.stations, `${String(language)}: ${rule.name}`).toBeUndefined();
+      }
+    }
+  });
+
   it('returns a MUST rule named Language Policy', () => {
     const rule = languagePolicyRule(scope({ language: 'English' }));
     expect(rule.severity).toBe('MUST');
@@ -225,6 +236,7 @@ describe('languagePolicyRule — default trust zone is byte-identical to the pre
       'The project owner reviews their own change narrative in Traditional Chinese (Taiwan), while the trust zone stays English so it reads like the code it documents and travels beyond this project. Both this rule and the agent entry config are generated from one resolved path set, so the two cannot drift into contradicting each other.',
     check:
       'Files under `.prospec/changes/**`, `.prospec/archive/**`, `prospec/specs/_archived-history/**` are written in Traditional Chinese (Taiwan); `prospec/CONSTITUTION.md`, `prospec/README.md`, `prospec/index.md`, `prospec/specs/product.md`, `prospec/specs/features/**`, `prospec/ai-knowledge/**`, code, technical terms, and commit messages are in English. The named exceptions above are NOT violations — in either direction — and an audit does NOT flag the English trust zone as a Language-Policy violation.',
+    stations: 'all',
   };
 
   const PINNED_ENGLISH = {
@@ -235,6 +247,7 @@ describe('languagePolicyRule — default trust zone is byte-identical to the pre
     rationale:
       'One declared document language keeps generated artifacts consistent and reviewable; English code, terminology, and commit history follow industry convention.',
     check: 'Generated documents, code, technical terms, and commit messages are in English.',
+    stations: 'all',
   };
 
   it('renders the two-zone rule verbatim when trust_zone_language is unset', () => {

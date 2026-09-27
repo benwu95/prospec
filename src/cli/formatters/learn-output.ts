@@ -1,6 +1,6 @@
 import pc from 'picocolors';
 import type { LogLevel } from '../../types/config.js';
-import type { LearnUpsertResult } from '../../services/learn.service.js';
+import type { LearnPlaybookResult, LearnUpsertResult, PlaybookEntry } from '../../services/learn.service.js';
 import { sanitizeTerminal } from './sanitize.js';
 import { formatEscapingNotice } from './escaping-notice.js';
 
@@ -34,6 +34,45 @@ export function formatLearnUpsertOutput(
   const notice = formatEscapingNotice(result.escapedCells);
   if (notice !== undefined) lines.push(notice);
   process.stdout.write(lines.join('\n') + '\n');
+}
+
+function catalogLine(entry: PlaybookEntry, matched: boolean): string {
+  const modules = entry.modules === null ? 'undeclared' : entry.modules.join(', ');
+  const fields = [
+    entry.id,
+    entry.title,
+    `kind: ${entry.kind ?? 'undeclared'}`,
+    `modules: ${modules}`,
+    `TTL: ${entry.ttl ?? 'none'}`,
+    ...(matched ? ['relevance: module-match'] : []),
+  ];
+  return sanitizeTerminal(fields.join(' · '));
+}
+
+/**
+ * Print the per-change playbook view. stdout is the product (never suppressed):
+ * a one-line header, then one catalog line per active entry — each module match
+ * followed by its full text — or, for `--id`, the one entry's text alone.
+ */
+export function formatLearnPlaybookOutput(result: LearnPlaybookResult): void {
+  if (!result.available) {
+    process.stdout.write(`No playbook at ${sanitizeTerminal(result.path)} — no team lessons to load\n`);
+    return;
+  }
+  if (result.entry !== null) {
+    process.stdout.write(`${sanitizeTerminal(result.entry.text)}\n`);
+    return;
+  }
+  const matched = result.catalog.filter((c) => c.matched).length;
+  const lines = [
+    `Playbook catalog (${sanitizeTerminal(result.path)}): ${result.catalog.length} active, ${matched} module-matched with full text; read any other with \`prospec learn playbook --id <id>\``,
+  ];
+  for (const { entry } of result.catalog.filter((c) => c.matched)) {
+    lines.push('', catalogLine(entry, true), sanitizeTerminal(entry.text));
+  }
+  const rest = result.catalog.filter((c) => !c.matched);
+  if (rest.length > 0) lines.push('', ...rest.map(({ entry }) => catalogLine(entry, false)));
+  process.stdout.write(`${lines.join('\n')}\n`);
 }
 
 /** Format the LensYieldReport: statistics table, JSON mode, and retirement recommendations. */

@@ -18,7 +18,9 @@ export const HELP_ENRICHED_COMMANDS = [
   'review merge',
   'verify record',
   'learn upsert',
+  'learn playbook',
   'spec show',
+  'constitution show',
 ] as const;
 
 export type HelpEnrichedCommand = (typeof HELP_ENRICHED_COMMANDS)[number];
@@ -120,12 +122,28 @@ export const COMMAND_HELP_SPECS: Record<HelpEnrichedCommand, CommandHelpSpec> = 
       'Prints `Ledger entry created|incremented|unchanged`, warnings, suggest-promote details and playbook entries past TTL.',
     escaping: TABLE_ESCAPING,
   },
+  'learn playbook': {
+    whenToUse:
+      'At plan or implement Startup, to load the team playbook for the change\'s related modules instead of reading `_playbook.md` whole: every active entry as one catalog line, the full text of the module-matched ones, any other entry by `--id` on demand. Not for promoting or retiring an entry (`/prospec-learn` with human approval) and not for the whole-file read `/prospec-learn` itself does.',
+    example: 'prospec learn playbook --modules lib,cli',
+    additionalExamples: ['prospec learn playbook --id PB-007'],
+    returns:
+      'Prints one catalog line per active entry — id, title, kind, modules (or `modules: undeclared`), TTL — with module-matched entries first, each followed by its full text and `relevance: module-match`; retired entries never appear. `--id` prints that entry alone and exits 1 on an unknown id. A missing `_playbook.md` prints one line and exits 0.',
+  },
   'spec show': {
     whenToUse:
       'When a station needs the requirement text a change touches — pass the delta-spec\'s REQ ids or story ids instead of reading a whole feature spec. Not for editing a spec (archive is its sole writer).',
     example: 'prospec spec show sdd-workflow --req REQ-CLI-028,REQ-CLI-037',
     returns:
       'Prints the selected requirement slices as Markdown on stdout (read-only). Each unmatched selector is named on stderr and the exit is non-zero; with no selector at all the whole spec prints.',
+  },
+  'constitution show': {
+    whenToUse:
+      'At a station\'s Startup Loading, to read the Constitution slice that station needs instead of the whole file: every section outside `## Principles` verbatim, plus each principle declaring `stations: all`, naming the station, or declaring nothing. `--rule` prints one rule by name. Not for grading compliance (`/prospec-verify`) and not for editing the Constitution.',
+    example: 'prospec constitution show --station plan',
+    additionalExamples: ['prospec constitution show --rule "Language Policy"'],
+    returns:
+      'Prints the slice on stdout exactly as it appears in the file (read-only, no trailing newline added; terminal control bytes are stripped). When the file has no `## Principles`, no rule declares `stations:`, or no rule matches, it fails open: stdout is the whole file, stderr names the reason in one `WARN` line, and the exit is 0. A sliced run names on stderr how many undeclared rules it kept; every station run ends stderr with `tokens: slice <n> / full <m> (estimateTokens)` (`tokens: full <m>` on fail-open). An unknown station or rule name exits 1 listing the valid ones.',
   },
 };
 

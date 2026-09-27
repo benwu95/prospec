@@ -22,7 +22,7 @@ When triggered, briefly describe:
 3. [DYNAMIC] Read `.prospec/changes/[name]/tasks.md` — find the first uncompleted task
 4. [DYNAMIC] Read `.prospec/changes/[name]/plan.md` — understand design intent
 5. [DYNAMIC] Read `.prospec/changes/[name]/delta-spec.md` — understand file specifications
-6. [DYNAMIC] Read `{{knowledge_base_path}}/_playbook.md` (if present) — load **relevant** team lessons for the modules this change touches (progressive disclosure; skip unrelated entries)
+6. [DYNAMIC] Run `prospec learn playbook --modules <related_modules>` (Bash) — `_playbook.md` catalog + bodies of matching entries
 
 **Do NOT** load all module AI Knowledge at once — load L2 per-module **when starting a task** (each README and any linked `{sub-module}.md`: APIs, modification patterns, ripple effects), following `{{base_dir}}/index.md`'s Progressive Knowledge Loading Strategy (the canonical layer/budget table). (plan/delta-spec absent for `scale: quick` by contract — proposal.md is the spec source.)
 

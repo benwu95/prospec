@@ -34,14 +34,14 @@ nondeterministic serialization this contract exists to remove.
 
 ## Startup Loading
 
-1. [STABLE] Read `prospec/CONSTITUTION.md` — prepare Constitution check
+1. [STABLE] Run `prospec constitution show --station plan` (Bash)
 2. [DYNAMIC] Read `.prospec/changes/[name]/proposal.md` — parse User Stories and acceptance scenarios
 3. [DYNAMIC] Read `prospec/index.md` — identify related modules (Layer 1)
-4. [DYNAMIC] Read `prospec/specs/features/` — load relevant Feature Specs for existing requirements and User Story context
+4. [DYNAMIC] Run `prospec spec show <feature> --story <ids>` (Bash) — features from `prospec/ai-knowledge/feature-map.yaml`, ids from that spec's story list
 5. [DYNAMIC] Read `prospec/specs/product.md` — understand product-level overview and feature map
-6. [DYNAMIC] Read `prospec/ai-knowledge/_playbook.md` (if present) — load **relevant** team lessons for this change's modules (progressive disclosure; skip unrelated entries)
+6. [DYNAMIC] Run `prospec learn playbook --modules <related_modules>` (Bash) — `_playbook.md` catalog + bodies of matching entries
 
-**Do NOT** load all module AI Knowledge at once — load L2 per-module **during architecture design** (each README and any linked `{sub-module}.md`: APIs, dependencies, modification patterns), following `prospec/index.md`'s Progressive Knowledge Loading Strategy (the canonical layer/budget table).
+**Do NOT** load all module AI Knowledge at once — load L2 per-module **during architecture design** (each README and any linked `{sub-module}.md`), following `prospec/index.md`'s Progressive Knowledge Loading Strategy (the canonical layer/budget table).
 
 > Format references are read **per phase on demand**, NOT as Startup Loading items (keeps the stable prefix lean): [`references/plan-format.md`](references/plan-format.md) and [`references/candidate-evaluation.md`](references/candidate-evaluation.md) at Phase 4, [`references/delta-spec-format.md`](references/delta-spec-format.md) at Phase 5, [`references/plan-verifier-rubric.md`](references/plan-verifier-rubric.md) at Phase 6. Read each when entering its phase; do not preload them into the stable prefix.
 
@@ -154,7 +154,7 @@ Each requirement in delta-spec.md must include **Feature** and **Story** routing
 Run an independent architecture verification of `plan.md` and `delta-spec.md` against project principles and the orthogonal verification criteria before proceeding to tasks.
 
 **Step 1 — Load Rubric & Rules:**
-Read [`references/plan-verifier-rubric.md`](references/plan-verifier-rubric.md) **on demand at this step** (In-Phase On-Demand read; NEVER in Startup Loading). Dynamically inspect the project's `prospec/CONSTITUTION.md` and `prospec/ai-knowledge/_conventions.md` to evaluate the 5 orthogonal dimensions:
+Read [`references/plan-verifier-rubric.md`](references/plan-verifier-rubric.md) **on demand at this step** (In-Phase On-Demand read; NEVER in Startup Loading). Inspect `prospec constitution show --station plan` and `prospec/ai-knowledge/_conventions.md` to evaluate the 5 orthogonal dimensions:
 1. **Project Layering & Dependency Direction**: Call Chain compliance with dependency-direction/layering rules (e.g. no business logic in entry/transport layers, no skipped layers, DAG dependency; inspect for layering violations).
 2. **Blast Radius & Ripple Effects**: Caller chain completeness and detection of breaking API/schema changes.
 3. **State Safety & Reversibility**: Error handling, rollback paths, and concurrency guards for critical mutations.

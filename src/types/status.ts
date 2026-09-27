@@ -53,6 +53,24 @@ export const STATION_SKILLS: Record<SddStation, string> = {
   archive: 'prospec-archive',
 };
 
+const STATION_NAMES = new Set<string>(SDD_STATIONS);
+const SKILL_PREFIX = 'prospec-';
+
+/**
+ * Resolve a station name as a caller may write it — any case, with or without
+ * the `prospec-` prefix, or as its skill name (`new-story` runs `story`) — to
+ * its `SDD_STATIONS` member; null outside that vocabulary. The one resolver
+ * behind the CLI's `--station` flag AND a Constitution `stations:` token, so a
+ * declaration and the flag that selects it can never disagree on a name.
+ */
+export function normalizeStationName(input: string): SddStation | null {
+  const lower = input.trim().toLowerCase();
+  const bare = lower.startsWith(SKILL_PREFIX) ? lower.slice(SKILL_PREFIX.length) : lower;
+  if (STATION_NAMES.has(bare)) return bare as SddStation;
+  const bySkill = SDD_STATIONS.find((s) => STATION_SKILLS[s] === `${SKILL_PREFIX}${bare}`);
+  return bySkill ?? null;
+}
+
 /**
  * Stable reason codes shared by the router (`ChangeRoute.code` — why a change was
  * placed where it was) and the archive Entry Gate (`WorkflowReason.code` — why a

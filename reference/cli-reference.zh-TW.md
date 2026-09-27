@@ -200,6 +200,7 @@ Entry Points、Dependencies、Config Files 沒有逐語言覆寫機制——未�
 | `prospec change tasks [--change <name>] [--force]` | 建立任務清單骨架（`tasks.md`） |
 | `prospec change auto-draft [options]` | 從漂移 findings（或指定 `--target`）建立修復變更骨架，免去手動轉抄報告 |
 | `prospec spec show <feature> [options]` | 唯讀且精確讀取 Feature Spec 的指定 REQ 或 Story 區段 |
+| `prospec constitution show --station <s> \| --rule <name>` | 唯讀讀取單一站的 Constitution 切片（依規則的 `stations:` 宣告）或單條規則；無法切片時 fail-open 到全文 |
 | `prospec archive <name...> [--dry-run]` | 封存 verified 變更：搬移目錄、生成摘要並機械式同步 Feature Spec |
 | `prospec archive finalize <name> [--dry-run]` | 歸檔後置完成步驟：複製 final summary 至歷史目錄並對帳 spec 計數 |
 
@@ -216,6 +217,7 @@ Entry Points、Dependencies、Config Files 沒有逐語言覆寫機制——未�
 | `prospec verify context --change <name>` | 投影確定性驗證上下文（`verify-context.json`），固定基準、規格、提案、程式碼快照與測試事實 |
 | `prospec verify record [options]` | 彙整機器與判斷維度計算評級（S/A/B/C/D），依據上下文與基準核對，達標時推進 verified（verify 委派未結清時拒絕） |
 | `prospec learn upsert --lesson <file> [options]` | 冪等寫入經驗帳本，依規則判定是否晉升 Playbook |
+| `prospec learn playbook --modules <m,…> \| --id <PB-NNN>` | 唯讀的 per-change playbook 讀法：每條 active 條目一行目錄、模組命中者印全文、`--id` 按需讀單條 |
 | `prospec learn yield [options]` | 從已封存審查計算鏡角產出率統計與淘汰建議 |
 | `prospec validate <kind> [target] [options]` | 機械式驗證工件結構完整性（不符時 exit 1） |
 
@@ -269,6 +271,14 @@ Entry Points、Dependencies、Config Files 沒有逐語言覆寫機制——未�
     - `--story <ids>`：輸出指定 User Story 的完整區塊。
     - 未指定選擇器時輸出整份 Feature Spec；查詢不存在的 REQ 時會報錯退出（exit 1），避免誤判為未定義。
     - 供 Agent 於 verify 與 archive 階段針對性載入，避免一次載入數萬 Token 的無關規格。
+
+- **`prospec constitution show --station <s> | --rule <name>`**
+  - **核心用途**：唯讀讀取單一站 Startup Loading 所需的 Constitution 切片（new-story、plan、tasks、review 執行此指令），或依名稱讀取單條規則。
+  - **重點條列**：
+    - 切片保留 `## Principles` 以外所有段落的逐字內容；段落內則保留 `**Verify**:` 行宣告 `stations: all`、列出本站、或未宣告的規則，只濾掉明確宣告其他站的規則。站名採 `SDD_STATIONS` 詞彙；`--station` 與規則 `stations:` 子句的 token 走同一套解析（`new-story` 解析為 `story`），宣告中的未知 token 原樣保留，交由 `constitution-severity` 報 WARN。
+    - **Fail-open**：找不到 `## Principles`、沒有任何 `stations:` 宣告、或本站零命中時，stdout 逐位元組等於全文，stderr 印一行說明原因的 `WARN`，exit 0——輸出永不為空。與每個 formatter 相同，CR 與其他控制字元會被剝除，因此 CRLF 檔不會位元組相等。
+    - stdout 不額外附加任何內容（不補結尾換行）；stderr 說明切片保留了幾條未宣告規則，最後一行為 `tokens: slice <n> / full <m> (estimateTokens)`（fail-open 時為 `tokens: full <m>`）。未知站名或規則名 exit 1 並列出可用名稱。
+    - 以該 `tokens:` 行量測本 repository（2026-09-27）：Constitution 全文 3,949 tokens；story／plan／tasks／review 切片分別為 1,797／1,627／1,649／1,627。
 
 - **`prospec archive <name...> [--dry-run]`**
   - **核心用途**：對已驗證（`verified`）的變更執行確定性歸檔與規格合併。
@@ -345,6 +355,10 @@ Entry Points、Dependencies、Config Files 沒有逐語言覆寫機制——未�
   - **核心用途**：向經驗帳本（`_lessons-ledger.md`）冪等寫入教訓記錄。
   - **跳脫規則**：表格 cell 內的 `|` 寫成 `\|`、換行摺成一個空白；同一性以 ledger `key` 判定，不比對 description 文字；至少一個 cell 被跳脫時，成功輸出多印一行提示。
   - **重點條列**：依 `頻率 ≥ 3 且影響模組 ≥ 2` 規則自動評分是否晉升至 Playbook，並自動掃描 Playbook 條目的 TTL 狀態。
+
+- **`prospec learn playbook --modules <m,…> | --id <PB-NNN>`**
+  - **核心用途**：plan 與 implement 在 Startup Loading 執行的 per-change playbook 讀法，取代整份讀取 `_playbook.md`（`/prospec-learn` 仍讀全文）。
+  - **重點條列**：每條 active 條目印一行目錄——id、標題、kind、modules（或 `modules: undeclared`）、TTL；Criteria 的 `modules=M (…)` 清單與 `--modules` 有交集者置頂，並接著印全文與 `relevance: module-match`；retired 條目永不出現。`--id` 只印單一條目，id 不存在時 exit 1；`_playbook.md` 不存在時印一行說明並 exit 0，但檔案存在卻無法讀取、或解析到 knowledge 目錄之外時 exit 1 並說明原因——絕不回空目錄。
 
 - **`prospec learn yield [--consecutive-zero <n>] [--min-invocations <n>] [--min-yield <ratio>] [--corpus <dir>] [--json]`**
   - **核心用途**：從歷史封存的審查記錄中計算各審查鏡角（lens）的確認產出率統計與淘汰建議。

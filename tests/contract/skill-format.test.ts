@@ -27,6 +27,9 @@ import { buildIndexTemplateContext } from '../../src/lib/index-template.js';
 import { DRIFT_CHECK_IDS, KnowledgeHealthModuleSchema, ConstitutionRuleEntrySchema } from '../../src/types/drift-report.js';
 import { isLegalCheckId } from '../../src/lib/constitution-audit.js';
 import { parseConstitutionRules } from '../../src/lib/constitution-parser.js';
+import { sliceConstitution } from '../../src/lib/constitution-slice.js';
+import { formatVerifyHint } from '../../src/types/constitution.js';
+import { parsePlaybookEntries, selectPlaybookEntries } from '../../src/lib/lessons-ledger.js';
 import { DEFAULT_KNOWLEDGE_TOKEN_BUDGET, isShippedBudgetField } from '../../src/types/config.js';
 import {
   DELEGATION_AWAIT,
@@ -61,7 +64,7 @@ import {
   PROVENANCE_AUDITED_STATUSES,
   SCALE_FORBIDDEN_ARTIFACTS,
 } from '../../src/types/change.js';
-import { BREAK_GLASS_PREFIX, SDD_STATIONS, type ChangeRouteFacts, type SddStation } from '../../src/types/status.js';
+import { BREAK_GLASS_PREFIX, SDD_STATIONS, STATION_SKILLS, type ChangeRouteFacts, type SddStation } from '../../src/types/status.js';
 import { forbiddenArtifacts } from '../../src/types/change.js';
 import { routeChange } from '../../src/lib/status-router.js';
 import { MCP_RESOURCE_URIS, MCP_TOOL_NAMES } from '../../src/types/mcp.js';
@@ -578,7 +581,8 @@ describe('Skill Format Contract', () => {
       const shape = fence![1]!;
       expect(shape, 'jsonc shape block sliced empty').toContain('"rules"');
       for (const key of Object.keys(ConstitutionRuleEntrySchema.shape)) {
-        expect(shape, `constitution rules shape must document the "${key}" key`).toContain(key);
+        // as a quoted JSON key, not a bare substring a comment or a value could satisfy
+        expect(shape, `constitution rules shape must document the "${key}" key`).toMatch(new RegExp(`"${key}"\\s*:`));
       }
     });
 
@@ -2911,6 +2915,7 @@ describe('Skill Format Contract', () => {
           description: 'All endpoints require auth.',
           rationale: 'Prevent exposure.',
           check: 'auth dependency present',
+          stations: 'all' as const,
         },
         {
           severity: 'SHOULD',
@@ -2918,7 +2923,7 @@ describe('Skill Format Contract', () => {
           description: 'Logic in services.',
           rationale: 'Testability.',
         },
-      ],
+      ].map((rule) => ({ ...rule, verify_hint: formatVerifyHint(rule) })),
     };
 
     it('constitution template renders severity-tagged rules without placeholders', () => {
@@ -2930,6 +2935,7 @@ describe('Skill Format Contract', () => {
       expect(content).not.toContain('[Describe the principle]');
       // only the rule WITH a check renders a Verify line (rule 2 has none)
       expect((content.match(/\*\*Verify\*\*/g) ?? []).length).toBe(1);
+      expect(content).toContain('**Verify**: stations: all; auth dependency present');
     });
 
     it('prospec-verify grades the Constitution by RFC-2119 severity', () => {
@@ -4309,8 +4315,18 @@ describe('Startup Loading cache-stable prefix ordering (REQ-TEMPLATES-080/081)',
   // 50_950 → 50_953 (review round 1, S-2/C-2): delegation-protocol names the split-index refusal (+3 tokens);
   // → 50_977 (review round 2, C-7/C-5/C-8): it names the assume-unchanged and no-index refusals and the
   // ignored-report blind spot (+24 tokens).
-  const REFERENCE_CEILING_ANCHOR = 50_977;
-  const CUMULATIVE_CEILING_ANCHOR = 88_545;
+  // → 51_089 (slice-constitution-and-playbook, base 099a25b): drift-report-format documents the rules[]
+  // `stations` field and its clause grammar (+83) and promotion-format states that the playbook's
+  // `modules=M (…)` list is parsed by `prospec learn playbook` (+29). The four station skills now run
+  // `prospec constitution show --station` and plan/implement `prospec learn playbook`, each replaced line
+  // measured at or under the line it replaced, so the cumulative anchor is LOWERED 88_545 → 88_538 even
+  // though prospec-learn's startup-mandatory promotion-format grew.
+  // Cumulative LOWERED 88_538 → 88_535 (review round 1, F-DD-4): plan item 4 names
+  // the story-id source too, offset by dropping the L2 parenthetical in the Do-NOT paragraph;
+  // earlier step of the same round: 88_538 → 88_537 — plan item 4 names
+  // `{{knowledge_base_path}}/feature-map.yaml` in place of the undefined "hub ids" clause, one token shorter.
+  const REFERENCE_CEILING_ANCHOR = 51_089;
+  const CUMULATIVE_CEILING_ANCHOR = 88_535;
 
   const renderSkill = (name: string) => {
     const skill = SKILL_DEFINITIONS.find((s) => s.name === name)!;
@@ -9690,5 +9706,127 @@ describe('fresh-test gate — prose demoted to one CLI-refusal sentence, maps an
 
       expect(cascade).toMatch(/verify\.md anchors|deviation findings|missing adjudications/i);
     });
+  });
+});
+
+// REQ-TESTS-127 — this project's own Constitution and playbook, read through the
+// slice and catalog engines the four station skills now run at Startup Loading.
+describe('Constitution station slices and playbook catalog on this repository (REQ-TESTS-127)', () => {
+  const constitution = fs.readFileSync(path.resolve(process.cwd(), 'prospec/CONSTITUTION.md'), 'utf-8');
+  const playbook = fs.readFileSync(path.resolve(process.cwd(), 'prospec/ai-knowledge/_playbook.md'), 'utf-8');
+  const rules = parseConstitutionRules(constitution);
+  const SLICED_STATIONS = ['story', 'plan', 'tasks', 'review'] as const;
+
+  it.each(SLICED_STATIONS)('the %s slice keeps every line verbatim and is smaller than the whole file', (station) => {
+    const slice = sliceConstitution(constitution, { station });
+    expect(slice.kind).toBe('sliced');
+    const lines = new Set(constitution.split('\n'));
+    for (const line of slice.text.split('\n')) expect(lines.has(line), line.slice(0, 60)).toBe(true);
+    expect(estimateTokens(slice.text)).toBeLessThan(estimateTokens(constitution));
+  });
+
+  // Hand-pinned: this repository's rules and the stations each declares. A rule
+  // is in a station's slice iff it declares `all` or that station, checked at
+  // EVERY SDD station (so an inverted or dropped membership test cannot hide
+  // behind the union of slices), and every principle is reachable as the
+  // consequence: each declares at least one real station or `all`.
+  const DECLARED: Record<string, 'all' | SddStation[]> = {
+    'Language Policy': 'all',
+    'User Stories Follow INVEST': ['story'],
+    'One-way Dependency Direction': ['plan', 'review'],
+    'Test-Driven Development': ['tasks'],
+    'Atomic Commits and Format Requirements': ['verify'],
+    'User-Facing Documentation Stays Current': ['verify'],
+    'Factual Count Integrity': ['verify'],
+    'Pre-Merge CI Checks': ['verify'],
+  };
+
+  it('each rule declares exactly its pinned stations, and is in a station slice iff it declares all or that station', () => {
+    expect(rules.map((r) => r.name).sort()).toEqual(Object.keys(DECLARED).sort());
+    const headingOf = (name: string): string => {
+      const line = constitution.split('\n').find((l) => /^### \[(MUST|SHOULD|MAY)\] /.test(l) && l.endsWith(`] ${name}`));
+      if (line === undefined) throw new Error(`no heading line for ${name}`);
+      return line;
+    };
+    for (const r of rules) expect(r.stations, r.name).toEqual(DECLARED[r.name]);
+    for (const station of SDD_STATIONS) {
+      const slice = sliceConstitution(constitution, { station });
+      expect(slice.kind, station).toBe('sliced');
+      if (slice.kind !== 'sliced') throw new Error('unreachable');
+      for (const [name, stations] of Object.entries(DECLARED)) {
+        const expected = stations === 'all' || stations.includes(station);
+        expect(slice.text.includes(headingOf(name)), `${station}: ${name}`).toBe(expected);
+      }
+    }
+  });
+
+  it('every PB-NNN heading parses a module list, and the catalog lists exactly the active entries', () => {
+    const headings = playbook.split('\n').filter((l) => /^### PB-\d+:/.test(l));
+    const entries = parsePlaybookEntries(playbook);
+    expect(entries.map((e) => e.id)).toEqual(headings.map((h) => /^### (PB-\d+):/.exec(h)![1]));
+    expect(entries.filter((e) => e.modules === null).map((e) => e.id)).toEqual([]);
+    const retiredSection = playbook.slice(playbook.indexOf('\n## Retired Entries'));
+    const retiredIds = [...retiredSection.matchAll(/^### (PB-\d+):/gm)].map((m) => m[1]);
+    expect(retiredIds.length, 'the retired section is found').toBeGreaterThan(0);
+    const selection = selectPlaybookEntries(entries, { modules: ['lib'] });
+    if (selection.kind !== 'catalog') throw new Error('expected a catalog');
+    expect(selection.catalog.map((c) => c.entry.id).sort()).toEqual(
+      entries.map((e) => e.id).filter((id) => !retiredIds.includes(id)).sort(),
+    );
+  });
+
+  describe('which skills run the slice commands at Startup Loading', () => {
+    const startup = (name: string): string => {
+      const skill = SKILL_DEFINITIONS.find((s) => s.name === name)!;
+      const rendered = renderTemplate(`skills/${name}.hbs`, {
+        ...TEMPLATE_CONTEXT,
+        skill_description: escapeYamlScalar(skill.description),
+      });
+      return sharedStartupLoadingSection(rendered, (message) => {
+        expect.fail(message);
+      });
+    };
+    const citing = (pattern: RegExp): string[] =>
+      SKILL_DEFINITIONS.filter((s) => /^## Startup Loading/m.test(fs.readFileSync(path.resolve(__dirname, `../../src/templates/skills/${s.name}.hbs`), 'utf-8')))
+        .filter((s) => pattern.test(startup(s.name)))
+        .map((s) => s.name)
+        .sort();
+
+    it('exactly the four sliced stations run constitution show, each with its own SDD station name', () => {
+      expect(citing(/prospec constitution show/)).toEqual(
+        ['prospec-new-story', 'prospec-plan', 'prospec-review', 'prospec-tasks'],
+      );
+      for (const station of SLICED_STATIONS) {
+        const section = startup(STATION_SKILLS[station]);
+        expect(section).toContain(`\`prospec constitution show --station ${station}\``);
+        expect(section, `${station} must no longer read the whole Constitution`).not.toContain('prospec/CONSTITUTION.md');
+      }
+    });
+
+    it('exactly plan and implement run learn playbook, still naming the file they catalogue', () => {
+      expect(citing(/prospec learn playbook/)).toEqual(['prospec-implement', 'prospec-plan']);
+      for (const name of ['prospec-plan', 'prospec-implement']) {
+        expect(startup(name)).toContain('`prospec learn playbook --modules <related_modules>`');
+        expect(startup(name)).toContain('_playbook');
+      }
+    });
+
+    it('plan reads Feature Specs by story, never the whole features directory', () => {
+      const section = startup('prospec-plan');
+      expect(section).toContain('`prospec spec show <feature> --story <ids>`');
+      expect(section).not.toContain('specs/features/');
+    });
+  });
+
+  it('drift-report-format states the stations clause grammar and vocabulary (REQ-TEMPLATES-157)', () => {
+    const ref = renderTemplate('skills/references/drift-report-format.hbs', TEMPLATE_CONTEXT);
+    const start = ref.indexOf('## `structural.constitution`');
+    expect(start, 'constitution section not found').toBeGreaterThan(-1);
+    const section = ref.slice(start, ref.indexOf('\n## ', start + 1));
+    expect(section).toContain('`stations: <s1>, <s2> | all`');
+    expect(section).toContain('reserved word');
+    expect(section).toContain('`SDD_STATIONS`');
+    expect(section).toContain('A list containing `all` means every station');
+    expect(section).toContain('`null` = undeclared');
   });
 });

@@ -31,13 +31,14 @@ so that I directly benefit from the team's accumulated experience and am not mis
 - WHEN a rule is retired THEN it is retired in place — the ledger row keeps every counter and the playbook entry keeps its permanent id, so the audit trail survives the cleanup
 
 #### REQ-TEMPLATES-071: Governance + Progressive Playbook Loading
-Govern: shared rules carry a TTL and source; on expiry, conflict, or a Staleness Sweep verdict → needs-review list, with the retirement reason kept under version control. Retirement has a fixed shape per tier: a ledger row turns `status: retired` with a `｜ **Retired**:` suffix naming reason, date and the eliminating mechanism while every counter stays untouched; a playbook entry keeps its permanent `PB-{NNN}`, replaces TTL + Guidance with a `- **RETIRED {date}**:` line, and moves under a `## Retired Entries` section. Create `_playbook.md` (version-controlled) and register it in the root-level `index.md` Conventions; plan/implement Startup loads the **relevant** playbook entries (progressive disclosure) while `/prospec-learn` — the one station that must reason about the whole team tier — reads it in full; archive Phase 4.5 **automatically extracts into the version-controlled ledger upon archiving (non-fatal/idempotent)** through `prospec learn upsert` — the single writer `/prospec-learn` Collect also uses, so both stations inherit its keyed upsert and its refusal to raise a `retired` row instead of hand-editing the table — and the learn Entry Gate's "has material" = an archived change exists **OR** a non-empty ledger (to avoid false-blocking in a new worktree).
+Govern: shared rules carry a TTL and source; on expiry, conflict, or a Staleness Sweep verdict → needs-review list, with the retirement reason kept under version control. Retirement has a fixed shape per tier: a ledger row turns `status: retired` with a `｜ **Retired**:` suffix naming reason, date and the eliminating mechanism while every counter stays untouched; a playbook entry keeps its permanent `PB-{NNN}`, replaces TTL + Guidance with a `- **RETIRED {date}**:` line, and moves under a `## Retired Entries` section. Create `_playbook.md` (version-controlled) and register it in the root-level `index.md` Conventions; plan/implement Startup loads the **relevant** playbook entries through `prospec learn playbook --modules <related_modules>` — the catalog of every active entry plus the full text of the module-matched ones, the rest fetched on demand with `--id` — while `/prospec-learn` — the one station that must reason about the whole team tier — reads it in full; archive Phase 4.5 **automatically extracts into the version-controlled ledger upon archiving (non-fatal/idempotent)** through `prospec learn upsert` — the single writer `/prospec-learn` Collect also uses, so both stations inherit its keyed upsert and its refusal to raise a `retired` row instead of hand-editing the table — and the learn Entry Gate's "has material" = an archived change exists **OR** a non-empty ledger (to avoid false-blocking in a new worktree).
 - WHEN planning/implementing a change, THEN the relevant playbook lessons are loaded (progressive disclosure, not full loading, `if present` safeguard)
 - WHEN `/prospec-learn` starts, THEN it reads `_playbook.md` in full — the Sweep's team-tier input and Promote's duplicate-check baseline — the single deliberate exception to per-change relevance loading
 - WHEN a shared rule exceeds its TTL, conflicts, or is judged expired by a Sweep test, THEN it enters the needs-review list; the retirement reason is kept under version control
 - WHEN a rule is retired, THEN the ledger row keeps every counter and the playbook entry keeps its id under `## Retired Entries` with its TTL and Guidance body removed, so no reader mistakes a dead rule for a live instruction
 - WHEN archive Phase 4.5 harvests, THEN it writes through `prospec learn upsert` rather than editing the ledger table by hand, so the retired-row refusal holds on the unattended path too
 - WHEN `_playbook.md` is registered in the root-level `index.md` Conventions, THEN the skill loads it on demand (L2 load-on-demand, not entering core L1)
+- WHEN plan or implement loads the playbook, THEN it runs `prospec learn playbook --modules <related_modules>` rather than reading the file, so the catalog names every active entry and only module-matched bodies are loaded
 
 #### REQ-TEMPLATES-174: Pre-Collect Staleness Sweep
 `/prospec-learn` opens with a **Sweep** station, before Collect, that audits BOTH governed files — `_lessons-ledger.md` and `_playbook.md` — for entries the project has outgrown, so a run never keys a new occurrence against a dead rule nor raises the frequency of a pattern whose root cause is gone. The expiry/needs-review tests, their evidence bar, the `Inlined into gate`/`Mechanized` `Landing:` anchor format, and the per-tier removal semantics are defined once in `references/promotion-format.md`; the skill states the station and its flow.
@@ -48,5 +49,34 @@ Govern: shared rules carry a TTL and source; on expiry, conflict, or a Staleness
 - WHEN Sweep proposes a retirement, THEN it reaches the human as a needs-review item with its evidence and waits for explicit approval — retirement is a shared-tier write under the same approval discipline as promotion
 - WHEN a retirement is approved, THEN it is applied in place: no ledger row is deleted, no `frequency`/`source_changes`/`impact_modules` value is edited, and no `PB-{NNN}` id is renumbered or reused
 - WHEN a later occurrence predates the fix that retired a row, THEN it is recorded in that row's `description` and never increments its `frequency`
+
+---
+
+#### REQ-LIB-094: Playbook catalog engine
+`lib/lessons-ledger.ts` exports `splitPlaybookBlocks(content)` (one block per `###` heading up to the next), `parsePlaybookEntries(content)` and `selectPlaybookEntries(entries, { modules } | { id })`. A playbook entry is a block whose heading matches `PB-<digits>: <title>`; its `modules` come from the parenthesised list after `modules=N` on the Criteria line (`null` when absent), its `kind` from `**Kind**`, its `ttl` from `**TTL**`, and `retired` from the existing `PLAYBOOK_RETIRED_MARKER`; `text` is the block verbatim.
+- WHEN `expiredPlaybookEntries` runs after the refactor, THEN its TTL report is unchanged for every existing fixture (it consumes `splitPlaybookBlocks`)
+- WHEN `selectPlaybookEntries` is given modules, THEN the catalog holds every active entry in file order except that entries whose `modules` intersect the request come first and are flagged `module-match`; an entry with `modules: null` is listed but never matched
+- WHEN an entry carries the retirement marker, THEN it is absent from the catalog and from `--id` selection
+- WHEN `selectPlaybookEntries` is given an id, THEN exactly the entry with that id is returned, and a miss reports the id as unknown
+- WHEN the heading is the template placeholder `PB-{NNN}`, THEN it is not an entry
+
+---
+
+#### REQ-SERVICES-123: `learn playbook` service
+`services/learn.service.ts` exports `executePlaybook({ cwd, modules?, id? })`, reading `_playbook.md` through `knowledge-reader.readContained` (contained within the knowledge directory) and delegating parsing and selection to `lib/lessons-ledger`.
+- WHEN `_playbook.md` is absent, THEN the result is `available: false` with an empty catalog and the command exits 0
+- WHEN `_playbook.md` exists but is unreadable, or resolves outside the knowledge directory, THEN the service throws `PrerequisiteError` naming the path and the reason — an unattended Startup Loading is never told "no team lessons" while the file is there
+- WHEN `modules` are given, THEN the result carries the full active catalog and the matched entries' text; the catalog length equals the number of active entries
+- WHEN `id` is given and unknown, THEN `PrerequisiteError` names it; when neither selector is given, THEN `PrerequisiteError` names the two flags
+
+---
+
+#### REQ-CLI-059: `prospec learn playbook --modules <m,…> | --id <PB-NNN>`
+`cli/commands/learn.ts` adds the `playbook` subcommand and `cli/formatters/learn-output.ts` adds `formatLearnPlaybookOutput`. The catalog prints one line per active entry — id, title, kind, modules (or `modules: undeclared`), TTL — with matched entries first, each followed by its full text and `relevance: module-match`; unmatched entries keep their catalog line only.
+- WHEN `--modules lib,cli` runs against this project's playbook, THEN the number of catalog lines equals the number of active entries and no retired entry appears
+- WHEN `--id PB-007` runs, THEN only that entry's text is printed; an unknown id exits 1
+- WHEN `_playbook.md` is absent, THEN one line says so and the exit code is 0
+- WHEN `prospec learn playbook --help` runs, THEN the three help sections are present and the example is a complete command line
+- WHEN `reference/cli-reference.md`, `reference/cli-reference.zh-TW.md`, `README.md` and `README.zh-TW.md` are read, THEN each lists `prospec learn playbook` as the per-change playbook reader (catalog for all, bodies for module matches, `--id` on demand)
 
 ---

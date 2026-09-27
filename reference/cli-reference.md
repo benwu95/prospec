@@ -201,6 +201,7 @@ Entry Points, Dependencies, and Config Files have no per-language override — t
 | `prospec change tasks [--change <name>] [--force]` | Create task checklist scaffold (`tasks.md`) |
 | `prospec change auto-draft [options]` | Scaffold fix changes from drift findings (or an explicit `--target`) without hand-copying the report |
 | `prospec spec show <feature> [options]` | Read-only targeted REQ or Story slice from Feature Specs for token efficiency |
+| `prospec constitution show --station <s> \| --rule <name>` | Read-only Constitution slice for one station (from the rules' `stations:` declarations), or one rule; fails open to the whole file |
 | `prospec archive <name...> [--dry-run]` | Archive verified changes: move directory, generate summary, and mechanically sync specs |
 | `prospec archive finalize <name> [--dry-run]` | Post-archive finalization: copy final summary to audit trail and reconcile spec counters |
 
@@ -217,6 +218,7 @@ Entry Points, Dependencies, and Config Files have no per-language override — t
 | `prospec verify context --change <name>` | Project deterministic verification context (`verify-context.json`) combining baseline, spec, proposal, code snapshot, and test facts |
 | `prospec verify record [options]` | Compute S/A/B/C/D grade from machine/judgment dimensions, validate against context and baseline, and advance to verified (refused while a verify delegation is unsettled) |
 | `prospec learn upsert --lesson <file> [options]` | Idempotent lesson ledger upsert and evaluate promotion rules |
+| `prospec learn playbook --modules <m,…> \| --id <PB-NNN>` | Read-only per-change playbook view: a catalog line for every active entry, full text for module matches, one entry by id |
 | `prospec learn yield [options]` | Calculate lens yield statistics and retirement recommendations from archived reviews |
 | `prospec validate <kind> [target] [options]` | Machine validation of artifact structural integrity (exits 1 on failure) |
 
@@ -270,6 +272,14 @@ Entry Points, Dependencies, and Config Files have no per-language override — t
     - `--story <ids>`: Quotes complete User Story blocks.
     - Prints full spec when no selector is given; exits 1 on unmatched selectors to prevent false "unspecified" assumptions.
     - Used by verify and archive stations to avoid loading entire multi-thousand-token specifications.
+
+- **`prospec constitution show --station <s> | --rule <name>`**
+  - **Purpose**: Read-only Constitution slice for one station's Startup Loading (new-story, plan, tasks and review run it), or one rule by name.
+  - **Key Details**:
+    - The slice keeps every section outside `## Principles` verbatim and, inside it, each rule that declares `stations: all`, names the station, or declares nothing on its `**Verify**:` line; only a rule naming other stations is dropped. Station names are the `SDD_STATIONS` vocabulary; `--station` and a rule's `stations:` tokens resolve the same way (`new-story` resolves to `story`), and an unknown declared token is left as written for `constitution-severity` to WARN on.
+    - **Fail-open**: with no `## Principles`, no `stations:` declaration, or no rule for the station, stdout is the whole file byte-for-byte, stderr carries one `WARN` naming the reason, and the exit is 0 — the output is never empty. As in every formatter, CR and other control bytes are stripped, so a CRLF file is not byte-identical.
+    - Nothing is added to stdout (no trailing newline); stderr names how many undeclared rules a slice kept and ends with `tokens: slice <n> / full <m> (estimateTokens)` (`tokens: full <m>` on fail-open). An unknown station or rule exits 1 listing the valid names.
+    - Measured with that `tokens:` line on this repository (2026-09-27): the Constitution is 3,949 tokens; the story / plan / tasks / review slices are 1,797 / 1,627 / 1,649 / 1,627.
 
 - **`prospec archive <name...> [--dry-run]`**
   - **Purpose**: Execute deterministic archiving mutations for verified changes.
@@ -346,6 +356,10 @@ Entry Points, Dependencies, and Config Files have no per-language override — t
   - **Purpose**: Idempotently upsert lessons into `_lessons-ledger.md`.
   - **Escaping**: inside a table cell `|` is written as `\|` and a newline is flattened to a space; identity is the ledger `key`, never the description text; the success output adds one line when at least one cell was escaped.
   - **Key Details**: Evaluates `freq ≥ 3 ∧ modules ≥ 2` promotion rule for playbook promotion and checks playbook TTL validity.
+
+- **`prospec learn playbook --modules <m,…> | --id <PB-NNN>`**
+  - **Purpose**: The per-change playbook reader plan and implement run at Startup Loading, instead of reading `_playbook.md` whole (`/prospec-learn` still reads it in full).
+  - **Key Details**: Prints one catalog line per active entry — id, title, kind, modules (or `modules: undeclared`), TTL — with the entries whose Criteria `modules=M (…)` list intersects `--modules` first, each followed by its full text and `relevance: module-match`; retired entries never appear. `--id` prints one entry and exits 1 on an unknown id; a missing `_playbook.md` prints one line and exits 0, while one that exists but is unreadable or resolves outside the knowledge directory exits 1 naming the reason — never an empty catalog.
 
 - **`prospec learn yield [--consecutive-zero <n>] [--min-invocations <n>] [--min-yield <ratio>] [--corpus <dir>] [--json]`**
   - **Purpose**: Calculate confirmed yield statistics per review lens and recommend retirements from archived reviews.

@@ -34,7 +34,7 @@ nondeterministic serialization this contract exists to remove.
 
 ## Startup Loading
 
-1. [STABLE] Read `prospec/CONSTITUTION.md` — prepare Constitution check
+1. [STABLE] Run `prospec constitution show --station story` (Bash)
 2. [STABLE] **MANDATORY** — Read [`references/proposal-format.md`](references/proposal-format.md) for proposal.md format specification
 3. [DYNAMIC] Read [`references/metadata-format.md`](references/metadata-format.md) on demand for metadata.yaml FIELD SEMANTICS only — the file itself is CLI-written (`prospec change story` / `change scale` / `change log`), never hand-serialized
 4. [DYNAMIC] Read `prospec/index.md` — identify related modules by matching proposal keywords against module `keywords` field

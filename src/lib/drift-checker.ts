@@ -10,6 +10,7 @@ import {
   type DriftCheckId,
   type DriftCheckResult,
   type ConstitutionInventory,
+  type ConstitutionRuleEntry,
   type DriftFinding,
   type DriftReport,
   type KnowledgeHealth,
@@ -52,6 +53,8 @@ import {
 } from './skill-reference-prose.js';
 import { TOKEN_ESTIMATOR_LABEL } from './token-accounting.js';
 import { SEEDED_CONSTITUTION_RULE_NAMES } from './constitution-rules.js';
+import { declaresEveryStation, isUndeclaredStations } from './constitution-slice.js';
+import { SDD_STATIONS } from '../types/status.js';
 
 /**
  * Drift evaluators — zero-LLM pure functions over collector data
@@ -1062,6 +1065,7 @@ export function evaluateConstitutionSeverity(src: ConstitutionRuleSource): Check
         `untagged principle: "${r.name}" carries no [MUST]/[SHOULD]/[MAY] severity — ` +
         'verify cannot grade its violation by weight',
     }));
+  findings.push(...src.rules.flatMap((r) => stationDeclarationFindings(r, src.source_path)));
   // A Constitution that parsed rules but only the seeded starter set — no
   // project-authored principle survives subtracting the seed names — leaves
   // verify's audit and the Entry/Exit gates with nothing real to grade. The
@@ -1084,6 +1088,37 @@ export function evaluateConstitutionSeverity(src: ConstitutionRuleSource): Check
     ...outcome('constitution-severity', findings),
     constitution: { rules: src.rules },
   };
+}
+
+const KNOWN_STATIONS = new Set<string>(SDD_STATIONS);
+
+/** A `stations:` declaration the slicer cannot honour as written — an unknown
+ *  token (the rule never reaches that station's slice), `all` mixed with names
+ *  (read as every station), or an empty list (read as undeclared). The two
+ *  readings are the slicer's own predicates, so this WARN text cannot describe
+ *  a behaviour the slicer no longer has. */
+function stationDeclarationFindings(rule: ConstitutionRuleEntry, sourcePath: string): DriftFinding[] {
+  const { stations } = rule;
+  if (!Array.isArray(stations)) return [];
+  const warn = (detail: string): DriftFinding => ({
+    check: 'constitution-severity',
+    severity: 'warn',
+    source_path: sourcePath,
+    line: rule.line,
+    detail,
+  });
+  if (isUndeclaredStations(stations)) {
+    return [warn(`empty stations declaration: "${rule.name}" lists no station — every station keeps it as undeclared`)];
+  }
+  const findings = stations
+    .filter((t) => t !== 'all' && !KNOWN_STATIONS.has(t))
+    .map((t) =>
+      warn(`unknown station in stations declaration: "${rule.name}" names "${t}" — valid: all, ${SDD_STATIONS.join(', ')}`),
+    );
+  if (declaresEveryStation(stations)) {
+    findings.push(warn(`redundant stations declaration: "${rule.name}" mixes all with station names — read as every station`));
+  }
+  return findings;
 }
 
 /**

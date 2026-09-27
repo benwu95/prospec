@@ -4,7 +4,7 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg?style=flat-square)](LICENSE)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.9-blue?style=flat-square&logo=typescript)](https://www.typescriptlang.org/)
-[![測試](https://img.shields.io/badge/測試-6491%20總計-success?style=flat-square)](tests/)
+[![測試](https://img.shields.io/badge/測試-6588%20總計-success?style=flat-square)](tests/)
 [![Node](https://img.shields.io/badge/node-%3E%3D22.13-brightgreen?style=flat-square&logo=node.js)](https://nodejs.org/)
 [![pnpm](https://img.shields.io/badge/pnpm-%3E%3D11-orange?style=flat-square&logo=pnpm)](https://pnpm.io/)
 
@@ -516,6 +516,13 @@ check 與 token 量測）在 **[CLI 參考 — CLI 命令](./reference/cli-refer
   `info/grafts`、`info/attributes`）、比委派代理存活更久的程序、委派代理在返回前自行復原的改動、
   專案以外的內容，以及推送到任何遠端——但 `git fetch` 自動跟隨的 tags 會改變 refs 面向。同一
   repository 中多個 change 的委派彼此不隔離。
+- **`prospec constitution show --station <s>`** — 印出單一站所需的 Constitution 切片：
+  `## Principles` 以外的所有段落，加上 `**Verify**:` 行宣告 `stations: all`、列出本站或未宣告的規則。
+  沒有可依據的宣告時 fail-open——stdout 印全文、stderr 印一行 `WARN`、exit 0。本 repository 的切片為
+  Constitution 全文 3,949 tokens 中的 1,627–1,797 tokens（2026-09-27 以 `prospec constitution show --station <s>`
+  量測，其 stderr `tokens:` 行即 `estimateTokens` 值）。`--rule <name>` 印單條規則。
+- **`prospec learn playbook --modules <m,…>`** — per-change 的 playbook 讀法：每條 active 條目一行目錄，
+  `modules=M (…)` 清單命中者印全文，其餘以 `--id <PB-NNN>` 按需讀取。
 - **`prospec check --record-tests`** — 記錄測試執行（`snapshot-v2` fingerprint、`repository-inputs-v2`
   範圍、`change-and-restore` 偵測），讓 verify 5/5 成為機器判定。
 - **CI 閘門** — `prospec check --strict` 由 `.github/workflows/prospec-check.yml` 執行；drift check 的
@@ -654,7 +661,7 @@ Prospec 採用 **Pragmatic Layered Architecture**（`cli → services → lib �
 ## 測試
 
 ```bash
-# 執行所有測試（共 6491 個；4 個略過）
+# 執行所有測試（共 6588 個；4 個略過）
 pnpm test
 
 # Watch 模式
@@ -667,11 +674,11 @@ pnpm run typecheck
 pnpm run lint
 ```
 
-**測試覆蓋率**：共 6491 個測試（6487 個通過；4 個略過），橫跨 4 大類：
-- Unit tests（types + lib + services + cli）：4776 tests
-- Contract tests（CLI 輸出 + Skill 格式）：1408 tests
+**測試覆蓋率**：共 6588 個測試（6584 個通過；4 個略過），橫跨 4 大類：
+- Unit tests（types + lib + services + cli）：4851 tests
+- Contract tests（CLI 輸出 + Skill 格式）：1420 tests
 - Integration tests：121 tests
-- E2E tests：186 tests
+- E2E tests：196 tests
 
 測試套件內含真實 `init` + `agent sync` 生成契約（`tests/integration/skill-contract.test.ts`）：檢查 agent 專屬的 reference 路徑、無 dangling reference、canonical convention 文件、`base_dir` 相對的 spec 路徑，以及 antigravity/codex/copilot 收斂至 `.agents/skills` + `AGENTS.md`。
 

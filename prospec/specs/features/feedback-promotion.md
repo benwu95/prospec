@@ -1,9 +1,9 @@
 ---
 feature: feedback-promotion
 status: active
-last_updated: 2026-08-31
+last_updated: 2026-09-27
 story_count: 5
-req_count: 22
+req_count: 25
 ---
 
 # Feedback Promotion Pipeline
@@ -71,6 +71,7 @@ _(None)_
 
 | Date | Change | Impact | Stories/REQs |
 |------|--------|--------|--------------|
+| 2026-09-27 | slice-constitution-and-playbook | ADDED REQ-LIB-094; ADDED REQ-SERVICES-123; ADDED REQ-CLI-059; MODIFIED REQ-TEMPLATES-071; MODIFIED REQ-TEMPLATES-072 | REQ-LIB-094, REQ-SERVICES-123, REQ-CLI-059, REQ-TEMPLATES-071, REQ-TEMPLATES-072 |
 | 2026-08-31 | give-prose-conventions-executors | ADDED REQ-TEMPLATES-223; ADDED REQ-TESTS-106 | REQ-TEMPLATES-223, REQ-TESTS-106 |
 | 2026-08-28 | fix-disclosed-cleanups | MODIFIED REQ-CLI-044 | REQ-CLI-044 |
 | 2026-08-28 | add-lens-yield-statistics | ADDED REQ-TYPES-090; ADDED REQ-LIB-065; ADDED REQ-SERVICES-099; ADDED REQ-CLI-044; ADDED REQ-TEMPLATES-204; ADDED REQ-TESTS-100 | REQ-TYPES-090, REQ-LIB-065, REQ-SERVICES-099, REQ-CLI-044, REQ-TEMPLATES-204, REQ-TESTS-100 |

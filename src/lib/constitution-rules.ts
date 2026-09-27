@@ -116,7 +116,9 @@ const CODE_SURFACES = 'code, identifiers, technical terms, and git commit messag
  * cannot disagree about which paths follow which language (see
  * `lib/language-policy.ts`). The rule is stated by path so a verify audit can
  * decide by file location instead of re-interpreting what "AI-generated
- * documents" covers.
+ * documents" covers. It is the one seeded rule that declares `stations: all`
+ * (every station's Constitution slice carries it); the stack example rules stay
+ * undeclared, which every slice keeps as well.
  *
  * Its form follows the two resolved languages. Both English → the condensed
  * single sentence. Both the same non-English language → one language over both
@@ -145,6 +147,7 @@ export function languagePolicyRule(scope: LanguageScope): ConstitutionRule {
           'One declared document language keeps generated artifacts consistent and reviewable; English code, terminology, and commit history follow industry convention.',
         check:
           'Generated documents, code, technical terms, and commit messages are in English.',
+        stations: 'all',
       };
     }
     return {
@@ -153,6 +156,7 @@ export function languagePolicyRule(scope: LanguageScope): ConstitutionRule {
       description: `All generated documents — change artifacts and their archived summaries (${formatPathList(nativePaths)}) and the trust zone (${formatPathList(trustZonePaths)}) — are written in ${language}; ${CODE_SURFACES} stay English.`,
       rationale: `The project owner reads both the change narrative and the trust zone in ${language}, while ${CODE_SURFACES} stay English so the project reads like the ecosystem it ships into. Both this rule and the agent entry config are generated from one resolved path set, so the two cannot drift into contradicting each other.`,
       check: `Files under ${formatPathList(nativePaths)} and ${formatPathList(trustZonePaths)} are written in ${language}; code, technical terms, and commit messages are in English.`,
+      stations: 'all',
     };
   }
 
@@ -182,6 +186,7 @@ export function languagePolicyRule(scope: LanguageScope): ConstitutionRule {
     description: `Change artifacts and their archived summaries — ${formatPathList(nativePaths)} — are written in ${language}. The trust zone — ${formatPathList(trustZonePaths)} — ${trustClause}. Named exceptions inside the trust zone, which MAY use ${language}:\n${exceptions}${reverse}`,
     rationale: `The project owner reviews their own change narrative in ${language}, ${rationaleTrust}. Both this rule and the agent entry config are generated from one resolved path set, so the two cannot drift into contradicting each other.`,
     check: `Files under ${formatPathList(nativePaths)} are written in ${language}; ${checkTrust}. The named exceptions above are NOT violations — in either direction — and an audit does NOT flag the ${trustZoneLanguage} trust zone as a Language-Policy violation.`,
+    stations: 'all',
   };
 }
 

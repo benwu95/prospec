@@ -25,6 +25,7 @@ import { registerChangeProgressCommand } from './commands/change-progress.js';
 import { registerChangeAutoDraftCommand } from './commands/change-auto-draft.js';
 import { registerStatusCommand } from './commands/status.js';
 import { registerSpecCommand } from './commands/spec-show.js';
+import { registerConstitutionCommand } from './commands/constitution.js';
 import { registerArchiveCommand } from './commands/archive.js';
 import { registerReviewCommand } from './commands/review-merge.js';
 import { registerVerifyCommand } from './commands/verify-record.js';
@@ -107,6 +108,7 @@ export function createProgram(): Command {
   registerChangeAutoDraftCommand(program);
   registerStatusCommand(program);
   registerSpecCommand(program);
+  registerConstitutionCommand(program);
   registerArchiveCommand(program);
   registerReviewCommand(program);
   registerVerifyCommand(program);
