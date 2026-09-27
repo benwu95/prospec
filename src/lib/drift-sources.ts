@@ -1764,7 +1764,7 @@ function inputFiles(cwd: string): string[] {
  * Ordinary root projects need no extra subprocess. Nested/external-worktree
  * setups ask Git for the exact prefix, preserving embedded whitespace bytes.
  */
-function gitProjectPrefix(cwd: string): string {
+export function gitProjectPrefix(cwd: string): string {
   if (existsSync(path.join(cwd, '.git')) && !process.env.GIT_DIR && !process.env.GIT_WORK_TREE) return '';
   const raw = execFileSync('git', ['rev-parse', '--show-prefix'], { cwd, stdio: 'pipe' });
   const text = raw.toString('utf8');
@@ -1772,7 +1772,7 @@ function gitProjectPrefix(cwd: string): string {
   return text.slice(0, -1);
 }
 
-function workTreePaths(cwd: string): { changed: string[]; deleted: Set<string> } {
+export function workTreePaths(cwd: string): { changed: string[]; deleted: Set<string> } {
   const prefix = gitProjectPrefix(cwd);
   const relative = (file: string): string | null => file.startsWith(prefix) ? file.slice(prefix.length) : null;
   const records = gitPaths(cwd, ['status', '--porcelain=v1', '-z', '--untracked-files=all']);

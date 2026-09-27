@@ -23,6 +23,7 @@ function captureStdout(fn: () => void): string {
 
 function baseResult(overrides: Partial<ReviewMergeResult> = {}): ReviewMergeResult {
   return {
+    delegation: { kind: 'not-ticketed' },
     changeName: 'feat-x',
     reviewPath: '.prospec/changes/feat-x/review.md',
     totalRows: 4,
@@ -36,10 +37,13 @@ function baseResult(overrides: Partial<ReviewMergeResult> = {}): ReviewMergeResu
 }
 
 describe('review-merge-output escaping notice (REQ-CLI-055 / REQ-CLI-037)', () => {
-  it('prints nothing extra when no cell was escaped (byte-identical digest)', () => {
+  it('adds no escaping line when no cell was escaped — only the delegation line joins the digest', () => {
     const out = captureStdout(() => formatReviewMergeOutput(baseResult(), 'normal'));
     expect(out).not.toMatch(/escaped/i);
-    expect(out.split('\n').filter(Boolean)).toHaveLength(3);
+    // merge summary, round counts, the delegation line (never omitted), next step
+    const lines = out.split('\n').filter(Boolean);
+    expect(lines).toHaveLength(4);
+    expect(lines.filter((line) => line.includes('Delegation:'))).toHaveLength(1);
   });
 
   it('prints exactly one extra line with the count and the rule when cells were escaped', () => {
@@ -208,5 +212,59 @@ describe('review-merge-output — test gate outcome (REQ-CLI-043)', () => {
     expect(exempt.includes(BEL)).toBe(false);
     // the round-counts parse contract is untouched by the WARN line
     expect(exempt).toContain('round: round=1 · criticals_found=1 · criticals_fixed=1 · majors=2');
+  });
+});
+
+describe('review-merge-output delegation line (REQ-SERVICES-121 / REQ-CLI-057)', () => {
+  it('discloses a round no delegation ticket covered, naming both causes', () => {
+    const out = captureStdout(() => formatReviewMergeOutput(baseResult(), 'normal'));
+    expect(out).toContain('Delegation: not covered by delegate mutation detection — no unsettled delegation ticket (none was issued, or an earlier run of this command already settled them)');
+  });
+
+  it('discloses a round whose every delegation failed', () => {
+    const out = captureStdout(() =>
+      formatReviewMergeOutput(
+        baseResult({ delegation: { kind: 'settled', received: [], failed: ['review-reviewer-1-2'], accepted: 0, mutated: 0, unconsumed: [] } }),
+        'normal',
+      ),
+    );
+    expect(out).toMatch(/not covered by delegate mutation detection — every delegation failed \(review-reviewer-1-2\)/);
+  });
+
+  it('keeps the mutated count when every delegation failed', () => {
+    const out = captureStdout(() =>
+      formatReviewMergeOutput(
+        baseResult({ delegation: { kind: 'settled', received: [], failed: ['review-lens-a-1-2'], accepted: 0, mutated: 1, unconsumed: [] } }),
+        'normal',
+      ),
+    );
+    expect(out).toMatch(/every delegation failed \(review-lens-a-1-2\); 1 attempt\(s\) refused as mutated\n/);
+  });
+
+  it('reports received, failed, mutated and accepted counts', () => {
+    const out = captureStdout(() =>
+      formatReviewMergeOutput(
+        baseResult({
+          delegation: { kind: 'settled', received: ['review-lens-a-1-2'], failed: ['review-lens-b-1-1'], accepted: 1, mutated: 1, unconsumed: ['review-lens-a-1-2'] },
+        }),
+        'normal',
+      ),
+    );
+    // Every count rides the ONE settlement line (REQ-CLI-037 / REQ-SERVICES-121): the digest grows by exactly one line.
+    const line = out.split('\n').find((l) => l.includes('Delegation:'));
+    expect(line).toContain('Delegation: 1 received (every repository facet matched at receipt), 1 failed — review-lens-a-1-2; 1 attempt(s) refused as mutated; 1 attempt(s) ended by a human accepting the current repository state');
+    expect(line).toContain('could not mark as consumed: review-lens-a-1-2');
+    expect(out.split('\n').filter((l) => /Delegation|attempt\(s\)|consumed/.test(l))).toHaveLength(1);
+    expect(out).not.toMatch(/not covered/);
+  });
+
+  it('sanitizes the ticket stems it prints', () => {
+    const out = captureStdout(() =>
+      formatReviewMergeOutput(
+        baseResult({ delegation: { kind: 'settled', received: ['review-x-1-1\u001b[31m'], failed: [], accepted: 0, mutated: 0, unconsumed: [] } }),
+        'normal',
+      ),
+    );
+    expect(out).not.toContain('\u001b[31m');
   });
 });

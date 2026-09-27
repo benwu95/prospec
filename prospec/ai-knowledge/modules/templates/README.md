@@ -1,6 +1,6 @@
 # Template Library
 
-> Handlebars template library — 77 `.hbs` files across skills, references, agent-configs, change, init/knowledge.
+> Handlebars template library — 78 `.hbs` files across skills, references, agent-configs, change, init/knowledge.
 <!-- prospec:module-readme-format 2026-09-01 -->
 
 <!-- prospec:auto-start -->
@@ -13,7 +13,7 @@
 | `change/*.hbs` (5) | proposal / plan / delta-spec / tasks scaffolds, plus `auto-draft-proposal` (the drift-derived body `auto-draft.service` hands to `change-story.service`); metadata.yaml is serialized in `change-story.service`, not templated |
 | `init/*.hbs` (9) | `prospec.yaml`, readme, Constitution, conventions, status-lifecycle, `prospec-check.yml` CI drift gate |
 | `skills/*.hbs` (17) | Shipped SDD station skills (incl. `prospec-new-story`/`ff` baseline freeze instructions, `prospec-verify` fixed inputs / per-REQ compliance evidence) |
-| `references/*.hbs` (30) | Reference documents (incl. `metadata-format`, `proposal-format`, `delegated-evidence-format`, `verify-backfill`) |
+| `references/*.hbs` (31) | Reference documents (incl. `metadata-format`, `proposal-format`, `delegated-evidence-format`, `verify-backfill`, and `delegation-protocol` — the ONE Physical Receipt definition with the ticket flow, the human hand-off of a mutation, the no-ticket path, the threat model and the detection limits, deployed to review/verify/plan/tasks/ff with no capability branch: the same text on every host; the nine other delegating surfaces only point at their station's copy) |
 | `agent-configs/entry.md.hbs` (1) | Shared entry config; renders host-labelled explicit-invocation guidance from `invocation_guidance` while keeping `prospec-<name>` canonical and implicit discovery separate; registry shape follows `surfaces_skill_frontmatter`, and the Station Transition Protocol branches on `skill_lifecycle_persistent` (native invoke/re-invoke with a file fallback, or status-then-read) — the conservative branch is what an absent context renders |
 | `references/config-example.yaml.hbs` (1) | The complete annotated `.prospec.yaml` printed by `prospec config example` — top-level, not a per-skill reference |
 
@@ -31,7 +31,7 @@
 1. **Edit a template** — modify the `.hbs`; variables are `{{snake_case}}`. Keep shared Skill prose bare; only the labelled host matrix may render a sigil.
 2. **Change index/README rendering** — edit `knowledge/module-readme.hbs` or `index.md.hbs`; sync context with `knowledge-update.service.ts` / `knowledge-init.service.ts`.
 3. **Add or change a skill / reference** — see [Skill Authoring](./skill-authoring.md).
-4. **Change a delegated-receipt gate** — keep the five consuming skills and four delegated references aligned; each output is a readable, non-empty, schema-valid regular file, pending output is lifecycle-/transcript-checked and awaited, terminal failure uses disclosed degradation, and mock records are forbidden.
+4. **Change a delegated-receipt gate** — edit `delegation-protocol.hbs` only (readable non-empty schema-valid file, a wait and a re-spawn count bounded by the rendered `DELEGATION_AWAIT`, disclosed degradation, zero-mock, the review/verify ticket flow and the hand-off of a mutation to the human, the threat model and detection limits — detection and preservation claimed, prevention and restoration never); the five skills and four references keep a one-line link to their station's copy plus their own schema/sink line — never a restated step, and never a capability branch (the guarantee is the CLI's, not a host's).
 
 ## Ripple Effects
 
@@ -57,7 +57,7 @@
 
 ## Sub-Modules
 
-- [Skill Authoring](./skill-authoring.md) — the 17 skills + 8 partials + 30 references contract and its `agent sync` deployment
+- [Skill Authoring](./skill-authoring.md) — the 17 skills + 8 partials + 31 references contract and its `agent sync` deployment
 
 <!-- prospec:auto-end -->
 

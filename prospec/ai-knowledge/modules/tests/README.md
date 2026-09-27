@@ -1,6 +1,6 @@
 # Verification Suite
 
-> 4-layer Vitest suite (fast-glob/git bypass memfs — 246 test files, 6,202 tests (unit 4522, contract 1386, integration 121, e2e 173)).
+> 4-layer Vitest suite (fast-glob/git bypass memfs — 255 test files, 6,491 tests (unit 4776, contract 1408, integration 121, e2e 186)).
 <!-- prospec:module-readme-format 2026-09-01 -->
 
 <!-- prospec:auto-start -->
@@ -15,6 +15,7 @@
 | `tests/integration/*.test.ts` | Multi-service flows — init, change (story→freeze→plan→tasks), verify context and per-REQ evidence evaluation, upgrade, skill/agent-config generation, and a real four-host `agent sync` on a real filesystem whose output the station-reference collector and evaluator then judge (mutations asserted applied before their verdict is read). |
 | `tests/e2e/cli-{basics,change,station,knowledge,check-mcp,lifecycle}.test.ts` | The CLI e2e suite, run **in-process** via `helpers/run-cli.ts` (`createProgram`/`runProgram`, no per-test subprocess — was one 126s file) across command groups: init/version/help, change+spec, cli-first station commands, knowledge/agent/measure, check+mcp, upgrade+auto-draft. `run-cli-helper.test.ts` pins the helper's isolation contract. |
 | `tests/e2e/cli-subprocess-smoke.test.ts` · `startup-modules.test.ts` | Real-subprocess coverage that lives outside the JS module boundary — shebang + bundled bin, exit-code propagation, non-TTY color (setup-color), mcp stdio startup; and the startup module-graph guard (REQ-CLI-045). Spawn `dist/cli/index.js`, so need `pnpm build`. |
+| `tests/helpers/` | Shared test infrastructure (the in-process CLI runner lives in `tests/e2e/helpers/run-cli.ts`): `mandatory-loads.ts` / `station-references.ts` (baseline projections); `git-fixture.ts` — `GIT_ID`, `gitIn(cwd, …args)` (git with the fixture identity) and `imageOf(root)` (a byte-and-mode image of a directory, so a chmod alone makes two images differ); `private-tmpdir.ts` — `usePrivateTmpdir(label)` gives a test file its own temporary directory (so `os.tmpdir()` and `snapshotRoot()` point there) and removes it in `afterAll`; every test file that builds a delegation snapshot calls it, since a ticket-keyed or stem-keyed cleanup either leaks or races a parallel worker. |
 | `tests/setup-env.ts` | vitest `setupFiles`: deletes `PROSPEC_PAUSE_AT` so a developer's or CI runner's pause override never reroutes a `status` assertion (in-process and spawned alike); a test of the override passes `env` or `vi.stubEnv` explicitly |
 | `tests/fixtures/` | `startup-loading-baseline.json` (per-skill loading items + size ceilings), `workflow-eval/` (evaluator corpus), `token-corpus/`, `lessons-harvest/` (synthetic archived corpus). |
 
@@ -35,7 +36,7 @@
 4. **Add an E2E case** — most cases run in-process: add to the matching `tests/e2e/cli-*.test.ts` using the shared `runCli` helper (no build needed, runs against `src`). Only genuinely subprocess-bound behavior goes in `cli-subprocess-smoke.test.ts` (spawns `dist/cli/index.js` — run `pnpm build` first).
 5. **Run one layer** — `pnpm vitest run tests/{unit|contract|integration|e2e}/`.
 6. **Measure coverage** — `pnpm test:coverage --testTimeout=30000` (see Pitfalls).
-7. **Change a delegated-receipt rule** — update the section-scoped five-skill/four-reference matrix in `skill-format.test.ts`; every physical, lifecycle, degradation, zero-mock, schema-owner, and downstream-neutral predicate needs a killing mutation.
+7. **Change a delegated-receipt rule** — edit `delegation-protocol.hbs` and its section-scoped predicate in `skill-format.test.ts`; the nine pointer surfaces must keep only a link (a negative guard refuses re-inlined steps, ticket-flow invariants and detection limits anywhere in them), the protocol must render the same for every host, the user-facing descriptions (both READMEs, both CLI references) claim detection and preservation only, and every physical, bounded-wait, degradation, zero-mock, pointer, claim and downstream-neutral predicate needs a killing mutation. The delegation lib suites run real git in temp repos, each judgment condition has its own killing mutation, and the e2e suite pins that every `change delegate` mode leaves `.git` and the five facets byte-identical under a read-only `.git`.
 8. **Add a machine-owned documentation count** — register each narrowly anchored target in `scripts/counts/registry.ts`, add completeness coverage in `counts-registry.test.ts`, then run `pnpm counts` and `pnpm counts:check`.
 
 ## Ripple Effects

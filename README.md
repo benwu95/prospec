@@ -4,7 +4,7 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg?style=flat-square)](LICENSE)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.9-blue?style=flat-square&logo=typescript)](https://www.typescriptlang.org/)
-[![Tests](https://img.shields.io/badge/tests-6202%20total-success?style=flat-square)](tests/)
+[![Tests](https://img.shields.io/badge/tests-6491%20total-success?style=flat-square)](tests/)
 [![Node](https://img.shields.io/badge/node-%3E%3D22.13-brightgreen?style=flat-square&logo=node.js)](https://nodejs.org/)
 [![pnpm](https://img.shields.io/badge/pnpm-%3E%3D11-orange?style=flat-square&logo=pnpm)](https://pnpm.io/)
 
@@ -522,6 +522,27 @@ The few command details a reader most often needs from here:
   stale evidence never blocks this one. (`prospec status` is what prefixes its routing reason with a
   `[CODE]` marker.) At a paused full-scale plan, `--skill prospec-plan --signoff <option>` records
   the human's sign-off instead.
+- **`prospec change delegate`** — review and verify ticket every delegate they spawn, the same way
+  on every host. Issuing records the repository state (content, HEAD, index, local refs, stash), a
+  checkpoint — byte copies of the uncommitted and untracked files and of the index, under the
+  change's `.delegated/` directory — and a snapshot under the temporary directory for the delegate
+  to work in, and assigns the payload path. `--receive` refuses the payload the moment the delegate
+  returns if any facet changed (naming each facet with both values and the checkpoint path) or the
+  payload is stale or schema-invalid. After a mutation the flow stops for the human, who recovers
+  with git and the checkpoint files: the CLI never writes the working tree, the index, HEAD or refs,
+  and issues no new attempt of the change until the tree is back at the pre-spawn state.
+  `--spawn-failed` ends a failed delegation with a WARN; `--accept-current-tree`, only on the human's
+  instruction, ends it over a changed tree and keeps the checkpoint. `review merge` / `verify record`
+  refuse while a delegation is unsettled and, in their normal output, say whether the run was
+  covered. It detects and preserves; it prevents nothing and restores nothing, and it guards against
+  an accidental or buggy delegate, not a malicious one. It does not see ignored files (an ignored `prospec-report.json` included), `.prospec/`
+  artifacts (a delegate editing its own ticket or another CLI record can make its receipt pass), the
+  repository's `.git/config`, hooks and `info/exclude` (a hook or command set there runs in the CLI's
+  own receive git calls), `.git` metadata no facet reads (`.git/shallow`, `info/grafts`,
+  `info/attributes`), a process that outlives its delegate, a change the delegate reverted before
+  returning, content outside the project, or pushes to any remote — while tags a `git fetch`
+  auto-follows do change the refs facet. Delegations of several changes in one repository are not
+  isolated from one another.
 - **`prospec check --record-tests`** — records the suite run (`snapshot-v2` fingerprint over the
   `repository-inputs-v2` scope, `change-and-restore` detection) so verify 5/5 is a machine verdict.
 - **CI gate** — `prospec check --strict` runs from `.github/workflows/prospec-check.yml`; the drift
@@ -664,7 +685,7 @@ templates alongside). The layer-by-layer breakdown and the tech-stack list are i
 ## Testing
 
 ```bash
-# Run all tests (6202 total; 4 skipped)
+# Run all tests (6491 total; 4 skipped)
 pnpm test
 
 # Watch mode
@@ -677,11 +698,11 @@ pnpm run typecheck
 pnpm run lint
 ```
 
-**Test Coverage**: 6202 total tests (6198 passed; 4 skipped) across 4 categories:
-- Unit tests (types + lib + services + cli): 4522 tests
-- Contract tests (CLI output + Skill format): 1386 tests
+**Test Coverage**: 6491 total tests (6487 passed; 4 skipped) across 4 categories:
+- Unit tests (types + lib + services + cli): 4776 tests
+- Contract tests (CLI output + Skill format): 1408 tests
 - Integration tests: 121 tests
-- E2E tests: 173 tests
+- E2E tests: 186 tests
 
 The suite includes a real `init` + `agent sync` generation contract (`tests/integration/skill-contract.test.ts`) asserting agent-specific reference paths, no dangling references, canonical convention docs, `base_dir`-relative spec paths, and `.agents` convergence.
 

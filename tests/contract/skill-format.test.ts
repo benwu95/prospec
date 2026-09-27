@@ -29,6 +29,13 @@ import { isLegalCheckId } from '../../src/lib/constitution-audit.js';
 import { parseConstitutionRules } from '../../src/lib/constitution-parser.js';
 import { DEFAULT_KNOWLEDGE_TOKEN_BUDGET, isShippedBudgetField } from '../../src/types/config.js';
 import {
+  DELEGATION_AWAIT,
+  DELEGATION_DIR,
+  FRESH_ROLE_SUFFIX,
+  GIT_STATE_FACETS,
+} from '../../src/types/delegation.js';
+import {
+  DELEGATION_PRODUCER,
   PLANNING_VERDICTS,
   PLAN_VERIFIER_DIMENSIONS,
   RELAYED_FIELD_MAX_CHARS,
@@ -44,7 +51,7 @@ import {
   VERIFIER_REPORT_SCHEMAS,
 } from '../../src/types/station.js';
 import { DEFAULT_CIRCUIT_BREAKER_CONFIG, EscalationReportSchema } from '../../src/types/cascade.js';
-import { planningVerifierContext, renderSkillDescription } from '../../src/services/agent-sync.service.js';
+import { delegationContext, planningVerifierContext, renderSkillDescription } from '../../src/services/agent-sync.service.js';
 import { getSkillReferences } from '../../src/services/agent-sync.service.js';
 import {
   CHANGE_SCALES,
@@ -98,6 +105,9 @@ const TEMPLATE_CONTEXT = {
   // renders the words the sink accepts; spread from the same helper the service
   // uses, never hand-typed here.
   ...planningVerifierContext(),
+  // The delegation bounds, producer label and deny rules agent-sync injects —
+  // spread from the same helper the service uses (REQ-TEMPLATES-238).
+  ...delegationContext(),
   // Harness capability flags injected by agent-sync from AGENT_CONFIGS. The
   // fixture models a fully-capable harness so the default renders exercise the
   // primary path; the degraded branch is rendered explicitly where it is asserted.
@@ -4287,9 +4297,20 @@ describe('Startup Loading cache-stable prefix ordering (REQ-TEMPLATES-080/081)',
    * Reference anchor raised 49_005 → 49_102 and cumulative anchor raised 88_754 → 88_766
    * when the 2026-09-25 learn Sweep synced PB-001's set-or-structure clause and PB-003's
    * qualifier face into `review-lenses-content` and the `prospec-implement` NEVER list.
+   *
+   * Reference anchor raised 49_102 → 50_950 when the Physical Receipt protocol moved out of
+   * nine surfaces into one new reference, `delegation-protocol` (2,421 tokens: the ticket
+   * flow with the human hand-off of a mutation, the bounded wait, the per-delegate role rule,
+   * the no-ticket path, the threat model and the detection limits — the same text on every
+   * host), deployed to the five delegating stations (isolate-detect-preserve-delegates). The
+   * four references that restated the protocol shrank by 573 tokens and the skills' mandatory
+   * context by 221 net, so the cumulative anchor is LOWERED 88_766 → 88_545.
    */
-  const REFERENCE_CEILING_ANCHOR = 49_102;
-  const CUMULATIVE_CEILING_ANCHOR = 88_766;
+  // 50_950 → 50_953 (review round 1, S-2/C-2): delegation-protocol names the split-index refusal (+3 tokens);
+  // → 50_977 (review round 2, C-7/C-5/C-8): it names the assume-unchanged and no-index refusals and the
+  // ignored-report blind spot (+24 tokens).
+  const REFERENCE_CEILING_ANCHOR = 50_977;
+  const CUMULATIVE_CEILING_ANCHOR = 88_545;
 
   const renderSkill = (name: string) => {
     const skill = SKILL_DEFINITIONS.find((s) => s.name === name)!;
@@ -8093,6 +8114,13 @@ describe('split and trim references contract (REQ-TEMPLATES-215~220, REQ-AGNT-04
       'tasks-verifier-rubric',
     ] as const;
 
+    /** The single definition (REQ-TEMPLATES-238). */
+    const PROTOCOL = 'delegation-protocol';
+    const PROTOCOL_TEMPLATE = `skills/references/${PROTOCOL}.hbs`;
+    const PROTOCOL_HEADING = '## Physical Receipt Verification Protocol';
+    const TICKET_HEADING = '## Ticketed delegation (review and verify)';
+    const LIMITS_HEADING = '## What this guarantees, and what it does not';
+
     const FORBIDDEN_DOWNSTREAM_IDENTIFIERS = [
       'manage_subagents',
       'view_file',
@@ -8104,6 +8132,65 @@ describe('split and trim references contract (REQ-TEMPLATES-215~220, REQ-AGNT-04
       'anthropic',
       'openai',
     ];
+
+    /**
+     * Phrases that DEFINE a protocol step. They may appear only in the definition;
+     * a pointer surface that carries one has re-inlined the protocol it points at.
+     */
+    const STEP_DEFINITION_PHRASES = [
+      /Physical Existence & Non-Empty/i,
+      /Target Schema Compliance/i,
+      /Lifecycle Probe/i,
+      /Explicit Degradation & Honest Disclosure/i,
+      /Zero-Mock \/ No-Dummy Mandate/i,
+      /(?:inspect|check)\s+(?:abstract\s+(?:subagent\s+)?)?(?:lifecycle|transcript)/i,
+      /await (?:actual )?completion/i,
+    ];
+    /**
+     * The guarantees themselves, however they are worded: a step pasted back into a
+     * delegation site would have to name a file check, a size check, or a
+     * lifecycle/transcript wait. Scoped to the delegation sites, where those words have
+     * no other business (elsewhere "lifecycle" is the status lifecycle).
+     */
+    const GUARANTEE_PHRASES = [
+      /readable regular file|regular file on disk|regular file that exists/i,
+      /size > 0|non-empty payload/i,
+      /\blifecycle (?:state|probe)\b|\btranscripts?\b/i,
+    ];
+
+    /**
+     * The ticket-flow invariants and the detection limits. A pointer surface that words one
+     * of them anywhere — at a delegation site or in any other section — has restated the
+     * flow it points at, even at the pointer's own length.
+     */
+    const TICKET_FLOW_PHRASES = [
+      /\bpre-spawn state\b/i,
+      /\bcheckpoint (?:path|files?|copies)\b|\bcopies (?:in|under) (?:the )?checkpoint\b|--accept-current-tree/i,
+      /\bone human decision\b|\bhuman'?s (?:explicit )?go-ahead\b|\bnever re-issue\b|\bre-issues? (?:after|on its own)\b/i,
+      /\bnot a re-spawn\b|\bre-spawn allowance\b/i,
+      /\bsiblings?\b[^.;\n]*\b(?:pre-spawn|new attempt)\b|\banother (?:latest )?attempt\b[^.;\n]*\bopen\b/i,
+      /\bticketed\b[^.;\n]*\bfresh\b|\bfresh (?:run|review|grader|reviewer)\b[^.;\n]*\bticket/i,
+      new RegExp(`${FRESH_ROLE_SUFFIX}\\b`),
+      /`-[23]`|\B-2, -3\b/,
+      /detects and preserves|prevents nothing|restores nothing|accidental or buggy|not a malicious|does not see|not a facet|auto-follow|core\.fsmonitor|reference-transaction|outlives its delegate|reverted before returning/i,
+      /\bfsmonitor\b|\bhooks?\b[^.;\n]*\bplant|\bCLI'?s? own (?:receive|receipt)\b|\bruns? (?:in|at|during) (?:the )?(?:receive|receipt)\b/i,
+      /\bbackground process|\bprocess\b[^.;\n]*\boutliv|\bstill running after\b|\bchange the tree after\b/i,
+      /\bignored files\b|\bedits its own ticket\b|\bCLI record\b|\bcontent outside the project\b|\bpushes to any remote\b/i,
+      /\bnot isolated from one another\b|\bseveral changes\b|\bsibling worktree\b/i,
+      /\.git\/shallow|\binfo\/(?:grafts|attributes)\b|--unshallow|--shallow-/,
+    ];
+
+    /** The one threat-model sentence every user-facing description of `change delegate` carries. */
+    const THREAT_MODEL = /accidental or buggy delegate, not a malicious one/;
+    const PREVENTION_OR_RESTORATION = /\b(?:prevent(?:s|ed|ing|ion)?|restor(?:e|es|ed|ing|ation))\b/i;
+    /** Detection and preservation are claimed; prevention and restoration only ever denied. */
+    const expectOnlyDetectionClaims = (content: string, target: string): void => {
+      expect(content, `${target} claims detection`).toMatch(/\bdetects?\b/i);
+      expect(content, `${target} claims preservation`).toMatch(/\bpreserves?\b/i);
+      expect(content, `${target} states the threat model`).toMatch(THREAT_MODEL);
+      const denials = content.replace(/prevents nothing|restores nothing/gi, '');
+      expect(denials, `${target} claims prevention or restoration`).not.toMatch(PREVENTION_OR_RESTORATION);
+    };
 
     const schemaRows = (content: string, heading: string): Map<string, string> => {
       const section = sectionOf(content, heading);
@@ -8151,18 +8238,62 @@ describe('split and trim references contract (REQ-TEMPLATES-215~220, REQ-AGNT-04
       }
     };
 
+    /** Every receipt invariant, at its one home — the bounded wait with the values agent-sync renders. */
     const expectReceiptProtocol = (section: string): void => {
-      expect(section).toMatch(/regular file/i);
+      expect(section).toMatch(/readable regular file/i);
       expect(section).toMatch(/size > 0/i);
       expect(section).toMatch(/schema/i);
       expect(section).toMatch(/(?:inspect|check)\s+(?:abstract\s+(?:subagent\s+)?)?(?:lifecycle|transcript)/i);
+      expect(section).toContain(`**${DELEGATION_AWAIT.idleMinutes} minutes**`);
+      expect(section).toContain(`**${DELEGATION_AWAIT.maxPolls} polls**`);
+      expect(section).toMatch(new RegExp(`re-spawns per\\s+delegation: at most \\*\\*${DELEGATION_AWAIT.maxRespawns}\\*\\*`));
+      expect(section).toMatch(/never unboundedly/i);
       expect(section).toMatch(
-        /(?:crashes?|timeout|fails? to (?:execute|spawn)|spawn failure|terminal failure)[^.\n]*(?:degrad|in-session|disclos)/i,
+        /(?:crash|timeout|spawn failure|exhausted re-spawn)[^.]*(?:degrad|in-session|disclos)/i,
       );
       expect(section).not.toMatch(
         /(?:invalid output|schema-invalid|malformed|corrupt|unreadable)[^.\n]*(?:degrad|fall back|in-session)/i,
       );
-      expect(section).toMatch(/zero-mock|never.*(mock|dummy|\[\])/i);
+      expect(section).toMatch(/never fabricate[^.]*(?:mock|dummy|\[\])/i);
+    };
+
+    const renderProtocol = (overrides: Record<string, unknown> = {}): string =>
+      renderTemplate(PROTOCOL_TEMPLATE, { ...TEMPLATE_CONTEXT, ...overrides });
+
+    /** A pointer surface names the protocol and links its station's own copy, and defines no step. */
+    const expectPointer = (section: string, link: string): void => {
+      expect(section).toContain(link);
+      // The pointer must say what it points at in its own words, not only carry the link.
+      expect(section.split(link).join('')).toMatch(/Physical Receipt Verification Protocol|ticket/);
+    };
+
+    const expectNoStepDefinition = (content: string, target: string, sites: readonly string[] = []): void => {
+      for (const phrase of STEP_DEFINITION_PHRASES) {
+        expect(content, `${target} restates a protocol step (${phrase})`).not.toMatch(phrase);
+      }
+      for (const phrase of TICKET_FLOW_PHRASES) {
+        expect(content, `${target} restates a ticket-flow invariant (${phrase})`).not.toMatch(phrase);
+      }
+      for (const site of sites) {
+        const section = sectionOf(content, site);
+        for (const phrase of GUARANTEE_PHRASES) {
+          expect(section, `${target} ${site} restates a receipt guarantee (${phrase})`).not.toMatch(phrase);
+        }
+      }
+    };
+
+    /**
+     * A paraphrased step the phrase lists above miss still has to talk about waiting,
+     * re-spawning or the file checks; every such paragraph or list item at a delegation
+     * site must carry the link, so a restated step can only sit beside the pointer. The
+     * exact size baseline catches a paraphrase that avoids these words too.
+     */
+    const STEP_TERMS = /\b(?:await|wait(?:ing)?|re-?spawn|idle|polls?|lifecycle (?:state|probe)|regular file)\b|size > 0/i;
+    const expectStepTalkLinked = (section: string, link: string, target: string): void => {
+      const blocks = section.split(/\n\s*\n|\n(?=\s*(?:- |\d+\. ))/);
+      for (const block of blocks) {
+        if (STEP_TERMS.test(block)) expect(block, `${target}: step wording without the pointer`).toContain(link);
+      }
     };
 
     const expectReviewNeverContract = (content: string): void => {
@@ -8171,46 +8302,20 @@ describe('split and trim references contract (REQ-TEMPLATES-215~220, REQ-AGNT-04
       expect(never).toMatch(/NEVER.*fabricate.*(mock|dummy|synthetic)/i);
     };
 
-    const expectVerifyRecordReceiptContract = (content: string): void => {
-      const record = sectionOf(content, '## Record & Status Update (CLI-executed)');
-      expect(record).toMatch(/Physical Receipt Verification/i);
-      expect(record).toMatch(/regular file.*size > 0/i);
-      expect(record).toMatch(/JudgmentDimensionsInputSchema/i);
-      expect(record).toMatch(/lifecycle|transcript/i);
-      expect(record).toMatch(/explicit degradation/i);
-    };
-
-    /**
-     * Every delegated skill may put its receipt gate in a different phase, but
-     * the same four executable guarantees must remain visible at each consumer:
-     * physical/schema validation, lifecycle wait, explicit degradation, and the
-     * global zero-mock/verbal-shortcut prohibition. Keeping this predicate shared
-     * prevents one skill's weaker copy from escaping a one-off assertion.
-     */
-    const expectSkillReceiptProtocol = (
-      content: string,
-      receiptHeadings: readonly string[],
-    ): void => {
-      for (const heading of receiptHeadings) {
-        const receipt = sectionOf(content, heading);
-        expect(receipt, `${heading} must require a readable regular file`).toMatch(/readable regular file/i);
-        expect(receipt, `${heading} must require a non-empty payload`).toMatch(/size > 0|non-empty/i);
-        expect(receipt, `${heading} must validate its target schema`).toMatch(/schema/i);
-        expect(receipt, `${heading} must await an incomplete receipt`).toMatch(
-          /(?:inspect|check)\s+(?:abstract\s+(?:subagent\s+)?)?(?:lifecycle|transcript)/i,
-        );
-        expect(receipt, `${heading} must disclose terminal degradation`).toMatch(
-          /(?:crashes?|timeout|fails? to (?:execute|spawn)|spawn failure|terminal failure)[^.\n]*(?:degrad|in-session|disclos)/i,
-        );
-      }
-
+    const expectSkillNeverContract = (content: string): void => {
       const never = sectionOf(content, '## NEVER');
       expect(never, 'delegated output must not accept verbal shortcuts').toMatch(
         /verbal.*(promise|claim|completion|shortcut)/i,
       );
-      expect(never, 'delegated output must not fabricate a replacement payload').toMatch(
-        /mock|dummy|synthetic/i,
-      );
+      expect(never, 'delegated output must not fabricate a replacement payload').toMatch(/mock|dummy|synthetic/i);
+    };
+
+    const expectVerifyRecordReceiptContract = (content: string): void => {
+      const record = sectionOf(content, '## Record & Status Update (CLI-executed)');
+      expectPointer(record, SKILL_LINK);
+      expect(record).toMatch(/ticketed before its spawn and received when it returns/i);
+      expect(record).toMatch(/JudgmentDimensionsInputSchema/);
+      expect(record).toMatch(/terminal failure[^.]*--graded-by in-session/i);
     };
 
     const mutateSection = (
@@ -8299,170 +8404,293 @@ describe('split and trim references contract (REQ-TEMPLATES-215~220, REQ-AGNT-04
       );
     };
 
-    describe('Delegated Skills Matrix (5 Skills)', () => {
-      const skillReceiptTargets = [
-        {
-          name: 'prospec-review',
-          template: 'skills/prospec-review.hbs',
-          receiptHeadings: ['### The Loop'],
-        },
-        {
-          name: 'prospec-verify',
-          template: 'skills/prospec-verify.hbs',
-          receiptHeadings: ['## Record & Status Update (CLI-executed)'],
-        },
-        {
-          name: 'prospec-plan',
-          template: 'skills/prospec-plan.hbs',
-          receiptHeadings: ['### Phase 4: Design plan.md', '### Phase 6: Architecture Verification'],
-        },
-        {
-          name: 'prospec-tasks',
-          template: 'skills/prospec-tasks.hbs',
-          receiptHeadings: ['### Phase 6: Task Contract & Verifier Audit'],
-        },
-        {
-          name: 'prospec-ff',
-          template: 'skills/prospec-ff.hbs',
-          receiptHeadings: ['### Phase 3: Plan Generation (skipped when `scale: quick`)', '### Phase 4: Tasks Generation'],
-        },
-      ] as const;
+    /** Skills link their own copy by its `references/` path; references link a sibling file. */
+    const SKILL_LINK = '[`references/delegation-protocol.md`](references/delegation-protocol.md)';
+    const REFERENCE_LINK = '[`delegation-protocol.md`](delegation-protocol.md)';
 
-      it.each(skillReceiptTargets)(
-        '$name keeps every receipt invariant at every consuming checkpoint (REQ-TESTS-107)',
-        ({ template, receiptHeadings }) => {
-          expectSkillReceiptProtocol(renderTemplate(template, TEMPLATE_CONTEXT), receiptHeadings);
-        },
-      );
+    const skillPointerTargets = [
+      { name: 'prospec-review', headings: ['### The Loop'] },
+      {
+        name: 'prospec-verify',
+        headings: [
+          '### Verification 2/5: Delta Spec Compliance — `[judgment]`, fresh context required',
+          '### Verification 6 (Conditional): Design Consistency — `[judgment]`, fresh context required',
+          '## Record & Status Update (CLI-executed)',
+        ],
+      },
+      { name: 'prospec-plan', headings: ['### Phase 4: Design plan.md', '### Phase 6: Architecture Verification'] },
+      { name: 'prospec-tasks', headings: ['### Phase 6: Task Contract & Verifier Audit'] },
+      {
+        name: 'prospec-ff',
+        headings: [
+          '### Phase 3: Plan Generation (skipped when `scale: quick`)',
+          '### Phase 4: Tasks Generation',
+          '### Phase 5: Autonomous Execution',
+        ],
+      },
+    ] as const;
+    const referencePointerTargets = [
+      { name: 'delegated-evidence-format', heading: '## Physical Receipt' },
+      { name: 'candidate-evaluation', heading: PROTOCOL_HEADING },
+      { name: 'plan-verifier-rubric', heading: PROTOCOL_HEADING },
+      { name: 'tasks-verifier-rubric', heading: PROTOCOL_HEADING },
+    ] as const;
+    const renderSkillTemplate = (name: string): string => renderTemplate(`skills/${name}.hbs`, TEMPLATE_CONTEXT);
+    const renderReference = (name: string): string => renderTemplate(`skills/references/${name}.hbs`, TEMPLATE_CONTEXT);
 
-      it('prospec-review enforces physical receipt check, lifecycle wait, explicit degradation, and zero-mock NEVER (REQ-TEMPLATES-066, REQ-TEMPLATES-181)', () => {
-        const content = renderTemplate('skills/prospec-review.hbs', TEMPLATE_CONTEXT);
+    describe('Single definition (REQ-TEMPLATES-238, REQ-TESTS-107)', () => {
+      it('delegation-protocol carries every receipt invariant, the bounded wait included', () => {
+        expectReceiptProtocol(sectionOf(renderProtocol(), PROTOCOL_HEADING));
+      });
+
+      it('names the ticketless WARN under the delegation producer label, never a station label', () => {
+        const section = sectionOf(renderProtocol(), PROTOCOL_HEADING);
+        expect(section).toContain(`prospec change log --skill ${DELEGATION_PRODUCER} --result WARN`);
+        expect(section).toMatch(/never under the station's own label/i);
+      });
+
+      it('states the ticket order, the receipt verdicts and the human hand-off — and no CLI recovery', () => {
+        const flow = sectionOf(renderProtocol(), TICKET_HEADING);
+        const order = ['**Issue**', '**Spawn**', '**Receive**', '**Hand off a mutation**', '**End a failed delegation**', '**Sink**'].map((step) =>
+          flow.indexOf(step),
+        );
+        expect(order.every((i) => i >= 0), 'every step is present').toBe(true);
+        expect([...order].sort((a, b) => a - b)).toEqual(order);
+        expect(flow).toContain('prospec change delegate --receive <stem>');
+        expect(flow).toContain('prospec change delegate --spawn-failed <stem>');
+        expect(renderProtocol()).not.toMatch(/--restore|pre-image|restores? under the same key/);
+        expect(flow).toMatch(/Between\s+issue and receipt the orchestrator changes nothing in the working tree/);
+        const handOff = flow.split('4. **Hand off a mutation**')[1]!.split('5. **End a failed delegation**')[0]!;
+        expect(handOff).toMatch(/the flow stops/i);
+        expect(handOff).toMatch(/changed facets with both values and the\s+checkpoint path to the human/);
+        expect(handOff).toMatch(/with\s+the human's consent the orchestrator brings back only what the human agrees to, using git and the\s+files under the checkpoint/);
+        expect(handOff).toMatch(/never a CLI command, since the CLI\s+writes no working tree, index, HEAD or ref/);
+        expect(handOff).toMatch(/The CLI refuses every new attempt of the change until the\s+tree is back at the refused attempt's pre-spawn state/);
+        expect(handOff).toMatch(/never re-issue after a mutation refusal on your own, so each refusal costs one human\s+decision/);
+        expect(handOff).toMatch(/is not a re-spawn and does not use the re-spawn allowance, which\s+counts only spawn failures and exhausted waits/);
+        expect(handOff).toMatch(/whose tree already equals its own pre-spawn state, goes straight to a new attempt/);
+        expect(handOff).toMatch(/The human\s+alone may instead end the attempt with\s+`--spawn-failed <stem> --reason "<what was lost>" --accept-current-tree`, which keeps the checkpoint/);
+        expect(flow).toMatch(/when two findings of a round\s+normalize alike, add `-2`, `-3`/);
+      });
+
+      it('never spawns an unticketed delegate when no ticket can be issued', () => {
+        const flow = sectionOf(renderProtocol(), TICKET_HEADING);
+        expect(flow).toMatch(/never spawn an unticketed delegate: skip the degraded\s+path's fresh-run options too, grade in-session/);
+        expect(flow).toMatch(/a shallow repository/);
+        expect(flow).toMatch(new RegExp(`under\\s+\`<role>${FRESH_ROLE_SUFFIX}\``));
+      });
+
+      it('briefs the delegate to work in the snapshot, read the main tree read-only, and never write refs, stash or config', () => {
+        const spawn = sectionOf(renderProtocol(), TICKET_HEADING).split('3. **Receive**')[0]!.split('2. **Spawn**')[1]!;
+        expect(spawn).toMatch(/inside the snapshot path only —\s+never in the main working tree/);
+        expect(spawn).toMatch(/ignored dependencies/);
+        expect(spawn).toMatch(/compute the change diff in\s+the main tree, read-only/);
+        expect(spawn).toMatch(/never run a git command that writes refs, the stash or the config/);
+      });
+
+      it('claims detection and preservation only, states its threat model, and discloses what is not seen (REQ-TEMPLATES-238)', () => {
+        const limits = sectionOf(renderProtocol(), LIMITS_HEADING);
+        expect(limits).toMatch(/prompt wording is never the\s+isolation mechanism/i);
+        expect(limits).toMatch(/The CLI detects and preserves/);
+        expect(limits).toMatch(/It prevents nothing and restores nothing/);
+        expect(limits).toMatch(THREAT_MODEL);
+        for (const unseen of [
+          /does not see ignored files/, /artifacts under `\.prospec\/`, tickets and checkpoints included/,
+          /edits its own ticket or another CLI record there can make its receipt pass/,
+          /`\.git\/config`, hooks and `info\/exclude`/,
+          /runs in the CLI's own receive git calls and in every later git\s+call/,
+          /repository metadata under `\.git` that no facet reads \(`\.git\/shallow`, `info\/grafts`,\s+`info\/attributes`\)/,
+          /a process that outlives its delegate/, /`--spawn-failed` or\s+after a newer attempt superseded it/,
+          /can change the tree\s+after the receipt/, /a change the delegate itself reverted before returning/,
+          /content outside the project/,
+          /pushes to any remote \(remote-tracking refs are not a facet\)/,
+          /tags a `git fetch` auto-follows do\s+change the `refs` facet/,
+          /Delegations of\s+several changes running at once in one repository are not isolated from one another/,
+          /a sibling worktree's commit or stash during a delegation refuses the receipt/,
+        ]) {
+          expect(limits).toMatch(unseen);
+        }
+        expectOnlyDetectionClaims(renderProtocol(), PROTOCOL);
+      });
+
+      it('fits the shipped reference budget', () => {
+        expect(estimateTokens(renderProtocol())).toBeLessThanOrEqual(DEFAULT_KNOWLEDGE_TOKEN_BUDGET.reference_per_file);
+      });
+      it('renders the facets, await bounds, fresh suffix, directory and roles from types/delegation (REQ-TYPES-108)', () => {
+        const source = BUNDLED_TEMPLATES[PROTOCOL_TEMPLATE] ?? '';
+        for (const literal of ['-fresh', `${DELEGATION_DIR}/`, 'Re-spawn it once', 'local refs, stash', `**${DELEGATION_AWAIT.idleMinutes} minutes**`]) {
+          expect(source, `restates ${literal}`).not.toContain(literal);
+        }
+        const flow = sectionOf(renderProtocol(), TICKET_HEADING);
+        expect(flow).toContain(GIT_STATE_FACETS.map((f) => `\`${f}\``).join(', '));
+        expect(renderProtocol()).toContain(`.prospec/changes/{name}/${DELEGATION_DIR}/`);
+        expect(flow).toMatch(/`grader` \(verify 2\/5 and 3\/5\), `grader-design` \(verify dimension 6\)/);
+        const moved = renderProtocol({ delegation_idle_minutes: 7, delegation_fresh_suffix: '-anew', delegation_max_respawns: 4 });
+        expect(moved).toContain('**7 minutes**');
+        expect(moved).toContain('`<role>-anew`');
+        expect(moved).toMatch(/at most \*\*4\*\* \(at review/);
+      });
+
+      it('restates the re-spawn rule: once under a new ticket, then the degraded path (REQ-TESTS-108)', () => {
+        const section = sectionOf(renderProtocol(), PROTOCOL_HEADING);
+        expect(section).toMatch(
+          new RegExp(`Re-spawn it — re-spawns per\\s+delegation: at most \\*\\*${DELEGATION_AWAIT.maxRespawns}\\*\\* \\(at review and verify each under a new ticket`),
+        );
+        expect(section).toMatch(/When the last re-spawn fails too, record the failure as a `quality_log` WARN and take step 4/);
+      });
+    });
+
+    describe('Same on every host (REQ-TEMPLATES-239)', () => {
+      it('renders the same protocol whatever the host capabilities are', () => {
+        const variants = [true, false].flatMap((can_worktree) =>
+          [true, false].map((can_spawn_subagent) => renderProtocol({ can_worktree, can_spawn_subagent, can_background: can_worktree })),
+        );
+        for (const variant of variants) expect(variant).toBe(renderProtocol());
+      });
+
+      it('carries no capability branch and names no host permission mechanism', () => {
+        const source = BUNDLED_TEMPLATES[PROTOCOL_TEMPLATE] ?? '';
+        expect(source).not.toMatch(/\{\{#if can_/);
+        const content = renderProtocol();
+        expect(content).not.toMatch(/permissions\.deny|settings\.json|PreToolUse|\.claude\/agents|disallowedTools|agent guard/);
+        expectDownstreamNeutrality(content, PROTOCOL);
+      });
+
+      it('ships no host-specific delegation artifact: no delegate definition template, no agent writes one', () => {
+        expect(Object.keys(BUNDLED_TEMPLATES).filter((name) => /delegate-agent|agent-guard/.test(name))).toEqual([]);
+        for (const agent of Object.values(AGENT_CONFIGS)) {
+          expect(Object.keys(agent)).not.toContain('delegateDefinitionPath');
+          expect(Object.keys(agent.capabilities)).not.toContain('canScopeSubagentPermissions');
+        }
+      });
+
+      it('deploys the same delegation-protocol.md bytes to every host (REQ-TEMPLATES-239)', () => {
+        const rendered = Object.keys(AGENT_CONFIGS).map((agent) => renderProtocol({ agent }));
+        expect(new Set(rendered).size).toBe(1);
+      });
+    });
+
+    describe('User-facing claims (REQ-CLI-057, REQ-TESTS-125)', () => {
+      /** The bullet that documents `change delegate`, up to the next command bullet. */
+      const delegateEntry = (file: string): string => {
+        const text = fs.readFileSync(path.join(__dirname, '../..', file), 'utf-8');
+        const start = text.search(/^- \*\*`prospec change delegate/m);
+        expect(start, `${file} documents prospec change delegate`).toBeGreaterThanOrEqual(0);
+        const rest = text.slice(start);
+        const end = rest.slice(1).search(/^- \*\*`|^#/m);
+        return end < 0 ? rest : rest.slice(0, end + 1);
+      };
+      const THREAT_MODEL_ZH = /防範的是意外或行為出錯的委派代理，而非惡意代理/;
+
+      it.each(['README.md', 'reference/cli-reference.md'])('%s claims detection and preservation only, with the threat model', (file) => {
+        expectOnlyDetectionClaims(delegateEntry(file), file);
+      });
+
+      it.each(['README.zh-TW.md', 'reference/cli-reference.zh-TW.md'])('%s claims detection and preservation only, with the threat model', (file) => {
+        const entry = delegateEntry(file);
+        expect(entry, `${file} claims detection`).toMatch(/偵測/);
+        expect(entry, `${file} claims preservation`).toMatch(/保存/);
+        expect(entry, `${file} states the threat model`).toMatch(THREAT_MODEL_ZH);
+        expect(entry.replace(/不防止任何事，也不還原任何事/g, ''), `${file} claims prevention or restoration`).not.toMatch(/防止|還原|--restore/);
+      });
+
+      it('the claim predicate rejects a restoration claim, a prevention claim and a missing threat model', () => {
+        const real = delegateEntry('README.md');
+        expect(() => expectOnlyDetectionClaims(`${real} It restores the tree.`, 'README.md')).toThrow(/prevention or restoration/);
+        expect(() => expectOnlyDetectionClaims(`${real} It prevents damage.`, 'README.md')).toThrow(/prevention or restoration/);
+        expect(() => expectOnlyDetectionClaims(real.replace(THREAT_MODEL, 'any delegate'), 'README.md')).toThrow(/threat model/);
+      });
+    });
+
+    describe('Pointer surfaces (REQ-TEMPLATES-224, REQ-TESTS-107)', () => {
+      it.each(skillPointerTargets)('$name points at its own copy at every delegation site and restates no step', ({ name, headings }) => {
+        const content = renderSkillTemplate(name);
+        for (const heading of headings) {
+          expectPointer(sectionOf(content, heading), SKILL_LINK);
+          expectStepTalkLinked(sectionOf(content, heading), SKILL_LINK, `${name} ${heading}`);
+        }
+        expectNoStepDefinition(content, name, headings);
+        expectSkillNeverContract(content);
+      });
+
+      it.each(referencePointerTargets)('$name points at its sibling copy and restates no step', ({ name, heading }) => {
+        const content = renderReference(name);
+        expectPointer(sectionOf(content, heading), REFERENCE_LINK);
+        expectStepTalkLinked(sectionOf(content, heading), REFERENCE_LINK, `${name} ${heading}`);
+        expectNoStepDefinition(content, name, [heading]);
+      });
+
+      it('every pointer target is deployed beside its pointer (REQ-AGNT-046)', () => {
+        for (const skill of DELEGATED_SKILLS) {
+          expect(getSkillReferences(skill).map((r) => r.outputName), skill).toContain(`${PROTOCOL}.md`);
+        }
+        // The references that point at a sibling copy are deployed only with skills that deploy it too.
+        for (const { name } of referencePointerTargets) {
+          for (const skill of SKILL_DEFINITIONS.map((s) => s.name)) {
+            const outputs = getSkillReferences(skill).map((r) => r.outputName);
+            if (outputs.includes(`${name}.md`)) expect(outputs, `${skill} deploys ${name} without its protocol`).toContain(`${PROTOCOL}.md`);
+          }
+        }
+      });
+
+      it('prospec-review tickets and receives every delegate, the critical verifier included (REQ-TEMPLATES-181)', () => {
+        const content = renderSkillTemplate('prospec-review');
         const loop = sectionOf(content, '### The Loop');
-        expect(loop.length).toBeGreaterThan(0);
-        expect(loop).toMatch(/receipt verification|physical receipt/i);
-        expect(loop).toMatch(/regular file.*exists/i);
-        expect(loop).toMatch(/size > 0|non-empty/i);
-        expect(loop).toMatch(/valid.*json|schema/i);
-        expect(loop).toMatch(/lifecycle|transcript/i);
-
+        expect(loop).toMatch(/ticket every delegate before its spawn and receive its payload the moment it returns — before any fix/);
+        expect(loop).toMatch(/ReviewFindingsInputSchema/);
+        const criticalVerifierStep = loop.match(/\n2\. For each reported \*\*critical\*\*[\s\S]*?(?=\n3\. Apply)/)?.[0] ?? '';
+        expect(criticalVerifierStep).toMatch(/ticket it under its verifier role per the delegation protocol and receive its payload before acting/);
+        expect(criticalVerifierStep).toMatch(/terminal verifier failure.*unresolved.*escalate/i);
+        expect(criticalVerifierStep).toMatch(/never.*(mock|dummy|synthetic)/i);
+        expect(sectionOf(content, '### Persistence')).toMatch(/to the payload path its ticket assigns/);
         expectReviewNeverContract(content);
       });
 
-      it('requires a physical receipt for the independent Critical Verifier (REQ-TEMPLATES-066)', () => {
-        const content = renderTemplate('skills/prospec-review.hbs', TEMPLATE_CONTEXT);
-        const loop = sectionOf(content, '### The Loop');
-        const criticalVerifierStep =
-          loop.match(/\n2\. For each reported \*\*critical\*\*[\s\S]*?(?=\n3\. Apply)/)?.[0] ?? '';
-
-        expect(criticalVerifierStep.length).toBeGreaterThan(0);
-        expect(criticalVerifierStep).toMatch(/single-entry.*ReviewFindingsInputSchema/i);
-        expect(criticalVerifierStep).toMatch(/regular file.*size > 0/i);
-        expect(criticalVerifierStep).toMatch(/lifecycle|transcript/i);
-        expect(criticalVerifierStep).toMatch(/terminal failure.*unresolved|escalat/i);
-        expect(criticalVerifierStep).toMatch(/never.*(mock|dummy|synthetic)/i);
-      });
-
-      it('prospec-verify enforces physical receipt check, lifecycle wait, explicit degradation, and zero-mock NEVER (REQ-TEMPLATES-155, REQ-TEMPLATES-181)', () => {
-        const content = renderTemplate('skills/prospec-verify.hbs', TEMPLATE_CONTEXT);
+      it('prospec-verify receives every grader before recording (REQ-TEMPLATES-181)', () => {
+        const content = renderSkillTemplate('prospec-verify');
         expectVerifyRecordReceiptContract(content);
-
         const never = sectionOf(content, '## NEVER');
-        expect(never.length).toBeGreaterThan(0);
         expect(never).toMatch(/mock.*dimensions|dummy/i);
         expect(never).toMatch(/verbal.*(promise|claim|completion)/i);
       });
 
-      it('prospec-plan enforces physical receipt check for candidates & verifier, lifecycle wait, and zero-mock NEVER (REQ-TEMPLATES-183, REQ-TEMPLATES-185)', () => {
-        const content = renderTemplate('skills/prospec-plan.hbs', TEMPLATE_CONTEXT);
-        const phase4 = sectionOf(content, '### Phase 4: Design plan.md');
-        expect(phase4.length).toBeGreaterThan(0);
-        expect(phase4).toMatch(/receipt verification|physical receipt|valid.*receipt/i);
-        expect(phase4).toMatch(/lifecycle|transcript/i);
-
-        const phase6 = sectionOf(content, '### Phase 6: Architecture Verification');
-        expect(phase6.length).toBeGreaterThan(0);
-        expect(phase6).toMatch(/receipt verification|physical receipt|valid.*report/i);
-        expect(phase6).toMatch(/lifecycle|transcript/i);
-
-        const never = sectionOf(content, '## NEVER');
-        expect(never.length).toBeGreaterThan(0);
-        expect(never).toMatch(/mock|dummy|synthetic pass/i);
-      });
-
-      it('prospec-tasks enforces physical receipt check for task verifier, lifecycle wait, and zero-mock NEVER (REQ-TEMPLATES-187)', () => {
-        const content = renderTemplate('skills/prospec-tasks.hbs', TEMPLATE_CONTEXT);
-        const phase6 = sectionOf(content, '### Phase 6: Task Contract & Verifier Audit');
-        expect(phase6.length).toBeGreaterThan(0);
-        expect(phase6).toMatch(/receipt verification|physical receipt|valid.*report/i);
-        expect(phase6).toMatch(/lifecycle|transcript/i);
-
-        const never = sectionOf(content, '## NEVER');
-        expect(never.length).toBeGreaterThan(0);
-        expect(never).toMatch(/mock|dummy|synthetic pass/i);
-      });
-
-      it('prospec-ff enforces cascading receipt verification, station reload, and zero-mock NEVER (REQ-TEMPLATES-193)', () => {
-        const content = renderTemplate('skills/prospec-ff.hbs', TEMPLATE_CONTEXT);
+      it('prospec-ff keeps the station reload and the verifier-report zero-mock rule', () => {
+        const content = renderSkillTemplate('prospec-ff');
         expect(content).toContain(CAPABILITY_LINE_LABEL);
-        expect(content).toContain('`can_spawn_subagent`: yes');
-        const phase5 = sectionOf(content, '### Phase 5: Autonomous Execution');
-        expect(phase5.length).toBeGreaterThan(0);
-        expect(phase5).toMatch(/receipt verification|receipt protocol|receipt gate/i);
-        expect(phase5).toMatch(/reload.*skill|re-read/i);
-
-        const never = sectionOf(content, '## NEVER');
-        expect(never.length).toBeGreaterThan(0);
-        expect(never).toMatch(/verbal.*shortcut|mock|bypass/i);
+        expect(sectionOf(content, '### Phase 5: Autonomous Execution')).toMatch(/reload.*skill|re-read/i);
+        for (const heading of ['### Phase 3: Plan Generation (skipped when `scale: quick`)', '### Phase 4: Tasks Generation']) {
+          expect(sectionOf(content, heading)).toMatch(/never fabricate a mock report or a synthetic PASS/);
+        }
       });
-    });
 
-    describe('Delegated References Matrix (4 References)', () => {
-      it.each(DELEGATED_REFERENCES)(
-        '%s keeps every receipt invariant in its owner protocol (REQ-TESTS-107)',
-        (referenceName) => {
-          const content = renderTemplate(`skills/references/${referenceName}.hbs`, TEMPLATE_CONTEXT);
-          expectReceiptProtocol(sectionOf(content, '## Physical Receipt Verification Protocol'));
-        },
-      );
-
-      it('delegated-evidence-format defines standard four-pillar receipt protocol and zero-mock rules (REQ-TEMPLATES-180)', () => {
-        const content = renderTemplate('skills/references/delegated-evidence-format.hbs', TEMPLATE_CONTEXT);
-        expectReceiptProtocol(sectionOf(content, '## Physical Receipt Verification Protocol'));
+      it('delegated-evidence-format keeps the payload contract and the path-only return (REQ-TEMPLATES-180)', () => {
+        const content = renderReference('delegated-evidence-format');
         expectDelegatedEvidenceSchemaContract(content);
-
         const delegatedReturn = sectionOf(content, '## What the delegated agent does');
+        expect(delegatedReturn).toMatch(/payload path its\s+ticket assigns/);
         expect(delegatedReturn).toMatch(/return.*file.*path.*counts|return.*file.*path.*verdict/i);
-        expect(delegatedReturn).toMatch(/never.*evidence prose/i);
+        expect(delegatedReturn).toMatch(/never the evidence prose/i);
       });
 
-      it('candidate-evaluation defines candidate & tournament decision receipt protocol and required fields (REQ-TEMPLATES-184)', () => {
-        const content = renderTemplate('skills/references/candidate-evaluation.hbs', TEMPLATE_CONTEXT);
-        expectReceiptProtocol(sectionOf(content, '## Physical Receipt Verification Protocol'));
+      it('candidate-evaluation keeps its schema contract (REQ-TEMPLATES-184)', () => {
+        const content = renderReference('candidate-evaluation');
         expectCandidateSchemaContract(content);
+        expect(sectionOf(content, PROTOCOL_HEADING)).toMatch(/prospec validate candidates/);
       });
 
-      it('plan-verifier-rubric defines architecture verifier receipt protocol and 5 orthogonal dimensions schema (REQ-TEMPLATES-182)', () => {
-        const content = renderTemplate('skills/references/plan-verifier-rubric.hbs', TEMPLATE_CONTEXT);
-        expectReceiptProtocol(sectionOf(content, '## Physical Receipt Verification Protocol'));
-        const rows = schemaRows(content, '## Architecture Verifier Payload Schema');
+      it.each([
+        { name: 'plan-verifier-rubric', schema: '## Architecture Verifier Payload Schema', dims: /project_layering.*blast_radius.*state_safety.*delta_spec.*reuse/i },
+        { name: 'tasks-verifier-rubric', schema: '## Task Verifier Payload Schema', dims: /bidirectional_coverage.*dag_topological_order.*tdd_module_closure.*task_sizing_schema/i },
+      ])('$name keeps its verifier schema and its sink (REQ-TEMPLATES-182, REQ-TEMPLATES-186)', ({ name, schema, dims }) => {
+        const content = renderReference(name);
+        const rows = schemaRows(content, schema);
         expect([...rows.keys()]).toEqual(['verdict', 'dimensions', 'evidence', 'warnings']);
         expect(withoutCodeTicks(rows.get('verdict'))).toContain('"PASS" | "WARN" | "FLAWS"');
-        expect(rows.get('dimensions')).toMatch(/project_layering.*blast_radius.*state_safety.*delta_spec.*reuse/i);
+        expect(rows.get('dimensions')).toMatch(dims);
         expect(rows.get('dimensions')).toMatch(/exactly.*result.*rationale.*no additional/i);
         expectDocumentedRequiredness(rows, ['verdict', 'dimensions', 'evidence'], ['warnings']);
         expect(sectionOf(content, '## Delegated Return Contract')).toMatch(/return only.*file path/i);
-      });
-
-      it('tasks-verifier-rubric defines task verifier receipt protocol and 4 orthogonal dimensions schema (REQ-TEMPLATES-186)', () => {
-        const content = renderTemplate('skills/references/tasks-verifier-rubric.hbs', TEMPLATE_CONTEXT);
-        expectReceiptProtocol(sectionOf(content, '## Physical Receipt Verification Protocol'));
-        const rows = schemaRows(content, '## Task Verifier Payload Schema');
-        expect([...rows.keys()]).toEqual(['verdict', 'dimensions', 'evidence', 'warnings']);
-        expect(withoutCodeTicks(rows.get('verdict'))).toContain('"PASS" | "WARN" | "FLAWS"');
-        expect(rows.get('dimensions')).toMatch(/bidirectional_coverage.*dag_topological_order.*tdd_module_closure.*task_sizing_schema/i);
-        expect(rows.get('dimensions')).toMatch(/exactly.*result.*rationale.*no additional/i);
-        expectDocumentedRequiredness(rows, ['verdict', 'dimensions', 'evidence'], ['warnings']);
-        expect(sectionOf(content, '## Delegated Return Contract')).toMatch(/return only.*file path/i);
+        expect(sectionOf(content, PROTOCOL_HEADING)).toContain('prospec change log --verifier-report');
       });
     });
 
@@ -8539,200 +8767,137 @@ describe('split and trim references contract (REQ-TEMPLATES-215~220, REQ-AGNT-04
     });
 
     describe('Downstream Neutrality (T2)', () => {
-      it('all 5 delegated skills are downstream-neutral and free of named tools/vendors', () => {
-        for (const skillName of DELEGATED_SKILLS) {
-          const content = renderTemplate(`skills/${skillName}.hbs`, TEMPLATE_CONTEXT);
-          expectDownstreamNeutrality(content, skillName);
-        }
-      });
-
-      it('all 4 delegated references are downstream-neutral and free of named tools/vendors', () => {
-        for (const refName of DELEGATED_REFERENCES) {
-          const content = renderTemplate(`skills/references/${refName}.hbs`, TEMPLATE_CONTEXT);
-          expectDownstreamNeutrality(content, refName);
-        }
-      });
-
-      it.each([
+      const neutralityTargets = [
         ...DELEGATED_SKILLS.map((name) => ({ name, template: `skills/${name}.hbs` })),
         ...DELEGATED_REFERENCES.map((name) => ({ name, template: `skills/references/${name}.hbs` })),
-      ])('$name remains downstream-neutral (REQ-TESTS-107)', ({ name, template }) => {
+        { name: PROTOCOL, template: PROTOCOL_TEMPLATE },
+      ];
+
+      it('covers all ten targets — nine pointer surfaces and the definition', () => {
+        expect(neutralityTargets).toHaveLength(10);
+      });
+
+      it.each(neutralityTargets)('$name remains downstream-neutral (REQ-TESTS-107)', ({ name, template }) => {
         expectDownstreamNeutrality(renderTemplate(template, TEMPLATE_CONTEXT), name);
       });
     });
 
-    // These tests mutate rendered output to prove predicate falsifiability. The separate
-    // T18 source → bundle → targeted RED/GREEN loop is recorded in the change evidence.
+    // These tests mutate rendered output to prove predicate falsifiability.
     describe('Mutation Verification for Receipt Protocol (PB-001/PB-019)', () => {
-      const removeDegradationPath = (section: string): string =>
-        section.replace(
-          /^.*(?:degrad|crash|timeout|spawn failure|in-session|disclos).*$(?:\r?\n)?/gim,
-          '',
-        );
-
-      const skillReceiptTargets = [
-        {
-          name: 'prospec-review',
-          template: 'skills/prospec-review.hbs',
-          receiptHeading: '### The Loop',
-        },
-        {
-          name: 'prospec-verify',
-          template: 'skills/prospec-verify.hbs',
-          receiptHeading: '## Record & Status Update (CLI-executed)',
-        },
-        {
-          name: 'prospec-plan',
-          template: 'skills/prospec-plan.hbs',
-          receiptHeading: '### Phase 6: Architecture Verification',
-        },
-        {
-          name: 'prospec-tasks',
-          template: 'skills/prospec-tasks.hbs',
-          receiptHeading: '### Phase 6: Task Contract & Verifier Audit',
-        },
-        {
-          name: 'prospec-ff',
-          template: 'skills/prospec-ff.hbs',
-          receiptHeading: '### Phase 3: Plan Generation (skipped when `scale: quick`)',
-        },
-      ] as const;
-
-      for (const target of skillReceiptTargets) {
-        it(`${target.name} predicate rejects a deleted physical receipt guard`, () => {
-          const real = renderTemplate(target.template, TEMPLATE_CONTEXT);
-          const mutated = mutateSection(
-            real,
-            target.receiptHeading,
-            (section) => section.replace(/readable regular file/gi, 'removed physical payload guard'),
-          );
-          expect(() => expectSkillReceiptProtocol(mutated, [target.receiptHeading])).toThrow();
-        });
-
-        it(`${target.name} predicate rejects a deleted lifecycle wait`, () => {
-          const real = renderTemplate(target.template, TEMPLATE_CONTEXT);
-          const mutated = mutateSection(
-            real,
-            target.receiptHeading,
-            (section) => section.replace(/lifecycle|transcript/gi, 'removed'),
-          );
-          expect(() => expectSkillReceiptProtocol(mutated, [target.receiptHeading])).toThrow();
-        });
-
-        it(`${target.name} predicate rejects a deleted degradation path`, () => {
-          const real = renderTemplate(target.template, TEMPLATE_CONTEXT);
-          const mutated = mutateSection(
-            real,
-            target.receiptHeading,
-            removeDegradationPath,
-          );
-          expect(() => expectSkillReceiptProtocol(mutated, [target.receiptHeading])).toThrow();
-        });
-
-        it(`${target.name} predicate rejects a deleted zero-mock rule`, () => {
-          const real = renderTemplate(target.template, TEMPLATE_CONTEXT);
-          const mutated = mutateSection(
-            real,
-            '## NEVER',
-            (section) => section.replace(/mock|dummy|synthetic/gi, 'removed'),
-          );
-          expect(() => expectSkillReceiptProtocol(mutated, [target.receiptHeading])).toThrow();
-        });
-      }
-
-      const referenceReceiptTargets = [
-        'delegated-evidence-format',
-        'candidate-evaluation',
-        'plan-verifier-rubric',
-        'tasks-verifier-rubric',
-      ] as const;
-
-      for (const referenceName of referenceReceiptTargets) {
-        const template = `skills/references/${referenceName}.hbs`;
-        const protocolHeading = '## Physical Receipt Verification Protocol';
-
-        it(`${referenceName} predicate rejects a deleted physical receipt guard`, () => {
-          const real = renderTemplate(template, TEMPLATE_CONTEXT);
-          const mutated = mutateSection(
-            real,
-            protocolHeading,
-            (section) => section.replace(/readable regular file|regular file on disk/gi, 'removed physical payload guard'),
-          );
-          expect(() => expectReceiptProtocol(sectionOf(mutated, protocolHeading))).toThrow();
-        });
-
-        it(`${referenceName} predicate rejects a deleted lifecycle wait`, () => {
-          const real = renderTemplate(template, TEMPLATE_CONTEXT);
-          const mutated = mutateSection(
-            real,
-            protocolHeading,
-            (section) => section.replace(/lifecycle|transcript/gi, 'removed'),
-          );
-          expect(() => expectReceiptProtocol(sectionOf(mutated, protocolHeading))).toThrow();
-        });
-
-        it(`${referenceName} predicate rejects a deleted degradation path`, () => {
-          const real = renderTemplate(template, TEMPLATE_CONTEXT);
-          const mutated = mutateSection(
-            real,
-            protocolHeading,
-            removeDegradationPath,
-          );
-          expect(() => expectReceiptProtocol(sectionOf(mutated, protocolHeading))).toThrow();
-        });
-
-        it(`${referenceName} predicate rejects a deleted zero-mock rule`, () => {
-          const real = renderTemplate(template, TEMPLATE_CONTEXT);
-          const mutated = mutateSection(
-            real,
-            protocolHeading,
-            (section) => section.replace(/mock|dummy|synthetic|empty arrays? `\[\]`/gi, 'removed'),
-          );
-          expect(() => expectReceiptProtocol(sectionOf(mutated, protocolHeading))).toThrow();
-        });
-      }
-
-      it('candidate-evaluation predicate rejects an invalid receipt routed to degraded execution (R8-1)', () => {
-        const real = renderTemplate('skills/references/candidate-evaluation.hbs', TEMPLATE_CONTEXT);
-        const mutated = mutateSection(
-          real,
-          '## Physical Receipt Verification Protocol',
-          (section) =>
-            section.replace(
-              'On a confirmed crash, failure, or timeout, fall back to single-context degraded execution and honestly disclose the in-session mode.',
-              'On crash, timeout, or invalid output, fall back to single-context degraded execution and honestly disclose the in-session mode.',
-            ),
-        );
-        expect(mutated).not.toBe(real);
-        expect(() =>
-          expectReceiptProtocol(sectionOf(mutated, '## Physical Receipt Verification Protocol')),
-        ).toThrow();
-      });
-
-      const neutralityTargets = [
-        ...DELEGATED_SKILLS.map((name) => ({ name, template: `skills/${name}.hbs` })),
-        ...DELEGATED_REFERENCES.map((name) => ({ name, template: `skills/references/${name}.hbs` })),
+      const protocolSection = (): string => sectionOf(renderProtocol(), PROTOCOL_HEADING);
+      const mutations: Array<[string, (section: string) => string]> = [
+        ['a deleted physical receipt guard', (s) => s.replace(/readable regular file/gi, 'removed physical payload guard')],
+        ['a deleted lifecycle wait', (s) => s.replace(/lifecycle|transcript/gi, 'removed')],
+        ['a deleted idle bound', (s) => s.replace(`**${DELEGATION_AWAIT.idleMinutes} minutes**`, '**a while**')],
+        ['a deleted poll bound', (s) => s.replace(`**${DELEGATION_AWAIT.maxPolls} polls**`, '**some polls**')],
+        ['a deleted re-spawn bound', (s) => s.replace(`at most **${DELEGATION_AWAIT.maxRespawns}**`, 'any number')],
+        ['an unbounded wait', (s) => s.replace(/never unboundedly/i, 'as long as it takes')],
+        ['a deleted degradation path', (s) => s.replace(/^.*(?:degrad|in-session|disclos).*$(?:\r?\n)?/gim, '')],
+        ['a deleted zero-mock rule', (s) => s.replace(/never fabricate/gi, 'you may create')],
+        ['an invalid payload routed to degradation', (s) => `${s}\nOn malformed output, fall back to degraded in-session grading.`],
+        ['a deleted non-empty check', (s) => s.replace('`size > 0` bytes', 'no size validation')],
       ];
 
-      it.each(neutralityTargets)(
-        '$name neutrality predicate rejects an injected named harness tool',
-        ({ name, template }) => {
-          const real = renderTemplate(template, TEMPLATE_CONTEXT);
-          const mutated = `${real}\nmanage_subagents`;
-          expect(() => expectDownstreamNeutrality(mutated, name)).toThrow();
-        },
-      );
-
-      it('the delegated-reference contract predicate fails when non-empty receipt validation is removed', () => {
-        const real = renderTemplate('skills/references/delegated-evidence-format.hbs', TEMPLATE_CONTEXT);
-        const protocol = sectionOf(real, '## Physical Receipt Verification Protocol');
-        const mutated = protocol.replace('`size > 0` bytes', 'no size validation');
-        expect(mutated).not.toBe(protocol);
+      it.each(mutations)('the definition predicate rejects %s', (_label, mutate) => {
+        const real = protocolSection();
+        const mutated = mutate(real);
+        expect(mutated).not.toBe(real);
         expect(() => expectReceiptProtocol(mutated)).toThrow();
       });
 
+      it.each(skillPointerTargets)('$name pointer predicate rejects a removed link and a re-inlined step', ({ name, headings }) => {
+        const real = renderSkillTemplate(name);
+        const unlinked = mutateSection(real, headings[0], (section) => section.split(SKILL_LINK).join('the protocol'));
+        expect(() => expectPointer(sectionOf(unlinked, headings[0]), SKILL_LINK)).toThrow();
+        const inlined = `${real}\n- **Lifecycle Probe & Await**: await completion.`;
+        expect(() => expectNoStepDefinition(inlined, name)).toThrow();
+        // A receipt bullet pasted back into the delegation site, in the old wording.
+        const pasted = mutateSection(real, headings[0], (section) =>
+          `${section}\n- **Physical Receipt Verification**: The orchestrator MUST verify that the report exists as a readable regular file on disk, has \`size > 0\` bytes, and matches the schema.\n`);
+        expect(() => expectNoStepDefinition(pasted, name, headings)).toThrow();
+      });
+
+      it.each(skillPointerTargets)('$name step-wording predicate rejects a paraphrased step the phrase lists miss', ({ name, headings }) => {
+        const real = renderSkillTemplate(name);
+        for (const heading of headings) expect(() => expectStepTalkLinked(sectionOf(real, heading), SKILL_LINK, name)).not.toThrow();
+        const paraphrased = mutateSection(real, headings[0], (section) =>
+          `${section}\n- Hold on for the report for a while and start it once more if it never shows up; keep waiting otherwise.\n`);
+        expect(() => expectNoStepDefinition(paraphrased, name, headings)).not.toThrow();
+        expect(() => expectStepTalkLinked(sectionOf(paraphrased, headings[0]), SKILL_LINK, name)).toThrow();
+      });
+
+      it.each([
+        ['a hand-off rule', 'refuse until the pre-spawn state'],
+        ['a human-decision rule', 'one human decision per refusal'],
+        ['an acceptance rule', '--accept-current-tree keeps it'],
+        ['a fresh-role rule', `a fresh run goes under <role>${FRESH_ROLE_SUFFIX}`],
+        ['a role-collision rule', 'add `-2`, `-3` on a clash'],
+        ['a detection limit', 'remote-tracking refs are not a facet'],
+      ])('the ticket-flow predicate rejects %s restated at an equal-length review pointer', (_label, restated) => {
+        const real = renderSkillTemplate('prospec-review');
+        const pointerWords = 'its bounded wait and the hand-off of a mutation to the human';
+        const mutated = mutateSection(real, '### The Loop', (section) => section.replace(pointerWords, restated));
+        expect(() => expectNoStepDefinition(real, 'prospec-review', ['### The Loop'])).not.toThrow();
+        expect(() => expectNoStepDefinition(mutated, 'prospec-review', ['### The Loop'])).toThrow(/ticket-flow invariant/);
+      });
+
+      it('the ticket-flow predicate rejects every detection limit the protocol words', () => {
+        const framing = [/^Snapshots cost/];
+        const sentences = sectionOf(renderProtocol(), LIMITS_HEADING)
+          .replace(LIMITS_HEADING, '')
+          .replace(/\s+/g, ' ')
+          .trim()
+          .split(/(?<=\.) (?=[A-Z])|; /)
+          .filter((sentence) => !framing.some((f) => f.test(sentence)));
+        expect(sentences.length).toBeGreaterThan(8);
+        for (const sentence of sentences) {
+          expect(TICKET_FLOW_PHRASES.some((phrase) => phrase.test(sentence)), sentence).toBe(true);
+        }
+      });
+
+      // Outside every delegation site, where a site-scoped scan would not look.
+      it.each([
+        ['the review NEVER list', 'prospec-review', 'unbounded retries waste tokens', 'one human decision per refusal'],
+        ['verify 3/5', 'prospec-verify', '(backward-compatible with a free-text Constitution)', '(refuse until the pre-spawn state is back)'],
+        ["delegated-evidence-format's delegated-agent steps", 'delegated-evidence-format', 'before consuming it.', '; checkpoint files.'],
+        ["review's Harness Degradation", 'prospec-review', 'single-pass fresh-context review', `single-pass run as <role>${FRESH_ROLE_SUFFIX}`],
+        ['the plan NEVER list (the re-spawn allowance)', 'prospec-plan', '(preserves cache stability)', '(not a re-spawn after it)'],
+        ['the plan NEVER list (an outliving process)', 'prospec-plan', '(preserves cache stability)', '(background process edits)'],
+        ['the plan NEVER list (a planted fsmonitor)', 'prospec-plan', '(preserves cache stability)', '(fsmonitor runs at receive)'],
+        ['the plan NEVER list (the sibling new-attempt rule)', 'prospec-plan', '(preserves cache stability)', '(sibling new attempt ok)'],
+        ['the plan NEVER list (the fresh-run ticket rule)', 'prospec-plan', '(preserves cache stability)', '(ticketed fresh run first)'],
+        ['the plan NEVER list (unread .git metadata)', 'prospec-plan', '(preserves cache stability)', '(.git/shallow is unseen)'],
+        ['the plan NEVER list (cross-change concurrency)', 'prospec-plan', '(preserves cache stability)', '(several changes collide)'],
+        ['the plan NEVER list (the threat model)', 'prospec-plan', '(preserves cache stability)', '(not a malicious one)'],
+      ])('the ticket-flow predicate rejects a restatement at equal length in %s', (_label, name, original, restated) => {
+        const skill = skillPointerTargets.find((t) => t.name === name);
+        const real = skill ? renderSkillTemplate(name) : renderReference(name);
+        const sites: readonly string[] = skill?.headings ?? [referencePointerTargets.find((t) => t.name === name)!.heading];
+        expect(real.split(original)).toHaveLength(2);
+        for (const site of sites) expect(sectionOf(real, site)).not.toContain(original);
+        expect(restated.length).toBeLessThanOrEqual(original.length);
+        const mutated = real.replace(original, restated.padEnd(original.length));
+        expect(mutated).toHaveLength(real.length);
+        expect(() => expectNoStepDefinition(real, name, sites)).not.toThrow();
+        expect(() => expectNoStepDefinition(mutated, name, sites)).toThrow(/ticket-flow invariant/);
+      });
+
+      it.each(referencePointerTargets)('$name pointer predicate rejects a removed link and a re-inlined step', ({ name, heading }) => {
+        const real = renderReference(name);
+        const unlinked = mutateSection(real, heading, (section) => section.split(REFERENCE_LINK).join('the protocol'));
+        expect(() => expectPointer(sectionOf(unlinked, heading), REFERENCE_LINK)).toThrow();
+        const inlined = `${real}\n1. **Physical Existence & Non-Empty**: check it.`;
+        expect(() => expectNoStepDefinition(inlined, name)).toThrow();
+      });
+
+      it('the neutrality predicate rejects an injected named harness tool on every target', () => {
+        for (const template of [PROTOCOL_TEMPLATE, ...DELEGATED_SKILLS.map((n) => `skills/${n}.hbs`)]) {
+          expect(() => expectDownstreamNeutrality(`${renderTemplate(template, TEMPLATE_CONTEXT)}\nmanage_subagents`, template)).toThrow();
+        }
+      });
+
       it('the review NEVER predicate fails when zero-mock prohibition is removed', () => {
-        const real = renderTemplate('skills/prospec-review.hbs', TEMPLATE_CONTEXT);
+        const real = renderSkillTemplate('prospec-review');
         const mutated = real.replace(
           /- \*\*NEVER\*\* fabricate mock findings, dummy JSON `\[\]`, or synthetic passes[^\n]+/,
           '- Removed zero-mock prohibition',
@@ -8741,28 +8906,22 @@ describe('split and trim references contract (REQ-TEMPLATES-215~220, REQ-AGNT-04
         expect(() => expectReviewNeverContract(mutated)).toThrow();
       });
 
-      it('the verify-record predicate fails when receipt verification is removed', () => {
-        const real = renderTemplate('skills/prospec-verify.hbs', TEMPLATE_CONTEXT);
-        const mutated = real.replace(
-          /- \*\*Physical Receipt Verification\*\*:[^\n]+/,
-          '- Removed receipt gate',
-        );
+      it('the verify-record predicate fails when the delegation line is removed', () => {
+        const real = renderSkillTemplate('prospec-verify');
+        const mutated = real.replace(/- \*\*Delegation & receipt\*\*:[^\n]+/, '- Removed receipt gate');
         expect(mutated).not.toBe(real);
         expect(() => expectVerifyRecordReceiptContract(mutated)).toThrow();
       });
 
       it('the candidate schema predicate fails when a required field becomes optional', () => {
-        const real = renderTemplate('skills/references/candidate-evaluation.hbs', TEMPLATE_CONTEXT);
+        const real = renderReference('candidate-evaluation');
         const mutated = real.replace('`title`: string (required)', '`title`: string (optional)');
         expect(mutated).not.toBe(real);
         expect(() => expectCandidateSchemaContract(mutated)).toThrow();
       });
 
       it('the delegated schema predicate fails when the id cross-field rule is removed', () => {
-        const real = renderTemplate(
-          'skills/references/delegated-evidence-format.hbs',
-          TEMPLATE_CONTEXT,
-        );
+        const real = renderReference('delegated-evidence-format');
         const mutated = real.replace(
           '(optional; required when `repro` or `evidence` is present)',
           '(optional)',

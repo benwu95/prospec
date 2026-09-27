@@ -25,5 +25,6 @@
     "timeout"
   ],
   "suite_runs": 0,
+  "max_waits": 2,
   "terminal": "stop"
 }

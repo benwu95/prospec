@@ -23,6 +23,7 @@ function captureStdout(fn: () => void): string {
 
 function baseResult(overrides: Partial<VerifyRecordResult> = {}): VerifyRecordResult {
   return {
+    delegation: { kind: 'not-ticketed' },
     changeName: 'feat-x',
     grade: 'A',
     result: 'PASS',
@@ -225,3 +226,29 @@ describe('formatVerifyContextOutput', () => {
   });
 });
 
+describe('verify-record-output delegation line (REQ-SERVICES-121 / REQ-CLI-057)', () => {
+  it('always prints the delegation line', () => {
+    const uncovered = captureStdout(() => formatVerifyRecordOutput(baseResult(), 'normal'));
+    expect(uncovered).toMatch(/Delegation: not covered by delegate mutation detection/);
+    const covered = captureStdout(() =>
+      formatVerifyRecordOutput(
+        baseResult({ delegation: { kind: 'settled', received: ['verify-grader-1-1'], failed: [], accepted: 0, mutated: 0, unconsumed: [] } }),
+        'normal',
+      ),
+    );
+    expect(covered).toContain('Delegation: 1 received (every repository facet matched at receipt) — verify-grader-1-1');
+  });
+
+  it('keeps every settlement count on the one delegation line (T-16 pin)', () => {
+    const out = captureStdout(() =>
+      formatVerifyRecordOutput(
+        baseResult({ delegation: { kind: 'settled', received: ['verify-grader-1-1'], failed: ['verify-grader-design-1-1'], accepted: 1, mutated: 1, unconsumed: ['verify-grader-1-1'] } }),
+        'normal',
+      ),
+    );
+    const lines = out.split('\n').filter((l) => /Delegation|attempt\(s\)|consumed/.test(l));
+    expect(lines).toHaveLength(1);
+    expect(lines[0]).toContain('1 received (every repository facet matched at receipt), 1 failed — verify-grader-1-1; 1 attempt(s) refused as mutated; 1 attempt(s) ended by a human accepting the current repository state');
+    expect(lines[0]).toContain('could not mark as consumed: verify-grader-1-1');
+  });
+});

@@ -22,11 +22,11 @@ So the payload splits in two:
 
 ## What the delegated agent does
 
-1. **Write** the findings (review) or dimension verdicts (verify) as a JSON array to a regular file, evidence
-   prose included.
+1. **Write** the findings (review) or dimension verdicts (verify) as a JSON array to the payload path its
+   ticket assigns, evidence prose included.
 2. **Return** that file's path plus the counts (review: criticals/majors) or the one-line verdicts
    (verify) — **never the evidence prose**.
-3. The orchestrator applies the **Physical Receipt Verification Protocol** below before consuming the file.
+3. The orchestrator receives the file under its delegation ticket (see Physical Receipt below) before consuming it.
 4. The orchestrator runs `prospec review merge --findings <file>` / `prospec verify record
    --dimensions <file>`. The CLI persists the evidence and prints the bounded digest that is the
    orchestrator's whole intake for the round.
@@ -63,15 +63,12 @@ silently drift.
 - `context_id`: canonical 64-character hex string binding prepared verification context inputs (optional; required on delta-spec-compliance when prepared context is used)
 - `scenario_findings`: deviations (`scenario_id`, `affected_req_ids`, `spec_location`, `result`, `summary`, `evidence`), only on delta-spec-compliance (optional)
 
-## Physical Receipt Verification Protocol
+## Physical Receipt
 
-All subagent-delegating stations and references enforce this protocol before consuming outputs:
-
-1. **Physical Existence & Non-Empty**: The payload path must resolve to a regular file on disk with `size > 0` bytes.
-2. **Target Schema Compliance**: The payload must parse as valid JSON matching the station's required fields and closed enums. Review uses `ReviewFindingsInputSchema`; verify uses `JudgmentDimensionsInputSchema`.
-3. **Lifecycle Probe & Await**: A missing payload path accompanied by a verbal completion claim indicates async write latency. The orchestrator must check abstract lifecycle / transcript evidence and await final completion rather than proceeding on words alone.
-4. **Explicit Degradation & Honest Disclosure**: If the subagent fails, crashes, or times out, proceed via explicit Harness Degradation. The grading context must be honestly disclosed (recording `graded_by: in-session` where a CLI sink exists, or stating in-session evaluation in prose).
-5. **Zero-Mock / No-Dummy Mandate**: Fabricating empty arrays `[]`, mock files, or fake passes to bypass missing receipts or CLI gates is strictly prohibited. Unreadable or malformed files fail closed with concrete diagnostic errors.
+Before a payload is consumed, the orchestrator applies the Physical Receipt Verification Protocol and, at
+review and verify, the delegation ticket flow — both defined in [`delegation-protocol.md`](delegation-protocol.md), together with
+the bounded wait, bounded re-spawn and disclosed degradation. The schemas it checks against are the
+projections above; never create a mock payload or an empty `[]` file.
 
 ## Relayed fields and their ceilings
 

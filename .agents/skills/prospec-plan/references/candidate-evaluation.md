@@ -97,12 +97,7 @@ evidence prose through the completion message.
 
 ## Physical Receipt Verification Protocol
 
-Before consuming candidate proposals:
-1. **Physical Existence & Non-Empty**: The orchestrator must verify that the target JSON output exists as a regular file on disk and has `size > 0` bytes.
-2. **Schema Validation**: Validate the files against the candidate schema with `prospec validate candidates`.
-3. **Lifecycle Probe & Await**: If the output file is missing when a completion message arrives, check abstract subagent lifecycle state or transcript logs and await completion.
-4. **Explicit Degradation**: On a confirmed crash, failure, or timeout, fall back to single-context degraded execution and honestly disclose the in-session mode.
-5. **Zero-Mock Rule**: NEVER create dummy candidate records or fake decisions. Missing, empty, unreadable, malformed, or schema-invalid outputs fail closed with concrete I/O or parse errors.
+Before consuming candidate proposals, apply the Physical Receipt Verification Protocol defined in [`delegation-protocol.md`](delegation-protocol.md) — its bounded wait, bounded re-spawn and disclosed degradation included. The schema check here is `prospec validate candidates`; never create dummy candidate records or fake decisions.
 
 ---
 

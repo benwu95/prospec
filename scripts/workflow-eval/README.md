@@ -456,11 +456,12 @@ denied it.
 
 Read-only scenarios (`allow_writes: false`, `allow_delegation: false`) count any
 observed write or delegation as a forbidden action, and a scenario's
-`required_commands` must be seen to complete, not merely attempted. One oracle
-rule has no native equivalent: `required_signals` describes delegation
-pending/timeout transitions that exist only in the mediated gateway, so the
-`missing-receipt` scenario stays `unobserved` under both standards in native
-mode and cannot be completed there. That limit applies equally to baseline and
+`required_commands` must be seen to complete, not merely attempted. Two oracle
+rules have no native equivalent: `required_signals` describes delegation
+pending/timeout transitions that exist only in the mediated gateway, and
+`max_waits` bounds the wait actions taken on them (a run past the bound scores
+`Unbounded await`), so the `missing-receipt` scenario stays `unobserved` under
+both standards in native mode and cannot be completed there. That limit applies equally to baseline and
 candidate, and the report states it rather than scoring around it.
 
 ## Freezing a baseline and comparing a candidate
@@ -483,6 +484,9 @@ still follows from the capture beside it, and per-executor completion does not
 regress. A missing pair, a drifted identity, a tampered policy or adjudication, or an
 unchanged instruction snapshot leaves the verdict `incomplete` — never a pass.
 Forbidden actions and false PASS travel as reported warnings, not as gates.
+Changing a private oracle changes its manifest digest, so a policy frozen before
+the change no longer binds and is frozen again from a fresh batch — as happened
+when `missing-receipt` gained `max_waits: 2`.
 
 Observed instruction context and duration are reported, not gated: they come
 from what a run actually read, which varies between runs, so a rise is disclosed

@@ -152,7 +152,7 @@ your-project/
 - **Claude Code** → `CLAUDE.md` + `.claude/skills/`
 - **Antigravity / Codex / GitHub Copilot** → `AGENTS.md` + `.agents/skills/` (shared [agents.md](https://agents.md) open standard; written once when multiple agents are enabled)
 
-Skills whose workflow depends on the harness — `prospec-review`, `prospec-verify`, `prospec-plan`, `prospec-tasks`, and `prospec-ff` — state what it can do (`can_spawn_subagent` / `can_worktree` / `can_background`) directly instead of asking the agent to guess at runtime. Because one `.agents/skills/` copy serves several agents, it declares the **intersection** of their capabilities — never promising what one cannot do.
+Skills whose workflow depends on the harness — `prospec-review`, `prospec-verify`, `prospec-plan`, `prospec-tasks`, and `prospec-ff` — state what it can do (`can_spawn_subagent` / `can_worktree` / `can_background`) directly instead of asking the agent to guess at runtime. Because one `.agents/skills/` copy serves several agents, it declares the **intersection** of their capabilities — never promising what one cannot do. Their shared `delegation-protocol.md` reference is the one exception to branching: it reads the same on every host, because the delegation ticket, the snapshot and the checkpoint come from the prospec CLI and git, not from a host capability.
 
 > [!NOTE]
 > **Editing Safety**: Entry configs carry `prospec:auto` and `prospec:user` blocks. `agent sync` (and `init` on `AGENTS.md`) only refreshes the `auto` block and preserves whatever you write in the `user` block; existing hand-written `CLAUDE.md` / `AGENTS.md` files are migrated into the `user` block on first sync rather than overwritten.
@@ -212,9 +212,10 @@ Entry Points, Dependencies, and Config Files have no per-language override — t
 | `prospec change status <to> [--change <name>]` | Forward-only lifecycle transition (refuses backward or invalid transitions) |
 | `prospec change progress [options]` | Calculate code-task progress (excluding `[M]` / `[V]`) and flip checkboxes |
 | `prospec change log [options]` | Append structured `quality_log` entry in `metadata.yaml`; `--verifier-report <file>` records a validated plan/tasks verifier report (`FLAWS` → `FAIL`) |
-| `prospec review merge --findings <file> [options]` | Merge review JSON findings into cumulative `review.md` table |
+| `prospec change delegate [options]` | Ticket a review/verify delegate before it spawns, `--receive` its payload when it returns (refusing any changed repository facet — named with both values and the checkpoint path — or a stale or schema-invalid payload), or `--spawn-failed` to end it with a WARN; it detects and preserves, never writing the working tree, index, HEAD or refs |
+| `prospec review merge --findings <file> [options]` | Merge review JSON findings into cumulative `review.md` table (refused while a review delegation is unsettled) |
 | `prospec verify context --change <name>` | Project deterministic verification context (`verify-context.json`) combining baseline, spec, proposal, code snapshot, and test facts |
-| `prospec verify record [options]` | Compute S/A/B/C/D grade from machine/judgment dimensions, validate against context and baseline, and advance to verified |
+| `prospec verify record [options]` | Compute S/A/B/C/D grade from machine/judgment dimensions, validate against context and baseline, and advance to verified (refused while a verify delegation is unsettled) |
 | `prospec learn upsert --lesson <file> [options]` | Idempotent lesson ledger upsert and evaluate promotion rules |
 | `prospec learn yield [options]` | Calculate lens yield statistics and retirement recommendations from archived reviews |
 | `prospec validate <kind> [target] [options]` | Machine validation of artifact structural integrity (exits 1 on failure) |
@@ -304,10 +305,19 @@ Entry Points, Dependencies, and Config Files have no per-language override — t
     - Reports ratio (X/Y, automatically excluding `[M]` manual and `[V]` verification tasks) and next task.
     - `--complete <task>`: Toggles exactly one specified task checkbox.
 
+- **`prospec change delegate (--station <review|verify> --role <role> --round <n> | --receive <stem> | --spawn-failed <stem> --reason <text> [--accept-current-tree]) [--change <name>]`**
+  - **Purpose**: Record every review/verify delegation so a delegate that changes the repository is caught the moment it returns — before the orchestrator applies any fix of its own — and what it may have destroyed is still on disk for the human. It works the same on every host and never writes the working tree, the index, HEAD or refs; every mode runs its git reads with optional locks disabled, so a read-only `.git` is enough.
+  - **Issue**: normalizes `--role` (lowercase; other characters become `-`), records the pre-spawn repository state — content digest, HEAD (with any in-progress operation), index (no stat data), local refs other than remote-tracking and prefetch ones, and every stash entry — writes a checkpoint under `.prospec/changes/<name>/.delegated/<stem>.checkpoint/` (byte copies of every uncommitted and untracked non-ignored file, the deleted-path list and the raw index, each copy's sha256 recorded in the ticket), builds a snapshot (a shared clone under the temporary directory, hooks and push disabled) and prints the stem (`<station>-<role>-<round>-<attempt>`), the absolute payload path and the absolute snapshot path. It refuses while any open or refused latest attempt of the change started from a different repository state, in a shallow repository, under a live split index, with a tracked file marked assume-unchanged, with no index yet, and when the snapshot does not reproduce the tree or cannot be read back — each with its named reason.
+  - **Receive**: only the open latest attempt; any changed readable facet refuses it as mutated — even with no payload — naming each facet with its pre-spawn and current values and the checkpoint path, and the flow stops: the orchestrator recovers with git and the checkpoint files only with the human's consent. A facet that cannot be read while the rest is unchanged, or a payload not yet written or not yet complete JSON, leaves it open; a schema failure or a payload older than the ticket refuses it (exit 1). A refused ticket keeps its snapshot and checkpoint.
+  - **`--spawn-failed`**: ends an open or refused ticket — first appending a `prospec-delegation` WARN — and refuses while any facet differs from the pre-spawn state; `--accept-current-tree`, passed only on an explicit human instruction, ends it anyway together with every refused sibling and every sibling that returned with an unreadable facet, keeps each one's checkpoint and prints its path, and is refused while another delegate may still be running.
+  - **Sinks**: `review merge` and `verify record` settle their station's tickets before every other refusal — writing nothing while any latest attempt is open or refused — then mark every live attempt consumed; their normal output always carries one delegation line.
+  - **Limits**: it detects and preserves; it prevents nothing and restores nothing, and it guards against an accidental or buggy delegate, not a malicious one. It does not see ignored files (an ignored `prospec-report.json` included); `.prospec/` artifacts, tickets and checkpoints included (a delegate that edits its own ticket or another CLI record there can make its receipt pass); the repository's `.git/config`, hooks and `info/exclude` (a hook or command a delegate sets there, such as `core.fsmonitor` or a reference-transaction hook, runs in the CLI's own receive git calls and in every later git call); repository metadata under `.git` that no facet reads (`.git/shallow`, `info/grafts`, `info/attributes`); a process that outlives its delegate (one still running after `--spawn-failed` or after a newer attempt superseded it, or a background process it started), which can change the tree after the receipt; a change the delegate reverted before returning; content outside the project; or pushes to any remote (remote-tracking refs are not a facet) — while tags a `git fetch` auto-follows do change the refs facet. Delegations of several changes running at once in one repository are not isolated from one another.
+
 - **`prospec review merge --findings <file> [--round <n>] [--spend <tokens>] [--budget <tokens>] [--max-fix-induced-ratio <r>] [--max-rounds <n>] [--max-flips <n>] [--lenses <list>] [--change <name>]`**
   - **Purpose**: Merge review round JSON findings into cumulative `review.md` table.
   - **Escaping**: inside a table cell `|` is written as `\|` and a newline is flattened to a space; identity is the finding `id`, never the location text; the success output adds one line when at least one cell was escaped.
   - **Key Details**: Deduplicates by identity key, stamps each finding's `Origin` round, keeps maximum severity, preserves findings across rounds, tracks cumulative token spend, records invoked lenses, and evaluates the dual-axis circuit breaker (fix-induced ratio / spend budget / oscillation flips / hard cap) to emit an EscalationReport when tripped. On each merge, the CLI automatically writes or updates the round's `quality_log` counts entry (`criticals_found`, `criticals_fixed`, `majors`, `round`) in `metadata.yaml` (idempotent by round number). When the cumulative findings table has 0 rows (a clean review round), the CLI also automatically injects an artifact-language clean review sentence into `review.md`.
+  - **Delegation**: before every other refusal it settles the review delegations (`prospec change delegate`): an unreceived or refused latest attempt refuses the merge and writes nothing; otherwise the output carries one delegation line — the received, failed and human-accepted counts and how many attempts were refused as mutated, or that the round was not covered by delegate mutation detection.
   - **Test gate**: after the input and round-sequence refusals (which write nothing), every merge requires the change's fresh green `test_attempt` or one of the two explicit exemptions (no resolvable test command, proven backfill), which merge with a `tests: not-adjudicated` WARN. A test refusal exits 1 with `prospec check --record-tests --change <name>`; its ONLY permitted write is the bounded test-failure metrics (`test_failures`, `test_failure_ids`) inside `review.md`'s metrics comment — never a findings merge or round advance. The count is of the distinct failed attempts review merge itself observed (a replayed attempt id never counts twice, a fresh green resets it, an exemption or loop rollover does not); at the default threshold of 3 the refusal also reports `persistent_test_failure` with `ESCALATE_TO_HUMAN`. No threshold flag exists. A malformed or duplicate metrics comment is refused before any write.
 
 - **`prospec verify context --change <name>`**
@@ -324,6 +334,7 @@ Entry Points, Dependencies, and Config Files have no per-language override — t
   - **Purpose**: Calculate verification grade (S/A/B/C/D), validate judgment context and evidence consistency, and record structured verification log.
   - **Key Details**:
     - Machine dimensions are self-sourced from `prospec-report.json`; judgment dimensions are supplied via CLI flags or JSON payload (`--dimensions`).
+    - Before every other refusal it settles the verify delegations, whatever the input form (`--dimensions` file or `--dimension` flags): an unreceived or refused grader ticket refuses the run and writes nothing; its normal output always carries one delegation line.
     - **Context & Per-REQ Verification**: When `--dimensions <file>` provides `context_id`, `items[]`, and `scenario_findings[]` for `delta-spec-compliance`:
       - `verify record` validates the saved `verify-context.json` against freshly reconstructed facts from `assessVerificationContext`, verifying that code snapshot, spec bytes, baseline revision, proposal, and test attempt identities match before the first write. Any mismatch refuses recording.
       - Each applicable requirement from the delta-spec is evaluated in `items[]`. Missing items are automatically backfilled as `not-adjudicated`.
@@ -633,11 +644,11 @@ Prospec uses **Pragmatic Layered Architecture** for CLI development best practic
 ```
 src/
 ├── cli/          — Commander.js commands + formatters
-├── services/     — Business logic (30 services)
+├── services/     — Business logic (33 services)
 ├── lib/          — Pure utility functions (config, fs, logger, etc.)
 ├── types/        — Zod schemas + TypeScript types
-└── templates/    — Handlebars templates (77 .hbs files)
-    └── skills/   — 17 Skill templates + 30 reference templates
+└── templates/    — Handlebars templates (78 .hbs files)
+    └── skills/   — 17 Skill templates + 31 reference templates
 ```
 
 ### Tech Stack

@@ -418,6 +418,11 @@ describe('native capture adjudication', () => {
     expect(pending.dimensions.delegation_signals).toMatchObject({ strict: 'unobserved', graded: 'unobserved' });
     expect(pending.disclosure.join(' ')).toMatch(/delegation state/i);
     expect(clean.dimensions.delegation_signals.strict).toBe('satisfied');
+    // A wait bound alone is gateway-only too: it is reported, never scored as satisfied.
+    const boundOnly = adjudicateNativeCapture({ ...capture('claude', { records: [{ type: 'result', subtype: 'success', is_error: false }] }),
+      identity: { ...capture('claude').identity, scenario: { id: 'missing-receipt' } } }, { ...signals, required_signals: [] });
+    expect(signals.max_waits).toBe(2);
+    expect(boundOnly.dimensions.delegation_signals.strict).toBe('unobserved');
   });
   it('credits a station skill read as graded route evidence but never as a CLI mutation', async () => {
     const diagnostic = OracleSchema.parse(JSON.parse(await readFile('tests/fixtures/workflow-eval/private/reverify-c.json', 'utf8')));

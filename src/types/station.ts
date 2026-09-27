@@ -183,6 +183,12 @@ export const ReviewFindingsInputSchema = z.array(ReviewFindingSchema);
 /** `quality_log.skill` label for an exemption WARN. A producer label, not a
  *  skill: `prospec-review` would be counted as a completed review round. */
 export const TEST_GATE_PRODUCER = 'prospec-test-gate';
+
+/** `quality_log.skill` label for a delegation that ended without an admissible
+ *  payload. A producer label, for the same reason as `TEST_GATE_PRODUCER`: a
+ *  station label would close a review round or read as a verifier result. */
+export const DELEGATION_PRODUCER = 'prospec-delegation';
+
 /** The WARN every exemption carries, followed by the entrance and reason. */
 export const TEST_GATE_NOT_ADJUDICATED = 'tests: not-adjudicated';
 export const TEST_GATE_ENTRANCES = ['implemented', 'review merge'] as const;

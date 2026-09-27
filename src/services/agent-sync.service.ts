@@ -19,6 +19,13 @@ import { VALID_AGENTS } from '../types/config.js';
 import { MINIMUM_CLI_VERSION } from '../types/version.js';
 import { BREAK_GLASS_PREFIX } from '../types/status.js';
 import {
+  DELEGATION_AWAIT,
+  DELEGATION_DIR,
+  FRESH_ROLE_SUFFIX,
+  GIT_STATE_FACETS,
+} from '../types/delegation.js';
+import {
+  DELEGATION_PRODUCER,
   PLANNING_VERDICTS,
   PLAN_VERIFIER_DIMENSIONS,
   RELAYED_FIELD_MAX_CHARS,
@@ -198,6 +205,7 @@ export async function execute(
     // enforces, so the words the verifier is told to write are the words the
     // sink accepts (the `FLAW`/`FLAWS` split lived in a hand-typed literal).
     ...planningVerifierContext(),
+    ...delegationContext(),
     // Entry config (CLAUDE.md/AGENTS.md) is always-loaded Layer 0 — exclude
     // excludeFromEntryConfig skills so a one-shot onboarding skill costs no
     // recurring tokens. syncSkillsDirSkills still writes its SKILL.md (below),
@@ -317,6 +325,20 @@ export function planningVerifierContext(): Record<string, string> {
     break_glass_prefix: BREAK_GLASS_PREFIX,
     plan_verifier_dimensions: PLAN_VERIFIER_DIMENSIONS.map((d) => `\`${d}\``).join(', '),
     tasks_verifier_dimensions: TASKS_VERIFIER_DIMENSIONS.map((d) => `\`${d}\``).join(', '),
+  };
+}
+
+/** The delegation bounds, facets, names and producer label the delegation-protocol
+ *  reference renders — the same values on every host; no host-specific artifact follows. */
+export function delegationContext(): Record<string, unknown> {
+  return {
+    delegation_idle_minutes: DELEGATION_AWAIT.idleMinutes,
+    delegation_max_polls: DELEGATION_AWAIT.maxPolls,
+    delegation_max_respawns: DELEGATION_AWAIT.maxRespawns,
+    delegation_facets: GIT_STATE_FACETS.map((f) => `\`${f}\``).join(', '),
+    delegation_fresh_suffix: FRESH_ROLE_SUFFIX,
+    delegation_dir: DELEGATION_DIR,
+    delegation_producer: DELEGATION_PRODUCER,
   };
 }
 

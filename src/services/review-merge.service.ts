@@ -10,6 +10,7 @@ import {
   type TestGateOutcome,
 } from '../types/station.js';
 import { atomicWrite, readFileIfExists } from '../lib/fs-utils.js';
+import { admitSettlement, consumeSettlement, type DelegationSettlement } from '../lib/delegation.js';
 import {
   findUnsafeBlockField,
   EVIDENCE_MARKER_PREFIX,
@@ -119,6 +120,8 @@ export interface ReviewMergeResult {
   circuitBreaker?: CircuitBreakerState;
   /** How the fresh-test gate admitted this merge. */
   testGate: TestGateOutcome;
+  /** How this round's review delegations settled (REQ-SERVICES-121). */
+  delegation: DelegationSettlement;
 }
 
 /** What the gate's decision means for the observed failure streak. */
@@ -148,6 +151,7 @@ export async function execute(options: ReviewMergeOptions): Promise<ReviewMergeR
     options.quiet,
     'Which change does this review round belong to?',
   );
+  const settlement = admitSettlement(path.join(cwd, '.prospec', 'changes', changeName), 'review');
 
   if (!fs.existsSync(options.findingsPath)) {
     throw new PrerequisiteError(
@@ -526,5 +530,6 @@ export async function execute(options: ReviewMergeOptions): Promise<ReviewMergeR
     escapedCells: escapedCellsFor(merged, findings),
     circuitBreaker,
     testGate,
+    delegation: await consumeSettlement(path.join(cwd, '.prospec', 'changes', changeName), settlement),
   };
 }

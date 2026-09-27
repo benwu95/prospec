@@ -3,6 +3,7 @@ import type { LogLevel } from '../../types/config.js';
 import type { VerifyRecordResult } from '../../services/verify-record.service.js';
 import type { VerifyContextResult } from '../../services/verify-context.service.js';
 import { sanitizeTerminal } from './sanitize.js';
+import { formatDelegationSettlement } from './delegation-settlement-output.js';
 
 /** Format the VerifyRecordResult: the two ledgers, the grade, the status effect. */
 export function formatVerifyRecordOutput(
@@ -46,6 +47,7 @@ export function formatVerifyRecordOutput(
   if (result.evidencePath !== undefined) {
     lines.push(`Judgment evidence: ${pc.cyan(sanitizeTerminal(result.evidencePath))}`);
   }
+  lines.push(...formatDelegationSettlement(result.delegation));
   const changeName = sanitizeTerminal(result.changeName);
   // Distinguish "already verified" from "grade too low" — a re-run at S/A must
   // not read as a failed gate.

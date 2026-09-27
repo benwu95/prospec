@@ -2,6 +2,7 @@ import pc from 'picocolors';
 import type { LogLevel } from '../../types/config.js';
 import type { ReviewMergeResult } from '../../services/review-merge.service.js';
 import { sanitizeTerminal } from './sanitize.js';
+import { formatDelegationSettlement } from './delegation-settlement-output.js';
 import { formatEscapingNotice } from './escaping-notice.js';
 import { formatTestGateWarning } from './test-gate-output.js';
 
@@ -79,6 +80,7 @@ export function formatReviewMergeOutput(
   if (warning !== undefined) lines.push(warning);
   const notice = formatEscapingNotice(result.escapedCells);
   if (notice !== undefined) lines.push(notice);
+  lines.push(...formatDelegationSettlement(result.delegation));
   lines.push(
     `${pc.dim('→')} Close the round with ${pc.cyan('`prospec change log --skill prospec-review …`')}`,
   );

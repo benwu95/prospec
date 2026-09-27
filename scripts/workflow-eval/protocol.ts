@@ -49,6 +49,8 @@ export const OracleSchema = z.strictObject({
   required_states: z.record(FixturePathSchema, z.enum(CHANGE_STATUSES)).default({}),
   required_log_skills: z.record(FixturePathSchema, z.array(text).min(1)).default({}),
   required_signals: z.array(delegationState).default([]),
+  /** Most wait actions a run may take on a pending delegate; more is an unbounded await. */
+  max_waits: count.optional(),
   terminal: z.enum(['handoff', 'stop', 'signoff']),
 });
 export type Scenario = z.infer<typeof ScenarioSchema>;

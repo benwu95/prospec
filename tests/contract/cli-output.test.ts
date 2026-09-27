@@ -7,6 +7,7 @@
  * Uses Commander.js exitOverride to capture output without process.exit().
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { readFileSync } from 'node:fs';
 import { createProgram } from '../../src/cli/program.js';
 import { VALID_AGENTS } from '../../src/types/config.js';
 import type { Command } from 'commander';
@@ -312,6 +313,43 @@ describe('CLI Output Contract', () => {
         if (['When to use:', 'Example:', 'Returns:'].every((l) => output.includes(l))) enriched.push(leaf);
       }
       expect(enriched.sort()).toEqual([...HELP_ENRICHED_COMMANDS].sort());
+    });
+  });
+
+  describe('prospec change delegate (REQ-CLI-057, REQ-TESTS-125)', () => {
+    const delegateCommand = (): Command => {
+      const change = createProgram().commands.find((c) => c.name() === 'change')!;
+      return change.commands.find((c) => c.name() === 'delegate')!;
+    };
+
+    it('holds exactly the issue, receive and fail options — no restore option', () => {
+      const flags = delegateCommand().options.map((o) => o.long).sort();
+      expect(flags).toEqual(['--accept-current-tree', '--change', '--reason', '--receive', '--role', '--round', '--spawn-failed', '--station']);
+      expect(flags.filter((flag) => /restor/i.test(flag ?? ''))).toEqual([]);
+    });
+
+    it('delegation modules run no git process of their own — only the git adapter imports node:child_process', () => {
+      const modules = [
+        'src/lib/repo-state.ts',
+        'src/lib/delegation.ts',
+        'src/lib/delegation-checkpoint.ts',
+        'src/services/change-delegate.service.ts',
+      ];
+      // Static and dynamic imports, require, and the internal binding: every way a module can reach a process spawner.
+      const importsChildProcess = /from\s*['"](?:node:)?child_process['"]|require\s*\(\s*['"](?:node:)?child_process['"]\s*\)|import\s*\(\s*['"](?:node:)?child_process['"]\s*\)|process\.binding\s*\(/;
+      for (const file of modules) {
+        expect(readFileSync(file, 'utf8'), file).not.toMatch(importsChildProcess);
+      }
+      expect(readFileSync('src/lib/git-read.ts', 'utf8')).toMatch(importsChildProcess);
+      // Falsifiability: each spawner shape the predicate must catch (T-2 pin).
+      for (const shape of [
+        "import { execFileSync } from 'node:child_process';",
+        'const cp = require("child_process");',
+        "const cp = await import('node:child_process');",
+        "process.binding('spawn_sync')",
+      ]) {
+        expect(`${readFileSync('src/lib/delegation.ts', 'utf8')}\n${shape}\n`, shape).toMatch(importsChildProcess);
+      }
     });
   });
 

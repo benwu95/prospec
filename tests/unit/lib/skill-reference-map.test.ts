@@ -29,6 +29,7 @@ describe('deployment projection (REQ-TYPES-099)', () => {
       'drift-report-format.md',
       'delegated-evidence-format.md',
       'cascade-protocol.md',
+      'delegation-protocol.md',
     ]);
     // verify-backfill is read at six load points and still deploys once.
     const uses = STATION_REFERENCES['prospec-verify']!.uses.filter(
@@ -56,6 +57,7 @@ describe('status projection (REQ-SERVICES-111)', () => {
       '.agents/skills/prospec-tasks/references/tasks-format.md',
       '.agents/skills/prospec-tasks/references/tasks-format.md',
       '.agents/skills/prospec-tasks/references/tasks-verifier-rubric.md',
+      '.agents/skills/prospec-tasks/references/delegation-protocol.md',
     ]);
     expect(rows[0]).toMatchObject({ phase: 'Startup Loading', loading: 'startup-mandatory' });
     expect(rows.every((row) => row.purpose.length > 0)).toBe(true);
@@ -66,7 +68,9 @@ describe('status projection (REQ-SERVICES-111)', () => {
     expect(rows.map((row) => row.phase)).toEqual([
       'Phase 4: Design plan.md',
       'Phase 4: Design plan.md',
+      'Phase 4: Design plan.md',
       'Phase 5: Generate delta-spec.md',
+      'Phase 6: Architecture Verification',
       'Phase 6: Architecture Verification',
     ]);
   });

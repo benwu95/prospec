@@ -276,3 +276,28 @@ export class TestGateError extends ProspecError {
     this.warningRecorded = warningRecorded;
   }
 }
+
+/**
+ * A delegation operation was refused (REQ-SERVICES-120/121): issuing, receiving,
+ * failing, or a sink settling the station. `code` tells them apart;
+ * `ticket` names the stem when one is involved.
+ */
+export const DELEGATION_ERROR_CODES = {
+  issue: 'DELEGATION_ISSUE_REFUSED',
+  receive: 'DELEGATION_RECEIPT_REFUSED',
+  fail: 'DELEGATION_FAIL_REFUSED',
+  settle: 'DELEGATION_UNSETTLED',
+} as const;
+export type DelegationOperation = keyof typeof DELEGATION_ERROR_CODES;
+
+export class DelegationRefusedError extends ProspecError {
+  readonly operation: DelegationOperation;
+  readonly ticket?: string;
+
+  constructor(options: { operation: DelegationOperation; message: string; suggestion: string; ticket?: string }) {
+    super(options.message, DELEGATION_ERROR_CODES[options.operation], options.suggestion);
+    this.name = 'DelegationRefusedError';
+    this.operation = options.operation;
+    this.ticket = options.ticket;
+  }
+}
