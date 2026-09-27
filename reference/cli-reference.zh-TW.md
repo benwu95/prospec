@@ -151,7 +151,7 @@ your-project/
 - **Claude Code** → `CLAUDE.md` + `.claude/skills/`
 - **Antigravity / Codex / GitHub Copilot** → `AGENTS.md` + `.agents/skills/`（共用 [agents.md](https://agents.md) 開放標準；多者同時啟用時只寫一次）
 
-工作流程取決於 harness 的 Skills（如 `prospec-review`、`prospec-verify`、`prospec-plan`、`prospec-tasks` 與 `prospec-ff`）會直接載明該 harness 的能力（`can_spawn_subagent` / `can_worktree` / `can_background`），而不是要求 agent 在執行期自行臆測。由於一份 `.agents/skills/` 副本服務多個 agent，它載明的是各 agent 能力的**交集**，絕不承諾其中任一個做不到的事。
+工作流程取決於 harness 的 Skills（如 `prospec-review`、`prospec-verify`、`prospec-plan`、`prospec-tasks` 與 `prospec-ff`）會直接載明該 harness 的能力（`can_spawn_subagent` / `can_worktree` / `can_background`），而不是要求 agent 在執行期自行臆測。由於一份 `.agents/skills/` 副本服務多個 agent，它載明的是各 agent 能力的**交集**，絕不承諾其中任一個做不到的事。它們共用的 `delegation-protocol.md` reference 是唯一不分支的例外：在每個 host 上內容相同，因為委派票據、快照與 checkpoint 來自 prospec CLI 與 git，而非 host 能力。
 
 > [!NOTE]
 > **編輯安全性**：Entry 配置文件皆包含 `prospec:auto` 與 `prospec:user` 區塊。`agent sync`（以及 `init` 對 `AGENTS.md`）只會更新 `auto` 區塊，並完整保留你在 `user` 區塊手寫的內容；既有的手寫 `CLAUDE.md` / `AGENTS.md` 會在首次 sync 時自動遷入 `user` 區塊，而非被覆蓋。
@@ -211,9 +211,10 @@ Entry Points、Dependencies、Config Files 沒有逐語言覆寫機制——未�
 | `prospec change status <to> [--change <name>]` | 單向推進變更生命週期狀態（拒絕逆向或非法跳躍） |
 | `prospec change progress [options]` | 計算任務進度（排除 `[M]` / `[V]`）並支援勾選指定任務 |
 | `prospec change log [options]` | 在 `metadata.yaml` 追加結構化 `quality_log` 記錄；`--verifier-report <file>` 記錄經 schema 驗證的 plan/tasks verifier 報告（`FLAWS` → `FAIL`） |
-| `prospec review merge --findings <file> [options]` | 將審查 JSON 發現合併進累積 `review.md` 表格 |
+| `prospec change delegate [options]` | 在 review／verify 委派代理 spawn 前發票、返回時以 `--receive` 收件（任何 repository 面向改變——列出前後值與 checkpoint 路徑——或 payload 過期、schema 不符即拒收），或以 `--spawn-failed` 結束並記 WARN；只偵測與保存，絕不寫入工作樹、index、HEAD 或 refs |
+| `prospec review merge --findings <file> [options]` | 將審查 JSON 發現合併進累積 `review.md` 表格（review 委派未結清時拒絕） |
 | `prospec verify context --change <name>` | 投影確定性驗證上下文（`verify-context.json`），固定基準、規格、提案、程式碼快照與測試事實 |
-| `prospec verify record [options]` | 彙整機器與判斷維度計算評級（S/A/B/C/D），依據上下文與基準核對，達標時推進 verified |
+| `prospec verify record [options]` | 彙整機器與判斷維度計算評級（S/A/B/C/D），依據上下文與基準核對，達標時推進 verified（verify 委派未結清時拒絕） |
 | `prospec learn upsert --lesson <file> [options]` | 冪等寫入經驗帳本，依規則判定是否晉升 Playbook |
 | `prospec learn yield [options]` | 從已封存審查計算鏡角產出率統計與淘汰建議 |
 | `prospec validate <kind> [target] [options]` | 機械式驗證工件結構完整性（不符時 exit 1） |
@@ -303,10 +304,19 @@ Entry Points、Dependencies、Config Files 沒有逐語言覆寫機制——未�
     - 回報任務進度比例（X/Y，自動排除 `[M]` 手動與 `[V]` 驗證任務）及下一項待辦任務。
     - `--complete <task>`：精確勾選指定的一項任務 checkbox。
 
+- **`prospec change delegate (--station <review|verify> --role <role> --round <n> | --receive <stem> | --spawn-failed <stem> --reason <text> [--accept-current-tree]) [--change <name>]`**
+  - **核心用途**：記錄每一次 review／verify 委派，讓改動 repository 的委派代理在返回當下就被抓到——早於 orchestrator 套用任何自己的修正——且它可能毀掉的內容仍留在磁碟上交給人。在每個 host 上行為一致，絕不寫入工作樹、index、HEAD 或 refs；每種模式的 git 讀取都停用 optional locks，所以唯讀的 `.git` 就足夠。
+  - **發票**：正規化 `--role`（轉小寫；其他字元變成 `-`），記錄 spawn 前的 repository 狀態——內容 digest、HEAD（含進行中的操作）、index（不含 stat 資料）、remote-tracking 與 prefetch 以外的本地 refs、以及每一筆 stash——在 `.prospec/changes/<name>/.delegated/<stem>.checkpoint/` 寫下 checkpoint（每個未 commit 與未追蹤、非 ignored 檔案的位元組副本、刪除路徑清單與 index 原始位元組，每份副本的 sha256 記在票據裡），建立快照（暫存目錄下的 shared clone，停用 hooks 與 push），並印出 stem（`<station>-<role>-<round>-<attempt>`）、絕對 payload 路徑與絕對快照路徑。當本 change 任一最新的 open 或 refused attempt 起始於不同的 repository 狀態、repository 為 shallow、index 正連結到 split index、有 tracked 檔被標記 assume-unchanged、尚無 index、或快照無法重現工作樹或無法讀回時拒絕——每一種都指名原因。
+  - **收件**：只收最新的 open attempt；任何可讀面向改變即判為 mutated 拒收——即使沒有 payload——逐一列出面向在 spawn 前與目前的值及 checkpoint 路徑，並且流程停下：orchestrator 只在人同意後以 git 與 checkpoint 檔案復原。某面向讀不到而其餘不變、或 payload 尚未寫入或尚非完整 JSON 時，票據維持 open；schema 失敗或 payload 早於票據則拒收（exit 1）。被拒收的票據保留其快照與 checkpoint。
+  - **`--spawn-failed`**：結束 open 或 refused 的票據——先追加一筆 `prospec-delegation` WARN——且任一面向與 spawn 前不同時拒絕；`--accept-current-tree` 只在人類明確指示時使用，會連同每個 refused 的 sibling 與每個帶著讀不到面向返回的 sibling 一併結束，保留各自的 checkpoint 並印出路徑；另有委派代理可能仍在執行時拒絕。
+  - **Sink**：`review merge` 與 `verify record` 在任何其他拒收之前結清本站票據——任一最新 attempt 為 open 或 refused 時不寫入任何東西——之後把每個 live attempt 標記為 consumed；一般輸出必定帶一行 delegation 揭露。
+  - **極限**：它偵測並保存，不防止任何事，也不還原任何事；它防範的是意外或行為出錯的委派代理，而非惡意代理。它看不到 ignored 檔案（被 ignore 的 `prospec-report.json` 也在內）；`.prospec/` 內的工件，包括票據與 checkpoint（委派代理若竄改自己的票據或其他 CLI 紀錄，可使收件通過）；repository 的 `.git/config`、hooks 與 `info/exclude`（委派代理在那裡設定的 hook 或命令，如 `core.fsmonitor` 或 reference-transaction hook，會在 CLI 自己收件時的 git 呼叫與之後每一次 git 呼叫中執行）；沒有任何面向讀取的 `.git` metadata（`.git/shallow`、`info/grafts`、`info/attributes`）；比委派代理存活更久的程序（`--spawn-failed` 或被新 attempt 取代後仍在跑的代理，或它啟動的背景程序），可能在收件後改動工作樹；委派代理在返回前自行復原的改動；專案以外的內容；以及推送到任何遠端（remote-tracking refs 不是面向）——但 `git fetch` 自動跟隨的 tags 會改變 refs 面向。同一 repository 中同時進行的多個 change 的委派彼此不隔離。
+
 - **`prospec review merge --findings <file> [--round <n>] [--spend <tokens>] [--budget <tokens>] [--max-fix-induced-ratio <r>] [--max-rounds <n>] [--max-flips <n>] [--lenses <list>] [--change <name>]`**
   - **核心用途**：將單輪審查的 JSON 發現合併至累積的 `review.md` 表格中。
   - **跳脫規則**：表格 cell 內的 `|` 寫成 `\|`、換行摺成一個空白；同一性以 finding `id` 判定，不比對 location 文字；至少一個 cell 被跳脫時，成功輸出多印一行提示。
   - **重點條列**：依識別碼去重、蓋印各發現的來源輪次（`Origin`）、嚴重度取最大值、跨輪次保留記錄、追蹤累計 token 支出與執行的鏡角清單，並評估雙軸 Circuit Breaker（修復引發缺陷比率、預算上限、震盪翻轉、輪次硬上限）於跳閘時輸出升級報告（EscalationReport）。每次合併時，CLI 自動在 `metadata.yaml` 的 `quality_log` 寫入或更新該輪的計數記錄（`criticals_found`、`criticals_fixed`、`majors`、`round`，依輪次冪等）。當累積 findings 表格為 0 列（clean review 輪）時，CLI 亦會自動在 `review.md` 注入符合工件語言（artifact language）的 clean review 總結句。
+  - **委派結清**：在任何其他拒收之前先結清 review 委派（`prospec change delegate`）：最新 attempt 尚未收件或已被拒收即拒絕合併且不寫入任何檔案；否則輸出帶一行 delegation 揭露——received、failed 與人類接受的計數及被判 mutated 的 attempt 數，或說明本輪未經委派代理 mutation 偵測。
   - **測試閘門**：在輸入與輪次順序的拒絕（不寫任何檔案）之後，每次合併都要求該變更的 fresh green `test_attempt`，或兩種明確豁免之一（無可解析的測試命令、已證明的 backfill），豁免時以 `tests: not-adjudicated` WARN 合併。測試拒絕以 exit 1 結束並印出 `prospec check --record-tests --change <name>`；它唯一允許的寫入是 `review.md` metrics 註解內有界的測試失敗 metrics（`test_failures`、`test_failure_ids`）——絕不合併 findings 或推進輪次。計數的是 review merge 自身觀測到的不同失敗 attempt（同一 attempt id 重放不重複計數、fresh green 會重設、豁免或迴圈換代不會）；達預設門檻 3 時拒絕同時回報 `persistent_test_failure` 與 `ESCALATE_TO_HUMAN`。沒有門檻旗標。metrics 註解格式錯誤或重複時在任何寫入前拒絕。
 
 - **`prospec verify context --change <name>`**
@@ -323,6 +333,7 @@ Entry Points、Dependencies、Config Files 沒有逐語言覆寫機制——未�
   - **核心用途**：計算驗證評級（S/A/B/C/D）、核對裁決上下文與證據一致性，並記錄結構化驗證紀錄。
   - **重點條列**：
     - 機械維度自讀 `prospec-report.json`，判斷維度由參數或 JSON 檔案傳入（`--dimensions`）。
+    - 不論輸入形式（`--dimensions` 檔案或 `--dimension` 旗標），都在任何其他拒收之前結清 verify 委派：grader 票據尚未收件或已被拒收即拒絕並不寫入任何檔案；一般輸出必定帶一行 delegation 揭露。
     - **上下文與逐 REQ 驗證**：當傳入 `--dimensions <file>` 且 `delta-spec-compliance` 包含 `context_id`、`items[]` 與 `scenario_findings[]` 時：
       - `verify record` 會透過共用的 `assessVerificationContext` 比對已保存的 `verify-context.json` 與當前重組事實，確認程式碼快照、規格內文、基準版本、提案與測試 attempt 身分在寫入前完全一致。任一項不符即拒絕記錄。
       - 逐一評定 delta-spec 中的每一項正式需求。缺交的 REQ 會由機器自動補為 `not-adjudicated`。
@@ -629,11 +640,11 @@ Prospec 採用 **Pragmatic Layered Architecture**（務實分層架構）遵循 
 ```
 src/
 ├── cli/          — Commander.js 命令 + 格式化輸出
-├── services/     — 業務邏輯（30 個 service）
+├── services/     — 業務邏輯（33 個 service）
 ├── lib/          — 純工具函式（config、fs、logger 等）
 ├── types/        — Zod schema + TypeScript 型別
-└── templates/    — Handlebars 範本（77 個 .hbs 檔案）
-    └── skills/   — 17 個 Skill 範本 + 30 個 reference 範本
+└── templates/    — Handlebars 範本（78 個 .hbs 檔案）
+    └── skills/   — 17 個 Skill 範本 + 31 個 reference 範本
 ```
 
 ### Tech Stack

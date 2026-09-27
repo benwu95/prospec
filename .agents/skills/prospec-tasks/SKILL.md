@@ -121,9 +121,7 @@ Sub-agents are available here, so take the sub-agent path. Should a spawn fail a
 
 Audit `tasks.md` against `delta-spec.md` and `plan.md` in an independent, fresh verification context (Task Verifier persona).
 
-- **Physical Receipt Verification**: The orchestrator MUST verify that the verifier's JSON report exists as a readable regular file on disk, has `size > 0` bytes, and matches the 4-dimension schema before acting on findings.
-- **Lifecycle Probe & Await**: If the report file is missing when a subagent claims completion, inspect abstract subagent lifecycle state or transcript logs and await completion.
-- **Explicit Degradation**: On crash, timeout, or spawn failure, execute in degraded single-context mode and honestly disclose the in-session mode (never claiming fresh-subagent PASS).
+- **Receipt**: apply the Physical Receipt Verification Protocol in [`references/delegation-protocol.md`](references/delegation-protocol.md) to the verifier's JSON report (the 4-dimension schema) before acting on findings; a terminal failure runs in degraded single-context mode, disclosed as in-session (never claiming fresh-subagent PASS).
 
 **Step 3 — Record the Verdict (machine sink) & Break-Glass Override:**
 Record the report — whatever its verdict — to `metadata.yaml` `quality_log` via `prospec change log --skill prospec-tasks --verifier-report <file>` (Bash). The CLI validates it against the rubric-owned schema (verdict "PASS" | "WARN" | "FLAWS"; exactly the four dimensions; `rationale` and each warning single-line, ≤ 500 chars) and records `FLAWS` as `result: FAIL`, `WARN`/`PASS` as themselves; an invalid payload is refused before anything is written. Never relay the verdict by hand.

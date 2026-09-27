@@ -4,7 +4,7 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg?style=flat-square)](LICENSE)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.9-blue?style=flat-square&logo=typescript)](https://www.typescriptlang.org/)
-[![測試](https://img.shields.io/badge/測試-6202%20總計-success?style=flat-square)](tests/)
+[![測試](https://img.shields.io/badge/測試-6491%20總計-success?style=flat-square)](tests/)
 [![Node](https://img.shields.io/badge/node-%3E%3D22.13-brightgreen?style=flat-square&logo=node.js)](https://nodejs.org/)
 [![pnpm](https://img.shields.io/badge/pnpm-%3E%3D11-orange?style=flat-square&logo=pnpm)](https://pnpm.io/)
 
@@ -500,6 +500,22 @@ check 與 token 量測）在 **[CLI 參考 — CLI 命令](./reference/cli-refer
   報告；`FLAWS` 對應 `result: FAIL`。此閘門是 **per-change**：sibling change 的過期證據不會擋住
   這一個。（以 `[CODE]` 標示 CLI 自有判定的是 `prospec status` 的路由理由行。）在停頓中的 full-scale plan，
   改以 `--skill prospec-plan --signoff <option>` 記錄人類的簽核。
+- **`prospec change delegate`** — review 與 verify 為每個 spawn 的委派代理發票，在每個 host 上
+  做法相同。發票時記錄 repository 狀態（內容、HEAD、index、本地 refs、stash）、一份 checkpoint
+  ——未 commit 與未追蹤檔案及 index 的位元組副本，放在該 change 的 `.delegated/` 目錄下——並在
+  暫存目錄建立供委派代理工作的快照、指定 payload 路徑。`--receive` 在委派代理返回當下收件，任一
+  面向改變（逐一列出前後值與 checkpoint 路徑）或 payload 過期、schema 不符即拒收。偵測到 mutation
+  後流程停下交給人，由人以 git 與 checkpoint 檔案復原：CLI 絕不寫入工作樹、index、HEAD 或 refs，
+  且在工作樹回到 spawn 前狀態之前不為該 change 發出新 attempt。`--spawn-failed` 以一筆 WARN 結束
+  失敗的委派；`--accept-current-tree` 只在人類指示時使用，在工作樹已改變時仍結束它並保留
+  checkpoint。`review merge`／`verify record` 在委派未結清時拒絕，並在一般輸出中說明本輪是否經過
+  偵測。它偵測並保存，不防止任何事，也不還原任何事；它防範的是意外或行為出錯的委派代理，而非惡意代理。
+  它看不到 ignored 檔案（被 ignore 的 `prospec-report.json` 也在內）、`.prospec/` 內的工件（委派代理竄改自己的票據或其他 CLI 紀錄可使收件
+  通過）、repository 的 `.git/config`、hooks 與 `info/exclude`（在那裡設定的 hook 或命令會在 CLI
+  自己收件時的 git 呼叫中執行）、沒有任何面向讀取的 `.git` metadata（`.git/shallow`、
+  `info/grafts`、`info/attributes`）、比委派代理存活更久的程序、委派代理在返回前自行復原的改動、
+  專案以外的內容，以及推送到任何遠端——但 `git fetch` 自動跟隨的 tags 會改變 refs 面向。同一
+  repository 中多個 change 的委派彼此不隔離。
 - **`prospec check --record-tests`** — 記錄測試執行（`snapshot-v2` fingerprint、`repository-inputs-v2`
   範圍、`change-and-restore` 偵測），讓 verify 5/5 成為機器判定。
 - **CI 閘門** — `prospec check --strict` 由 `.github/workflows/prospec-check.yml` 執行；drift check 的
@@ -638,7 +654,7 @@ Prospec 採用 **Pragmatic Layered Architecture**（`cli → services → lib �
 ## 測試
 
 ```bash
-# 執行所有測試（共 6202 個；4 個略過）
+# 執行所有測試（共 6491 個；4 個略過）
 pnpm test
 
 # Watch 模式
@@ -651,11 +667,11 @@ pnpm run typecheck
 pnpm run lint
 ```
 
-**測試覆蓋率**：共 6202 個測試（6198 個通過；4 個略過），橫跨 4 大類：
-- Unit tests（types + lib + services + cli）：4522 tests
-- Contract tests（CLI 輸出 + Skill 格式）：1386 tests
+**測試覆蓋率**：共 6491 個測試（6487 個通過；4 個略過），橫跨 4 大類：
+- Unit tests（types + lib + services + cli）：4776 tests
+- Contract tests（CLI 輸出 + Skill 格式）：1408 tests
 - Integration tests：121 tests
-- E2E tests：173 tests
+- E2E tests：186 tests
 
 測試套件內含真實 `init` + `agent sync` 生成契約（`tests/integration/skill-contract.test.ts`）：檢查 agent 專屬的 reference 路徑、無 dangling reference、canonical convention 文件、`base_dir` 相對的 spec 路徑，以及 antigravity/codex/copilot 收斂至 `.agents/skills` + `AGENTS.md`。
 

@@ -36,6 +36,7 @@ modules:
       - circuit-breaker
       - lens-yield
       - review-status
+      - delegation
     relationships:
       depends_on: []
       used_by:
@@ -55,7 +56,7 @@ modules:
       - MCP 契約
       - 模組分類
     rationale: Leaf module with zero internal deps — all others import from here
-    last_verified: 2026-09-25T03:21:40.419Z
+    last_verified: 2026-09-27T06:57:41.891Z
   - name: lib
     description: Shared stateless utilities — config, file I/O, Handlebars
       rendering, scanning, token accounting, the zero-LLM drift engine
@@ -103,6 +104,10 @@ modules:
       - review-circuit-breaker
       - project-runner
       - lens-yield
+      - delegation
+      - git-read
+      - repo-state
+      - checkpoint
     relationships:
       depends_on:
         - types
@@ -122,7 +127,7 @@ modules:
       - 知識讀取
     rationale: Foundational infrastructure shared across services, CLI, and
       benchmark scripts
-    last_verified: 2026-09-25T07:43:57.433Z
+    last_verified: 2026-09-27T06:57:41.891Z
   - name: services
     description: Business logic — one `execute()` service per command — including
       shared-output agent invocation-guidance rendering — init / quickstart /
@@ -162,6 +167,7 @@ modules:
       - upgrade
       - cascade
       - auto-draft
+      - change-delegate
     relationships:
       depends_on:
         - types
@@ -179,9 +185,9 @@ modules:
       - 漂移檢查
       - 真相層
     rationale: Isolates business logic from I/O layer, enables testability
-    last_verified: 2026-09-25T03:31:31.095Z
+    last_verified: 2026-09-27T06:57:41.891Z
   - name: cli
-    description: Thin CLI entry — 18 top-level Commander commands + 29 formatters
+    description: Thin CLI entry — 18 top-level Commander commands + 30 formatters
       that parse → call one service → format output; the cli-first station
       commands each add one command/formatter pair, never logic.
     paths:
@@ -218,11 +224,11 @@ modules:
       - 終端
       - entry point
     rationale: "Thin I/O layer: no business logic, delegates to services"
-    last_verified: 2026-09-25T03:21:40.419Z
+    last_verified: 2026-09-27T06:57:41.891Z
   - name: templates
     description: Handlebars template library — 17 skills + host-labelled invocation
-      entry guidance, 8 shared partials, 30 references, 1 agent-config, 5
-      change, 15 init/knowledge (77 `.hbs` templates) — the source of every
+      entry guidance, 8 shared partials, 31 references, 1 agent-config, 5
+      change, 15 init/knowledge (78 `.hbs` templates) — the source of every
       generated skill, README, and index; every skill delegates its
       deterministic steps to the CLI behind the shared `_cli-probe` partial.
     paths:
@@ -266,10 +272,10 @@ modules:
       - 複雜度適配
       - CI 閘門
     rationale: Pure resources — no logic, consumed by lib/template.ts
-    last_verified: 2026-09-25T07:43:57.433Z
+    last_verified: 2026-09-27T06:57:41.891Z
   - name: tests
-    description: 4-layer test suite — 246 files, 6,202 tests (unit 4522 + contract
-      1386 + integration 121 + e2e 173). Validates every module — format and
+    description: 4-layer test suite — 255 files, 6,491 tests (unit 4776 + contract
+      1408 + integration 121 + e2e 186). Validates every module — format and
       public-document contracts, the cli-first probe + station-command
       contracts, the drift engine, token corpus, and the MCP protocol over
       in-memory transport.
@@ -309,4 +315,4 @@ modules:
       - 驗證
       - vitest
     rationale: Quality gate — validates all layers with pyramid coverage
-    last_verified: 2026-09-25T07:43:57.433Z
+    last_verified: 2026-09-27T06:57:41.891Z

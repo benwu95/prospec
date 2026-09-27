@@ -782,7 +782,13 @@ describe('status.service — next-station reference map (REQ-SERVICES-111)', () 
       {
         phase: 'Phase 6: Task Contract & Verifier Audit',
         referencePath: '.claude/skills/prospec-tasks/references/tasks-verifier-rubric.md',
-        purpose: 'the four audit dimensions and the receipt protocol',
+        purpose: 'the four audit dimensions and the verifier report schema',
+        loading: 'in-phase',
+      },
+      {
+        phase: 'Phase 6: Task Contract & Verifier Audit',
+        referencePath: '.claude/skills/prospec-tasks/references/delegation-protocol.md',
+        purpose: 'the receipt protocol and bounded wait for the verifier delegate',
         loading: 'in-phase',
       },
     ]);

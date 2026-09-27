@@ -2,15 +2,19 @@
  * Enriched help for the commands an agent calls directly from a station skill.
  *
  * The text lives in `types` for the same reason `SKILL_DEFINITIONS` does: it is
- * human-readable copy every layer may read — the six commands mount it, the
+ * human-readable copy every layer may read — the enriched commands mount it, the
  * contract test walks it, and a station report may quote it — with exactly one
  * source. A command listed in `HELP_ENRICHED_COMMANDS` without a spec here fails
  * `pnpm typecheck`; a spec whose command is not registered fails the contract.
  */
 
+import { GIT_STATE_FACETS } from './delegation.js';
+import { DELEGATION_PRODUCER } from './station.js';
+
 export const HELP_ENRICHED_COMMANDS = [
   'status',
   'change log',
+  'change delegate',
   'review merge',
   'verify record',
   'learn upsert',
@@ -82,12 +86,23 @@ export const COMMAND_HELP_SPECS: Record<HelpEnrichedCommand, CommandHelpSpec> = 
       text: 'Free text is serialized as YAML data by the yaml library (quoted only when YAML requires it), so metacharacters cannot corrupt the file; this command writes YAML, not a Markdown table, so no table escaping applies.',
     },
   },
+  'change delegate': {
+    whenToUse:
+      'At review or verify, around every delegate you spawn: issue a ticket before the spawn, receive the payload the moment the delegate returns (before you fix anything), and end a delegation that produced no admissible payload with `--spawn-failed`. When a receipt is refused as mutated, stop and hand it to the human — this command restores nothing. Not for plan, tasks or ff delegates (they have no ticket) and not for recording a gate result (`prospec change log`).',
+    example: 'prospec change delegate --station review --role lens-security --round 1',
+    additionalExamples: [
+      'prospec change delegate --receive review-lens-security-1-1',
+      'prospec change delegate --spawn-failed review-lens-security-1-1 --reason "spawn refused: rate limit"',
+    ],
+    returns:
+      `Issue normalizes \`--role\`, records the pre-spawn repository state (${GIT_STATE_FACETS.join(', ')}; \`refs\` holds local refs only), a checkpoint — byte copies of the uncommitted and untracked non-ignored files and of the raw index, under the change's \`.delegated/\` directory — and a snapshot the CLI builds under the temporary directory, and prints the stem, the absolute payload path and the absolute snapshot path; it refuses while an open or refused attempt of the change started from a different tree. Receive prints \`received\`, or exits 1 naming why: a payload not yet written or not yet complete JSON, or a facet that cannot be read while every readable one is unchanged, leaves the ticket open; a schema failure, a stale payload, or any changed facet (named, with both values and the checkpoint path) refuses it, and after a mutation the flow stops for the human. \`--spawn-failed\` ends an open or refused ticket — first appending a \`${DELEGATION_PRODUCER}\` WARN — and refuses while any facet differs from the pre-spawn state, unless \`--accept-current-tree\` is passed on an explicit human instruction, which keeps the checkpoint and names its path. It detects and preserves; it prevents nothing and restores nothing — it never writes the working tree, the index, HEAD or refs.`,
+  },
   'review merge': {
     whenToUse:
       'After a review round\'s findings JSON exists, to merge it into the cumulative review.md. Identity is the finding `id` — reuse last round\'s id for the same finding; the CLI never infers identity from the location text. Not for recording the gate (that is `prospec change log --skill prospec-review`).',
     example: 'prospec review merge --findings .tasks/review-round1.json --round 1',
     returns:
-      'Prints the artifact path, cumulative row count, evidence block count, the round counts (`criticals_found=` …) and, per critical, its claim and repro command. Every merge first requires the target change\'s fresh green test attempt (`prospec check --record-tests --change <name>`): an input-validation or round-sequence refusal writes nothing, while a test-gate refusal exits 1 with the remediation and may write ONLY the bounded test-failure metrics into review.md\'s metrics comment — never findings. It counts the distinct failed attempts review merge itself observed (default threshold 3, a replayed attempt id never counts twice, a fresh green resets it), not the full suite history, and reports `persistent_test_failure` with ESCALATE_TO_HUMAN at the threshold. A project with no resolvable test command or a proven backfill merges with a `tests: not-adjudicated` WARN.',
+      'Prints the artifact path, cumulative row count, evidence block count, the round counts (`criticals_found=` …) and, per critical, its claim and repro command. Every merge first requires the target change\'s fresh green test attempt (`prospec check --record-tests --change <name>`): an input-validation or round-sequence refusal writes nothing, while a test-gate refusal exits 1 with the remediation and may write ONLY the bounded test-failure metrics into review.md\'s metrics comment — never findings. It counts the distinct failed attempts review merge itself observed (default threshold 3, a replayed attempt id never counts twice, a fresh green resets it), not the full suite history, and reports `persistent_test_failure` with ESCALATE_TO_HUMAN at the threshold. A project with no resolvable test command or a proven backfill merges with a `tests: not-adjudicated` WARN. Ahead of every other check it settles the review delegations: an unreceived or refused latest attempt refuses the merge and writes nothing; otherwise it prints one delegation line — the received, failed and human-accepted counts and how many attempts were refused as mutated, or that the round was not covered by delegate mutation detection.',
     escaping: TABLE_ESCAPING,
   },
   'verify record': {
@@ -95,7 +110,7 @@ export const COMMAND_HELP_SPECS: Record<HelpEnrichedCommand, CommandHelpSpec> = 
       'At verify, once the three judgment dimensions are graded in fresh context, to compute the S/A/B/C/D grade; the machine dimensions are self-sourced from the live drift assessment. Not for recording tests (`prospec check --record-tests`) and never for relaying an engine verdict by hand.',
     example: 'prospec verify record --dimensions .tasks/verify-dimensions.json',
     returns:
-      'Prints the grade, the gate result and each dimension\'s verdict; on S/A it appends the `quality_log` entry and advances `status: verified` in one write. It refuses before writing when a judgment dimension lacks `graded_by` or the live assessment is unprovable.',
+      'Prints the grade, the gate result and each dimension\'s verdict; on S/A it appends the `quality_log` entry and advances `status: verified` in one write. It refuses before writing when a judgment dimension lacks `graded_by`, the live assessment is unprovable, or a verify delegation is unreceived or refused; its normal output says whether the run was covered by delegate mutation detection.',
   },
   'learn upsert': {
     whenToUse:

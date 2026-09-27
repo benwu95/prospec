@@ -7,6 +7,11 @@ import { RELAYED_FIELD_MAX_CHARS } from '../../src/types/station.js';
 import { parseYaml } from '../../src/lib/yaml-utils.js';
 import { recordCliEvidence } from './helpers/evidence.js';
 import { runCliInProcess } from './helpers/run-cli.js';
+import { gitIn, imageOf } from '../helpers/git-fixture.js';
+import { usePrivateTmpdir } from '../helpers/private-tmpdir.js';
+
+// Every delegation snapshot this file builds lands under a root only this file uses (O-1 pin: none may remain).
+usePrivateTmpdir('cli-station');
 
 // In-process runs still shell out to git via the drift/status/check services;
 // keep the generous file-level timeout the git-bound e2e files use (PB-010).
@@ -1448,5 +1453,201 @@ describe('fresh-test gates through the CLI (REQ-SERVICES-103, REQ-CLI-028, REQ-C
       expect(metadata).toContain('grade: A');
       expect(metadata).toMatch(/coverage_summary:\s*"?2\/2"?/);
     });
+  });
+});
+
+describe('CLI E2E — delegation tickets (REQ-TESTS-125, REQ-CLI-057)', () => {
+  const FINDINGS = JSON.stringify([{ id: 'F-1', location: 'src/a.ts:1', severity: 'minor', lens: 'correctness', summary: 'nit' }]);
+  const DELEGATED = '.prospec/changes/my-change/.delegated';
+  const PAYLOAD = `${DELEGATED}/review-reviewer-1-1.json`;
+  const CHECKPOINT = `${DELEGATED}/review-reviewer-1-1.checkpoint`;
+  const SEEDED = '# Review Findings: my-change\n\n| ID | Location | Severity | Lens | Status | Origin | Summary | Repro |\n|----|----|----|----|----|----|----|----|\n';
+  const git = (...args: string[]) => gitIn(tmpDir, ...args);
+  const read = (file: string) => fs.readFileSync(path.join(tmpDir, file), 'utf8');
+  const write = (file: string, text: string) => {
+    fs.mkdirSync(path.dirname(path.join(tmpDir, file)), { recursive: true });
+    fs.writeFileSync(path.join(tmpDir, file), text);
+  };
+  const ticketOf = (stem: string) => JSON.parse(read(`${DELEGATED}/${stem}.ticket.json`)) as {
+    checkpoint: { entries: Array<{ path: string; kind: string; sha256?: string }> };
+  };
+
+  async function setup(): Promise<string> {
+    write('package.json', JSON.stringify({ name: 'delegation-test' }));
+    await runCli(['init', '--name', 'delegation-test', '--agents', 'claude']);
+    await runCli(['change', 'story', 'my-change', '--description', 'delegation test change']);
+    write('.gitignore', '.prospec/\n');
+    git('init', '-q', '-b', 'main');
+    write('src/a.ts', 'committed a\n');
+    write('src/b.ts', 'committed b\n');
+    git('add', '-A');
+    git('commit', '-qm', 'base');
+    git('commit', '-q', '--allow-empty', '-m', 'second');
+    git('branch', 'other');
+    // Uncommitted work the delegate must not lose.
+    write('src/a.ts', 'uncommitted work\n');
+    write('src/new.ts', 'untracked work\n');
+    const changeDir = path.join(tmpDir, '.prospec', 'changes', 'my-change');
+    fs.writeFileSync(path.join(changeDir, 'review.md'), SEEDED);
+    return changeDir;
+  }
+
+  const issue = (role = 'reviewer') => runCli(['change', 'delegate', '--station', 'review', '--role', role, '--round', '1']);
+  const receive = (stem = 'review-reviewer-1-1') => runCli(['change', 'delegate', '--receive', stem]);
+
+  it('refuses --reason and --accept-current-tree on a receive or an issue — the three modes are exclusive (C-4 pin)', async () => {
+    await setup();
+    const withAccept = await runCli(['change', 'delegate', '--receive', 'review-reviewer-1-1', '--accept-current-tree']);
+    expect(withAccept.exitCode).not.toBe(0);
+    expect(withAccept.stderr).toMatch(/--accept-current-tree.*cannot be used with.*--receive|--receive.*cannot be used with.*--accept-current-tree/);
+    const withReason = await runCli(['change', 'delegate', '--station', 'review', '--role', 'x', '--round', '1', '--reason', 'why']);
+    expect(withReason.exitCode).not.toBe(0);
+    expect(withReason.stderr).toMatch(/cannot be used with/);
+    // The two acting modes exclude each other too (T-15 pin): neither branch runs.
+    const both = await runCli(['change', 'delegate', '--receive', 'review-a-1-1', '--spawn-failed', 'review-b-1-1']);
+    expect(both.exitCode).not.toBe(0);
+    expect(both.stderr).toMatch(/cannot be used with/);
+    expect(both.stderr).not.toMatch(/No delegation ticket/);
+    expect(fs.existsSync(path.join(tmpDir, DELEGATED))).toBe(false);
+  });
+
+  /** Every entry under `.git` with its mode and bytes (M-5: the mode rides along, so a chmod shows too). */
+  const gitImage = () => imageOf(path.join(tmpDir, '.git'));
+  function setGitWritable(writable: boolean): void {
+    const walk = (dir: string) => {
+      for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+        const full = path.join(dir, entry.name);
+        if (entry.isDirectory()) {
+          if (writable) fs.chmodSync(full, 0o755);
+          walk(full);
+          if (!writable) fs.chmodSync(full, 0o555);
+        } else fs.chmodSync(full, writable ? 0o644 : 0o444);
+      }
+    };
+    const root = path.join(tmpDir, '.git');
+    if (writable) fs.chmodSync(root, 0o755);
+    walk(root);
+    if (!writable) fs.chmodSync(root, 0o555);
+  }
+
+  afterEach(() => {
+    if (fs.existsSync(path.join(tmpDir, '.git'))) setGitWritable(true);
+  });
+
+  it.each([
+    ['an edited file', () => write('src/b.ts', 'delegate edit\n'), 'content'],
+    ['a deleted file', () => fs.rmSync(path.join(tmpDir, 'src/b.ts')), 'content'],
+    ['an added file', () => write('src/extra.ts', 'delegate file\n'), 'content'],
+    ['reset --soft', () => git('reset', '-q', '--soft', 'HEAD~1'), 'head'],
+    ['reset --hard', () => git('reset', '-q', '--hard'), 'content'],
+    ['a branch switch', () => git('switch', '-q', 'other'), 'head'],
+    ['a dropped stash entry', () => git('stash', 'drop', '-q'), 'stash'],
+  ])('refuses %s at receipt, naming the facet and the checkpoint, then refuses the merge and every new attempt', async (_label, damage, facet) => {
+    const changeDir = await setup();
+    if (facet === 'stash') {
+      write('src/b.ts', 'stashed\n');
+      git('stash', '-q');
+    }
+    expect((await issue()).exitCode).toBe(0);
+    write(PAYLOAD, FINDINGS);
+    damage();
+    const receipt = await receive();
+    expect(receipt.exitCode).toBe(1);
+    expect(receipt.stdout).toMatch(/refused review-reviewer-1-1 \(mutated\)/);
+    expect(receipt.stdout).toMatch(new RegExp(`\\n  ${facet}: pre-spawn \\S.* → now \\S`));
+    expect(receipt.stdout).toContain(`checkpoint: ${fs.realpathSync(tmpDir)}/${CHECKPOINT}`);
+    expect(receipt.stdout).toMatch(/recovery is the orchestrator's with the human's consent/);
+    const merge = await runCli(['review', 'merge', '--findings', path.join(tmpDir, PAYLOAD)]);
+    expect(merge.exitCode).not.toBe(0);
+    expect(merge.stderr).toMatch(/Unsettled review delegation — nothing was written/);
+    expect(fs.readFileSync(path.join(changeDir, 'review.md'), 'utf8')).toBe(SEEDED);
+    for (const role of ['reviewer', 'lens-security']) {
+      const again = await issue(role);
+      expect(again.exitCode, role).not.toBe(0);
+      expect(again.stderr, role).toMatch(/review-reviewer-1-1 is refused/);
+    }
+  });
+
+  it('admits a new attempt once the human recovered the tree by hand from git and the checkpoint files', async () => {
+    await setup();
+    expect((await issue()).exitCode).toBe(0);
+    const head = git('rev-parse', 'HEAD');
+    // The delegate commits the uncommitted work and deletes the untracked file.
+    git('commit', '-qam', 'delegate commit');
+    fs.rmSync(path.join(tmpDir, 'src/new.ts'));
+    expect((await receive()).exitCode).toBe(1);
+    // The human's recovery: git for HEAD, the branch and the index; the checkpoint for the bytes.
+    git('reset', '-q', '--soft', head);
+    git('reset', '-q');
+    const entry = ticketOf('review-reviewer-1-1').checkpoint.entries.find((e) => e.path === 'src/new.ts')!;
+    fs.copyFileSync(path.join(tmpDir, CHECKPOINT, 'blobs', entry.sha256!), path.join(tmpDir, 'src/new.ts'));
+    expect(read('src/new.ts')).toBe('untracked work\n');
+    const next = await issue();
+    expect(next.exitCode).toBe(0);
+    expect(next.stdout).toContain('review-reviewer-1-2');
+  });
+
+  it('keeps the checkpoint when the human accepts the current tree, and the sink discloses it', async () => {
+    await setup();
+    expect((await issue()).exitCode).toBe(0);
+    git('reset', '-q', '--hard');
+    expect((await receive()).exitCode).toBe(1);
+    const accepted = await runCli(['change', 'delegate', '--spawn-failed', 'review-reviewer-1-1', '--reason', 'the human accepted the loss', '--accept-current-tree']);
+    expect(accepted.exitCode).toBe(0);
+    expect(accepted.stdout).toContain('kept the checkpoint');
+    expect(accepted.stdout).toContain(CHECKPOINT);
+    expect(fs.existsSync(path.join(tmpDir, CHECKPOINT, 'blobs'))).toBe(true);
+    const findings = path.join(tmpDir, 'round.json');
+    fs.writeFileSync(findings, FINDINGS);
+    const merge = await runCli(['review', 'merge', '--findings', findings]);
+    expect(merge.exitCode).toBe(0);
+    expect(merge.stdout).toContain('1 attempt(s) ended by a human accepting the current repository state');
+    expect(merge.stdout).toContain('1 attempt(s) refused as mutated');
+    expect(fs.existsSync(path.join(tmpDir, CHECKPOINT, 'blobs'))).toBe(true);
+  });
+
+  it.skipIf(process.platform === 'win32' || process.getuid?.() === 0)(
+    'issues, receives and ends a delegation under a read-only .git, leaving .git and every facet byte-identical',
+    async () => {
+      await setup();
+      const { captureRepoState } = await import('../../src/lib/repo-state.js');
+      setGitWritable(false);
+      const expectUnchanged = async (label: string, run: () => Promise<{ exitCode: number; stdout: string; stderr: string }>) => {
+        const image = gitImage();
+        const facets = captureRepoState(tmpDir);
+        const result = await run();
+        expect(result.exitCode, `${label}: ${result.stderr}`).toBe(0);
+        expect(gitImage(), label).toEqual(image);
+        expect(captureRepoState(tmpDir), label).toEqual(facets);
+        return result;
+      };
+      await expectUnchanged('issue', () => issue());
+      write(PAYLOAD, FINDINGS);
+      const received = await expectUnchanged('receive', () => receive());
+      expect(received.stdout).toContain('Received review-reviewer-1-1');
+      await expectUnchanged('second issue', () => issue('lens-security'));
+      await expectUnchanged('spawn-failed', () => runCli(['change', 'delegate', '--spawn-failed', 'review-lens-security-1-1', '--reason', 'spawn refused: rate limit']));
+    },
+  );
+
+  it('an untouched tree is received, merges after the loop\'s own fix, and the merge reports the covered round', async () => {
+    const changeDir = await setup();
+    expect((await issue()).exitCode).toBe(0);
+    write(PAYLOAD, FINDINGS);
+    expect((await receive()).exitCode).toBe(0);
+    write('src/a.ts', 'fixed by the orchestrator\n');
+    const merge = await runCli(['review', 'merge', '--findings', path.join(tmpDir, PAYLOAD)]);
+    expect(merge.exitCode).toBe(0);
+    expect(merge.stdout).toContain('Delegation: 1 received (every repository facet matched at receipt) — review-reviewer-1-1');
+    expect(fs.readFileSync(path.join(changeDir, 'review.md'), 'utf8')).not.toBe(SEEDED);
+  });
+
+  it('a merge with no ticket discloses that the round was not covered, naming both causes', async () => {
+    await setup();
+    const findings = path.join(tmpDir, 'round.json');
+    fs.writeFileSync(findings, FINDINGS);
+    const merge = await runCli(['review', 'merge', '--findings', findings]);
+    expect(merge.exitCode).toBe(0);
+    expect(merge.stdout).toContain('Delegation: not covered by delegate mutation detection — no unsettled delegation ticket (none was issued, or an earlier run of this command already settled them)');
   });
 });

@@ -1,7 +1,7 @@
 {
   "version": 1,
   "captured_from_commit": "9d3f42d0771602228d727289a59a496fe1a06344",
-  "note": "Pre-migration inventory for the station reference map change. Captured by rendering every supported host through the THEN-CURRENT agent-sync owner (services/agent-sync.service.ts getSkillReferences + renderTemplate) in an isolated temp project, never from the new STATION_REFERENCES registry. `slot_text` additionally freezes, per rendered map slot, the exact prose that slot must reproduce: each string was verified to occur VERBATIM in the pre-migration deployed SKILL.md at the commit recorded above (`git show <commit>:.claude/skills/<skill>/SKILL.md` re-checks any row). Frozen on purpose: it is the independent expectation the registry-derived projections are compared against, so it is never regenerated from the code it guards.",
+  "note": "Pre-migration inventory for the station reference map change. Captured by rendering every supported host through the THEN-CURRENT agent-sync owner (services/agent-sync.service.ts getSkillReferences + renderTemplate) in an isolated temp project, never from the new STATION_REFERENCES registry. `slot_text` additionally freezes, per rendered map slot, the exact prose that slot must reproduce: each string was verified to occur VERBATIM in the pre-migration deployed SKILL.md at the commit recorded above (`git show <commit>:.claude/skills/<skill>/SKILL.md` re-checks any row). Frozen on purpose: it is the independent expectation the registry-derived projections are compared against, so it is never regenerated from the code it guards. Re-captured 2026-09-27 on top of 527520f by the change isolate-detect-preserve-delegates (issue #280; REQ-TESTS-119 and REQ-TEMPLATES-232 as modified there): the one deliberate addition is `delegation-protocol.md`, the single definition of the Physical Receipt protocol and the delegation ticket flow, deployed to prospec-review, prospec-verify, prospec-plan, prospec-tasks and prospec-ff on every host and cited at each station's delegation site (verify: 2/5, dimension 6 and the Record sink). Every other row, `slot_text` and `mandatory_policies` included, stays the frozen independent expectation and was left byte-identical; `captured_from_commit` still names the pre-migration commit those frozen rows can be re-checked against, while the `delegation-protocol.md` rows exist only from base 527520f plus the change isolate-detect-preserve-delegates onward.",
   "hosts": {
     "claude": {
       "skill_path": ".claude/skills",
@@ -28,6 +28,7 @@
         "prospec-ff": [
           "cascade-protocol.md",
           "circuit-breaker.md",
+          "delegation-protocol.md",
           "delta-spec-format.md",
           "metadata-format.md",
           "plan-format.md",
@@ -53,6 +54,7 @@
         ],
         "prospec-plan": [
           "candidate-evaluation.md",
+          "delegation-protocol.md",
           "delta-spec-format.md",
           "plan-format.md",
           "plan-verifier-rubric.md"
@@ -65,11 +67,13 @@
         "prospec-review": [
           "circuit-breaker.md",
           "delegated-evidence-format.md",
+          "delegation-protocol.md",
           "project-test-runner.md",
           "review-format.md",
           "review-lenses-content.md"
         ],
         "prospec-tasks": [
+          "delegation-protocol.md",
           "tasks-format.md",
           "tasks-verifier-rubric.md"
         ],
@@ -78,6 +82,7 @@
           "cascade-protocol.md",
           "debug-recovery-format.md",
           "delegated-evidence-format.md",
+          "delegation-protocol.md",
           "drift-report-format.md",
           "verify-backfill.md"
         ]
@@ -108,6 +113,7 @@
         "prospec-ff": [
           "cascade-protocol.md",
           "circuit-breaker.md",
+          "delegation-protocol.md",
           "delta-spec-format.md",
           "metadata-format.md",
           "plan-format.md",
@@ -133,6 +139,7 @@
         ],
         "prospec-plan": [
           "candidate-evaluation.md",
+          "delegation-protocol.md",
           "delta-spec-format.md",
           "plan-format.md",
           "plan-verifier-rubric.md"
@@ -145,11 +152,13 @@
         "prospec-review": [
           "circuit-breaker.md",
           "delegated-evidence-format.md",
+          "delegation-protocol.md",
           "project-test-runner.md",
           "review-format.md",
           "review-lenses-content.md"
         ],
         "prospec-tasks": [
+          "delegation-protocol.md",
           "tasks-format.md",
           "tasks-verifier-rubric.md"
         ],
@@ -158,6 +167,7 @@
           "cascade-protocol.md",
           "debug-recovery-format.md",
           "delegated-evidence-format.md",
+          "delegation-protocol.md",
           "drift-report-format.md",
           "verify-backfill.md"
         ]
@@ -188,6 +198,7 @@
         "prospec-ff": [
           "cascade-protocol.md",
           "circuit-breaker.md",
+          "delegation-protocol.md",
           "delta-spec-format.md",
           "metadata-format.md",
           "plan-format.md",
@@ -213,6 +224,7 @@
         ],
         "prospec-plan": [
           "candidate-evaluation.md",
+          "delegation-protocol.md",
           "delta-spec-format.md",
           "plan-format.md",
           "plan-verifier-rubric.md"
@@ -225,11 +237,13 @@
         "prospec-review": [
           "circuit-breaker.md",
           "delegated-evidence-format.md",
+          "delegation-protocol.md",
           "project-test-runner.md",
           "review-format.md",
           "review-lenses-content.md"
         ],
         "prospec-tasks": [
+          "delegation-protocol.md",
           "tasks-format.md",
           "tasks-verifier-rubric.md"
         ],
@@ -238,6 +252,7 @@
           "cascade-protocol.md",
           "debug-recovery-format.md",
           "delegated-evidence-format.md",
+          "delegation-protocol.md",
           "drift-report-format.md",
           "verify-backfill.md"
         ]
@@ -268,6 +283,7 @@
         "prospec-ff": [
           "cascade-protocol.md",
           "circuit-breaker.md",
+          "delegation-protocol.md",
           "delta-spec-format.md",
           "metadata-format.md",
           "plan-format.md",
@@ -293,6 +309,7 @@
         ],
         "prospec-plan": [
           "candidate-evaluation.md",
+          "delegation-protocol.md",
           "delta-spec-format.md",
           "plan-format.md",
           "plan-verifier-rubric.md"
@@ -305,11 +322,13 @@
         "prospec-review": [
           "circuit-breaker.md",
           "delegated-evidence-format.md",
+          "delegation-protocol.md",
           "project-test-runner.md",
           "review-format.md",
           "review-lenses-content.md"
         ],
         "prospec-tasks": [
+          "delegation-protocol.md",
           "tasks-format.md",
           "tasks-verifier-rubric.md"
         ],
@@ -318,6 +337,7 @@
           "cascade-protocol.md",
           "debug-recovery-format.md",
           "delegated-evidence-format.md",
+          "delegation-protocol.md",
           "drift-report-format.md",
           "verify-backfill.md"
         ]
@@ -381,17 +401,20 @@
       "Core Workflow > Phase 3: Plan Generation (skipped when `scale: quick`)": [
         "plan-format.md",
         "delta-spec-format.md",
-        "plan-verifier-rubric.md"
+        "plan-verifier-rubric.md",
+        "delegation-protocol.md"
       ],
       "Core Workflow > Phase 4: Tasks Generation": [
         "tasks-format.md",
-        "tasks-verifier-rubric.md"
+        "tasks-verifier-rubric.md",
+        "delegation-protocol.md"
       ],
       "Core Workflow > Phase 5: Autonomous Execution & Cascading (when cascading active)": [
         "cascade-protocol.md",
         "circuit-breaker.md",
         "project-test-runner.md",
-        "tasks-format.md"
+        "tasks-format.md",
+        "delegation-protocol.md"
       ]
     },
     "prospec-implement": {
@@ -443,13 +466,15 @@
       ],
       "Core Workflow > Phase 4: Design plan.md": [
         "plan-format.md",
-        "candidate-evaluation.md"
+        "candidate-evaluation.md",
+        "delegation-protocol.md"
       ],
       "Core Workflow > Phase 5: Generate delta-spec.md": [
         "delta-spec-format.md"
       ],
       "Core Workflow > Phase 6: Architecture Verification (site-specific: dependency/layering)": [
-        "plan-verifier-rubric.md"
+        "plan-verifier-rubric.md",
+        "delegation-protocol.md"
       ],
       "NEVER": [
         "plan-verifier-rubric.md"
@@ -479,6 +504,7 @@
         "review-format.md"
       ],
       "Core Workflow > The Loop": [
+        "delegation-protocol.md",
         "project-test-runner.md",
         "circuit-breaker.md"
       ],
@@ -500,7 +526,8 @@
         "tasks-format.md"
       ],
       "Core Workflow > Phase 6: Task Contract & Verifier Audit (site-specific: TDD & dependency/layering)": [
-        "tasks-verifier-rubric.md"
+        "tasks-verifier-rubric.md",
+        "delegation-protocol.md"
       ],
       "NEVER": [
         "tasks-verifier-rubric.md"
@@ -519,6 +546,7 @@
         "verify-backfill.md"
       ],
       "Core Workflow > Verification 2/5: Delta Spec Compliance — `[judgment]`, fresh context required": [
+        "delegation-protocol.md",
         "delegated-evidence-format.md",
         "verify-backfill.md"
       ],
@@ -532,7 +560,11 @@
         "verify-backfill.md",
         "debug-recovery-format.md"
       ],
+      "Core Workflow > Verification 6 (Conditional): Design Consistency — `[judgment]`, fresh context required": [
+        "delegation-protocol.md"
+      ],
       "Record & Status Update (CLI-executed)": [
+        "delegation-protocol.md",
         "cascade-protocol.md"
       ],
       "NEVER": [

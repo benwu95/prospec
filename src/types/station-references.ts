@@ -203,6 +203,7 @@ export const STATION_REFERENCES: Readonly<Record<string, StationReferenceEntry>>
       { templateName: 'delta-spec-format.hbs', outputName: 'delta-spec-format.md', title: 'Delta Spec Format' },
       { templateName: 'plan-verifier-rubric.hbs', outputName: 'plan-verifier-rubric.md', title: 'Architecture Verifier Rubric' },
       { templateName: 'candidate-evaluation.hbs', outputName: 'candidate-evaluation.md', title: 'Candidate Architecture Evaluation' },
+      { templateName: 'delegation-protocol.hbs', outputName: 'delegation-protocol.md', title: 'Delegation and Physical Receipt Protocol' },
     ],
     uses: [
       {
@@ -224,6 +225,16 @@ export const STATION_REFERENCES: Readonly<Record<string, StationReferenceEntry>>
         conditionHint: 'full scale, or a standard change where the developer asks for candidate selection',
       },
       {
+        id: 'phase-4-delegation-protocol',
+        phase: 'Phase 4: Design plan.md',
+        site: 'Core Workflow > Phase 4: Design plan.md',
+        target: { kind: 'reference', reference: 'delegation-protocol.md' },
+        purpose: 'the receipt protocol and bounded wait for candidate delegates',
+        loading: 'in-phase',
+        scales: ['standard', 'full'],
+        conditionHint: 'candidate generation is delegated to sub-agents',
+      },
+      {
         id: 'phase-5-delta-spec-format',
         phase: 'Phase 5: Generate delta-spec.md',
         site: 'Core Workflow > Phase 5: Generate delta-spec.md',
@@ -236,7 +247,15 @@ export const STATION_REFERENCES: Readonly<Record<string, StationReferenceEntry>>
         phase: 'Phase 6: Architecture Verification',
         site: 'Core Workflow > Phase 6: Architecture Verification (site-specific: dependency/layering)',
         target: { kind: 'reference', reference: 'plan-verifier-rubric.md' },
-        purpose: 'the five verification dimensions and the receipt protocol',
+        purpose: 'the five verification dimensions and the verifier report schema',
+        loading: 'in-phase',
+      },
+      {
+        id: 'phase-6-delegation-protocol',
+        phase: 'Phase 6: Architecture Verification',
+        site: 'Core Workflow > Phase 6: Architecture Verification (site-specific: dependency/layering)',
+        target: { kind: 'reference', reference: 'delegation-protocol.md' },
+        purpose: 'the receipt protocol and bounded wait for the verifier delegate',
         loading: 'in-phase',
       },
     ],
@@ -349,6 +368,7 @@ export const STATION_REFERENCES: Readonly<Record<string, StationReferenceEntry>>
     files: [
       { templateName: 'tasks-format.hbs', outputName: 'tasks-format.md', title: 'Tasks Format' },
       { templateName: 'tasks-verifier-rubric.hbs', outputName: 'tasks-verifier-rubric.md', title: 'Task Verifier Rubric' },
+      { templateName: 'delegation-protocol.hbs', outputName: 'delegation-protocol.md', title: 'Delegation and Physical Receipt Protocol' },
     ],
     uses: [
       {
@@ -372,7 +392,15 @@ export const STATION_REFERENCES: Readonly<Record<string, StationReferenceEntry>>
         phase: 'Phase 6: Task Contract & Verifier Audit',
         site: 'Core Workflow > Phase 6: Task Contract & Verifier Audit (site-specific: TDD & dependency/layering)',
         target: { kind: 'reference', reference: 'tasks-verifier-rubric.md' },
-        purpose: 'the four audit dimensions and the receipt protocol',
+        purpose: 'the four audit dimensions and the verifier report schema',
+        loading: 'in-phase',
+      },
+      {
+        id: 'phase-6-delegation-protocol',
+        phase: 'Phase 6: Task Contract & Verifier Audit',
+        site: 'Core Workflow > Phase 6: Task Contract & Verifier Audit (site-specific: TDD & dependency/layering)',
+        target: { kind: 'reference', reference: 'delegation-protocol.md' },
+        purpose: 'the receipt protocol and bounded wait for the verifier delegate',
         loading: 'in-phase',
       },
     ],
@@ -398,6 +426,7 @@ export const STATION_REFERENCES: Readonly<Record<string, StationReferenceEntry>>
       { templateName: 'cascade-protocol.hbs', outputName: 'cascade-protocol.md', title: 'Autonomous Pipeline Cascading Protocol' },
       { templateName: 'circuit-breaker.hbs', outputName: 'circuit-breaker.md', title: 'Circuit Breakers & Runaway Cost Protection' },
       { templateName: 'project-test-runner.hbs', outputName: 'project-test-runner.md', title: 'Project Test Runner & Ecosystem Adapter' },
+      { templateName: 'delegation-protocol.hbs', outputName: 'delegation-protocol.md', title: 'Delegation and Physical Receipt Protocol' },
     ],
     uses: [
       {
@@ -439,7 +468,16 @@ export const STATION_REFERENCES: Readonly<Record<string, StationReferenceEntry>>
         phase: 'Phase 3: Plan Generation',
         site: 'Core Workflow > Phase 3: Plan Generation (skipped when `scale: quick`)',
         target: { kind: 'reference', reference: 'plan-verifier-rubric.md' },
-        purpose: 'the architecture verification dimensions and receipt protocol',
+        purpose: 'the architecture verification dimensions and report schema',
+        loading: 'in-phase',
+        scales: ['standard', 'full'],
+      },
+      {
+        id: 'phase-3-delegation-protocol',
+        phase: 'Phase 3: Plan Generation',
+        site: 'Core Workflow > Phase 3: Plan Generation (skipped when `scale: quick`)',
+        target: { kind: 'reference', reference: 'delegation-protocol.md' },
+        purpose: 'the receipt protocol and bounded wait for the verifier delegate',
         loading: 'in-phase',
         scales: ['standard', 'full'],
       },
@@ -456,7 +494,15 @@ export const STATION_REFERENCES: Readonly<Record<string, StationReferenceEntry>>
         phase: 'Phase 4: Tasks Generation',
         site: 'Core Workflow > Phase 4: Tasks Generation',
         target: { kind: 'reference', reference: 'tasks-verifier-rubric.md' },
-        purpose: 'the task contract audit dimensions and receipt protocol',
+        purpose: 'the task contract audit dimensions and report schema',
+        loading: 'in-phase',
+      },
+      {
+        id: 'phase-4-delegation-protocol',
+        phase: 'Phase 4: Tasks Generation',
+        site: 'Core Workflow > Phase 4: Tasks Generation',
+        target: { kind: 'reference', reference: 'delegation-protocol.md' },
+        purpose: 'the receipt protocol and bounded wait for the verifier delegate',
         loading: 'in-phase',
       },
       {
@@ -483,6 +529,15 @@ export const STATION_REFERENCES: Readonly<Record<string, StationReferenceEntry>>
         site: 'Core Workflow > Phase 5: Autonomous Execution & Cascading (when cascading active)',
         target: { kind: 'reference', reference: 'project-test-runner.md' },
         purpose: 'how to resolve the project\'s own test command',
+        loading: 'in-phase',
+        conditionHint: 'cascading execution is active',
+      },
+      {
+        id: 'phase-5-delegation-protocol',
+        phase: 'Phase 5: Autonomous Execution & Cascading',
+        site: 'Core Workflow > Phase 5: Autonomous Execution & Cascading (when cascading active)',
+        target: { kind: 'reference', reference: 'delegation-protocol.md' },
+        purpose: 'the delegation tickets, receipt protocol and bounded wait for review and verify delegates',
         loading: 'in-phase',
         conditionHint: 'cascading execution is active',
       },
@@ -566,6 +621,7 @@ export const STATION_REFERENCES: Readonly<Record<string, StationReferenceEntry>>
       { templateName: 'delegated-evidence-format.hbs', outputName: 'delegated-evidence-format.md', title: 'Delegated Payload Contract and Evidence Landing Format' },
       { templateName: 'circuit-breaker.hbs', outputName: 'circuit-breaker.md', title: 'Circuit Breakers & Runaway Cost Protection' },
       { templateName: 'project-test-runner.hbs', outputName: 'project-test-runner.md', title: 'Project Test Runner & Ecosystem Adapter' },
+      { templateName: 'delegation-protocol.hbs', outputName: 'delegation-protocol.md', title: 'Delegation and Physical Receipt Protocol' },
     ],
     uses: [
       {
@@ -610,6 +666,14 @@ export const STATION_REFERENCES: Readonly<Record<string, StationReferenceEntry>>
         loading: 'in-phase',
       },
       {
+        id: 'loop-delegation-protocol',
+        phase: 'The Loop',
+        site: 'Core Workflow > The Loop',
+        target: { kind: 'reference', reference: 'delegation-protocol.md' },
+        purpose: 'the delegation tickets, receipt protocol and bounded wait for every review delegate',
+        loading: 'in-phase',
+      },
+      {
         id: 'persistence-delegated-evidence-format',
         phase: 'Persistence',
         site: 'Core Workflow > Persistence',
@@ -638,6 +702,7 @@ export const STATION_REFERENCES: Readonly<Record<string, StationReferenceEntry>>
       // per station that can drift.
       { templateName: 'delegated-evidence-format.hbs', outputName: 'delegated-evidence-format.md', title: 'Delegated Payload Contract and Evidence Landing Format' },
       { templateName: 'cascade-protocol.hbs', outputName: 'cascade-protocol.md', title: 'Autonomous Pipeline Cascading Protocol' },
+      { templateName: 'delegation-protocol.hbs', outputName: 'delegation-protocol.md', title: 'Delegation and Physical Receipt Protocol' },
     ],
     uses: [
       {
@@ -688,6 +753,14 @@ export const STATION_REFERENCES: Readonly<Record<string, StationReferenceEntry>>
         loading: 'in-phase',
       },
       {
+        id: 'v2-delegation-protocol',
+        phase: 'Verification 2/5: Delta Spec Compliance',
+        site: 'Core Workflow > Verification 2/5: Delta Spec Compliance — `[judgment]`, fresh context required',
+        target: { kind: 'reference', reference: 'delegation-protocol.md' },
+        purpose: 'the delegation tickets, receipt protocol and bounded wait for every grader delegate',
+        loading: 'in-phase',
+      },
+      {
         id: 'v2-verify-backfill',
         phase: 'Verification 2/5: Delta Spec Compliance',
         site: 'Core Workflow > Verification 2/5: Delta Spec Compliance — `[judgment]`, fresh context required',
@@ -732,6 +805,16 @@ export const STATION_REFERENCES: Readonly<Record<string, StationReferenceEntry>>
         conditionHint: 'a test FAILs',
       },
       {
+        id: 'v6-delegation-protocol',
+        phase: 'Verification 6 (Conditional): Design Consistency',
+        site: 'Core Workflow > Verification 6 (Conditional): Design Consistency — `[judgment]`, fresh context required',
+        target: { kind: 'reference', reference: 'delegation-protocol.md' },
+        purpose: 'the delegation ticket and receipt for the design grader',
+        loading: 'in-phase',
+        uiScopes: ['full', 'partial'],
+        conditionHint: 'design-spec.md exists',
+      },
+      {
         id: 'record-cascade-protocol',
         phase: 'Record & Status Update',
         site: 'Record & Status Update (CLI-executed)',
@@ -739,6 +822,14 @@ export const STATION_REFERENCES: Readonly<Record<string, StationReferenceEntry>>
         purpose: 'the Tastemaker presentation and human commit gate',
         loading: 'in-phase',
         conditionHint: 'the grade reaches S/A',
+      },
+      {
+        id: 'record-delegation-protocol',
+        phase: 'Record & Status Update',
+        site: 'Record & Status Update (CLI-executed)',
+        target: { kind: 'reference', reference: 'delegation-protocol.md' },
+        purpose: 'the sink refusal while a grader ticket is unsettled',
+        loading: 'in-phase',
       },
     ],
     slots: [],

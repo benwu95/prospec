@@ -43,6 +43,7 @@ import {
 } from '../lib/verify-grade.js';
 import { todayIso } from '../lib/date-utils.js';
 import { resolveChange } from './change-resolver.js';
+import { admitSettlement, consumeSettlement, type DelegationSettlement } from '../lib/delegation.js';
 import { assessVerificationContext } from '../lib/verification-context.js';
 import {
   assessRequirementCompliance,
@@ -87,6 +88,8 @@ export interface VerifyRecordResult {
   evidencePath?: string;
   /** Summary of requirement coverage (e.g. '18/18'), if applicable. */
   coverageSummary?: string;
+  /** How this run's verify delegations settled (REQ-SERVICES-121). */
+  delegation: DelegationSettlement;
   /**
    * Present when at least one grade-input judgment dimension was graded
    * `in-session`: grade S is then mechanically unattainable. Carries the
@@ -305,6 +308,7 @@ export async function execute(options: VerifyRecordOptions): Promise<VerifyRecor
     options.quiet,
     'Which change is being verified?',
   );
+  const settlement = admitSettlement(path.join(cwd, '.prospec', 'changes', changeName), 'verify');
 
   // The richer input form, read and validated FIRST: every refusal it carries
   // must precede the metadata write.
@@ -835,5 +839,6 @@ export async function execute(options: VerifyRecordOptions): Promise<VerifyRecor
     evidencePath,
     coverageSummary: coverageSummaryStr,
     ...(selfVerifiedCap !== undefined ? { selfVerifiedCap } : {}),
+    delegation: await consumeSettlement(path.join(cwd, '.prospec', 'changes', changeName), settlement),
   };
 }

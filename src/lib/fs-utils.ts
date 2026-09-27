@@ -8,14 +8,18 @@ import { WriteError } from '../types/errors.js';
  */
 export async function atomicWrite(
   filePath: string,
-  content: string,
+  content: string | Buffer,
+  options: { mode?: number } = {},
 ): Promise<void> {
   const dir = path.dirname(filePath);
   await ensureDir(dir);
 
   const tmpPath = `${filePath}.tmp.${process.pid}`;
   try {
-    await fs.promises.writeFile(tmpPath, content, 'utf-8');
+    if (typeof content === 'string') await fs.promises.writeFile(tmpPath, content, 'utf-8');
+    else await fs.promises.writeFile(tmpPath, content);
+    // chmod after the write: a mode passed to writeFile is masked by the umask.
+    if (options.mode !== undefined) await fs.promises.chmod(tmpPath, options.mode);
     await fs.promises.rename(tmpPath, filePath);
   } catch (err) {
     // Clean up temp file on failure

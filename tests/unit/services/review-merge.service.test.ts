@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { vol } from 'memfs';
 import { execute } from '../../../src/services/review-merge.service.js';
 import { readChangeMetadata, writeChangeMetadataDoc } from '../../../src/lib/change-metadata.js';
-import { PrerequisiteError, ProspecError, TestGateError } from '../../../src/types/errors.js';
+import { DelegationRefusedError, PrerequisiteError, ProspecError, TestGateError } from '../../../src/types/errors.js';
 import { RELAYED_FIELD_MAX_CHARS, TEST_GATE_PRODUCER } from '../../../src/types/station.js';
 
 vi.mock('node:fs', async () => {
@@ -1144,5 +1144,99 @@ describe('review-merge exemption WARN-first path — failure injection (REQ-SERV
       expect(updatedMeta.quality_log?.[1]?.round).toBeUndefined();
       expect(updatedMeta.quality_log?.[2]?.round).toBe(2);
     });
+  });
+});
+
+describe('review merge settles the review delegations first (REQ-SERVICES-121)', () => {
+  const DELEGATED = '/repo/.prospec/changes/add-widget/.delegated';
+  const ticket = (stem: string, state: string, extra: Record<string, unknown> = {}) => {
+    const [, role, round, attempt] = /^review-(.+)-(\d+)-(\d+)$/.exec(stem)!;
+    vol.mkdirSync(DELEGATED, { recursive: true });
+    vol.writeFileSync(
+      `${DELEGATED}/${stem}.ticket.json`,
+      JSON.stringify({
+        version: 1, station: 'review', role, round: Number(round), attempt: Number(attempt), state,
+        issued_at_ms: 1, pre_spawn: { content: { digest: 'a'.repeat(64) }, head: { ref: 'refs/heads/main', commit: 'b'.repeat(40), operations: [] }, index: { digest: 'a'.repeat(64), blockers: [] }, refs: { entries: [] }, stash: { entries: [] } }, snapshot: { path: '/nonexistent-snapshot', nonce: 'c'.repeat(32) }, checkpoint: { entries: [], index_sha256: 'a'.repeat(64) }, payload_path: `.prospec/changes/add-widget/.delegated/${stem}.json`, ...extra,
+      }),
+    );
+  };
+
+  it('refuses while a delegation is unreceived, writing nothing', async () => {
+    seed(round1);
+    ticket('review-reviewer-1-1', 'open');
+    const before = vol.readFileSync(METADATA, 'utf-8');
+    await expect(execute({ cwd: CWD, findingsPath: FINDINGS })).rejects.toMatchObject({
+      code: 'DELEGATION_UNSETTLED',
+      suggestion: expect.stringContaining('prospec change delegate --change add-widget --receive review-reviewer-1-1'),
+    });
+    expect(vol.existsSync(REVIEW)).toBe(false);
+    expect(vol.readFileSync(METADATA, 'utf-8')).toBe(before);
+  });
+
+  it('refuses an unsettled delegation before any input refusal', async () => {
+    seed(round1);
+    ticket('review-reviewer-1-1', 'open');
+    await expect(execute({ cwd: CWD, findingsPath: '/repo/missing-findings.json' })).rejects.toMatchObject({ code: 'DELEGATION_UNSETTLED' });
+    vol.writeFileSync('/repo/bad-findings.json', '[{"severity":"nope"}]');
+    await expect(execute({ cwd: CWD, findingsPath: '/repo/bad-findings.json' })).rejects.toMatchObject({ code: 'DELEGATION_UNSETTLED' });
+  });
+
+  it('refuses while a delegation is refused, carrying the recorded reason', async () => {
+    seed(round1);
+    ticket('review-reviewer-1-1', 'refused', { refusal: { reason: 'mutated', detail: 'delegate mutated the tree: x', changed: ['content'] } });
+    await expect(execute({ cwd: CWD, findingsPath: FINDINGS })).rejects.toThrow(DelegationRefusedError);
+    await expect(execute({ cwd: CWD, findingsPath: FINDINGS })).rejects.toThrow(/refused \(mutated\): delegate mutated the tree/);
+    await expect(execute({ cwd: CWD, findingsPath: FINDINGS })).rejects.toMatchObject({ suggestion: expect.stringMatching(/hand it to the human/) });
+    await expect(execute({ cwd: CWD, findingsPath: FINDINGS })).rejects.toMatchObject({ suggestion: expect.not.stringMatching(/--restore/) });
+    expect(vol.existsSync(REVIEW)).toBe(false);
+  });
+
+  it('merges after a received delegation even though the tree has since changed, and consumes it', async () => {
+    // The receipt judged the tree; after the human recovered it the loop issued a
+    // new attempt and then applied its fix. The sink never re-reads the pre-spawn
+    // state, so the fixed tree does not refuse the merge.
+    seed(round1);
+    ticket('review-reviewer-1-1', 'refused', { refusal: { reason: 'mutated', detail: 'x', changed: ['content'] } });
+    ticket('review-reviewer-1-2', 'received', { received: { at_ms: 3 } });
+    const result = await execute({ cwd: CWD, findingsPath: FINDINGS });
+    expect(result.delegation).toEqual({ kind: 'settled', received: ['review-reviewer-1-2'], failed: [], accepted: 0, mutated: 1, unconsumed: [] });
+    // Every live attempt is consumed, the superseded one included.
+    for (const stem of ['review-reviewer-1-1', 'review-reviewer-1-2']) {
+      expect(JSON.parse(vol.readFileSync(`${DELEGATED}/${stem}.ticket.json`, 'utf-8') as string).state).toBe('consumed');
+    }
+  });
+
+  it('replays with identical writes after its first run consumed the tickets — only the settlement differs', async () => {
+    seed(round1);
+    ticket('review-reviewer-1-1', 'received', { received: { at_ms: 3 } });
+    const first = await execute({ cwd: CWD, findingsPath: FINDINGS });
+    const review = vol.readFileSync(REVIEW, 'utf-8');
+    const second = await execute({ cwd: CWD, findingsPath: FINDINGS });
+    expect(first.delegation.kind).toBe('settled');
+    expect(second.delegation).toEqual({ kind: 'not-ticketed' });
+    expect(vol.readFileSync(REVIEW, 'utf-8')).toBe(review);
+  });
+
+  it('proceeds without a ticket and reports the round as not ticketed', async () => {
+    seed(round1);
+    expect((await execute({ cwd: CWD, findingsPath: FINDINGS })).delegation).toEqual({ kind: 'not-ticketed' });
+  });
+
+  it('ignores the other station\'s tickets', async () => {
+    seed(round1);
+    vol.mkdirSync(DELEGATED, { recursive: true });
+    vol.writeFileSync(
+      `${DELEGATED}/verify-grader-1-1.ticket.json`,
+      JSON.stringify({ version: 1, station: 'verify', role: 'grader', round: 1, attempt: 1, state: 'open', issued_at_ms: 1, pre_spawn: { content: { digest: 'a'.repeat(64) }, head: { ref: 'refs/heads/main', commit: 'b'.repeat(40), operations: [] }, index: { digest: 'a'.repeat(64), blockers: [] }, refs: { entries: [] }, stash: { entries: [] } }, snapshot: { path: '/nonexistent-snapshot', nonce: 'c'.repeat(32) }, checkpoint: { entries: [], index_sha256: 'a'.repeat(64) }, payload_path: '.prospec/changes/add-widget/.delegated/verify-grader-1-1.json' }),
+    );
+    expect((await execute({ cwd: CWD, findingsPath: FINDINGS })).delegation).toEqual({ kind: 'not-ticketed' });
+  });
+});
+
+describe('a delegation failure entry is not a review round (REQ-SERVICES-120, T-6)', () => {
+  it('does not close round 1 — the next merge still records round 1', async () => {
+    seed(round1, undefined, FRESH_GREEN + 'quality_log:\n  - skill: prospec-delegation\n    date: "2026-09-25"\n    result: WARN\n    warnings:\n      - "review/reviewer round 1 attempt 1 (review-reviewer-1-1): delegate failed — x"\n');
+    const result = await execute({ cwd: CWD, findingsPath: FINDINGS });
+    expect(result.round.roundNumber).toBe(1);
   });
 });

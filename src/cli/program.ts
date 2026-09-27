@@ -18,6 +18,7 @@ import { registerChangeCommand } from './commands/change-story.js';
 import { registerChangePlanCommand } from './commands/change-plan.js';
 import { registerChangeTasksCommand } from './commands/change-tasks.js';
 import { registerChangeLogCommand } from './commands/change-log.js';
+import { registerChangeDelegateCommand } from './commands/change-delegate.js';
 import { registerChangeStatusCommand } from './commands/change-status.js';
 import { registerChangeScaleCommand } from './commands/change-scale.js';
 import { registerChangeProgressCommand } from './commands/change-progress.js';
@@ -99,6 +100,7 @@ export function createProgram(): Command {
   registerChangePlanCommand(program);
   registerChangeTasksCommand(program);
   registerChangeLogCommand(program);
+  registerChangeDelegateCommand(program);
   registerChangeStatusCommand(program);
   registerChangeScaleCommand(program);
   registerChangeProgressCommand(program);

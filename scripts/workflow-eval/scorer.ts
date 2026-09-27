@@ -116,6 +116,8 @@ export function scoreRun(input: ObservedRun, expected: ScenarioOracle): RunVerdi
   fail(suites.some((e) => e.exit_code !== 0), 'Test suite failed');
   const signals = run.events.filter((e) => e.kind === 'delegation').map((e) => e.state);
   fail(!same(signals, oracle.required_signals), 'Missing or incorrect delegation signals');
+  const waits = run.events.filter((e) => e.kind === 'attempt' && (e.action as { kind?: unknown } | null)?.kind === 'wait').length;
+  fail(oracle.max_waits !== undefined && waits > oracle.max_waits, `Unbounded await: ${waits} waits exceed the bound of ${oracle.max_waits}`);
   fail(oracle.required_commands.some((args) => !run.events.some((e) =>
     e.kind === 'command' && same(e.args, args) && e.exit_code === 0)), 'Missing target-specific command');
   const finishes = run.events.filter((e) => e.kind === 'finish');

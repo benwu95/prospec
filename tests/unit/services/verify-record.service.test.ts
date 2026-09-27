@@ -1619,3 +1619,43 @@ Spec details.
     });
   });
 });
+
+describe('verify record settles the verify delegations first (REQ-SERVICES-121)', () => {
+  const DELEGATED = '/repo/.prospec/changes/add-widget/.delegated';
+  const ticket = (state: string) => {
+    vol.mkdirSync(DELEGATED, { recursive: true });
+    vol.writeFileSync(
+      `${DELEGATED}/verify-grader-1-1.ticket.json`,
+      JSON.stringify({ version: 1, station: 'verify', role: 'grader', round: 1, attempt: 1, state, issued_at_ms: 1, pre_spawn: { content: { digest: 'a'.repeat(64) }, head: { ref: 'refs/heads/main', commit: 'b'.repeat(40), operations: [] }, index: { digest: 'a'.repeat(64), blockers: [] }, refs: { entries: [] }, stash: { entries: [] } }, snapshot: { path: '/nonexistent-snapshot', nonce: 'c'.repeat(32) }, checkpoint: { entries: [], index_sha256: 'a'.repeat(64) }, payload_path: '.prospec/changes/add-widget/.delegated/verify-grader-1-1.json' }),
+    );
+  };
+
+  it('refuses an unreceived grader for the flag form exactly as for the file form, writing nothing', async () => {
+    seed();
+    ticket('open');
+    const before = vol.readFileSync(META, 'utf-8');
+    await expect(execute({ cwd: CWD, judgmentDimensions: judgment(), warnings: [] })).rejects.toMatchObject({ code: 'DELEGATION_UNSETTLED' });
+    const dimsPath = '/repo/dimensions.json';
+    vol.writeFileSync(dimsPath, JSON.stringify(judgment()));
+    await expect(execute({ cwd: CWD, dimensionsPath: dimsPath, judgmentDimensions: [], warnings: [] })).rejects.toMatchObject({ code: 'DELEGATION_UNSETTLED' });
+    expect(vol.readFileSync(META, 'utf-8')).toBe(before);
+    expect(vol.existsSync('/repo/.prospec/changes/add-widget/verify.md')).toBe(false);
+  });
+
+  it('refuses an unsettled grader before any input refusal', async () => {
+    seed();
+    ticket('open');
+    const dimsPath = '/repo/dimensions.json';
+    vol.writeFileSync(dimsPath, JSON.stringify(judgment()));
+    await expect(execute({ cwd: CWD, dimensionsPath: dimsPath, judgmentDimensions: judgment(), warnings: [] })).rejects.toMatchObject({ code: 'DELEGATION_UNSETTLED' });
+    await expect(execute({ cwd: CWD, dimensionsPath: '/repo/missing-dimensions.json', warnings: [] })).rejects.toMatchObject({ code: 'DELEGATION_UNSETTLED' });
+  });
+
+  it('records after a received grader and reports the settlement', async () => {
+    seed();
+    ticket('received');
+    const result = await execute({ cwd: CWD, judgmentDimensions: judgment(), warnings: [] });
+    expect(result.delegation).toMatchObject({ kind: 'settled', received: ['verify-grader-1-1'], unconsumed: [] });
+    expect(JSON.parse(vol.readFileSync(`${DELEGATED}/verify-grader-1-1.ticket.json`, 'utf-8') as string).state).toBe('consumed');
+  });
+});

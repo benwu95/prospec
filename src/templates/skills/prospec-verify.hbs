@@ -138,13 +138,16 @@ graded it. `in-session` is not merely disclosed — it **mechanically caps the g
 independent verification), and `verify record` prints the remedy: re-grade in fresh context, then
 re-record.
 
+**Delegation & receipt**: ticket the grader (role `grader`, for 2/5 and 3/5) before its spawn and
+receive its payload when it returns, per [`references/delegation-protocol.md`](references/delegation-protocol.md).
+
 The grader **writes** its `JudgmentDimensionsInputSchema` verdicts — whose executable field projection
 is in [`references/delegated-evidence-format.md`](references/delegated-evidence-format.md) — as a
-JSON array to a file and **returns only that path plus the one-line verdicts**; the evidence never
-travels back, and `verify record --dimensions` lands it in `verify.md` (contract:
-[`references/delegated-evidence-format.md`](references/delegated-evidence-format.md), on demand).
+JSON array to the payload path its ticket assigns and **returns only that path plus the one-line
+verdicts**; the evidence never travels back, and `verify record --dimensions` lands it in
+`verify.md`.
 
-{{> harness-capabilities degraded_action="offer a fresh single-pass review or the harness's own reviewer command; only when neither is available, grade 2/5 in the implementation's own context and record it honestly with `--graded-by in-session` — which mechanically caps the grade below S (not merely a disclosure WARN), the remedy being to re-grade in fresh context and re-record"}}
+{{> harness-capabilities degraded_action="where the delegation protocol allows a fresh run, offer a fresh single-pass review or the harness's own reviewer command; otherwise grade 2/5 in the implementation's own context and record it honestly with `--graded-by in-session` — which mechanically caps the grade below S (not merely a disclosure WARN), the remedy being to re-grade in fresh context and re-record"}}
 
 Dimension 2/5 receives `delta-spec.md`, frozen acceptance scenarios, and Step 0 `test_attempt` summary via prepared context (`prospec verify context --change <name>`).
 - Supply prepared context (`context_id`) and grade applicable requirements into per-REQ `items` (evidence, optional repro); report `scenario_findings` for semantic deviation against frozen acceptance scenarios.
@@ -255,7 +258,8 @@ dimension is graded in **fresh context** — an independent reviewer that does n
 implementation's context — and 2/5's harness-degradation contract applies unchanged (take its
 degraded path, record it honestly with `--graded-by in-session` on the same branch 2/5 does —
 the mechanical grade cap below S and its remedy follow, per 2/5's disclosure — never grade it
-silently in-session).
+silently in-session). Ticket its grader as `grader-design` per
+[`references/delegation-protocol.md`](references/delegation-protocol.md); it writes to its ticket's payload path.
 
 When applicable, verify implementation matches design specifications:
 
@@ -319,9 +323,7 @@ Merge rules (both directions matter; all executed by `prospec verify record`):
 ## Record & Status Update (CLI-executed)
 
 Before executing the record command with delegated payloads:
-- **Physical Receipt Verification**: The orchestrator MUST verify that the `--dimensions <file>` path resolves to a readable regular file that exists on disk, has `size > 0` bytes, and parses as valid JSON matching `JudgmentDimensionsInputSchema`.
-- **Lifecycle Probe & Await**: If the subagent claims completion or returns a path but the file is not yet written, inspect abstract subagent lifecycle state or transcript logs and await completion.
-- **Explicit Degradation**: If the subagent crashes, times out, or fails to execute, trigger explicit Harness Degradation (e.g. grading in-session with honest `--graded-by in-session` disclosure, accepting the mechanical grade cap).
+- **Delegation & receipt**: `--dimensions <file>` combines the `JudgmentDimensionsInputSchema` payloads of the 2/5 and 6 graders, each ticketed before its spawn and received when it returns per [`references/delegation-protocol.md`](references/delegation-protocol.md); a terminal failure takes 2/5's degraded path, disclosing `--graded-by in-session` when it grades in-session.
 
 Run `prospec verify record` (Bash) with ONLY the judgment verdicts — as `--dimensions <file>` (the
 grader's JSON array, `graded_by` and optional `executor`/`spend` per entry, evidence included) or as

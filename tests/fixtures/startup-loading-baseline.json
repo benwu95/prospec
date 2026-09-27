@@ -1,6 +1,7 @@
 {
   "version": 1,
-  "cumulative_ceiling_tokens": 88766,
+  "note": "Exact per-skill mandatory context and per-reference sizes (the larger capability branch), anchored by REFERENCE_CEILING_ANCHOR / CUMULATIVE_CEILING_ANCHOR in tests/contract/skill-format.test.ts, whose comment records every rebaseline and its reason. Re-captured on base 527520f by the change isolate-detect-preserve-delegates (delegation-protocol added; cumulative lowered 88,766 → 88,545; reference ceiling 49,102 → 50,977).",
+  "cumulative_ceiling_tokens": 88545,
   "skills": {
     "prospec-archive": {
       "items": [
@@ -52,7 +53,7 @@
         "{{constitution_path}}"
       ],
       "mandatory": 0,
-      "mandatory_context_tokens": 5059
+      "mandatory_context_tokens": 4981
     },
     "prospec-implement": {
       "items": [
@@ -136,7 +137,7 @@
         "{{knowledge_base_path}}/_playbook.md"
       ],
       "mandatory": 0,
-      "mandatory_context_tokens": 5887
+      "mandatory_context_tokens": 5805
     },
     "prospec-review": {
       "items": [
@@ -147,7 +148,7 @@
         "{{knowledge_base_path}}/_conventions.md"
       ],
       "mandatory": 1,
-      "mandatory_context_tokens": 7869
+      "mandatory_context_tokens": 7867
     },
     "prospec-tasks": {
       "items": [
@@ -159,7 +160,7 @@
         "{{constitution_path}}"
       ],
       "mandatory": 1,
-      "mandatory_context_tokens": 5642
+      "mandatory_context_tokens": 5580
     },
     "prospec-verify": {
       "items": [
@@ -174,21 +175,22 @@
         "{{constitution_path}}"
       ],
       "mandatory": 0,
-      "mandatory_context_tokens": 10614
+      "mandatory_context_tokens": 10617
     }
   },
-  "reference_ceiling_tokens": 49102,
+  "reference_ceiling_tokens": 50977,
   "references": {
     "adapter-figma": 589,
     "adapter-html": 663,
     "adapter-pencil": 871,
     "adapter-penpot": 490,
     "archive-format": 1319,
-    "candidate-evaluation": 2491,
+    "candidate-evaluation": 2366,
     "cascade-protocol": 2447,
     "circuit-breaker": 1339,
     "debug-recovery-format": 1307,
-    "delegated-evidence-format": 3470,
+    "delegated-evidence-format": 3270,
+    "delegation-protocol": 2448,
     "delta-spec-format": 2017,
     "design-spec-format": 930,
     "drift-report-format": 2786,
@@ -198,7 +200,7 @@
     "interaction-spec-format": 835,
     "metadata-format": 3610,
     "plan-format": 2473,
-    "plan-verifier-rubric": 2291,
+    "plan-verifier-rubric": 2167,
     "product-spec-format": 1277,
     "project-test-runner": 799,
     "promotion-format": 1622,
@@ -207,7 +209,7 @@
     "review-lenses-content": 2960,
     "spec-graduation": 892,
     "tasks-format": 1549,
-    "tasks-verifier-rubric": 1837,
+    "tasks-verifier-rubric": 1713,
     "verify-backfill": 1215
   }
 }

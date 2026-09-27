@@ -104,3 +104,23 @@ describe('controller trace scoring', () => {
     expect(scoreRun(run([{ kind: 'error', reason: 'Failure' }, ...events]), oracle).complete).toBe(false);
   });
 });
+
+describe('bounded await (REQ-TESTS-126)', () => {
+  const waiting = OracleSchema.parse({ ...oracle, max_waits: 2 });
+  const wait = (): EventInput[] => [
+    { kind: 'attempt', action: { kind: 'wait', delegation_id: 'verifier' } },
+  ];
+  it('accepts waits within the bound', () => {
+    const verdict = scoreRun(run([...wait(), ...wait(), ...events]), waiting);
+    expect(verdict.failures.filter((f) => f.startsWith('Unbounded await'))).toEqual([]);
+  });
+  it('scores a wait past the bound as an unbounded await', () => {
+    const verdict = scoreRun(run([...wait(), ...wait(), ...wait(), ...events]), waiting);
+    expect(verdict.complete).toBe(false);
+    expect(verdict.failures).toContain('Unbounded await: 3 waits exceed the bound of 2');
+  });
+  it('does not limit waits when the oracle declares no bound', () => {
+    const verdict = scoreRun(run([...wait(), ...wait(), ...wait(), ...events]), oracle);
+    expect(verdict.failures.filter((f) => f.startsWith('Unbounded await'))).toEqual([]);
+  });
+});

@@ -572,10 +572,12 @@ function judgeObservedPolicies(operations: NativeOperation[], oracle: ScenarioOr
   const delegations = oracle.allow_delegation ? [] : operations.filter((operation) => operation.kind === 'delegate')
     .map(() => 'Delegation in a scenario that forbids it');
   observed.delegation_policy = dimension(delegations.length ? 'violated' : 'satisfied', 'observed-tools', delegations);
-  // Delegation pending/timeout transitions are gateway state; a native trace has none.
-  observed.delegation_signals = dimension(oracle.required_signals.length ? 'unobserved' : 'satisfied',
-    oracle.required_signals.length ? 'none' : 'observed-tools',
-    oracle.required_signals.length ? ['Native capture cannot observe delegation state transitions'] : []);
+  // Delegation pending/timeout transitions — and the waits on them — are gateway
+  // state; a native trace has none.
+  const gatewayOnly = oracle.required_signals.length > 0 || oracle.max_waits !== undefined;
+  observed.delegation_signals = dimension(gatewayOnly ? 'unobserved' : 'satisfied',
+    gatewayOnly ? 'none' : 'observed-tools',
+    gatewayOnly ? ['Native capture cannot observe delegation state transitions or waits'] : []);
   // Only the suite actually EXECUTED counts: reading or grepping it is not a run,
   // and a refused invocation never reached the suite at all.
   const suiteRuns = commands.filter(({ completed, executable }) =>

@@ -32,6 +32,21 @@ describe('atomicWrite', () => {
     expect(content).toBe('content');
   });
 
+  it('writes bytes verbatim when given a Buffer (REQ-LIB-091)', async () => {
+    vol.fromJSON({ '/tmp': null }, '/');
+    const bytes = Buffer.from([0x00, 0xff, 0x0a, 0xc3, 0x28]);
+    await atomicWrite('/tmp/bin', bytes);
+    expect(Buffer.compare(fs.readFileSync('/tmp/bin'), bytes)).toBe(0);
+  });
+
+  it('sets the requested mode, unaffected by the umask (REQ-LIB-091)', async () => {
+    vol.fromJSON({ '/tmp': null }, '/');
+    await atomicWrite('/tmp/run.sh', '#!/bin/sh\n', { mode: 0o755 });
+    expect(fs.statSync('/tmp/run.sh').mode & 0o777).toBe(0o755);
+    await atomicWrite('/tmp/run.sh', 'plain', { mode: 0o644 });
+    expect(fs.statSync('/tmp/run.sh').mode & 0o777).toBe(0o644);
+  });
+
   it('should overwrite existing files', async () => {
     vol.fromJSON({ '/tmp/file.txt': 'old content' }, '/');
     await atomicWrite('/tmp/file.txt', 'new content');

@@ -87,12 +87,7 @@ or evidence prose through the completion message.
 
 ## Physical Receipt Verification Protocol
 
-Before consuming the Task Verifier report:
-1. **Physical Existence & Non-Empty**: The orchestrator must verify that the report exists as a readable regular file on disk and has `size > 0` bytes.
-2. **Schema Validation**: Parse and validate the file content against the Task Verifier JSON schema.
-3. **Lifecycle Probe & Await**: If the report file is missing when a subagent claims completion, inspect abstract lifecycle state or transcript logs and await completion.
-4. **Explicit Degradation**: If the verifier crashes, times out, or fails to spawn, trigger explicit single-context degradation and honestly disclose the in-session verification mode (never claiming fresh-subagent PASS).
-5. **Zero-Mock Rule**: NEVER create dummy report files, empty results, or synthetic PASS on missing or unreadable receipts. Unreadable outputs fail closed with concrete I/O or parse errors.
+Before consuming the Task Verifier report, apply the Physical Receipt Verification Protocol defined in [`delegation-protocol.md`](delegation-protocol.md) — its bounded wait, bounded re-spawn and disclosed degradation included. The schema is the Task Verifier Payload Schema above, enforced by `prospec change log --verifier-report`; never create a dummy report or a synthetic PASS.
 
 ---
 
