@@ -1,9 +1,9 @@
 ---
 feature: agent-integration
 status: active
-last_updated: 2026-09-18
+last_updated: 2026-09-27
 story_count: 25
-req_count: 114
+req_count: 115
 ---
 
 # Agent Integration
@@ -178,6 +178,7 @@ The repository's English and Traditional Chinese root READMEs provide equivalent
 
 | Date | Change | Impact | Stories/REQs |
 |------|--------|--------|-------------|
+| 2026-09-27 | isolate-detect-preserve-delegates | ADDED REQ-AGNT-044; MODIFIED REQ-TEMPLATES-232; MODIFIED REQ-TESTS-119; MODIFIED REQ-AGNT-030; MODIFIED REQ-TEMPLATES-147; MODIFIED REQ-AGNT-022 | REQ-AGNT-044, REQ-TEMPLATES-232, REQ-TESTS-119, REQ-AGNT-030, REQ-TEMPLATES-147, REQ-AGNT-022 |
 | 2026-09-18 | internalize-skill-budgets | MODIFIED REQ-AGNT-035 | REQ-AGNT-035 |
 | 2026-09-17 | enter-host-skill-stations | ADDED REQ-TYPES-100; ADDED REQ-TEMPLATES-233; MODIFIED REQ-TEMPLATES-194; MODIFIED REQ-TYPES-085 | REQ-TYPES-100, REQ-TEMPLATES-233, REQ-TEMPLATES-194, REQ-TYPES-085 |
 | 2026-09-16 | generate-station-reference-map | ADDED REQ-TYPES-099; ADDED REQ-TEMPLATES-232; ADDED REQ-TESTS-119; MODIFIED REQ-AGNT-030 | REQ-TYPES-099, REQ-TEMPLATES-232, REQ-TESTS-119, REQ-AGNT-030 |

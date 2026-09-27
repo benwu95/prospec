@@ -1,9 +1,9 @@
 ---
 feature: workflow-evaluation
 status: active
-last_updated: 2026-09-17
+last_updated: 2026-09-27
 story_count: 1
-req_count: 3
+req_count: 4
 ---
 
 # workflow-evaluation
@@ -67,6 +67,15 @@ Offline Vitest tests validate corpus/schema/scoring behavior and instruction con
 
 ---
 
+
+#### REQ-TESTS-126: The missing-receipt scenario scores an unbounded wait as a failure
+A workflow-eval oracle may declare `max_waits`, and the `missing-receipt` scenario declares one.
+- WHEN a scored run's wait actions exceed its oracle's `max_waits`, THEN the run scores FAIL as an unbounded await
+- WHEN an oracle declares no `max_waits`, THEN waits are not limited by this rule
+- WHEN the scenario runs natively, where delegation transitions are unobserved, THEN the limit is reported unobserved rather than scored
+
+---
+
 ## Edge Cases
 
 - Executor unavailable, out of quota or rate-limited: the affected runs stay incomplete and the batch is preserved; a partial batch is never averaged into a verdict.
@@ -95,6 +104,7 @@ _(None)_
 
 | Date | Change | Impact | Stories/REQs |
 |------|--------|--------|-------------|
+| 2026-09-27 | isolate-detect-preserve-delegates | ADDED REQ-TESTS-126 | REQ-TESTS-126 |
 | 2026-09-17 | enter-host-skill-stations | MODIFIED REQ-TESTS-115; MODIFIED REQ-TESTS-116 | REQ-TESTS-115, REQ-TESTS-116 |
 | 2026-09-16 | generate-station-reference-map | MODIFIED REQ-TESTS-116 | REQ-TESTS-116 |
 | 2026-09-07 | reduce-workflow-context | Created from archive | REQ-TESTS-114, REQ-TESTS-115, REQ-TESTS-116 |

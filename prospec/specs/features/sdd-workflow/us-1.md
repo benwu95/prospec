@@ -153,7 +153,7 @@ A structured architecture verification rubric template (`plan-verifier-rubric.md
 - WHEN an existing owner is bypassed without a stated rationale, or a `standard` plan lacks its Simpler Alternative, THEN the Verdict table grades it FLAWS regardless of the path the surface sits on (Break-Glass Override unchanged); the rubric names the single-source bypass criterion in `review-format.md` only as the review-stage counterpart — whose two-condition threshold is deliberately narrower — and never restates its definition
 - WHEN evaluating a project, THEN the rubric instructs dynamic inspection against the project's `CONSTITUTION.md` and `_conventions.md` without hardcoding CLI-specific layers
 - WHEN measured for knowledge token budget, THEN the template size remains within the `reference_per_file` budget
-- WHEN the Architecture Verifier writes its report, THEN the reference owns a JSON schema with `verdict`, the exact five dimensions, evidence, and warnings; the orchestrator accepts only a readable non-empty schema-valid file, probes lifecycle while pending, discloses terminal degradation, and NEVER synthesizes PASS
+- WHEN the Architecture Verifier writes its report, THEN the reference owns a JSON schema with `verdict`, the exact five dimensions, evidence, and warnings; for the receipt it points at its station's own `delegation-protocol.md` — a readable non-empty schema-valid file, a bounded wait, disclosed terminal degradation — instead of restating it, and NEVER synthesizes PASS
 - WHEN the payload schema section renders its `verdict` and `dimensions` rows, THEN their vocabulary is projected from `PLANNING_VERDICTS` and `PLAN_VERIFIER_DIMENSIONS` through the render context, the section states that `rationale` and each `warnings[]` item are single-line and bounded by the injected relayed `summary` ceiling (detail belongs in `evidence`), and the receipt is recorded with `prospec change log --skill prospec-plan --verifier-report <file>`
 
 #### REQ-TEMPLATES-183: Shift-Left Architecture Verifier in prospec-plan
@@ -164,7 +164,7 @@ Phase 6 of `/prospec-plan` performs independent architecture verification agains
 - WHEN the verifier discovers architectural flaws or warnings, THEN findings are recorded to `plan.md` Risk Assessment and appended to `metadata.yaml` `quality_log`
 - WHEN false positives occur, THEN the developer may exercise Break-Glass Override by providing a manual bypass rationale
 - WHEN `/prospec-ff` executes Plan phase verification, THEN it aligns with the same architecture verification gate and degradation policy
-- WHEN the verifier returns a report path or completion prose, THEN Phase 6 MUST verify the readable non-empty file against the rubric-owned report schema before progression, inspect lifecycle/transcript evidence while pending, and NEVER fabricate a report or fresh-context PASS; terminal failure follows the disclosed degraded path
+- WHEN the verifier returns a report path or completion prose, THEN Phase 6 MUST apply the Physical Receipt Verification Protocol of its own `references/delegation-protocol.md` — a readable non-empty file valid against the rubric-owned report schema, a bounded wait — before progression, and NEVER fabricate a report or fresh-context PASS; terminal failure follows the disclosed degraded path
 
 #### REQ-TESTS-089: Contract Tests for Plan Verifier and Rubric
 Contract test suite asserts the invariants of the Plan Architecture Verifier and its rubric.
@@ -262,7 +262,7 @@ A structured candidate evaluation rubric template (`candidate-evaluation.md`) de
 - WHEN evaluating candidates, THEN it instructs dynamic anchoring to the project's manifests and `_conventions.md`
 - WHEN comparing candidates, THEN blast radius and layering winners follow the `prospec validate candidates` metrics table, extensibility follows an in-session one-way rationale, and no Tournament Judge sub-agent or position-swapped scoring is required
 - WHEN measured for knowledge token budget, THEN the template size remains within the `reference_per_file` budget
-- WHEN a Candidate generator writes a delegated report, THEN this reference documents the JSON schema owned by `CandidatePayloadSchema` / `DecisionPayloadSchema`, a contract test pins the documented field set to the schema keys, and the orchestrator accepts only a readable non-empty schema-valid file, probes lifecycle while pending, discloses terminal degradation, and NEVER substitutes a verbal or mock record
+- WHEN a Candidate generator writes a delegated report, THEN this reference documents the JSON schema owned by `CandidatePayloadSchema` / `DecisionPayloadSchema`, a contract test pins the documented field set to the schema keys, for the receipt it points at its station's own `delegation-protocol.md` — a readable non-empty schema-valid file, a bounded wait, disclosed terminal degradation — instead of restating it, and the orchestrator NEVER substitutes a verbal or mock record
 - WHEN selecting, THEN without a pause the agent records `graded_by: in-session` in decision.json and continues, and with the pause the human's `--signoff` records `graded_by: human`
 
 ---
@@ -273,7 +273,7 @@ Phase 4 of `/prospec-plan` performs multi-candidate architecture selection with 
 - WHEN generating candidate architectures, THEN generate 2-3 orthogonal options, run `prospec validate candidates` for the metrics table, and write an in-session one-way rationale
 - WHEN running in a subagent-capable environment, THEN parallelize candidate generation; degrade to sequential prompt isolation in single-context environments
 - WHEN finalizing plan.md, THEN record trade-off analysis, winning option rationale, and non-selected candidate summaries in Technical Summary and Risk Assessment
-- WHEN any Candidate generator returns a path or completion prose, THEN Phase 4 MUST verify the physical non-empty report against the types-owned schema the reference documents before selection, inspect lifecycle/transcript evidence while pending, and NEVER fabricate an option or decision; terminal failure uses the disclosed sequential degraded path
+- WHEN any Candidate generator returns a path or completion prose, THEN Phase 4 MUST apply the Physical Receipt Verification Protocol of its own `references/delegation-protocol.md` against the types-owned schema the reference documents before selection, and NEVER fabricate an option or decision; terminal failure uses the disclosed sequential degraded path
 - WHEN `prospec status` returns `AWAITING_HUMAN_PLAN_SIGNOFF` after the verifier is recorded, THEN the station HALTs for the human sign-off instead of recommending tasks
 
 ---
@@ -290,7 +290,7 @@ A structured task verification rubric template (`tasks-verifier-rubric.md`) defi
 - WHEN `tasks-verifier-rubric.md` is rendered, THEN it defines four orthogonal evaluation dimensions: Bidirectional Contract Coverage, DAG Dependency & Layering Topological Order, TDD Module Test Closure, and Task Sizing & Marker Schema Compliance
 - WHEN evaluating a project, THEN the rubric instructs dynamic inspection against the project's `CONSTITUTION.md`, `_conventions.md`, and `module-map.yaml` without hardcoding CLI-specific layers
 - WHEN measured for knowledge token budget, THEN the template size remains within the `reference_per_file` budget
-- WHEN the Task Verifier writes its report, THEN the reference owns a JSON schema with `verdict`, the exact four dimensions, evidence, and warnings; the orchestrator accepts only a readable non-empty schema-valid file, probes lifecycle while pending, discloses terminal degradation, and NEVER synthesizes PASS
+- WHEN the Task Verifier writes its report, THEN the reference owns a JSON schema with `verdict`, the exact four dimensions, evidence, and warnings; for the receipt it points at its station's own `delegation-protocol.md` — a readable non-empty schema-valid file, a bounded wait, disclosed terminal degradation — instead of restating it, and NEVER synthesizes PASS
 
 ---
 
@@ -301,7 +301,7 @@ Phase 6 of `/prospec-tasks` performs independent task contract and DAG dependenc
 - WHEN the environment does not support subagents, THEN verification degrades to a two-phase prompt isolation with clear notification to the developer
 - WHEN the verifier report passes receipt verification, THEN the station records it via `prospec change log --skill prospec-tasks --verifier-report <file>` — the CLI validates the payload against the rubric-owned schema, maps `FLAWS` to `result: FAIL`, and `prospec status` routes the change back to tasks until a PASS or a documented Break-Glass `--result WARN --warning "Manual override: …"` supersedes it
 - WHEN `/prospec-ff` executes Tasks phase verification, THEN it aligns with the same task verification gate and degradation policy
-- WHEN the verifier returns a report path or completion prose, THEN the station MUST verify the readable non-empty file against the rubric-owned report schema before progression, inspect lifecycle/transcript evidence while pending, and NEVER fabricate a report or PASS; terminal failure follows the disclosed degraded path
+- WHEN the verifier returns a report path or completion prose, THEN the station MUST apply the Physical Receipt Verification Protocol of its own `references/delegation-protocol.md` — a readable non-empty file valid against the rubric-owned report schema, a bounded wait — before progression, and NEVER fabricate a report or PASS; terminal failure follows the disclosed degraded path
 - WHEN the rubric's payload schema section renders its `verdict` and `dimensions` rows, THEN their vocabulary is projected from `PLANNING_VERDICTS` and `TASKS_VERIFIER_DIMENSIONS`, and the section states that `rationale` and each `warnings[]` item are single-line and bounded by the injected relayed `summary` ceiling
 
 ---
