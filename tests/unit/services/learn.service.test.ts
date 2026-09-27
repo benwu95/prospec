@@ -220,6 +220,40 @@ describe('learn playbook service', () => {
     expect(r.entry).toBeNull();
   });
 
+  it('accepts station-only and station plus modules, and returns mode and diagnostics', async () => {
+    vol.fromJSON({ [PLAYBOOK]: CONTENT });
+    const stationOnly = await executePlaybook({ cwd: CWD, station: 'prospec-implement' });
+    expect(stationOnly.mode).toBe('legacy-fallback');
+    expect(stationOnly.warnings).toContainEqual({ kind: 'fallback' });
+    const withModules = await executePlaybook({ cwd: CWD, station: 'implement', modules: ['lib'] });
+    expect(withModules.catalog[0]?.entry.id).toBe('PB-001');
+  });
+
+  it('diagnoses all active catalog entries but only the requested id in id mode', async () => {
+    const content = CONTENT.replace('- **Guidance**: lib.', '- **Stations**: plan, bogus\n- **Guidance**: ' + 'x'.repeat(1200))
+      .replace('- **Guidance**: templates.', '- **Stations**: implement\n- **Guidance**: ' + 'y'.repeat(1200));
+    vol.fromJSON({ [PLAYBOOK]: content });
+    const catalog = await executePlaybook({ cwd: CWD, station: 'implement' });
+    expect(catalog.mode).toBe('station');
+    expect(catalog.warnings.map((w) => [w.kind, 'id' in w ? w.id : ''])).toEqual([
+      ['unknown-station', 'PB-001'], ['over-limit', 'PB-001'], ['over-limit', 'PB-002'],
+    ]);
+    const one = await executePlaybook({ cwd: CWD, id: 'PB-002' });
+    expect(one.warnings.map((w) => [w.kind, 'id' in w ? w.id : ''])).toEqual([['over-limit', 'PB-002']]);
+  });
+
+  it('validates every selector combination before trying to read the playbook', async () => {
+    for (const options of [
+      { cwd: CWD, station: '' },
+      { cwd: CWD, station: 'all' },
+      { cwd: CWD, station: 'bogus' },
+      { cwd: CWD, station: 'plan', id: 'PB-001' },
+      { cwd: CWD, station: 'plan', modules: [' '] },
+    ]) {
+      await expect(executePlaybook(options)).rejects.toThrow(PrerequisiteError);
+    }
+  });
+
   it('returns one entry by id and refuses an unknown or retired id by name', async () => {
     vol.fromJSON({ [PLAYBOOK]: CONTENT });
     expect((await executePlaybook({ cwd: CWD, id: 'PB-002' })).entry?.id).toBe('PB-002');
@@ -234,6 +268,8 @@ describe('learn playbook service', () => {
       available: false,
       catalog: [],
       entry: null,
+      mode: 'modules',
+      warnings: [],
     });
   });
 

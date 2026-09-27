@@ -9,6 +9,7 @@ import {
 } from '../lib/config.js';
 import { resolveLanguageScope, entryLanguageContext } from '../lib/language-policy.js';
 import { renderTemplate } from '../lib/template.js';
+import { PLAYBOOK_ENTRY_TOKEN_LIMIT } from '../lib/lessons-ledger.js';
 import { projectStationDeployment } from '../lib/skill-reference-map.js';
 import { escapeYamlScalar } from '../lib/yaml-utils.js';
 import { mergeManagedDoc } from '../lib/content-merger.js';
@@ -168,6 +169,7 @@ export async function execute(
 
   // 5. Template context (shared across all agents)
   const templateContext = {
+    playbook_entry_token_limit: PLAYBOOK_ENTRY_TOKEN_LIMIT,
     project_name: config.project.name,
     base_dir: baseDir,
     knowledge_base_path: knowledgeBasePath,

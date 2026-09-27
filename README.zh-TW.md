@@ -4,7 +4,7 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg?style=flat-square)](LICENSE)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.9-blue?style=flat-square&logo=typescript)](https://www.typescriptlang.org/)
-[![測試](https://img.shields.io/badge/測試-6588%20總計-success?style=flat-square)](tests/)
+[![測試](https://img.shields.io/badge/測試-6613%20總計-success?style=flat-square)](tests/)
 [![Node](https://img.shields.io/badge/node-%3E%3D22.13-brightgreen?style=flat-square&logo=node.js)](https://nodejs.org/)
 [![pnpm](https://img.shields.io/badge/pnpm-%3E%3D11-orange?style=flat-square&logo=pnpm)](https://pnpm.io/)
 
@@ -521,8 +521,13 @@ check 與 token 量測）在 **[CLI 參考 — CLI 命令](./reference/cli-refer
   沒有可依據的宣告時 fail-open——stdout 印全文、stderr 印一行 `WARN`、exit 0。本 repository 的切片為
   Constitution 全文 3,949 tokens 中的 1,627–1,797 tokens（2026-09-27 以 `prospec constitution show --station <s>`
   量測，其 stderr `tokens:` 行即 `estimateTokens` 值）。`--rule <name>` 印單條規則。
-- **`prospec learn playbook --modules <m,…>`** — per-change 的 playbook 讀法：每條 active 條目一行目錄，
-  `modules=M (…)` 清單命中者印全文，其餘以 `--id <PB-NNN>` 按需讀取。
+- **`prospec learn playbook --station <s> [--modules <m,…>]`** — plan 與 implement 的 per-change
+  讀法：每條 active 條目一行目錄，本站條目印全文。`--modules` 只把命中的目錄列排前面，不改變正文選取；
+  單獨使用 `--modules <m,…>` 維持舊的模組選取，`--id <PB-NNN>` 讀單條。沒有任何 active 條目宣告
+  station 時，`--station` 會以 `WARN` 提示並退回舊的模組選取。超過 300-token 建議上限的條目
+  會在 stderr 警示，stdout 不截斷。本 repository 以實際 CLI 量測全部 10 站的 stdout 為
+  1,107–6,368 tokens，全文為 8,965 tokens，減少 28%–88%（revision `3ade165b` 加上本次未 commit
+  變更；計算方式為 `estimateTokens`）；逐站數字見 change 的 `playbook-measurements.md`。
 - **`prospec check --record-tests`** — 記錄測試執行（`snapshot-v2` fingerprint、`repository-inputs-v2`
   範圍、`change-and-restore` 偵測），讓 verify 5/5 成為機器判定。
 - **CI 閘門** — `prospec check --strict` 由 `.github/workflows/prospec-check.yml` 執行；drift check 的
@@ -661,7 +666,7 @@ Prospec 採用 **Pragmatic Layered Architecture**（`cli → services → lib �
 ## 測試
 
 ```bash
-# 執行所有測試（共 6588 個；4 個略過）
+# 執行所有測試（共 6613 個；4 個略過）
 pnpm test
 
 # Watch 模式
@@ -674,11 +679,11 @@ pnpm run typecheck
 pnpm run lint
 ```
 
-**測試覆蓋率**：共 6588 個測試（6584 個通過；4 個略過），橫跨 4 大類：
-- Unit tests（types + lib + services + cli）：4851 tests
-- Contract tests（CLI 輸出 + Skill 格式）：1420 tests
+**測試覆蓋率**：共 6613 個測試（6609 個通過；4 個略過），橫跨 4 大類：
+- Unit tests（types + lib + services + cli）：4865 tests
+- Contract tests（CLI 輸出 + Skill 格式）：1429 tests
 - Integration tests：121 tests
-- E2E tests：196 tests
+- E2E tests：198 tests
 
 測試套件內含真實 `init` + `agent sync` 生成契約（`tests/integration/skill-contract.test.ts`）：檢查 agent 專屬的 reference 路徑、無 dangling reference、canonical convention 文件、`base_dir` 相對的 spec 路徑，以及 antigravity/codex/copilot 收斂至 `.agents/skills` + `AGENTS.md`。
 

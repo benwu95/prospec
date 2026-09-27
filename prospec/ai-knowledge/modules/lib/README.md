@@ -30,6 +30,7 @@ The drift engine's 7 files are listed in the sub-module below; the station engin
 
 ## Public API
 
+- Playbook and Constitution parsing — `parseStationTokens` in `constitution-parser.ts` is the shared station-token parser; `lessons-ledger.ts` owns the first unfenced `Stations` line, active-entry catalog, station body selection, all-undeclared module fallback, and `PLAYBOOK_ENTRY_TOKEN_LIMIT` (300). `--modules` sorts in station mode and selects bodies only in legacy module mode; selection remains I/O-free.
 - Config/IO/render — `readConfig`/`atomicWrite`/`renderTemplate`/`mergeContent`/`mergeManagedDoc`
 - Scan/detect/parse — `scanDir`/`detectModules`/`isSourceFile`/`collectNonSourceDirectories`/`detectTechStack`/`parse*Dependencies()` (malformed-safe)
 - Baseline/context/assessment — `parseProposalScenarios`/`computeAcceptanceDigest`/`decideFreezeScenarios`/`decideAmendScenarios`, `assessRequirementCompliance`, `assessVerificationContext`

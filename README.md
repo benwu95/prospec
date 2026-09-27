@@ -4,7 +4,7 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg?style=flat-square)](LICENSE)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.9-blue?style=flat-square&logo=typescript)](https://www.typescriptlang.org/)
-[![Tests](https://img.shields.io/badge/tests-6588%20total-success?style=flat-square)](tests/)
+[![Tests](https://img.shields.io/badge/tests-6613%20total-success?style=flat-square)](tests/)
 [![Node](https://img.shields.io/badge/node-%3E%3D22.13-brightgreen?style=flat-square&logo=node.js)](https://nodejs.org/)
 [![pnpm](https://img.shields.io/badge/pnpm-%3E%3D11-orange?style=flat-square&logo=pnpm)](https://pnpm.io/)
 
@@ -550,9 +550,15 @@ The few command details a reader most often needs from here:
   1,627–1,797 of the Constitution's 3,949 tokens (measured 2026-09-27 with
   `prospec constitution show --station <s>`, whose stderr `tokens:` line reports `estimateTokens`).
   `--rule <name>` prints one rule.
-- **`prospec learn playbook --modules <m,…>`** — the per-change playbook reader: one catalog line for
-  every active entry, the full text of entries whose `modules=M (…)` list matches, any other by
-  `--id <PB-NNN>`.
+- **`prospec learn playbook --station <s> [--modules <m,…>]`** — the per-change reader used by plan
+  and implement: one catalog line for every active entry and full text for entries assigned to
+  the station. `--modules` sorts matching catalog entries first without changing which bodies load;
+  `--modules <m,…>` alone keeps legacy module selection, and `--id <PB-NNN>` reads one entry.
+  When no active entry declares a station, `--station` falls back to legacy module selection with
+  a `WARN`. Entries over the 300-token advisory cap also warn on stderr; stdout is not truncated.
+  On this repository, actual CLI stdout for all 10 stations is 1,107–6,368 tokens versus 8,965
+  for the full playbook (28%–88% less), measured with `estimateTokens` at revision `3ade165b`
+  plus this working tree; see the change's `playbook-measurements.md` for per-station values.
 - **`prospec check --record-tests`** — records the suite run (`snapshot-v2` fingerprint over the
   `repository-inputs-v2` scope, `change-and-restore` detection) so verify 5/5 is a machine verdict.
 - **CI gate** — `prospec check --strict` runs from `.github/workflows/prospec-check.yml`; the drift
@@ -695,7 +701,7 @@ templates alongside). The layer-by-layer breakdown and the tech-stack list are i
 ## Testing
 
 ```bash
-# Run all tests (6588 total; 4 skipped)
+# Run all tests (6613 total; 4 skipped)
 pnpm test
 
 # Watch mode
@@ -708,11 +714,11 @@ pnpm run typecheck
 pnpm run lint
 ```
 
-**Test Coverage**: 6588 total tests (6584 passed; 4 skipped) across 4 categories:
-- Unit tests (types + lib + services + cli): 4851 tests
-- Contract tests (CLI output + Skill format): 1420 tests
+**Test Coverage**: 6613 total tests (6609 passed; 4 skipped) across 4 categories:
+- Unit tests (types + lib + services + cli): 4865 tests
+- Contract tests (CLI output + Skill format): 1429 tests
 - Integration tests: 121 tests
-- E2E tests: 196 tests
+- E2E tests: 198 tests
 
 The suite includes a real `init` + `agent sync` generation contract (`tests/integration/skill-contract.test.ts`) asserting agent-specific reference paths, no dangling references, canonical convention docs, `base_dir`-relative spec paths, and `.agents` convergence.
 

@@ -19,6 +19,7 @@
 
 ## Public API
 
+- `prospec-plan.hbs` and `prospec-implement.hbs` load station-routed Playbook bodies at Startup item 6. `prospec-learn.hbs` still loads the full Playbook for its Sweep; `references/promotion-format.hbs` owns the `Stations` declaration, 300-token advisory cap, approved compact form and per-entry cleanup/approval rules. Rebuild the bundle and deployed skills after edits.
 - No code API — pure `.hbs` resources, consumed via `renderTemplate(name, ctx)` / `registerPartial()` from `lib/template.ts`; `prospec print-template <path>` prints any bundled template raw.
 
 ## Dependencies

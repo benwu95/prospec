@@ -20,6 +20,7 @@
 
 ## Public API
 
+- `learn playbook --station <s> [--modules <m,…>]` is registered in `commands/learn.ts`; `formatters/learn-output.ts` writes the complete active catalog and station-selected bodies to stdout, and fallback, unknown declaration and over-cap diagnostics to stderr. In station mode, modules only sort catalog rows; `--modules` alone and `--id` retain their legacy output contracts.
 - `createProgram()` / `runProgram(argv)` — in `program.ts`: the Commander program (all 19 commands) and the parse+error-dispatch loop; both importable with no side effects. `index.ts` is the shebang entry that calls `runProgram(process.argv)` and exports `GlobalOptions`
 - `registerXxxCommand(program)` — 30 registrars; `formatXxxOutput(result, logLevel)` — 31 formatters (+ the `formatEscapingNotice(escapedCells)` and `formatDelegationSettlement(settlement)` helpers; `change-delegate-output` prints a mutation refusal as one `facet: pre-spawn … → now …` line per facet, the checkpoint path and the hand-off sentence, every value sanitized); `handleError(err, verbose)` → stderr
 - `resolveLogLevel(opts)` / `parseDepth(value)` / `parseDate(value)` / `collect(value, prev)` / `parseIntOption` / `parseBoundedInt` / `parseRatio` — shared cli helpers

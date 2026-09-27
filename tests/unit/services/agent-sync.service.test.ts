@@ -3,6 +3,7 @@ import * as fs from 'node:fs';
 import { vol } from 'memfs';
 import { execute, synthesizeTriggers } from '../../../src/services/agent-sync.service.js';
 import { renderTemplate } from '../../../src/lib/template.js';
+import { PLAYBOOK_ENTRY_TOKEN_LIMIT } from '../../../src/lib/lessons-ledger.js';
 import { PrerequisiteError } from '../../../src/types/errors.js';
 import { AGENT_CONFIGS, SKILL_DEFINITIONS, skillHasReferences } from '../../../src/types/skill.js';
 import { DEFAULT_KNOWLEDGE_TOKEN_BUDGET } from '../../../src/types/config.js';
@@ -25,6 +26,17 @@ beforeEach(() => {
 });
 
 describe('agent-sync.service', () => {
+  it('passes the shared playbook entry cap to every promotion-format reference render', async () => {
+    vol.fromJSON({ '/project/.prospec.yaml': 'project:\n  name: test\nagents:\n  - claude\n  - codex\n' });
+    const rt = vi.mocked(renderTemplate);
+    rt.mockClear();
+    await execute({ cwd: '/project' });
+    const calls = rt.mock.calls.filter(([name]) => String(name).includes('promotion-format'));
+    expect(calls.length).toBeGreaterThan(0);
+    for (const [, context] of calls) {
+      expect((context as Record<string, unknown>).playbook_entry_token_limit).toBe(PLAYBOOK_ENTRY_TOKEN_LIMIT);
+    }
+  });
   it('should throw PrerequisiteError when no agents are configured', async () => {
     vol.fromJSON({
       '/project/.prospec.yaml': 'project:\n  name: test\n',

@@ -300,6 +300,20 @@ describe('CLI Output Contract', () => {
       expect(example).toMatch(/\$ prospec change log --skill prospec-plan --signoff option-a/);
     });
 
+    it('learn playbook help describes station selection, module ordering, fallback, and the advisory entry cap', async () => {
+      const output = await helpOf('learn playbook');
+      expect(output.slice(output.indexOf('Options:'), output.indexOf('When to use:'))).toContain('--station <name>');
+      const section = output.slice(output.indexOf('When to use:'));
+      expect(section).toContain('--station implement');
+      expect(section).toContain('--modules lib,cli');
+      expect(section).toContain('--id PB-007');
+      expect(section).toMatch(/station.*(select|body)/i);
+      expect(section).toMatch(/module.*(sort|order)/i);
+      expect(section).toMatch(/fallback/i);
+      expect(section).toContain('300');
+      expect(section).toMatch(/warn/i);
+    });
+
     it('registry ↔ program: every registry key is a registered leaf command, and every command whose help carries the three sections is a registry key (bidirectional)', async () => {
       const program = createProgram();
       const leaves = new Set(leafCommandPaths(program));

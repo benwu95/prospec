@@ -1,6 +1,7 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { PrerequisiteError } from '../types/errors.js';
+import { normalizeStationName, SDD_STATIONS } from '../types/status.js';
 import {
   LessonInputSchema,
   LensYieldThresholdsSchema,
@@ -27,6 +28,8 @@ import {
   type ScoreSuggestion,
   type ScoreThresholds,
   type PlaybookTtl,
+  type PlaybookSelectionMode,
+  type PlaybookWarning,
 } from '../lib/lessons-ledger.js';
 import { parseReviewDocument, parseReviewMetrics } from '../lib/review-merge.js';
 import {
@@ -244,6 +247,8 @@ export interface LearnPlaybookOptions {
   modules?: string[];
   /** One entry id (`PB-007`). */
   id?: string;
+  /** One SDD station or its skill alias. */
+  station?: string;
 }
 
 export interface LearnPlaybookResult {
@@ -255,27 +260,42 @@ export interface LearnPlaybookResult {
   catalog: PlaybookCatalogItem[];
   /** `--id`: the selected entry. */
   entry: PlaybookEntry | null;
+  mode: PlaybookSelectionMode | null;
+  warnings: PlaybookWarning[];
 }
 
 export type { PlaybookCatalogItem, PlaybookEntry } from '../lib/lessons-ledger.js';
 
 /**
  * `prospec learn playbook` — the per-change playbook read (REQ-SERVICES-123):
- * the catalog names every active entry, and only the module-matched bodies (or
- * one `--id`) are printed. Parsing and selection live in lib/lessons-ledger.
+ * the catalog names every active entry; station declarations or legacy module
+ * matches select bodies. Parsing and selection live in lib/lessons-ledger.
  */
 export async function executePlaybook(options: LearnPlaybookOptions): Promise<LearnPlaybookResult> {
   const cwd = options.cwd ?? process.cwd();
+  const hasModules = options.modules !== undefined;
+  const hasId = options.id !== undefined;
+  const hasStation = options.station !== undefined;
+  if ((hasId && (hasModules || hasStation)) || (!hasId && !hasModules && !hasStation)) {
+    throw new PrerequisiteError(
+      'choose --modules, --station, --station with --modules, or --id alone',
+      'Pass --station <name> [--modules <m,…>], --modules <m,…>, or --id <PB-NNN>',
+    );
+  }
+  if (hasId && options.id?.trim() === '') {
+    throw new PrerequisiteError('empty --id', 'Pass an active playbook id such as PB-007');
+  }
+  const station = hasStation ? normalizeStationName(options.station ?? '') : null;
+  if (hasStation && station === null) {
+    throw new PrerequisiteError(
+      `unknown --station "${options.station}"`,
+      `Choose one of: ${SDD_STATIONS.join(', ')}`,
+    );
+  }
   const modules = options.modules
     ?.flatMap((m) => m.split(','))
     .map((m) => m.trim())
     .filter((m) => m.length > 0);
-  if ((options.modules === undefined) === (options.id === undefined)) {
-    throw new PrerequisiteError(
-      'exactly one of --modules or --id',
-      'Pass --modules <m,…> for the catalog with module-matched bodies, or --id <PB-NNN> for one entry',
-    );
-  }
   if (modules !== undefined && modules.length === 0) {
     throw new PrerequisiteError(
       'no usable module name in --modules',
@@ -293,7 +313,7 @@ export async function executePlaybook(options: LearnPlaybookOptions): Promise<Le
   // what an agent would act on.
   const read = readContained(playbookPath, knowledgePath);
   if (!read.ok) {
-    if (read.reason === 'absent') return { path: relPath, available: false, catalog: [], entry: null };
+    if (read.reason === 'absent') return { path: relPath, available: false, catalog: [], entry: null, mode: station !== null ? 'station' : hasId ? null : 'modules', warnings: [] };
     throw new PrerequisiteError(
       `playbook ${relPath} exists but is ${read.reason}`,
       read.reason === 'escaped'
@@ -303,7 +323,10 @@ export async function executePlaybook(options: LearnPlaybookOptions): Promise<Le
   }
 
   const entries = parsePlaybookEntries(read.text);
-  const selection = selectPlaybookEntries(entries, modules !== undefined ? { modules } : { id: options.id ?? '' });
+  const selection = selectPlaybookEntries(
+    entries,
+    hasId ? { id: options.id ?? '' } : station !== null ? { station, ...(modules !== undefined ? { modules } : {}) } : { modules: modules ?? [] },
+  );
   if (selection.kind === 'miss') {
     throw new PrerequisiteError(
       `unknown playbook entry "${selection.id}" in ${relPath}`,
@@ -311,8 +334,8 @@ export async function executePlaybook(options: LearnPlaybookOptions): Promise<Le
     );
   }
   return selection.kind === 'catalog'
-    ? { path: relPath, available: true, catalog: selection.catalog, entry: null }
-    : { path: relPath, available: true, catalog: [], entry: selection.entry };
+    ? { path: relPath, available: true, catalog: selection.catalog, entry: null, mode: selection.mode, warnings: selection.warnings }
+    : { path: relPath, available: true, catalog: [], entry: selection.entry, mode: null, warnings: selection.warnings };
 }
 
 /**
@@ -373,4 +396,3 @@ export async function executeYield(options: LearnYieldOptions = {}): Promise<Len
 
   return buildLensYieldReport(stats, corpus.length, thresholds);
 }
-

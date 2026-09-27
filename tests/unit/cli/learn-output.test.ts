@@ -97,6 +97,37 @@ describe('formatLearnPlaybookOutput', () => {
     ttl: '2027-01-01',
     retired: false,
     text: body,
+    stations: null,
+    tokens: 50,
+    overLimit: false,
+  });
+
+  it('prints station bodies in catalog order and keeps diagnostics on stderr', () => {
+    const errors: string[] = [];
+    vi.spyOn(process.stderr, 'write').mockImplementation((chunk: unknown) => { errors.push(String(chunk)); return true; });
+    const result: LearnPlaybookResult = {
+      path: 'p', available: true, entry: null, mode: 'station',
+      warnings: [
+        { kind: 'unknown-station', id: 'PB-001', token: `ba${BEL}d` },
+        { kind: 'over-limit', id: 'PB-002', tokens: 301, limit: 300 },
+      ],
+      catalog: [
+        { entry: entry('PB-001', ['cli']), matched: true, bodySelected: false },
+        { entry: entry('PB-002', ['lib']), matched: false, bodySelected: true },
+      ],
+    };
+    const stdout = captureStdout(() => formatLearnPlaybookOutput(result));
+    expect(stdout).toContain('station-selected');
+    expect(stdout).toContain('PB-001 ·');
+    expect(stdout).toContain('PB-002 ·');
+    expect(stdout).not.toContain('### PB-001: t');
+    expect(stdout).toContain('### PB-002: t');
+    expect(stdout.indexOf('PB-001 ·')).toBeLessThan(stdout.indexOf('PB-002 ·'));
+    expect(stdout).not.toMatch(/WARN|301|bad/);
+    expect(errors.join('')).toContain('PB-001');
+    expect(errors.join('')).toContain('PB-002');
+    expect(errors.join('')).toContain('301');
+    expect(errors.join('')).not.toContain(BEL);
   });
 
   it('prints one catalog line per entry, matched first with their text and relevance, unmatched as a line only', () => {
@@ -104,10 +135,12 @@ describe('formatLearnPlaybookOutput', () => {
       path: 'prospec/ai-knowledge/_playbook.md',
       available: true,
       entry: null,
+      mode: 'modules',
+      warnings: [],
       catalog: [
-        { entry: entry('PB-002', ['lib']), matched: true },
-        { entry: entry('PB-001', ['templates']), matched: false },
-        { entry: entry('PB-003', null), matched: false },
+        { entry: entry('PB-002', ['lib']), matched: true, bodySelected: true },
+        { entry: entry('PB-001', ['templates']), matched: false, bodySelected: false },
+        { entry: entry('PB-003', null), matched: false, bodySelected: false },
       ],
     };
     const out = captureStdout(() => formatLearnPlaybookOutput(r));
@@ -127,10 +160,13 @@ describe('formatLearnPlaybookOutput', () => {
       path: 'prospec/ai-knowledge/_playbook.md',
       available: true,
       entry: null,
+      mode: 'modules',
+      warnings: [],
       catalog: [
         {
           entry: { ...entry('PB-004', [`li${BEL}b`]), title: `ti${BEL}tle`, kind: `con${BEL}vention`, ttl: `2027${BEL}-01-01` },
           matched: false,
+          bodySelected: false,
         },
       ],
     };
@@ -145,13 +181,15 @@ describe('formatLearnPlaybookOutput', () => {
       available: true,
       catalog: [],
       entry: entry('PB-007', ['lib'], `### PB-007: x${BEL}\n- body`),
+      mode: null,
+      warnings: [],
     };
     expect(captureStdout(() => formatLearnPlaybookOutput(r))).toBe('### PB-007: x\n- body\n');
   });
 
   it('prints one line and nothing else when the playbook is absent', () => {
     const out = captureStdout(() =>
-      formatLearnPlaybookOutput({ path: 'prospec/ai-knowledge/_playbook.md', available: false, catalog: [], entry: null }),
+      formatLearnPlaybookOutput({ path: 'prospec/ai-knowledge/_playbook.md', available: false, catalog: [], entry: null, mode: 'modules', warnings: [] }),
     );
     expect(out.trimEnd().split('\n')).toHaveLength(1);
     expect(out).toContain('prospec/ai-knowledge/_playbook.md');

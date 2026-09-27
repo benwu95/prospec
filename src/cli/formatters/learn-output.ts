@@ -36,7 +36,7 @@ export function formatLearnUpsertOutput(
   process.stdout.write(lines.join('\n') + '\n');
 }
 
-function catalogLine(entry: PlaybookEntry, matched: boolean): string {
+function catalogLine(entry: PlaybookEntry, matched: boolean, stationSelected = false): string {
   const modules = entry.modules === null ? 'undeclared' : entry.modules.join(', ');
   const fields = [
     entry.id,
@@ -44,23 +44,43 @@ function catalogLine(entry: PlaybookEntry, matched: boolean): string {
     `kind: ${entry.kind ?? 'undeclared'}`,
     `modules: ${modules}`,
     `TTL: ${entry.ttl ?? 'none'}`,
-    ...(matched ? ['relevance: module-match'] : []),
+    ...(matched ? [`relevance: ${stationSelected ? 'station-match' : 'module-match'}`] : []),
   ];
   return sanitizeTerminal(fields.join(' · '));
 }
 
 /**
  * Print the per-change playbook view. stdout is the product (never suppressed):
- * a one-line header, then one catalog line per active entry — each module match
- * followed by its full text — or, for `--id`, the one entry's text alone.
+ * a one-line header, then one catalog line per active entry and selected bodies,
+ * or, for `--id`, the one entry's text alone.
  */
 export function formatLearnPlaybookOutput(result: LearnPlaybookResult): void {
   if (!result.available) {
     process.stdout.write(`No playbook at ${sanitizeTerminal(result.path)} — no team lessons to load\n`);
     return;
   }
+  for (const warning of result.warnings) {
+    const message = warning.kind === 'fallback'
+      ? 'WARN: playbook has no active station declarations; legacy fallback uses module selection'
+      : warning.kind === 'unknown-station'
+        ? `WARN: ${warning.id} has unknown station token ${warning.token}`
+        : `WARN: ${warning.id} exceeds the ${warning.limit}-token advisory cap (${warning.tokens} tokens)`;
+    process.stderr.write(`${sanitizeTerminal(message)}\n`);
+  }
   if (result.entry !== null) {
     process.stdout.write(`${sanitizeTerminal(result.entry.text)}\n`);
+    return;
+  }
+  if (result.mode === 'station') {
+    const selected = result.catalog.filter((item) => item.bodySelected).length;
+    const lines = [
+      `Playbook catalog (${sanitizeTerminal(result.path)}): ${result.catalog.length} active, ${selected} station-selected with full text; read any other with \`prospec learn playbook --id <id>\``,
+    ];
+    for (const item of result.catalog) {
+      lines.push('', catalogLine(item.entry, item.bodySelected, true));
+      if (item.bodySelected) lines.push(sanitizeTerminal(item.entry.text));
+    }
+    process.stdout.write(`${lines.join('\n')}\n`);
     return;
   }
   const matched = result.catalog.filter((c) => c.matched).length;
@@ -158,4 +178,3 @@ export function formatLensYieldOutput(
 
   process.stdout.write(lines.join('\n') + '\n');
 }
-

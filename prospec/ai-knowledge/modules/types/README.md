@@ -26,6 +26,7 @@ Also: `auto-draft.ts` (drift-drafting options/result, incl. the `created | skipp
 
 ## Public API
 
+- `COMMAND_HELP_SPECS['learn playbook']` (`cli-help.ts`) defines the public station/module/id choices and advisory diagnostics; `SDD_STATIONS` and `normalizeStationName` (`status.ts`) are the shared vocabulary for the CLI option and Playbook declarations.
 - `ChangeMetadataSchema` / `NewChangeMetadataSchema` / `isStatusBefore` — metadata read (loose) + build (strict) views; lifecycle ordering
 - `CircuitBreakerConfigSchema` / `CircuitBreakerStateSchema` / `OscillationRecordSchema` / `EscalationReportSchema` / `TastemakerPresentationSchema` — review-loop circuit breakers and Tastemaker delivery contracts (no station list: `SDD_STATIONS` is the only station vocabulary)
 - `ProspecConfigSchema` / `DEFAULT_KNOWLEDGE_TOKEN_BUDGET` — `.prospec.yaml` validation + size thresholds

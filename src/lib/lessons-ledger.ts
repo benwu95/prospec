@@ -8,6 +8,9 @@ import {
 } from './markdown-table.js';
 import { stripTrailingCr } from './text-lines.js';
 import { withoutFencedBlocks } from './markdown-fences.js';
+import { parseStationTokens } from './constitution-parser.js';
+import { estimateTokens } from './token-accounting.js';
+import { normalizeStationName, type SddStation } from '../types/status.js';
 
 /**
  * Deterministic mechanics for the lessons ledger
@@ -329,22 +332,37 @@ export interface PlaybookEntry {
   kind: string | null;
   /** The Source line's `modules=N (a, b)` list; null when the list is absent. */
   modules: string[] | null;
+  /** null means no usable declaration; unknown nonempty tokens remain for diagnostics. */
+  stations: 'all' | string[] | null;
   /** The `review by` date; null on a retired entry. */
   ttl: string | null;
   retired: boolean;
   /** The block verbatim, heading included, trailing blank lines trimmed. */
   text: string;
+  tokens: number;
+  overLimit: boolean;
 }
+
+export const PLAYBOOK_ENTRY_TOKEN_LIMIT = 300;
 
 export interface PlaybookCatalogItem {
   entry: PlaybookEntry;
-  /** The entry's modules intersect the request — its full text is printed. */
+  /** The entry's modules intersect the request; this sorts station catalogs. */
   matched: boolean;
+  /** Whether this entry's full text is printed. */
+  bodySelected: boolean;
 }
 
+export type PlaybookWarning =
+  | { kind: 'fallback' }
+  | { kind: 'unknown-station'; id: string; token: string }
+  | { kind: 'over-limit'; id: string; tokens: number; limit: number };
+
+export type PlaybookSelectionMode = 'modules' | 'station' | 'legacy-fallback';
+
 export type PlaybookSelection =
-  | { kind: 'catalog'; catalog: PlaybookCatalogItem[] }
-  | { kind: 'entry'; entry: PlaybookEntry }
+  | { kind: 'catalog'; catalog: PlaybookCatalogItem[]; mode: PlaybookSelectionMode; warnings: PlaybookWarning[] }
+  | { kind: 'entry'; entry: PlaybookEntry; warnings: PlaybookWarning[] }
   | { kind: 'miss'; id: string };
 
 /** `PB-{NNN}` — the format block's placeholder — is not an entry. */
@@ -354,6 +372,7 @@ const PLAYBOOK_SOURCE_LINE = /^\s*-\s+\*\*Source\*\*/;
  *  `modules=N (…)` for the absorbed key, which is provenance, not the entry's scope. */
 const PLAYBOOK_MODULES = /modules=\d+\s*\(([^)]*)\)/;
 const PLAYBOOK_KIND = /\*\*Kind\*\*:\s*([^·]+?)\s*(?:·|$)/;
+const PLAYBOOK_STATIONS_LINE = /^\s*-\s+\*\*Stations\*\*:\s*(.*)$/i;
 
 export function parsePlaybookEntries(playbookContent: string): PlaybookEntry[] {
   const entries: PlaybookEntry[] = [];
@@ -366,6 +385,12 @@ export function parsePlaybookEntries(playbookContent: string): PlaybookEntry[] {
     const source = body.find((l) => PLAYBOOK_SOURCE_LINE.test(l)) ?? '';
     const moduleList = PLAYBOOK_MODULES.exec(source)?.[1];
     const retired = PLAYBOOK_RETIRED_MARKER.test(bodyText);
+    const declaration = withoutFencedBlocks(body)
+      .map((line) => PLAYBOOK_STATIONS_LINE.exec(stripTrailingCr(line))?.[1])
+      .find((value) => value !== undefined);
+    const parsedStations = declaration === undefined ? [] : parseStationTokens(declaration);
+    const text = [`### ${block.heading}`, ...body].join('\n');
+    const tokens = estimateTokens(text);
     entries.push({
       id: heading[1]!,
       title: heading[2]!.trim(),
@@ -377,32 +402,64 @@ export function parsePlaybookEntries(playbookContent: string): PlaybookEntry[] {
               .split(',')
               .map((m) => m.trim())
               .filter((m) => m.length > 0),
+      stations: parsedStations === 'all' || parsedStations.length > 0 ? parsedStations : null,
       ttl: retired ? null : (PLAYBOOK_TTL.exec(bodyText)?.[1] ?? null),
       retired,
-      text: [`### ${block.heading}`, ...body].join('\n'),
+      text,
+      tokens,
+      overLimit: tokens > PLAYBOOK_ENTRY_TOKEN_LIMIT,
     });
   }
   return entries;
 }
 
 /**
- * The per-change playbook view: every active entry in the catalog (module
- * intersection decides only whose text is printed, never who is listed), or one
- * active entry by exact id. Retired entries are never selected.
+ * The per-change playbook view: every active entry in the catalog, with station
+ * declarations selecting bodies in station mode and modules selecting them in
+ * legacy mode, or one active entry by exact id. Retired entries are excluded.
  */
 export function selectPlaybookEntries(
   entries: PlaybookEntry[],
-  selector: { modules: string[] } | { id: string },
+  selector: { modules: string[] } | { station: SddStation; modules?: string[] } | { id: string },
 ): PlaybookSelection {
   const active = entries.filter((e) => !e.retired);
   if ('id' in selector) {
     const entry = active.find((e) => e.id === selector.id);
-    return entry === undefined ? { kind: 'miss', id: selector.id } : { kind: 'entry', entry };
+    return entry === undefined ? { kind: 'miss', id: selector.id } : { kind: 'entry', entry, warnings: playbookWarnings([entry]) };
   }
-  const wanted = new Set(selector.modules.map((m) => m.trim()).filter((m) => m.length > 0));
+  const station = 'station' in selector ? selector.station : undefined;
+  const fallback = station !== undefined && active.every((entry) => entry.stations === null);
+  const requestedModules = selector.modules ?? (fallback
+    ? active.flatMap((entry) => entry.modules ?? [])
+    : []);
+  const wanted = new Set(requestedModules.map((m) => m.trim()).filter((m) => m.length > 0));
   const items = active.map((entry) => ({
     entry,
     matched: entry.modules !== null && entry.modules.some((m) => wanted.has(m)),
+    bodySelected: false,
   }));
-  return { kind: 'catalog', catalog: [...items.filter((i) => i.matched), ...items.filter((i) => !i.matched)] };
+  for (const item of items) {
+    item.bodySelected = station !== undefined && !fallback
+      ? item.entry.stations === 'all' || (item.entry.stations?.includes(station) ?? false)
+      : item.matched;
+  }
+  return {
+    kind: 'catalog',
+    catalog: [...items.filter((i) => i.matched), ...items.filter((i) => !i.matched)],
+    mode: fallback ? 'legacy-fallback' : station === undefined ? 'modules' : 'station',
+    warnings: [...(fallback ? [{ kind: 'fallback' } as const] : []), ...playbookWarnings(active)],
+  };
+}
+
+function playbookWarnings(entries: PlaybookEntry[]): PlaybookWarning[] {
+  const warnings: PlaybookWarning[] = [];
+  for (const entry of entries) {
+    if (entry.stations !== null && entry.stations !== 'all') {
+      for (const token of new Set(entry.stations.filter((station) => normalizeStationName(station) === null))) {
+        warnings.push({ kind: 'unknown-station', id: entry.id, token });
+      }
+    }
+    if (entry.overLimit) warnings.push({ kind: 'over-limit', id: entry.id, tokens: entry.tokens, limit: PLAYBOOK_ENTRY_TOKEN_LIMIT });
+  }
+  return warnings;
 }

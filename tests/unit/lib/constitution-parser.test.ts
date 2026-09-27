@@ -1,9 +1,19 @@
 import { describe, it, expect } from 'vitest';
 import {
+  parseStationTokens,
   locateConstitutionRules,
   parseConstitutionRules,
   parseVerifyDeclarations,
 } from '../../../src/lib/constitution-parser.js';
+
+describe('shared station tokens', () => {
+  it('uses the status vocabulary while preserving unknown tokens and mixed all', () => {
+    expect(parseStationTokens(' Plan, prospec-new-story BOGUS ')).toEqual(['plan', 'story', 'bogus']);
+    expect(parseStationTokens('ALL')).toBe('all');
+    expect(parseStationTokens('all, plan')).toEqual(['all', 'plan']);
+    expect(parseStationTokens('  ')).toEqual([]);
+  });
+});
 
 /** REQ-LIB-032 — the machine half of verify's Constitution audit. */
 
