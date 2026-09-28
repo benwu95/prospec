@@ -196,7 +196,7 @@ Auto-drafting is a convenience layered on the check, and cannot compromise it.
 - WHEN `execute` runs with `autoDraft` and `json`, THEN `prospec-report.json` is written before drafting starts
 - WHEN drafting throws, THEN the failure is recorded on the result as `autoDraftError` and reported, never propagated — the report is still returned and `hasFail` still derives from `summary.fail_count`, so `--strict`'s exit code is unchanged
 - WHEN `autoDraftDryRun` is set, THEN only drafting is simulated; the flag is named for that scope because the command's other writes are unaffected by it
-- WHEN `--auto-draft` is combined with a mode that returns before the drift run (`--init-ci`, `--record-review`, `--record-tests`, `--escaped-defects`), or `--auto-draft-dry-run` is given without `--auto-draft`, THEN the command exits non-zero naming the conflict rather than accepting a flag it will not honour
+- WHEN `--auto-draft` is combined with a mode that returns before the drift run (`--init-ci`, `--record-review`, `--record-tests`), or `--auto-draft-dry-run` is given without `--auto-draft`, THEN the command exits non-zero naming the conflict rather than accepting a flag it will not honour
 
 ---
 

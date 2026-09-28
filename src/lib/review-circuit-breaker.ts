@@ -63,7 +63,6 @@ export class ReviewCircuitBreaker {
   private readonly config: CircuitBreakerConfig;
   private readonly records = new Map<string, OscillationRecord>();
   private currentReviewRounds = 0;
-  private cumulativeSpend = 0;
   private testFailureStreak: TestFailureStreak = EMPTY_TEST_FAILURE_STREAK;
 
   constructor(config?: Partial<CircuitBreakerConfig>) {
@@ -123,20 +122,6 @@ export class ReviewCircuitBreaker {
   }
 
   /**
-   * Record token spend for a round and return new cumulative spend.
-   */
-  recordSpend(tokens: number): number {
-    if (tokens > 0) {
-      this.cumulativeSpend += tokens;
-    }
-    return this.cumulativeSpend;
-  }
-
-  getCumulativeSpend(): number {
-    return this.cumulativeSpend;
-  }
-
-  /**
    * Feed the CLI-derived streak of distinct failed test attempts `review merge`
    * has observed in a row. Replaces, never accumulates — the reducer in
    * `lib/review-merge` owns the counting and shares this breaker's threshold.
@@ -169,7 +154,7 @@ export class ReviewCircuitBreaker {
 
   /**
    * Evaluate the circuit breaker state across all signatures, review rounds,
-   * fix-induced ratios, and cumulative token spend.
+   * fix-induced ratios, and the persistent test-failure streak.
    */
   checkCircuitBreaker(options?: {
     round?: number;
@@ -177,9 +162,9 @@ export class ReviewCircuitBreaker {
     baseRound?: number;
   }): CircuitBreakerState {
     const roundNumber = options?.round ?? this.currentReviewRounds;
-    // Pure query: the ratio is derived from the findings passed in, and spend is
-    // read from state the caller recorded — neither is written back here, so a
-    // repeated call (or one that never happens) cannot double-count.
+    // Pure query: the ratio is derived from the findings passed in and is never
+    // written back here, so a repeated call (or one that never happens) cannot
+    // double-count.
     const fixInducedRatio = options?.findings
       ? calculateFixInducedRatio(options.findings, roundNumber, options.baseRound ?? 1)
       : 0;
@@ -229,7 +214,7 @@ export class ReviewCircuitBreaker {
         ],
       };
     }
-    // 2. Check fix-induced ratio (dual-axis #1) in round > 1
+    // 2. Check fix-induced ratio in round > 1
     else if (roundNumber > 1 && fixInducedRatio > this.config.maxFixInducedRatio) {
       escalationReport = {
         type: 'fix_induced_threshold_exceeded',
@@ -245,22 +230,7 @@ export class ReviewCircuitBreaker {
         ],
       };
     }
-    // 3. Check cumulative spend budget (dual-axis #2)
-    else if (this.config.maxSpend !== undefined && this.cumulativeSpend > this.config.maxSpend) {
-      escalationReport = {
-        type: 'spend_budget_exceeded',
-        message: `Cumulative review spend (${this.cumulativeSpend} tokens) exceeded declared budget limit (${this.config.maxSpend} tokens).`,
-        diagnostics: {
-          cumulativeSpend: this.cumulativeSpend,
-          maxSpend: this.config.maxSpend,
-        },
-        tradeoffOptions: [
-          'Halt automated review and escalate to human developer for sign-off or budget adjustment',
-          'Revert-and-redesign to avoid runaway token expenditure',
-        ],
-      };
-    }
-    // 4. Check maximum iteration rounds — only when unresolved criticals remain
+    // 3. Check maximum iteration rounds — only when unresolved criticals remain
     else if (roundNumber >= this.config.maxReviewRounds && unresolvedCriticals > 0) {
       escalationReport = {
         type: 'max_rounds_exceeded',
@@ -283,7 +253,6 @@ export class ReviewCircuitBreaker {
       reviewRounds: roundNumber,
       oscillatingSignatures: escalationReport?.type === 'oscillation' ? oscillating : [],
       fixInducedRatio,
-      cumulativeSpend: this.cumulativeSpend,
       escalationReport,
     };
   }
@@ -294,7 +263,6 @@ export class ReviewCircuitBreaker {
   reset(): void {
     this.records.clear();
     this.currentReviewRounds = 0;
-    this.cumulativeSpend = 0;
     this.testFailureStreak = EMPTY_TEST_FAILURE_STREAK;
   }
 }

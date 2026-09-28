@@ -9,16 +9,11 @@ import {
 } from '../lib/config.js';
 import { atomicWrite } from '../lib/fs-utils.js';
 import { renderTemplate } from '../lib/template.js';
-import { computeChangeDigest, computeChangeState, computeDeltaSpecDigest, collectQualityLedger, isGitWorkTree } from '../lib/drift-sources.js';
+import { computeChangeDigest, computeChangeState, computeDeltaSpecDigest, isGitWorkTree } from '../lib/drift-sources.js';
 import { assessCurrentDrift } from '../lib/drift-assessment.js';
-import { aggregateEscapedDefects } from '../lib/escaped-defects.js';
 import { runTestCommand } from '../lib/test-runner.js';
 import { resolveChange } from './change-resolver.js';
 import { DRIFT_REPORT_FILENAME, type DriftReport } from '../types/drift-report.js';
-import {
-  ESCAPED_DEFECT_REPORT_FILENAME,
-  type EscapedDefectReport,
-} from '../types/escaped-defect.js';
 import { PrerequisiteError } from '../types/errors.js';
 import type { AutoDraftResult } from '../types/auto-draft.js';
 import { execute as autoDraftExecute } from './auto-draft.service.js';
@@ -33,8 +28,6 @@ export interface CheckOptions {
   recordReview?: boolean;
   /** Run the project's test command and record its outcome instead of running checks. */
   recordTests?: boolean;
-  /** Aggregate per-gate escaped-defect rate instead of running checks. */
-  escapedDefects?: boolean;
   /** Disambiguate which change `--record-review`/`--record-tests` targets when several are in flight. */
   change?: string;
   /** With `--record-review`: the reviewer's self-declared grading context,
@@ -97,13 +90,6 @@ export interface RecordTestsResult {
   treeChangedDuringRun?: boolean;
 }
 
-export interface EscapedDefectsResult {
-  kind: 'escaped-defects';
-  report: EscapedDefectReport;
-  /** Absolute report path when --json was requested. */
-  reportPath?: string;
-}
-
 export const CI_WORKFLOW_PATH = '.github/workflows/prospec-check.yml';
 
 /**
@@ -114,9 +100,7 @@ export const CI_WORKFLOW_PATH = '.github/workflows/prospec-check.yml';
  */
 export async function execute(
   options: CheckOptions,
-): Promise<
-  CheckResult | InitCiResult | RecordReviewResult | RecordTestsResult | EscapedDefectsResult
-> {
+): Promise<CheckResult | InitCiResult | RecordReviewResult | RecordTestsResult> {
   const cwd = options.cwd ?? process.cwd();
   const config = await readConfig(cwd);
 
@@ -128,7 +112,6 @@ export async function execute(
         ['--init-ci', options.initCi],
         ['--record-review', options.recordReview],
         ['--record-tests', options.recordTests],
-        ['--escaped-defects', options.escapedDefects],
       ] as const
     ).find(([, on]) => on);
     if (conflicting) {
@@ -151,10 +134,6 @@ export async function execute(
 
   if (options.recordTests) {
     return recordTestProvenance(cwd, options.change);
-  }
-
-  if (options.escapedDefects) {
-    return aggregateEscapedDefectReport(cwd, options.json);
   }
 
   const { report } = await assessCurrentDrift(cwd);
@@ -334,23 +313,4 @@ async function recordTestProvenance(
   return finish(attempt, { kind: 'record-tests', change, recorded, command: run.command,
     exitCode: run.exit_code, treeChangedDuringRun: !stable, ...(reason ? { reason } : {}) }, provenance);
 
-}
-
-/**
- * Aggregate per-gate escaped-defect rate from `introduced_by` (REQ-SERVICES-069).
- * A reporting mode, not a check: it grades no current repo state, produces no
- * findings, and never affects `--strict`'s exit code.
- */
-async function aggregateEscapedDefectReport(
-  cwd: string,
-  json?: boolean,
-): Promise<EscapedDefectsResult> {
-  const report = aggregateEscapedDefects(collectQualityLedger(cwd), new Date().toISOString());
-  const result: EscapedDefectsResult = { kind: 'escaped-defects', report };
-  if (json) {
-    const reportPath = path.resolve(cwd, ESCAPED_DEFECT_REPORT_FILENAME);
-    await atomicWrite(reportPath, `${JSON.stringify(report, null, 2)}\n`);
-    result.reportPath = reportPath;
-  }
-  return result;
 }

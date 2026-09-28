@@ -877,52 +877,6 @@ describe('test-provenance gate + --record-tests (REQ-SERVICES-068)', () => {
   });
 });
 
-describe('--escaped-defects aggregation (REQ-SERVICES-069)', () => {
-  it('reports no samples honestly when nothing registers introduced_by', async () => {
-    write('.prospec/changes/c1/metadata.yaml', 'name: c1\nstatus: tasks\nscale: standard\n');
-    const r = await execute({ cwd: tmpDir, escapedDefects: true });
-    expect(r.kind).toBe('escaped-defects');
-    if (r.kind !== 'escaped-defects') return;
-    expect(r.report.sample_count).toBe(0);
-    expect(r.report.gates).toEqual([]);
-    expect(r.reportPath).toBeUndefined(); // no --json → no file written
-  });
-
-  it('computes per-gate rate across changes + archive and writes the report with --json', async () => {
-    write(
-      '.prospec/archive/2026-07-05-offender/metadata.yaml',
-      'name: offender\nstatus: archived\nscale: standard\nquality_log:\n' +
-        '  - skill: prospec-verify\n    date: "2026-07-05"\n    result: PASS\n    grade: S\n',
-    );
-    write(
-      '.prospec/changes/fix/metadata.yaml',
-      'name: fix\nstatus: implemented\nscale: quick\nintroduced_by: offender\n',
-    );
-    const r = await execute({ cwd: tmpDir, escapedDefects: true, json: true });
-    if (r.kind !== 'escaped-defects') throw new Error('expected escaped-defects');
-    expect(r.report.sample_count).toBe(1);
-    expect(r.report.gates).toEqual([
-      { gate: 'prospec-verify', passed: 1, escaped: 1, escaped_rate: 1 },
-    ]);
-    expect(r.report.archive_available).toBe(true);
-    expect(existsSync(r.reportPath!)).toBe(true);
-    const onDisk = JSON.parse(readFileSync(r.reportPath!, 'utf-8'));
-    expect(onDisk.samples[0]).toMatchObject({ fix_change: 'fix', introduced_by: 'offender' });
-  });
-
-  it('surfaces an unresolved introduced_by and flags an absent archive', async () => {
-    write(
-      '.prospec/changes/fix/metadata.yaml',
-      'name: fix\nstatus: implemented\nscale: quick\nintroduced_by: never-existed\n',
-    );
-    const r = await execute({ cwd: tmpDir, escapedDefects: true });
-    if (r.kind !== 'escaped-defects') throw new Error('expected escaped-defects');
-    expect(r.report.unresolved_references).toHaveLength(1);
-    expect(r.report.archive_available).toBe(false);
-    expect(r.report.sample_count).toBe(0);
-  });
-});
-
 describe('check.service artifact-language wiring (REQ-SERVICES-074)', () => {
   const withLanguage = (language: string): void => {
     write(

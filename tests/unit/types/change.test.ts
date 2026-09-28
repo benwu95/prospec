@@ -1,10 +1,15 @@
 import { describe, it, expect } from 'vitest';
+import { readFileSync } from 'node:fs';
+import * as path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import {
   CHANGE_SCALES,
   computeAcceptanceDigest,
   CHANGE_STATUSES,
   ChangeMetadataSchema,
+  NewChangeMetadataSchema,
   PROVENANCE_AUDITED_STATUSES,
+  QualityDimensionSchema,
   SCALE_FORBIDDEN_ARTIFACTS,
   VERIFY_GRADES,
   NewQualityLogEntrySchema,
@@ -12,6 +17,7 @@ import {
   forbiddenArtifacts,
   isProvenanceAudited,
 } from '../../../src/types/change.js';
+import { parseYaml } from '../../../src/lib/yaml-utils.js';
 import type {
   ChangeMetadata,
   NewChangeMetadata,
@@ -362,17 +368,32 @@ describe('QualityLogEntrySchema round field (REQ-TYPES-022, issue #274)', () => 
 });
 
 
-describe('ChangeMetadataSchema introduced_by (escaped-defect registration, issue #61)', () => {
-  it('accepts a change naming the change that introduced the defect', () => {
-    const r = ChangeMetadataSchema.safeParse({ ...base, introduced_by: 'fix-init-clobber-add-upgrade' });
+// Verbatim copies of archived metadata written before the escaped-defect
+// registration and the verify spend self-report were removed (#303).
+const legacyFixture = (name: string): Record<string, unknown> =>
+  parseYaml(readFileSync(path.join(path.dirname(fileURLToPath(import.meta.url)), '../../fixtures/legacy-metadata', name), 'utf8'));
+
+describe('legacy introduced_by (REQ-TYPES-058 removed, REQ-TYPES-066)', () => {
+  const legacy = legacyFixture('relax-readme-marker-adjacency.yaml');
+
+  it('a real archived change carrying introduced_by still validates, the key read through untouched', () => {
+    expect(legacy.introduced_by).toBe('2026-09-01-standardize-module-readme-format');
+    const r = ChangeMetadataSchema.safeParse(legacy);
     expect(r.success).toBe(true);
-    if (r.success) expect(r.data.introduced_by).toBe('fix-init-clobber-add-upgrade');
+    if (r.success) expect(r.data.introduced_by).toBe('2026-09-01-standardize-module-readme-format');
   });
 
-  it('accepts metadata without introduced_by (backward compatible)', () => {
-    const r = ChangeMetadataSchema.safeParse(base);
-    expect(r.success).toBe(true);
-    if (r.success) expect(r.data.introduced_by).toBeUndefined();
+  it('the build view declares no such field: it strips the key rather than modelling it', () => {
+    const built = NewChangeMetadataSchema.parse(legacy);
+    expect(built).not.toHaveProperty('introduced_by');
+    expect(built.issue).toBe('#263');
+  });
+
+  it('the canonical field order has no introduced_by slot: test_attempt → delta_spec_provenance → issue', () => {
+    const order = Object.keys(NewChangeMetadataSchema.shape);
+    expect(order).not.toContain('introduced_by');
+    const at = order.indexOf('test_attempt');
+    expect(order.slice(at, at + 3)).toEqual(['test_attempt', 'delta_spec_provenance', 'issue']);
   });
 });
 
@@ -488,7 +509,7 @@ describe('QualityDimensionSchema adjudicator', () => {
   });
 });
 
-describe('QualityDimensionSchema grading context (graded_by / executor / spend, REQ-TYPES-022)', () => {
+describe('QualityDimensionSchema grading context (graded_by / executor, REQ-TYPES-022)', () => {
   const dim = (extra: Record<string, unknown>) => ({
     ...base,
     quality_log: [
@@ -513,24 +534,28 @@ describe('QualityDimensionSchema grading context (graded_by / executor / spend, 
     expect(ChangeMetadataSchema.safeParse(dim({ graded_by: 'myself' })).success).toBe(false);
   });
 
-  it('accepts optional executor (free string) and spend (non-negative int)', () => {
+  it('accepts optional executor (free string)', () => {
     const r = ChangeMetadataSchema.safeParse(
-      dim({ graded_by: 'fresh-subagent', executor: 'opus-tier, fresh subagent', spend: 18500 }),
+      dim({ graded_by: 'fresh-subagent', executor: 'opus-tier, fresh subagent' }),
     );
     expect(r.success).toBe(true);
-    if (r.success) {
-      const d = r.data.quality_log?.[0]?.dimensions?.[0];
-      expect(d?.executor).toBe('opus-tier, fresh subagent');
-      expect(d?.spend).toBe(18500);
-    }
+    if (r.success) expect(r.data.quality_log?.[0]?.dimensions?.[0]?.executor).toBe('opus-tier, fresh subagent');
   });
 
-  it('rejects a negative or non-integer spend', () => {
-    expect(ChangeMetadataSchema.safeParse(dim({ spend: -1 })).success).toBe(false);
-    expect(ChangeMetadataSchema.safeParse(dim({ spend: 1.5 })).success).toBe(false);
+  it('declares no spend field, while a real pre-existing entry carrying dimensions[].spend still validates through the loose view', () => {
+    expect(Object.keys(QualityDimensionSchema.shape)).not.toContain('spend');
+    const legacy = legacyFixture('normalize-executor-labels-and-stats.yaml');
+    const r = ChangeMetadataSchema.safeParse(legacy);
+    expect(r.success).toBe(true);
+    if (!r.success) return;
+    const spent = (r.data.quality_log ?? []).flatMap((e) => e.dimensions ?? []).filter((d) => 'spend' in d);
+    expect(spent.length).toBeGreaterThan(0);
+    expect(spent[0]).toMatchObject({ spend: 135000 });
+    // no longer validated: a legacy value of any shape passes through as an unknown key
+    expect(ChangeMetadataSchema.safeParse(dim({ spend: -1 })).success).toBe(true);
   });
 
-  it('accepts a dimension omitting all three (machine dimensions, pre-existing entries)', () => {
+  it('accepts a dimension omitting the grading context (machine dimensions, pre-existing entries)', () => {
     expect(ChangeMetadataSchema.safeParse(dim({})).success).toBe(true);
   });
 });

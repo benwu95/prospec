@@ -5,6 +5,11 @@ import {
   calculateFixInducedRatio,
   ReviewCircuitBreaker,
 } from '../../../src/lib/review-circuit-breaker.js';
+import {
+  CircuitBreakerConfigSchema,
+  CircuitBreakerStateSchema,
+  EscalationReportSchema,
+} from '../../../src/types/cascade.js';
 
 describe('countFlips', () => {
   it('returns 0 for empty or single trial', () => {
@@ -81,11 +86,25 @@ describe('ReviewCircuitBreaker', () => {
     expect(new ReviewCircuitBreaker({ maxReviewRounds: 5 })).toBeDefined();
   });
 
-  it('validates fix-induced ratio (0-1) and spend (non-negative) bounds via Zod schema', () => {
+  it('validates fix-induced ratio (0-1) bounds via Zod schema', () => {
     expect(() => new ReviewCircuitBreaker({ maxFixInducedRatio: 1.5 })).toThrow();
     expect(() => new ReviewCircuitBreaker({ maxFixInducedRatio: -0.1 })).toThrow();
-    expect(() => new ReviewCircuitBreaker({ maxSpend: -1 })).toThrow();
-    expect(new ReviewCircuitBreaker({ maxFixInducedRatio: 1, maxSpend: 0 })).toBeDefined();
+    expect(new ReviewCircuitBreaker({ maxFixInducedRatio: 1 })).toBeDefined();
+  });
+
+  it('keeps no spend axis: no budget config, no spend state, no spend trigger (REQ-TYPES-089, REQ-LIB-063)', () => {
+    expect(Object.keys(CircuitBreakerConfigSchema.shape)).toEqual([
+      'maxReviewRounds',
+      'maxOscillationFlips',
+      'maxFixInducedRatio',
+      'maxConsecutiveTestFailures',
+    ]);
+    expect(Object.keys(CircuitBreakerStateSchema.shape)).not.toContain('cumulativeSpend');
+    expect(EscalationReportSchema.shape.type.options).not.toContain('spend_budget_exceeded');
+    const breaker = new ReviewCircuitBreaker();
+    expect('recordSpend' in breaker).toBe(false);
+    expect('getCumulativeSpend' in breaker).toBe(false);
+    expect(breaker.checkCircuitBreaker({ round: 2, findings: [] })).not.toHaveProperty('cumulativeSpend');
   });
 
   it('records trials per signature independently', () => {
@@ -117,7 +136,7 @@ describe('ReviewCircuitBreaker', () => {
     expect(state.escalationReport?.tradeoffOptions.length).toBeGreaterThan(0);
   });
 
-  it('trips dual-axis circuit breaker when fix-induced ratio exceeds threshold in round > 1 (REQ-LIB-063)', () => {
+  it('trips circuit breaker when fix-induced ratio exceeds threshold in round > 1 (REQ-LIB-063)', () => {
     const breaker = new ReviewCircuitBreaker({ maxFixInducedRatio: 0.5 });
     // Round 1 with 1 finding: ratio is 0
     expect(
@@ -138,33 +157,17 @@ describe('ReviewCircuitBreaker', () => {
     expect(state.escalationReport?.tradeoffOptions[0]).toContain('revert-and-redesign');
   });
 
-  it('trips dual-axis circuit breaker when cumulative spend exceeds budget (REQ-LIB-063)', () => {
-    const breaker = new ReviewCircuitBreaker({ maxSpend: 10000 });
-    breaker.recordSpend(6000);
-    expect(breaker.checkCircuitBreaker({ round: 1 }).tripped).toBe(false);
-
-    // The caller records spend (cumulative 11,000 > 10,000); checkCircuitBreaker
-    // is a pure query that reads the recorded spend read-only.
-    breaker.recordSpend(5000);
-    const state = breaker.checkCircuitBreaker({ round: 2 });
-    expect(state.tripped).toBe(true);
-    expect(state.escalationReport?.type).toBe('spend_budget_exceeded');
-    expect(state.reason).toContain('11000 tokens');
-    expect(state.cumulativeSpend).toBe(11000);
-  });
-
   it('checkCircuitBreaker is a pure query — repeated calls do not mutate recorded state (REQ-LIB-063)', () => {
-    const breaker = new ReviewCircuitBreaker({ maxFixInducedRatio: 0.5, maxSpend: 10000 });
-    breaker.recordSpend(6000);
+    const breaker = new ReviewCircuitBreaker({ maxFixInducedRatio: 0.5 });
+    breaker.setReviewRound(2);
     const findings = [{ origin_round: 1 }, { origin_round: 2 }, { origin_round: 2 }];
 
     const first = breaker.checkCircuitBreaker({ round: 2, findings });
     const second = breaker.checkCircuitBreaker({ round: 2, findings });
 
-    // Identical inputs -> identical output, and the query never accumulates spend.
+    // Identical inputs -> identical output, and the query never advances the round.
     expect(second).toEqual(first);
-    expect(breaker.getCumulativeSpend()).toBe(6000);
-    expect(first.cumulativeSpend).toBe(6000);
+    expect(breaker.getReviewRound()).toBe(2);
     expect(first.fixInducedRatio).toBeCloseTo(2 / 3);
     expect(first.escalationReport?.type).toBe('fix_induced_threshold_exceeded');
   });
@@ -203,13 +206,12 @@ describe('ReviewCircuitBreaker', () => {
     const breaker = new ReviewCircuitBreaker();
     breaker.recordTrial('test-x', false);
     breaker.incrementReviewRound();
-    breaker.recordSpend(500);
+    breaker.setTestFailureStreak({ consecutiveTestFailures: 1, testFailureAttemptIds: ['a'] });
     expect(breaker.getRecord('test-x')).toBeDefined();
-    expect(breaker.getCumulativeSpend()).toBe(500);
 
     breaker.reset();
     expect(breaker.getRecord('test-x')).toBeUndefined();
-    expect(breaker.getCumulativeSpend()).toBe(0);
+    expect(breaker.getTestFailureStreak()).toEqual({ consecutiveTestFailures: 0, testFailureAttemptIds: [] });
     expect(breaker.checkCircuitBreaker().reviewRounds).toBe(0);
   });
 });
@@ -245,21 +247,24 @@ describe('ReviewCircuitBreaker — persistent_test_failure from the observed str
   });
 
   it('keeps reporting while the threshold remains reached, and a green reset clears only the test input', () => {
-    const breaker = new ReviewCircuitBreaker({ maxSpend: 10 });
-    breaker.recordSpend(5);
+    const breaker = new ReviewCircuitBreaker();
+    breaker.incrementReviewRound();
     breaker.setTestFailureStreak({ consecutiveTestFailures: 3, testFailureAttemptIds: ['a', 'b', 'c'] });
     expect(breaker.checkCircuitBreaker().escalationReport?.type).toBe('persistent_test_failure');
     expect(breaker.checkCircuitBreaker().escalationReport?.type).toBe('persistent_test_failure');
     breaker.setTestFailureStreak({ consecutiveTestFailures: 0, testFailureAttemptIds: [] });
     const state = breaker.checkCircuitBreaker();
     expect(state.tripped).toBe(false);
-    expect(state.cumulativeSpend).toBe(5);
+    expect(state.reviewRounds).toBe(1);
     expect(breaker.getTestFailureStreak()).toEqual({ consecutiveTestFailures: 0, testFailureAttemptIds: [] });
   });
 
-  it('outranks the findings-based breakers: a red suite is reported before oscillation or spend', () => {
-    const breaker = new ReviewCircuitBreaker({ maxSpend: 1 });
-    breaker.recordSpend(5);
+  it('outranks the findings-based breakers: a red suite is reported before oscillation', () => {
+    const breaker = new ReviewCircuitBreaker();
+    breaker.recordTrial('defect-1', false);
+    breaker.recordTrial('defect-1', true);
+    breaker.recordTrial('defect-1', false);
+    expect(breaker.detectOscillation('defect-1')).toBe(true);
     breaker.setTestFailureStreak({ consecutiveTestFailures: 3, testFailureAttemptIds: ['a', 'b', 'c'] });
     expect(breaker.checkCircuitBreaker().escalationReport?.type).toBe('persistent_test_failure');
   });

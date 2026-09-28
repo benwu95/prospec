@@ -44,7 +44,7 @@ Only a critical that is **confirmed to exist** — by running its `repro` and re
 ## review.md Format
 
 Persisted at `.prospec/changes/{name}/review.md`, cumulative across rounds. The table is
-**CLI-written**: emit each round's findings as JSON and run `prospec review merge --findings <file> --lenses <lens,lens,…> [--round <n>] [--spend <tokens>] [--budget <tokens>]`
+**CLI-written**: emit each round's findings as JSON and run `prospec review merge --findings <file> --lenses <lens,lens,…> [--round <n>]`
 — never hand-edit the table. Canonical shape the CLI renders:
 
 ```markdown
@@ -81,7 +81,7 @@ read foo.ts:38-46 — the `<=` bound overruns when n === len.
 
 - **Origin column** records the integer round (`origin_round`) in which the finding was first detected.
   When an existing row is carried forward or updated, its `Origin` round is preserved. In round > 1,
-  findings whose `Origin` is later than the current loop's first round quantify fix-induced defect density feeding the dual-axis circuit breaker.
+  findings whose `Origin` is later than the current loop's first round quantify fix-induced defect density feeding the circuit breaker.
 - **Full-Lens Re-Review Default**: Re-review is executed as a full-lens pass over the cumulative diff
   in a fresh minimal context (cumulative diff + lenses + pinned findings list). Pinned findings are
   mechanically guarded by their regression tests rather than consuming judgment tokens.
@@ -108,9 +108,9 @@ read foo.ts:38-46 — the `<=` bound overruns when n === len.
 - The CLI's deterministic bookkeeping: merge by identity, **origin round tracking**, **severity taken as the maximum**, rows
   **carried forward** across rounds as the anchor (resolved items are not re-raised), prose around
   the table preserved.
-- Round counting, spend tracking, and dual-axis circuit breaker checks run inside the CLI — the stopping
+- Round counting and circuit breaker checks run inside the CLI — the stopping
   rules are in [`circuit-breaker.md`](circuit-breaker.md); the structured round metrics come from
-  the merge command's report (`round`, `criticals_found` / `criticals_fixed` / `majors`, `fix_induced_ratio`, `spend`).
+  the merge command's report (`round`, `criticals_found` / `criticals_fixed` / `majors`, `fix_induced_ratio`).
 
 - **Test-failure metrics** (CLI-owned, same comment): `test_failures` + bounded `test_failure_ids` —
   distinct failed attempts observed by `prospec review merge` in a row (absent = zero; a replayed id

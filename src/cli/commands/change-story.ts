@@ -32,10 +32,6 @@ export function registerChangeCommand(program: Command): void {
       [] as string[],
     )
     .option(
-      '--introduced-by <change>',
-      'Bug-fix changes: the change that missed the defect (escaped-defect registration)',
-    )
-    .option(
       '--issue <ref>',
       'External tracker item this change belongs to (free-form: `#131`, a URL, another tracker id)',
     )
@@ -61,7 +57,6 @@ export function registerChangeCommand(program: Command): void {
         options: {
           description?: string;
           relatedModule: string[];
-          introducedBy?: string;
           issue?: string;
           freezeScenarios?: boolean;
           amendScenarios?: boolean;
@@ -76,7 +71,6 @@ export function registerChangeCommand(program: Command): void {
           if (
             options.description !== undefined ||
             options.relatedModule.length > 0 ||
-            options.introducedBy !== undefined ||
             options.issue !== undefined
           ) {
             throw new InvalidArgumentError(
@@ -127,7 +121,6 @@ export function registerChangeCommand(program: Command): void {
             ...(options.relatedModule.length > 0
               ? { relatedModules: options.relatedModule }
               : {}),
-            ...(options.introducedBy ? { introducedBy: options.introducedBy } : {}),
             // `!== undefined`, not truthiness: a blank value is forwarded so the
             // service's `normalizeIssueRef` stays the ONE place blank is judged.
             ...(options.issue !== undefined ? { issue: options.issue } : {}),

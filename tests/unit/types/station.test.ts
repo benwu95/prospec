@@ -207,14 +207,14 @@ describe('JudgmentDimensionsInputSchema', () => {
     expect(JudgmentDimensionInputSchema.safeParse({ ...dimension, graded_by: 'myself' }).success).toBe(false);
   });
 
-  it('accepts optional executor (non-empty string) and spend (non-negative int)', () => {
+  it('accepts optional executor (non-empty string) and strips a spend key (REQ-CLI-038)', () => {
     const r = JudgmentDimensionInputSchema.safeParse({ ...dimension, executor: 'fresh subagent', spend: 12000 });
     expect(r.success).toBe(true);
     if (r.success) {
       expect(r.data.executor).toBe('fresh subagent');
-      expect(r.data.spend).toBe(12000);
+      expect(r.data).not.toHaveProperty('spend');
     }
-    expect(JudgmentDimensionInputSchema.safeParse({ ...dimension, spend: -1 }).success).toBe(false);
+    expect(JudgmentDimensionInputSchema.safeParse({ ...dimension, spend: -1 }).success).toBe(true);
     expect(JudgmentDimensionInputSchema.safeParse({ ...dimension, executor: '' }).success).toBe(false);
   });
 

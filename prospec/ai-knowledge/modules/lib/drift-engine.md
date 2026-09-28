@@ -10,16 +10,16 @@
 | `drift-checker.ts` | Pure evaluators over those structures + `runChecks` (22 checks; `artifact-language`/`spec-counters`/`language-policy-drift` are WARN-only); `evaluateChangeTestEvidence` — the status-independent single-change test policy (`pass`/`exempt`/`refuse`) both lifecycle gates and `evaluateTestProvenance` share |
 | `drift-assessment.ts` | Shared read-only collect→evaluate owner (`assessCurrentDrift`; `assessCurrentTestEvidence` is its narrow sibling — one change's facts, config/command/metadata/draft/snapshot recheck, no collectors, no suite), retaining actual facts plus byte/membership/config observations and a fail-closed pre-write recheck; its observation roots include every configured shipped-skill directory, absent ones included, so a deployment that shifts mid-assessment is seen even when the collected inputs would not move |
 | `test-runner.ts` | The ONE flag-gated, `shell: false` project-command runner — the fact `test-provenance` grades |
-| `escaped-defects.ts` / `constitution-parser.ts` | Per-gate escaped-defect aggregation; `## Principles` rule inventory + RFC-2119 severities + `stations:` (cut out before `check:`/`covers:`, `null` = undeclared); `locateConstitutionRules` is the one section/rule-block walk the station slicer shares |
+| `constitution-parser.ts` | `## Principles` rule inventory + RFC-2119 severities + `stations:` (cut out before `check:`/`covers:`, `null` = undeclared); `locateConstitutionRules` is the one section/rule-block walk the station slicer shares |
 | `generated-artifacts.ts` | `BUNDLED_TEMPLATES_SOURCE`, the templates bundler's output location — single-sourced with `scripts/bundle-templates.ts`, its only consumer |
 
 ## Public API
 
-- `runChecks(inputs)` + every `collect*` source, `evaluateChangeTestEvidence(facts)` / `collectChangeTestEvidence(cwd, change, command, snapshot)` / `assessCurrentTestEvidence(cwd, change)`, `computeChangeState` (NUL-delimited Git enumeration plus raw-byte final-file snapshot yielding digest and clean diagnostics; `computeChangeDigest`/`computeWorkingTreeClean` are thin wrappers so a caller needing both pays one capture), `changedPathsFromWorkTree` (working-tree changed paths over the digest scope — the pre-commit counterpart of the committed-range knowledge-sync gate) + `partitionDiffAttributedModules` (splits diff-attributed modules into REQ-acknowledged vs stamp-only via `moduleAttributor`), `computeDeltaSpecDigest`, `aggregateEscapedDefects`, `parseConstitutionRules`, `resolveTestCommand`/`runTestCommand`
+- `runChecks(inputs)` + every `collect*` source, `evaluateChangeTestEvidence(facts)` / `collectChangeTestEvidence(cwd, change, command, snapshot)` / `assessCurrentTestEvidence(cwd, change)`, `computeChangeState` (NUL-delimited Git enumeration plus raw-byte final-file snapshot yielding digest and clean diagnostics; `computeChangeDigest`/`computeWorkingTreeClean` are thin wrappers so a caller needing both pays one capture), `changedPathsFromWorkTree` (working-tree changed paths over the digest scope — the pre-commit counterpart of the committed-range knowledge-sync gate) + `partitionDiffAttributedModules` (splits diff-attributed modules into REQ-acknowledged vs stamp-only via `moduleAttributor`), `computeDeltaSpecDigest`, `parseConstitutionRules`, `resolveTestCommand`/`runTestCommand`
 
 ## Dependencies
 
-**Depends on:** `types` (drift-report + escaped-defect schemas, ModuleMap), and — inside lib — `knowledge-reader`, `markdown-fences`, `constitution-parser`, `task-markers`, `scanner`, `token-accounting`
+**Depends on:** `types` (drift-report schema, ModuleMap), and — inside lib — `knowledge-reader`, `markdown-fences`, `constitution-parser`, `task-markers`, `scanner`, `token-accounting`
 **Used by:** `services/check`, `services/verify-record`, `services/mcp`
 
 ## Modification Guide

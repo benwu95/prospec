@@ -54,6 +54,20 @@ describe('CLI E2E — station commands', () => {
       expect(metadata).toContain('status: tasks');
     });
 
+    it('change story refuses --introduced-by as an unknown option and creates no change (REQ-TYPES-058 removed)', async () => {
+      await fs.promises.writeFile(
+        path.join(tmpDir, 'package.json'),
+        JSON.stringify({ name: 'station-test' }),
+      );
+      await runCli(['init', '--name', 'station-test', '--agents', 'claude']);
+      const { exitCode, stderr } = await runCli([
+        'change', 'story', 'fix-it', '--description', 'x', '--introduced-by', 'offender',
+      ]);
+      expect(exitCode).not.toBe(0);
+      expect(stderr).toContain("unknown option '--introduced-by'");
+      expect(fs.existsSync(path.join(tmpDir, '.prospec', 'changes', 'fix-it'))).toBe(false);
+    });
+
     it('change log appends a structured quality_log entry with escaped user text', async () => {
       const changeDir = await initChange();
       const { exitCode } = await runCli([
@@ -383,8 +397,9 @@ describe('CLI E2E — station commands', () => {
       expect(await fs.promises.readFile(path.join(changeDir, 'review.md'), 'utf-8')).toBe(before);
     });
 
-    it('review merge tracks round, spend, and renders circuit breaker escalation (REQ-CLI-043, REQ-TESTS-099)', async () => {
-      await initChange();
+    it('review merge tracks round and lenses, prints no spend, and refuses --spend/--budget as unknown options (REQ-CLI-043, REQ-TESTS-099)', async () => {
+      const changeDir = await initChange();
+      const reviewMdPath = path.join(changeDir, 'review.md');
       const findingsR1 = path.join(tmpDir, 'round1.json');
       await fs.promises.writeFile(
         findingsR1,
@@ -392,14 +407,13 @@ describe('CLI E2E — station commands', () => {
           { id: 'F-1', location: 'src/a.ts:1', severity: 'critical', lens: 'correctness', status: 'fixed', summary: 'bug1', repro: 'pnpm a' },
         ]),
       );
-      // Round 1 with spend 4000 and budget 6000
-      const r1 = await runCli(['review', 'merge', '--findings', findingsR1, '--spend', '4000', '--budget', '6000']);
+      const r1 = await runCli(['review', 'merge', '--findings', findingsR1]);
       expect(r1.exitCode).toBe(0);
       expect(r1.stdout).toContain('round=1');
-      expect(r1.stdout).toContain('spend: 4,000, cumulative: 4,000 / 6,000');
+      expect(r1.stdout).not.toMatch(/\bspend\b/);
       expect(r1.stdout).not.toContain('🚨 Circuit Breaker Tripped');
 
-      // Round 2 introduces fix-induced defect with spend 3000 -> cumulative 7000 > budget 6000
+      // Round 2: one new critical against one carried-forward fixed → 1/2 fix-induced, at (not over) the 0.5 threshold
       const findingsR2 = path.join(tmpDir, 'round2.json');
       await fs.promises.writeFile(
         findingsR2,
@@ -408,15 +422,24 @@ describe('CLI E2E — station commands', () => {
           { id: 'F-2', location: 'src/b.ts:2', severity: 'critical', lens: 'correctness', summary: 'bug2', repro: 'pnpm b' },
         ]),
       );
-      const r2 = await runCli(['review', 'merge', '--findings', findingsR2, '--round', '2', '--spend', '3000', '--budget', '6000', '--lenses', 'correctness,security']);
+      const r2 = await runCli(['review', 'merge', '--findings', findingsR2, '--round', '2', '--lenses', 'correctness,security']);
       expect(r2.exitCode).toBe(0);
       expect(r2.stdout).toContain('round=2');
-      expect(r2.stdout).toContain('spend: 3,000, cumulative: 7,000 / 6,000');
-      expect(r2.stdout).toContain('🚨 Circuit Breaker Tripped');
-      expect(r2.stdout).toContain('spend_budget_exceeded');
-      const reviewMd = await fs.promises.readFile(path.join(tmpDir, '.prospec', 'changes', 'my-change', 'review.md'), 'utf-8');
+      expect(r2.stdout).toContain('fix_induced_ratio=50.0%');
+      expect(r2.stdout).not.toMatch(/\bspend\b/);
+      expect(r2.stdout).not.toContain('🚨 Circuit Breaker Tripped');
+      const reviewMd = await fs.promises.readFile(reviewMdPath, 'utf-8');
       expect(reviewMd).toContain('lenses="correctness,security"');
       expect(reviewMd).toContain('round="2"');
+      expect(reviewMd).not.toMatch(/spend_before|round_spend|cumulative_spend/);
+
+      // The retired spend flags are unknown options: refused at the parser, nothing written
+      for (const flag of ['--spend', '--budget']) {
+        const refused = await runCli(['review', 'merge', '--findings', findingsR2, '--round', '2', flag, '4000']);
+        expect(refused.exitCode, flag).not.toBe(0);
+        expect(refused.stderr).toContain(`unknown option '${flag}'`);
+        expect(await fs.promises.readFile(reviewMdPath, 'utf-8')).toBe(reviewMd);
+      }
 
       // Invalid option values are rejected with UsageError
       const invalid = await runCli(['review', 'merge', '--findings', findingsR2, '--max-fix-induced-ratio', '1.5']);
@@ -529,7 +552,7 @@ describe('CLI E2E — station commands', () => {
       expect(metadata).toContain('grade: A');
     });
 
-    it('verify record carries run-level --executor/--spend onto each judgment dimension (flag form)', async () => {
+    it('verify record carries run-level --executor onto each judgment dimension (flag form)', async () => {
       await initChange();
       await recordCliEvidence(tmpDir, 'my-change');
       const { exitCode, stdout, stderr } = await runCli([
@@ -539,7 +562,6 @@ describe('CLI E2E — station commands', () => {
         '--dimension', 'design=not-applicable',
         '--graded-by', 'fresh-subagent',
         '--executor', 'strongest-tier',
-        '--spend', '12345',
       ]);
       expect(exitCode, stderr).toBe(0);
       // Legacy fixture has no delta-spec: disclose the gap and cap the grade.
@@ -550,7 +572,7 @@ describe('CLI E2E — station commands', () => {
         'utf-8',
       );
       expect(metadata).toContain('executor: strongest-tier');
-      expect(metadata).toContain('spend: 12345');
+      expect(metadata).not.toMatch(/\bspend:/);
     });
 
     it('pins the default init Constitution (no declarations) running the unchanged audit path (REQ-SERVICES-113, REQ-TESTS-057)', async () => {
@@ -650,7 +672,7 @@ describe('CLI E2E — station commands', () => {
       expect(stderr).not.toContain('unexpected error');
     });
 
-    it('verify record refuses an empty --executor and a negative --spend at the parser', async () => {
+    it('verify record refuses an empty --executor at the parser and --spend as an unknown option (REQ-CLI-038)', async () => {
       await initChange();
       const empty = await runCli([
         'verify', 'record',
@@ -660,14 +682,22 @@ describe('CLI E2E — station commands', () => {
       ]);
       expect(empty.exitCode).not.toBe(0);
       expect(empty.stderr).toContain('non-empty executor');
-      const negative = await runCli([
+      // Evidence recorded and all three judgment verdicts supplied, so the only thing that
+      // can refuse this invocation is the flag itself — an accepted --spend would exit 0.
+      await recordCliEvidence(tmpDir, 'my-change');
+      const metadataPath = path.join(tmpDir, '.prospec', 'changes', 'my-change', 'metadata.yaml');
+      const before = await fs.promises.readFile(metadataPath, 'utf-8');
+      const spend = await runCli([
         'verify', 'record',
         '--dimension', 'delta-spec-compliance=PASS',
+        '--dimension', 'constitution=PASS',
+        '--dimension', 'design=not-applicable',
         '--graded-by', 'fresh-subagent',
-        '--spend=-3',
+        '--spend', '12345',
       ]);
-      expect(negative.exitCode).not.toBe(0);
-      expect(negative.stderr).toContain('non-negative integer');
+      expect(spend.exitCode).not.toBe(0);
+      expect(spend.stderr).toContain("unknown option '--spend'");
+      expect(await fs.promises.readFile(metadataPath, 'utf-8')).toBe(before);
     });
 
     it('verify record refuses --dimension and --dimensions together', async () => {

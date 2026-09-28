@@ -6,7 +6,7 @@ This document defines the **Circuit Breaker & Escalation Protocol** used by `pro
 
 ## Purpose
 
-Unattended autonomous execution carries the risk of runaway token consumption, infinite retry loops, and flip-flop defect oscillations. Grounded in Site Reliability Engineering (SRE) circuit breaker patterns, this mechanism establishes deterministic stopping boundaries to protect developer budgets and surface actionable choices when loops fail to converge.
+Unattended autonomous execution carries the risk of runaway token consumption, infinite retry loops, and flip-flop defect oscillations. Grounded in Site Reliability Engineering (SRE) circuit breaker patterns, this mechanism establishes deterministic stopping boundaries that bound unattended cost and surface actionable choices when loops fail to converge.
 
 ---
 
@@ -23,22 +23,17 @@ Unattended autonomous execution carries the risk of runaway token consumption, i
 - **Rule**: When oscillation is detected on any active signature, the circuit breaker trips immediately.
 - **Action**: Immediately abort automated retry, roll back the unstable patch, and notify the developer with the specific oscillating signatures.
 
-### 3. Fix-Induced Defect Ratio (Dual-Axis #1)
+### 3. Fix-Induced Defect Ratio
 - **Mechanism**: In round `R > 1` of the current review loop, the CLI computes `fix_induced_ratio` as the proportion of active (non-dismissed) findings whose `origin_round` is later than this loop's first round (findings created by this loop's earlier fix rounds).
 - **Rule**: When `fix_induced_ratio` exceeds the threshold (default **0.5** / 50%), the fix attempts are generating defects faster than resolving them.
 - **Action**: Trip the circuit breaker immediately and emit an `EscalationReport` recommending **revert-and-redesign** rather than continued iterative patching.
 
-### 4. Spend Budget Ceiling (Dual-Axis #2)
-- **Mechanism**: The CLI accumulates per-round token spend (`--spend`) across review iterations.
-- **Rule**: When cumulative spend exceeds the declared budget limit (`--budget`), the circuit breaker trips immediately to prevent runaway cost.
-- **Action**: Trip the breaker, halt automated review iterations, and emit an `EscalationReport` with cumulative spend metrics.
-
-### 5. Early-Stop Conditions & Regression Pin Gate
+### 4. Early-Stop Conditions & Regression Pin Gate
 - **Zero Delta**: A fix round resolves 0 new criticals compared to the prior round.
 - **Suite Regression**: A fix for a critical defect turns previously passing unrelated tests red (immediately reverted).
 - **Per-Critical Regression Pin Gate**: Confirmed criticals require a fail-then-pass mutation-verified test pin before fix application to guard against subsequent regressions.
 
-### 6. Persistent Test Failure (`persistent_test_failure`)
+### 5. Persistent Test Failure (`persistent_test_failure`)
 - **Mechanism**: CLI-owned. `prospec review merge` requires the change's fresh green `test_attempt` (recorded by `prospec check --record-tests --change <name>` with the project's own test command); a refusal on a failed attempt with a non-zero exit counts once per distinct attempt id in `review.md`'s metrics (a replayed id never counts twice), and a fresh green resets the streak.
 - **Rule**: streak ≥ threshold (default **3**, independent of the round and flip caps) trips `persistent_test_failure` on that refusal.
 - **Action**: the merge exits non-zero printing `ESCALATE_TO_HUMAN` with `count / threshold`; stop automated retries and record no review round.
@@ -52,8 +47,8 @@ When a circuit breaker trips, the Agent MUST NOT silently fail or hallucinate a 
 ```markdown
 ### 🚨 Circuit Breaker Tripped: Escalation Required
 
-- **Trigger**: [oscillation | max_rounds_exceeded | unrecoverable_critical | persistent_test_failure | fix_induced_threshold_exceeded | spend_budget_exceeded | station_retry_limit_exceeded]
-- **Diagnostic Details**: [Summary of signatures, failing tests, round counts, fix-induced ratio, or spend budget]
+- **Trigger**: [oscillation | max_rounds_exceeded | unrecoverable_critical | persistent_test_failure | fix_induced_threshold_exceeded | station_retry_limit_exceeded]
+- **Diagnostic Details**: [Summary of signatures, failing tests, round counts, or fix-induced ratio]
 - **Attempted Fixes**: [Brief summary of modifications made in recent rounds]
 
 #### Trade-off Options for Developer:

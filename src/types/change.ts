@@ -44,7 +44,7 @@ export const DIMENSION_RESULTS = [...GATE_RESULTS, 'not-applicable', 'not-adjudi
 export type DimensionResult = (typeof DIMENSION_RESULTS)[number];
 
 /** Who decided a verify dimension: the deterministic drift engine, or the agent.
- *  Recorded per dimension so a later escaped-defect analysis can tell a machine
+ *  Recorded per dimension so a later reader of quality_log can tell a machine
  *  verdict from a judgment call instead of guessing. */
 export const DIMENSION_ADJUDICATORS = ['machine', 'judgment'] as const;
 
@@ -70,10 +70,6 @@ export const QualityDimensionSchema = z.looseObject({
    *  validated — prospec detects no model; it is a data source for `prospec-learn`
    *  per-executor statistics, absent when the grader did not declare one. */
   executor: z.string().optional(),
-  /** Self-reported tokens spent on this verdict — the detection-per-cost
-   *  denominator (`lib/token-accounting` gives an offline estimate). Optional and
-   *  non-blocking; absent when the grader did not declare one. */
-  spend: z.number().int().nonnegative().optional(),
   /** Lightweight verify identity fields (REQ-TYPES-103, REQ-TYPES-104). */
   context_id: z.string().optional(),
   baseline_revision: z.number().int().positive().optional(),
@@ -417,19 +413,12 @@ const ChangeMetadataShape = {
   // metadata-completeness required-field floor — that would retroactively fail every
   // change recorded before this field existed.
   delta_spec_provenance: DeltaSpecProvenanceSchema.optional(),
-  // Escaped-defect registration (issue #61): on a bug-fix change, names the change
-  // that missed the defect (its change-name string), so per-gate escaped-defect rate
-  // can be tracked. Optional keeps existing metadata valid; a convention + example
-  // live in `_status-lifecycle.md`. No referential-integrity check by design.
-  introduced_by: z.string().optional(),
   // External-tracker registration (issue #131): the tracker item this change
-  // belongs to — deliberately NOT `introduced_by`, which names the CHANGE whose
-  // gates let a defect through. Shape-free on purpose: prospec binds to no
+  // belongs to, never another change. Shape-free on purpose: prospec binds to no
   // forge, so `#131`, a full URL and another tracker's id are equally valid and
   // none has its shape judged or is verified to exist (runs of whitespace do
   // collapse — a structural guard for the display surfaces, not a shape check).
-  // Like `introduced_by`, a pure
-  // registration convention — optional, outside the metadata-completeness
+  // A pure registration convention — optional, outside the metadata-completeness
   // required-field floor, and enforced by no drift check.
   issue: z.string().optional(),
   /**

@@ -219,10 +219,10 @@ export function upsertReviewRoundEntry(doc: Document, entry: NewQualityLogEntry)
  * True for a merge-written `prospec-review` round-counts entry — the one `review merge`
  * upserts per round, carrying `round`. It is a metric record, NOT a round-close/gate
  * record: consumers that read the LATEST entry per skill (round advancement,
- * `prospec status` unresolved warnings) or FLATTEN gate results (escaped-defect
- * aggregation) must exclude it, or a round-tagged entry (always `warnings: []`,
- * `result` = the round's outcome) would mask the round-less close entry that carries
- * the real WARN. The single source of that "is this a counts entry" test.
+ * `prospec status` unresolved warnings) must exclude it, or a round-tagged entry
+ * (always `warnings: []`, `result` = the round's outcome) would mask the round-less
+ * close entry that carries the real WARN. The single source of that "is this a
+ * counts entry" test.
  */
 export function isReviewRoundCountsEntry(entry: { skill?: string; round?: number }): boolean {
   return entry.skill === 'prospec-review' && entry.round !== undefined;

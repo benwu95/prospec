@@ -146,7 +146,7 @@ function readJudgmentInput(dimensionsPath: string): JudgmentDimensionInput[] {
       `Judgment dimensions failed validation: ${parsed.error.issues
         .map((i) => `${issueLabel(i.path)}: ${i.message}`)
         .join('; ')}`,
-      'Each entry needs name, result (PASS|WARN|FAIL|not-applicable|not-adjudicated) and graded_by (fresh-subagent|in-session); executor/spend are optional; summary and repro are bounded, evidence is not',
+      'Each entry needs name, result (PASS|WARN|FAIL|not-applicable|not-adjudicated) and graded_by (fresh-subagent|in-session); executor is optional; summary and repro are bounded, evidence is not',
     );
   }
   // Guard the block AS IT WILL BE RENDERED, not field by field: the anchor, the
@@ -328,7 +328,6 @@ export async function execute(options: VerifyRecordOptions): Promise<VerifyRecor
           result: d.result,
           graded_by: d.graded_by,
           ...(d.executor !== undefined ? { executor: d.executor } : {}),
-          ...(d.spend !== undefined ? { spend: d.spend } : {}),
         }));
 
   // Judgment input must cover exactly the judgment dimensions — no relays of

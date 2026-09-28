@@ -662,7 +662,7 @@ export const STATION_REFERENCES: Readonly<Record<string, StationReferenceEntry>>
         phase: 'The Loop',
         site: 'Core Workflow > The Loop',
         target: { kind: 'reference', reference: 'circuit-breaker.md' },
-        purpose: 'the round cap and the dual-axis breakers that stop the loop',
+        purpose: 'the round cap and the circuit breakers that stop the loop',
         loading: 'in-phase',
       },
       {

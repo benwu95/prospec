@@ -244,7 +244,6 @@ Entry Points、Dependencies、Config Files 沒有逐語言覆寫機制——未�
     - `--description <d>`：變更的一行簡短描述。
     - `--related-module <m>...`：明確指定關聯模組（覆寫關鍵字自動比對）。
     - `--issue <ref>`：登記此變更對應的 Issue / Ticket 追蹤編號。
-    - `--introduced-by <c>`：記錄引入此缺陷的變更來源（用於缺陷漏失率分析）。
   - **基準管理模式**（與骨架建立選項互斥）：
     - `--freeze-scenarios`：將 `proposal.md` 中已撰寫的實質驗收場景快照凍結進 `metadata.yaml` 的 `acceptance` 基準（revision 1，origin: `story`）。若含有未修改的 placeholder、缺少 `**Acceptance Scenarios:**` 區段、場景 ID 重複／非法，或與建立專用旗標混用時將拒絕執行。相同標準化內容具備冪等性；內容不同且未走修訂程序時拒絕。
     - `--amend-scenarios`：針對已凍結的變更受控追加新的基準版本。必須同時提供 `--reason "<text>"` 與 `--expected-digest <sha256>`。CLI 會同時稽核前版 digest 與新版身分，但不會主動改寫 `proposal.md`。若於 `implemented` 階段或之後修訂，記錄的 origin 標記為 `late-capture`。
@@ -322,10 +321,10 @@ Entry Points、Dependencies、Config Files 沒有逐語言覆寫機制——未�
   - **Sink**：`review merge` 與 `verify record` 在任何其他拒收之前結清本站票據——任一最新 attempt 為 open 或 refused 時不寫入任何東西——之後把每個 live attempt 標記為 consumed；一般輸出必定帶一行 delegation 揭露。
   - **極限**：它偵測並保存，不防止任何事，也不還原任何事；它防範的是意外或行為出錯的委派代理，而非惡意代理。它看不到 ignored 檔案（被 ignore 的 `prospec-report.json` 也在內）；`.prospec/` 內的工件，包括票據與 checkpoint（委派代理若竄改自己的票據或其他 CLI 紀錄，可使收件通過）；repository 的 `.git/config`、hooks 與 `info/exclude`（委派代理在那裡設定的 hook 或命令，如 `core.fsmonitor` 或 reference-transaction hook，會在 CLI 自己收件時的 git 呼叫與之後每一次 git 呼叫中執行）；沒有任何面向讀取的 `.git` metadata（`.git/shallow`、`info/grafts`、`info/attributes`）；比委派代理存活更久的程序（`--spawn-failed` 或被新 attempt 取代後仍在跑的代理，或它啟動的背景程序），可能在收件後改動工作樹；委派代理在返回前自行復原的改動；專案以外的內容；以及推送到任何遠端（remote-tracking refs 不是面向）——但 `git fetch` 自動跟隨的 tags 會改變 refs 面向。同一 repository 中同時進行的多個 change 的委派彼此不隔離。
 
-- **`prospec review merge --findings <file> [--round <n>] [--spend <tokens>] [--budget <tokens>] [--max-fix-induced-ratio <r>] [--max-rounds <n>] [--max-flips <n>] [--lenses <list>] [--change <name>]`**
+- **`prospec review merge --findings <file> [--round <n>] [--max-fix-induced-ratio <r>] [--max-rounds <n>] [--max-flips <n>] [--lenses <list>] [--change <name>]`**
   - **核心用途**：將單輪審查的 JSON 發現合併至累積的 `review.md` 表格中。
   - **跳脫規則**：表格 cell 內的 `|` 寫成 `\|`、換行摺成一個空白；同一性以 finding `id` 判定，不比對 location 文字；至少一個 cell 被跳脫時，成功輸出多印一行提示。
-  - **重點條列**：依識別碼去重、蓋印各發現的來源輪次（`Origin`）、嚴重度取最大值、跨輪次保留記錄、追蹤累計 token 支出與執行的鏡角清單，並評估雙軸 Circuit Breaker（修復引發缺陷比率、預算上限、震盪翻轉、輪次硬上限）於跳閘時輸出升級報告（EscalationReport）。每次合併時，CLI 自動在 `metadata.yaml` 的 `quality_log` 寫入或更新該輪的計數記錄（`criticals_found`、`criticals_fixed`、`majors`、`round`，依輪次冪等）。當累積 findings 表格為 0 列（clean review 輪）時，CLI 亦會自動在 `review.md` 注入符合工件語言（artifact language）的 clean review 總結句。
+  - **重點條列**：依識別碼去重、蓋印各發現的來源輪次（`Origin`）、嚴重度取最大值、跨輪次保留記錄、記錄執行的鏡角清單，並評估 Circuit Breaker（修復引發缺陷比率、震盪翻轉、輪次硬上限、持續測試失敗）於跳閘時輸出升級報告（EscalationReport）。每次合併時，CLI 自動在 `metadata.yaml` 的 `quality_log` 寫入或更新該輪的計數記錄（`criticals_found`、`criticals_fixed`、`majors`、`round`，依輪次冪等）。當累積 findings 表格為 0 列（clean review 輪）時，CLI 亦會自動在 `review.md` 注入符合工件語言（artifact language）的 clean review 總結句。
   - **委派結清**：在任何其他拒收之前先結清 review 委派（`prospec change delegate`）：最新 attempt 尚未收件或已被拒收即拒絕合併且不寫入任何檔案；否則輸出帶一行 delegation 揭露——received、failed 與人類接受的計數及被判 mutated 的 attempt 數，或說明本輪未經委派代理 mutation 偵測。
   - **測試閘門**：在輸入與輪次順序的拒絕（不寫任何檔案）之後，每次合併都要求該變更的 fresh green `test_attempt`，或兩種明確豁免之一（無可解析的測試命令、已證明的 backfill），豁免時以 `tests: not-adjudicated` WARN 合併。測試拒絕以 exit 1 結束並印出 `prospec check --record-tests --change <name>`；它唯一允許的寫入是 `review.md` metrics 註解內有界的測試失敗 metrics（`test_failures`、`test_failure_ids`）——絕不合併 findings 或推進輪次。計數的是 review merge 自身觀測到的不同失敗 attempt（同一 attempt id 重放不重複計數、fresh green 會重設、豁免或迴圈換代不會）；達預設門檻 3 時拒絕同時回報 `persistent_test_failure` 與 `ESCALATE_TO_HUMAN`。沒有門檻旗標。metrics 註解格式錯誤或重複時在任何寫入前拒絕。
 
@@ -445,7 +444,6 @@ claude mcp add -s user prospec-b -- prospec mcp serve --cwd /path/to/B
 | `prospec check [--json] [--strict]` | 零 LLM 確定性檢查：驗證規格、程式碼、依賴方向與知識庫完整性 |
 | `prospec check --record-tests [options]` | 執行專案測試並將結果與退出碼記錄至變更的 `metadata.yaml` |
 | `prospec check --record-review [options]` | 記錄程式碼 digest 與 `delta-spec.md` 指紋作為審查比對基準 |
-| `prospec check --escaped-defects [options]` | 依 `introduced_by` 統計各階段閘門的缺陷漏失率報表 |
 | `prospec check --init-ci` | 生成 GitHub Actions CI 閘門（`.github/workflows/prospec-check.yml`） |
 | `prospec check --auto-draft [--auto-draft-dry-run]` | 報告產出後，依 finding 分組建立修復變更（絕不覆寫既有變更；起草失敗不改變 check 自身的退出碼，但與非檢查模式併用會在執行前被拒絕） |
 
@@ -467,7 +465,7 @@ claude mcp add -s user prospec-b -- prospec mcp serve --cwd /path/to/B
   - **執行選項與退出碼**：
     - `--json`：輸出機器可讀的 `prospec-report.json`。
     - `--strict`：任一檢項出現 FAIL 時以 exit 1 退出（WARN 與 SKIPPED 永不影響退出碼）。`--auto-draft` 無法改變這件事：起草在報告寫出之後才執行，起草失敗只會被回報、不會被拋出。
-    - `--auto-draft` 與 `--init-ci` / `--record-review` / `--record-tests` / `--escaped-defects` 併用會被**拒絕**（exit 1、不寫入任何檔案），因為那四種模式都在漂移檢查執行前就返回；`--auto-draft-dry-run` 缺少 `--auto-draft` 時同樣被拒——無法被履行的旗標會被拒絕，而不是靜默忽略。
+    - `--auto-draft` 與 `--init-ci` / `--record-review` / `--record-tests` 併用會被**拒絕**（exit 1、不寫入任何檔案），因為那三種模式都在漂移檢查執行前就返回；`--auto-draft-dry-run` 缺少 `--auto-draft` 時同樣被拒——無法被履行的旗標會被拒絕，而不是靜默忽略。
     - 料源不可用時自動降級為 `skipped` 並說明具體原因，絕不偽裝 PASS。
 
 - **`prospec change auto-draft [--from-report [file]] [--target <name>] [--reason <text>] [--check <id>] [--scale <scale>] [--issue <ref>] [--dry-run]`**
@@ -487,8 +485,7 @@ claude mcp add -s user prospec-b -- prospec mcp serve --cwd /path/to/B
 - **`prospec check --record-review [--change <name>]`**
   - **核心用途**：記錄該變更的審查基線（程式碼 digest）與 `delta-spec.md` 指紋，供後續驗證 `review-provenance` 與 `delta-spec-provenance`。
 
-- **`prospec check --escaped-defects [--json]`**
-  - **核心用途**：依 `introduced_by` 欄位聚合各階段閘門的漏失缺陷率（報表模式，不產生 finding 也不影響 exit code）。
+- **已移除的旗標（breaking）**：`prospec check --escaped-defects`、`prospec review merge --spend` / `--budget`、`prospec verify record --spend` 與 `prospec change story --introduced-by` 已不存在——每一個都會被當成未知選項拒絕（exit 1、不寫入任何檔案），請從包裝腳本中移除。既有紀錄仍可讀取：帶有 `introduced_by` 或 `dimensions[].spend` 的 `metadata.yaml` 照常通過驗證；`review.md` metrics 註解中的 `spend_before` / `round_spend` / `cumulative_spend` 可正常解析、這些屬性被忽略，下次合併時不再寫回。工作樹中若仍留有未被 ignore 的 `escaped-defect-report.json`，請刪除或 ignore 它，再重跑 `prospec check --record-review` / `--record-tests`：這個檔案現在是 review 與 test digest 的一般組成部分。
 
 - **`prospec check --init-ci`**
   - **核心用途**：生成供應鏈強化的 GitHub Actions CI 閘門（`.github/workflows/prospec-check.yml`），採用完整 SHA 固定、最小權限原則與 PR sticky comment。

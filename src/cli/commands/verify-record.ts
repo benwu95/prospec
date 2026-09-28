@@ -12,7 +12,7 @@ import {
 import { handleError } from '../formatters/error-output.js';
 import type { GlobalOptions } from '../index.js';
 import { resolveLogLevel } from '../log-level.js';
-import { collect, parseDate, parseIntOption } from '../parse-options.js';
+import { collect, parseDate } from '../parse-options.js';
 import { COMMAND_HELP_SPECS, renderCommandHelp } from '../../types/cli-help.js';
 
 /** `name=result` → a judgment QualityDimension (adjudicator is always judgment here). */
@@ -108,11 +108,6 @@ export function registerVerifyCommand(program: Command): void {
         .argParser(parseExecutor)
         .conflicts('dimensions'),
     )
-    .addOption(
-      new Option('--spend <tokens>', 'Self-reported tokens spent grading (flag form)')
-        .argParser(parseIntOption('spend', 0))
-        .conflicts('dimensions'),
-    )
     .option('--warning <text>', 'Budget-counted WARN detail (repeatable)', collect, [])
     .option('--date <date>', 'Entry date (defaults to today)', parseDate)
     .option('--change <name>', 'Specify the change name')
@@ -122,7 +117,6 @@ export function registerVerifyCommand(program: Command): void {
         dimensions?: string;
         gradedBy?: DimensionGradedBy;
         executor?: string;
-        spend?: number;
         warning: string[];
         date?: string;
         change?: string;
@@ -136,7 +130,6 @@ export function registerVerifyCommand(program: Command): void {
           ...d,
           graded_by: options.gradedBy,
           ...(options.executor !== undefined ? { executor: options.executor } : {}),
-          ...(options.spend !== undefined ? { spend: options.spend } : {}),
         }));
         try {
           const { execute } = await import('../../services/verify-record.service.js');

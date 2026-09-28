@@ -67,10 +67,6 @@ export interface ReviewMergeOptions {
    *  merge re-runs the round review.md records until `prospec change log` has
    *  closed it, then opens the next one. Explicit: that round or the next one. */
   round?: number;
-  /** Self-reported token spend for this review round. */
-  spend?: number;
-  /** Total token spend budget for review loop. */
-  budget?: number;
   /** Maximum allowed fix-induced ratio in round > 1 before tripping (default 0.5). */
   maxFixInducedRatio?: number;
   /** Maximum allowed review rounds before hard cap tripping (default 3). */
@@ -97,10 +93,7 @@ export interface ReviewCriticalDigest {
 
 export interface ReviewRoundStats extends ReviewRoundCounts {
   roundNumber: number;
-  spend?: number;
-  cumulativeSpend?: number;
   fixInducedRatio?: number;
-  budget?: number;
 }
 
 export interface ReviewMergeResult {
@@ -116,7 +109,7 @@ export interface ReviewMergeResult {
   round: ReviewRoundStats;
   /** Cells of this round's findings the table engine rewrote (`|` / line break). */
   escapedCells: number;
-  /** Dual-axis circuit breaker evaluation state. */
+  /** Circuit breaker evaluation state (round cap, oscillation, fix-induced ratio, persistent test failure). */
   circuitBreaker?: CircuitBreakerState;
   /** How the fresh-test gate admitted this merge. */
   testGate: TestGateOutcome;
@@ -259,7 +252,6 @@ export async function execute(options: ReviewMergeOptions): Promise<ReviewMergeR
     maxReviewRounds: options.maxRounds,
     maxOscillationFlips: options.maxFlips,
     maxFixInducedRatio: options.maxFixInducedRatio,
-    maxSpend: options.budget,
   });
   const threshold = breaker.getMaxConsecutiveTestFailures();
   let assessment = await assessCurrentTestEvidence(cwd, changeName);
@@ -359,24 +351,6 @@ export async function execute(options: ReviewMergeOptions): Promise<ReviewMergeR
   const inLoopRound = Math.max(1, finalRoundNumber - loopBase);
   const baseRound = loopBase + 1;
 
-  const isNewRound = docMetrics.round === undefined || finalRoundNumber > docMetrics.round;
-  const priorCumulative =
-    docMetrics.spendBefore !== undefined
-      ? docMetrics.spendBefore + (docMetrics.lastRoundSpend ?? 0)
-      : (docMetrics.cumulativeSpend ?? 0);
-  const spendBefore = loopClosedSinceLastMerge
-    ? 0
-    : isNewRound
-      ? priorCumulative
-      : (docMetrics.spendBefore ?? 0);
-  const roundSpend = options.spend ?? (isNewRound ? undefined : docMetrics.lastRoundSpend);
-  const hasSpendTracking =
-    options.spend !== undefined ||
-    docMetrics.spendBefore !== undefined ||
-    docMetrics.lastRoundSpend !== undefined ||
-    docMetrics.cumulativeSpend !== undefined;
-  const cumulativeSpend = hasSpendTracking ? spendBefore + (roundSpend ?? 0) : undefined;
-
   const merged = mergeFindings(rows, findings, finalRoundNumber);
 
   const trials: Record<string, (boolean | undefined)[]> = loopClosedSinceLastMerge
@@ -393,9 +367,6 @@ export async function execute(options: ReviewMergeOptions): Promise<ReviewMergeR
 
   // Evaluate Circuit Breaker
   breaker.setReviewRound(inLoopRound);
-  if (cumulativeSpend !== undefined && cumulativeSpend > 0) {
-    breaker.recordSpend(cumulativeSpend);
-  }
   for (const [sig, hist] of Object.entries(trials)) {
     for (const passed of hist) {
       if (passed !== undefined) {
@@ -422,9 +393,6 @@ export async function execute(options: ReviewMergeOptions): Promise<ReviewMergeR
   // round's sentence would otherwise persist into this round when it has findings.
   let rendered = renderReviewDocument(stripCleanReviewBlock(existingContent), merged, changeName, {
       round: finalRoundNumber,
-      spendBefore: hasSpendTracking ? spendBefore : undefined,
-      lastRoundSpend: roundSpend,
-      cumulativeSpend,
       loopBase,
       provenanceDigest: provenanceDigest ?? docMetrics.provenanceDigest,
       lenses: combinedLenses && combinedLenses.length > 0 ? combinedLenses : undefined,
@@ -522,10 +490,7 @@ export async function execute(options: ReviewMergeOptions): Promise<ReviewMergeR
     round: {
       ...roundCounts(findings),
       roundNumber: finalRoundNumber,
-      spend: roundSpend,
-      cumulativeSpend: hasSpendTracking ? cumulativeSpend : undefined,
       fixInducedRatio: circuitBreaker?.fixInducedRatio,
-      budget: options.budget,
     },
     escapedCells: escapedCellsFor(merged, findings),
     circuitBreaker,

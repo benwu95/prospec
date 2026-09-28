@@ -21,9 +21,6 @@ export interface ChangeStoryOptions {
    *  change name). An empty array is an answer, not an absence: it suppresses
    *  the keyword fallback. Omit the key to ask for keyword matching. */
   relatedModules?: string[];
-  /** Escaped-defect registration for bug-fix changes: the change that missed
-   *  the defect (see _status-lifecycle.md). */
-  introducedBy?: string;
   /** External-tracker registration: the issue this change belongs to. Free-form
    *  (`#131`, a URL, another tracker's id) and never validated. */
   issue?: string;
@@ -134,9 +131,6 @@ export async function execute(options: ChangeStoryOptions): Promise<ChangeStoryR
       : {}),
     ...(options.description
       ? ({ description: options.description } satisfies Partial<NewChangeMetadata>)
-      : {}),
-    ...(options.introducedBy
-      ? ({ introduced_by: options.introducedBy } satisfies Partial<NewChangeMetadata>)
       : {}),
     // Absent/blank/multi-line semantics live in `normalizeIssueRef`, not here —
     // the status service and the archive summary read through the same helper.

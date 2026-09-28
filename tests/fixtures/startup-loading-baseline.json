@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "note": "Exact per-skill mandatory context and per-reference sizes (the larger capability branch), anchored by REFERENCE_CEILING_ANCHOR / CUMULATIVE_CEILING_ANCHOR in tests/contract/skill-format.test.ts, whose comment records every rebaseline and its reason. Re-captured on base 099a25b by the change slice-constitution-and-playbook (four station skills run `prospec constitution show --station`, plan and implement run `prospec learn playbook`, plan reads Feature Specs through `prospec spec show --story`; item keys are those command strings; cumulative lowered 88,545 → 88,535 (review round 1: the plan item 4 clause names `{{knowledge_base_path}}/feature-map.yaml`, one token shorter); reference ceiling 50,977 → 51,089 for the `stations` field in drift-report-format and the parsed module list in promotion-format). Re-captured for route-playbook-by-station after station-load wording and promotion-format compaction; ceilings remain unchanged.",
+  "note": "Exact per-skill mandatory context and per-reference sizes (the larger capability branch), anchored by REFERENCE_CEILING_ANCHOR / CUMULATIVE_CEILING_ANCHOR in tests/contract/skill-format.test.ts, whose comment records every rebaseline and its reason. Re-captured on base 099a25b by the change slice-constitution-and-playbook (four station skills run `prospec constitution show --station`, plan and implement run `prospec learn playbook`, plan reads Feature Specs through `prospec spec show --story`; item keys are those command strings; cumulative lowered 88,545 → 88,535 (review round 1: the plan item 4 clause names `{{knowledge_base_path}}/feature-map.yaml`, one token shorter); reference ceiling 50,977 → 51,089 for the `stations` field in drift-report-format and the parsed module list in promotion-format). Re-captured for route-playbook-by-station after station-load wording and promotion-format compaction; ceilings remain unchanged. Re-captured for remove-self-reported-signals after the spend axis and the escaped-defect sections left circuit-breaker, delegated-evidence-format, drift-report-format, metadata-format and review-format and the prospec-review / prospec-verify bodies (every row shrank); review round 2 re-measured prospec-review 7,842 → 7,872 after The Loop step 5 stopped attributing the early-stop conditions to the CLI; ceilings remain unchanged.",
   "cumulative_ceiling_tokens": 88535,
   "skills": {
     "prospec-archive": {
@@ -148,7 +148,7 @@
         "{{knowledge_base_path}}/_conventions.md"
       ],
       "mandatory": 1,
-      "mandatory_context_tokens": 7862
+      "mandatory_context_tokens": 7872
     },
     "prospec-tasks": {
       "items": [
@@ -175,7 +175,7 @@
         "{{constitution_path}}"
       ],
       "mandatory": 0,
-      "mandatory_context_tokens": 10617
+      "mandatory_context_tokens": 10613
     }
   },
   "reference_ceiling_tokens": 51089,
@@ -187,25 +187,25 @@
     "archive-format": 1319,
     "candidate-evaluation": 2366,
     "cascade-protocol": 2447,
-    "circuit-breaker": 1339,
+    "circuit-breaker": 1222,
     "debug-recovery-format": 1307,
-    "delegated-evidence-format": 3270,
+    "delegated-evidence-format": 3260,
     "delegation-protocol": 2448,
     "delta-spec-format": 2017,
     "design-spec-format": 930,
-    "drift-report-format": 2869,
+    "drift-report-format": 2582,
     "feature-boundary-criteria": 963,
     "feature-spec-format": 1185,
     "implementation-guide": 1075,
     "interaction-spec-format": 835,
-    "metadata-format": 3610,
+    "metadata-format": 3516,
     "plan-format": 2473,
     "plan-verifier-rubric": 2167,
     "product-spec-format": 1277,
     "project-test-runner": 799,
     "promotion-format": 1645,
     "proposal-format": 1211,
-    "review-format": 2589,
+    "review-format": 2568,
     "review-lenses-content": 2960,
     "spec-graduation": 892,
     "tasks-format": 1549,

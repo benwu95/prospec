@@ -4,7 +4,9 @@ import { mkdirSync, mkdtempSync, realpathSync, rmSync, utimesSync, writeFileSync
 import os from 'node:os';
 import path from 'node:path';
 import type { RepoState } from '../../../src/types/delegation.js';
+import { DRIFT_REPORT_FILENAME } from '../../../src/types/drift-report.js';
 import {
+  DELEGATION_REPORT_FILES,
   captureRepoState,
   describeFacet,
   describeRefChanges,
@@ -58,11 +60,17 @@ describe('captureRepoState / diffRepoState — each facet (REQ-LIB-090)', () => 
     expect(changedAfter(() => put('a.txt', 'changed\n')).changed).toEqual(['content']);
   });
 
-  it('reports content when a repository-root report file changes — tracked and rewritten, or appearing untracked (C-1 pin)', () => {
-    put('prospec-report.json', '{"v":1}\n');
+  it('reports content when a repository-root report file changes — appearing untracked, or tracked and rewritten (C-1 pin)', () => {
+    expect(changedAfter(() => put('prospec-report.json', '{"v":1}\n')).changed).toEqual(['content']);
     git('add', 'prospec-report.json');
     git('commit', '-qm', 'report');
     expect(changedAfter(() => put('prospec-report.json', '{"v":2}\n')).changed).toEqual(['content']);
+  });
+
+  it('treats a leftover escaped-defect-report.json as an ordinary non-ignored file (REQ-LIB-090)', () => {
+    // An ordinary file and a listed report file both flip `content`, so the list itself is the
+    // discriminator: only the drift report is hashed as a report token.
+    expect([...DELEGATION_REPORT_FILES]).toEqual([DRIFT_REPORT_FILENAME]);
     expect(changedAfter(() => put('escaped-defect-report.json', '{}\n')).changed).toEqual(['content']);
   });
 

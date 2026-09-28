@@ -23,8 +23,6 @@ export function registerReviewCommand(program: Command): void {
     .requiredOption('--findings <file>', "Path to the round's findings JSON array")
     .option('--change <name>', 'Specify the change name')
     .option('--round <number>', 'In-loop round, starting at 1 on every entry into review (omitted: re-runs the recorded round until `prospec change log` closes it)', parseIntOption('round', 1))
-    .option('--spend <tokens>', 'Self-reported token spend for this round', parseIntOption('spend', 0))
-    .option('--budget <tokens>', 'Maximum token spend budget for the review loop', parseIntOption('budget', 1))
     .option('--max-fix-induced-ratio <ratio>', 'Maximum fix-induced ratio threshold (0.0-1.0)', parseRatio('max-fix-induced-ratio'))
     .option('--max-rounds <number>', `Maximum review rounds before hard cap (${REVIEW_ROUNDS_MIN}-${REVIEW_ROUNDS_MAX})`, parseBoundedInt('max-rounds', REVIEW_ROUNDS_MIN, REVIEW_ROUNDS_MAX))
     .option('--max-flips <number>', 'Maximum oscillation flips before tripping', parseIntOption('max-flips', 1))
@@ -34,8 +32,6 @@ export function registerReviewCommand(program: Command): void {
         findings: string;
         change?: string;
         round?: number;
-        spend?: number;
-        budget?: number;
         maxFixInducedRatio?: number;
         maxRounds?: number;
         maxFlips?: number;
@@ -50,8 +46,6 @@ export function registerReviewCommand(program: Command): void {
             quiet: globalOpts.quiet,
             findingsPath: options.findings,
             round: options.round,
-            spend: options.spend,
-            budget: options.budget,
             maxFixInducedRatio: options.maxFixInducedRatio,
             maxRounds: options.maxRounds,
             maxFlips: options.maxFlips,

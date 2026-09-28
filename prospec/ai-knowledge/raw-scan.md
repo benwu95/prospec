@@ -68,6 +68,7 @@ prospec/
       types/
   specs/
     _archived-history/
+      2026-09-27-route-playbook-by-station/
     features/
       agent-integration/
       ai-knowledge/
@@ -101,6 +102,7 @@ tests/
   e2e/
     helpers/
   fixtures/
+    legacy-metadata/
     lessons-harvest/
       2026-05-01-alpha/
       2026-05-08-beta/
@@ -225,8 +227,8 @@ tests/
 > non-source ancestor, and both lists are ordered by file volume — a cap keeps the biggest, not the
 > alphabetically first.
 
-- `tests/fixtures/` — 632 files: `.md`, `.yaml`, `.json`, `.txt`
-- `prospec/` — 297 files: `.md`, `.yaml`
+- `tests/fixtures/` — 634 files: `.md`, `.yaml`, `.json`, `.txt`
+- `prospec/` — 300 files: `.md`, `.yaml`
 - `planning/` — 10 files: `.md`
 - `reference/` — 2 files: `.md`
 
@@ -234,5 +236,5 @@ tests/
 
 | Metric | Value |
 |--------|-------|
-| Total files | 1544 |
+| Total files | 1546 |
 | Scan depth | 10 |

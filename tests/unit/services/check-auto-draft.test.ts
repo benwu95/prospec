@@ -97,7 +97,7 @@ describe('check.service --auto-draft integration', () => {
   };
 
   it('refuses --auto-draft in every mode that returns before the drift run', async () => {
-    for (const mode of ['initCi', 'recordReview', 'recordTests', 'escapedDefects'] as const) {
+    for (const mode of ['initCi', 'recordReview', 'recordTests'] as const) {
       await expect(execute({ cwd: tmpDir, autoDraft: true, [mode]: true })).rejects.toThrow(
         /cannot be combined/,
       );

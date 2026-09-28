@@ -301,7 +301,7 @@ describe('review-merge service', () => {
     expect(vol.readFileSync(REVIEW, 'utf-8') as string).toContain('why it was raised');
   });
 
-  it('tracks explicit round, spend, and evaluates dual-axis circuit breaker (REQ-SERVICES-098)', async () => {
+  it('tracks explicit round and evaluates the fix-induced circuit breaker, keeping no spend account (REQ-SERVICES-098)', async () => {
     seed([
       { id: 'F-1', location: 'src/a.ts:1', severity: 'critical', lens: 'correctness', summary: 'bug1', repro: 'pnpm a' },
     ]);
@@ -309,15 +309,16 @@ describe('review-merge service', () => {
       cwd: CWD,
       findingsPath: FINDINGS,
       round: 1,
-      spend: 2500,
-      budget: 5000,
     });
     expect(res1.round.roundNumber).toBe(1);
-    expect(res1.round.spend).toBe(2500);
-    expect(res1.round.cumulativeSpend).toBe(2500);
+    expect(res1.round).not.toHaveProperty('spend');
+    expect(res1.round).not.toHaveProperty('cumulativeSpend');
+    expect(res1.round).not.toHaveProperty('budget');
     expect(res1.circuitBreaker?.tripped).toBe(false);
+    expect(res1.circuitBreaker).not.toHaveProperty('cumulativeSpend');
+    expect(vol.readFileSync(REVIEW, 'utf-8') as string).not.toMatch(/spend_before|round_spend|cumulative_spend/);
 
-    // Round 2 introduces 2 fix-induced findings with spend that exceeds budget
+    // Round 2 introduces 2 fix-induced findings
     vol.writeFileSync(
       FINDINGS,
       JSON.stringify([
@@ -330,37 +331,13 @@ describe('review-merge service', () => {
       cwd: CWD,
       findingsPath: FINDINGS,
       round: 2,
-      spend: 3500,
-      budget: 5000,
       maxFixInducedRatio: 0.5,
     });
     expect(res2.round.roundNumber).toBe(2);
-    expect(res2.round.spend).toBe(3500);
     expect(res2.circuitBreaker?.tripped).toBe(true);
+    expect(res2.circuitBreaker?.escalationReport?.type).toBe('fix_induced_threshold_exceeded');
     // Fix induced: F-2 and F-3 are new in round 2 (2/3 = 66.7% > 50%)
     expect(res2.circuitBreaker?.fixInducedRatio).toBeGreaterThan(0.5);
-  });
-
-  it('handles re-running the same round with spend idempotently without accumulating', async () => {
-    seed([
-      { id: 'F-1', location: 'src/a.ts:1', severity: 'critical', lens: 'correctness', summary: 'bug1', repro: 'pnpm a' },
-    ]);
-    const res1 = await execute({
-      cwd: CWD,
-      findingsPath: FINDINGS,
-      round: 1,
-      spend: 2000,
-    });
-    expect(res1.round.cumulativeSpend).toBe(2000);
-
-    // Re-run round 1 with updated spend of 2200
-    const res1b = await execute({
-      cwd: CWD,
-      findingsPath: FINDINGS,
-      round: 1,
-      spend: 2200,
-    });
-    expect(res1b.round.cumulativeSpend).toBe(2200); // replaces, not 4200
   });
 
   it('detects loop boundaries on re-entry when review_provenance digest changes', async () => {
@@ -495,7 +472,7 @@ ${FRESH_GREEN}`,
     expect(res.circuitBreaker?.tripped).toBe(false);
   });
 
-  it('falls back to cumulative_spend on legacy comment format across rounds', async () => {
+  it('ignores legacy spend attributes: the round merges and the rewritten metrics carry none (REQ-SERVICES-098)', async () => {
     const initialFiles: Record<string, string> = {
       '/repo/.prospec/changes/add-widget/metadata.yaml': `
 name: add-widget
@@ -519,41 +496,16 @@ ${FRESH_GREEN}`,
       cwd: CWD,
       findingsPath: FINDINGS,
       round: 2,
-      spend: 1000,
-      budget: 4500,
     });
 
-    expect(res.round.cumulativeSpend).toBe(5000);
-    expect(res.circuitBreaker?.tripped).toBe(true);
-    expect(res.circuitBreaker?.escalationReport?.type).toBe('spend_budget_exceeded');
+    expect(res.round.roundNumber).toBe(2);
+    expect(res.circuitBreaker?.tripped).toBe(false);
+    const written = vol.readFileSync(REVIEW, 'utf8') as string;
+    expect(written).toContain('<!-- prospec:review-metrics round="2"');
+    expect(written).not.toMatch(/spend_before|round_spend|cumulative_spend/);
   });
 
-  it('does not ghost-accumulate spend when spend is omitted in intermediate rounds', async () => {
-    seed([
-      { id: 'F-1', location: 'src/a.ts:1', severity: 'critical', lens: 'correctness', status: 'open', summary: 'bug1', repro: 'pnpm a' },
-    ]);
-
-    // R1: spend 4000
-    const r1 = await execute({ cwd: CWD, findingsPath: FINDINGS, round: 1, spend: 4000, budget: 6000 });
-    expect(r1.round.cumulativeSpend).toBe(4000);
-
-    // R2: no spend provided (omitted)
-    const r2 = await execute({ cwd: CWD, findingsPath: FINDINGS, round: 2, budget: 6000 });
-    expect(r2.round.cumulativeSpend).toBe(4000);
-
-    // R3: spend 1000 and F-1 fixed -> cumulative must be 5000 (not 9000) and no breaker trip
-    vol.writeFileSync(
-      FINDINGS,
-      JSON.stringify([
-        { id: 'F-1', location: 'src/a.ts:1', severity: 'critical', lens: 'correctness', status: 'fixed', summary: 'bug1', repro: 'pnpm a' },
-      ]),
-    );
-    const r3 = await execute({ cwd: CWD, findingsPath: FINDINGS, round: 3, spend: 1000, budget: 6000 });
-    expect(r3.round.cumulativeSpend).toBe(5000);
-    expect(r3.circuitBreaker?.tripped).toBe(false);
-  });
-
-  it('resets spend budget and trials when entering a new review loop after review_provenance changes', async () => {
+  it('resets trials when entering a new review loop after review_provenance changes, dropping legacy spend attributes', async () => {
     const initialFiles: Record<string, string> = {
       '/repo/.prospec/changes/add-widget/metadata.yaml': `
 name: add-widget
@@ -580,47 +532,40 @@ ${FRESH_GREEN}`,
     };
     vol.fromJSON(initialFiles);
 
-    // Re-entry round 1 with spend 100 and budget 5000
     const res = await execute({
       cwd: CWD,
       findingsPath: FINDINGS,
       round: 1,
-      spend: 100,
-      budget: 5000,
     });
 
-    // Cumulative spend is 100 for this new loop, not 9100!
-    expect(res.round.cumulativeSpend).toBe(100);
     expect(res.circuitBreaker?.tripped).toBe(false);
-    // the previous loop's trial history is not carried either: slot 0 of the new loop only
+    // the previous loop's trial history is not carried: slot 0 of the new loop only
     const written = vol.readFileSync(REVIEW, 'utf8') as string;
     expect(written).toContain('signatures="F-1:P"');
     expect(written).not.toContain('F-1:FP');
+    expect(written).not.toMatch(/spend_before|round_spend|cumulative_spend/);
   });
 
   it('re-running the merge without --round stays on the recorded round until `change log` closes it (byte-idempotent)', async () => {
     seed(round1);
-    const first = await execute({ cwd: CWD, findingsPath: FINDINGS, spend: 4000, budget: 6000 });
+    const first = await execute({ cwd: CWD, findingsPath: FINDINGS });
     expect(first.round.roundNumber).toBe(1);
     const written = vol.readFileSync(REVIEW, 'utf-8');
-    const again = await execute({ cwd: CWD, findingsPath: FINDINGS, spend: 4000, budget: 6000 });
+    const again = await execute({ cwd: CWD, findingsPath: FINDINGS });
     expect(again.round.roundNumber).toBe(1);
-    expect(again.round.cumulativeSpend).toBe(4000);
     expect(again.circuitBreaker?.tripped).toBe(false);
     expect(vol.readFileSync(REVIEW, 'utf-8')).toBe(written);
   });
 
   it('advances the round without --round once quality_log records the current round', async () => {
     seed(round1);
-    await execute({ cwd: CWD, findingsPath: FINDINGS, spend: 4000, budget: 6000 });
+    await execute({ cwd: CWD, findingsPath: FINDINGS });
     vol.writeFileSync(
       '/repo/.prospec/changes/add-widget/metadata.yaml',
       META_HEAD + "quality_log:\n  - skill: prospec-review\n    date: '2026-08-28'\n    round: 1\n    result: WARN\n  - skill: prospec-review\n    date: '2026-08-28'\n    result: WARN\n" + FRESH_GREEN,
     );
-    const r2 = await execute({ cwd: CWD, findingsPath: FINDINGS, spend: 3000, budget: 6000 });
+    const r2 = await execute({ cwd: CWD, findingsPath: FINDINGS });
     expect(r2.round.roundNumber).toBe(2);
-    expect(r2.round.cumulativeSpend).toBe(7000);
-    expect(r2.circuitBreaker?.escalationReport?.type).toBe('spend_budget_exceeded');
   });
 
   it('refuses an explicit --round that is neither the recorded round nor the next one, review.md untouched', async () => {
@@ -781,18 +726,17 @@ describe('review-merge test gate — fresh green before any merge (REQ-CLI-028, 
     expect((err as TestGateError).circuitBreaker).toBeUndefined();
   });
 
-  it('a counted refusal splices ONLY the test attributes: findings, evidence, prose, round and spend are byte-identical', async () => {
+  it('a counted refusal splices ONLY the test attributes: findings, evidence, prose and rounds are unchanged (REQ-TESTS-120)', async () => {
     seed([critical]);
-    await execute({ cwd: CWD, findingsPath: FINDINGS, round: 1, spend: 100, budget: 1000, lenses: ['correctness'] });
+    await execute({ cwd: CWD, findingsPath: FINDINGS, round: 1, lenses: ['correctness'] });
     const annotated = readReview() + '\nhuman note below the evidence\n';
     vol.writeFileSync(REVIEW, annotated);
     vol.writeFileSync(METADATA, META_HEAD + FAILED('a2'));
     vol.writeFileSync(FINDINGS, JSON.stringify([{ ...critical, status: 'fixed' }, { id: 'F-9', location: 'z', severity: 'major', lens: 'x', summary: 'new' }]));
-    await expect(execute({ cwd: CWD, findingsPath: FINDINGS, round: 2, spend: 999 })).rejects.toBeInstanceOf(TestGateError);
+    await expect(execute({ cwd: CWD, findingsPath: FINDINGS, round: 2 })).rejects.toBeInstanceOf(TestGateError);
     const after = readReview();
     expect(bodyOf(after)).toBe(bodyOf(annotated));
     expect(metricsLine(after)).toContain('round="1"');
-    expect(metricsLine(after)).toContain('cumulative_spend="100"');
     expect(metricsLine(after)).toContain('lenses="correctness"');
     expect(metricsLine(after)).toContain('test_failures="1"');
     expect(after).not.toContain('F-9');

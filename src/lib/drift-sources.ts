@@ -37,12 +37,11 @@ import {
 } from './knowledge-reader.js';
 import { estimateTokens } from './token-accounting.js';
 import { DRIFT_REPORT_FILENAME, type ConstitutionRuleEntry } from '../types/drift-report.js';
-import { ESCAPED_DEFECT_REPORT_FILENAME } from '../types/escaped-defect.js';
 import type { ModuleMap } from '../types/module-map.js';
 import type { FeatureMap } from '../types/feature-map.js';
 import { FINGERPRINT_VERSION, EVIDENCE_SCOPE } from '../types/change.js';
 import type { TestEvidenceFacts } from '../types/station.js';
-import { isPlanSignoffEntry, isReviewRoundCountsEntry, readChangeMetadata } from './change-metadata.js';
+import { readChangeMetadata } from './change-metadata.js';
 import { PrerequisiteError } from '../types/errors.js';
 import type { InputSnapshot } from '../types/drift-report.js';
 import { AGENT_CONFIGS, SKILL_DEFINITIONS } from '../types/skill.js';
@@ -83,7 +82,6 @@ const REQ_ID_PATTERN = new RegExp(REQ_ID_SOURCE, 'g');
  *  this list by construction. */
 const DIGEST_EXCLUDED_REPORTS = [
   DRIFT_REPORT_FILENAME,
-  ESCAPED_DEFECT_REPORT_FILENAME,
 ] as const;
 
 // Archived exclusion is single-sourced in knowledge-reader.ts so the MCP
@@ -363,31 +361,6 @@ export interface ConstitutionRuleSource {
   /** repo-relative CONSTITUTION.md path (finding anchor). */
   source_path: string;
   rules: ConstitutionRuleEntry[];
-}
-
-export interface QualityLedgerChange {
-  /** Canonical change name — metadata `name`, falling back to the directory name.
-   *  `introduced_by` is registered as this name, so it is what resolution keys on. */
-  name: string;
-  /** The ledger directory name. Archived dirs carry a `YYYY-MM-DD-` prefix the
-   *  canonical name does not, which is why both are reported. */
-  dir: string;
-  /** `changes` for an in-flight change, `archive` for an archived one. */
-  ledger: 'changes' | 'archive';
-  status: string;
-  /** the change this one blames for letting a defect through, when registered. */
-  introduced_by: string | null;
-  /** `{skill, result}` pairs distilled from quality_log, in file order. */
-  gate_results: Array<{ skill: string; result: string }>;
-}
-
-export interface QualityLedgerSource {
-  available: boolean;
-  reason?: string;
-  /** False when `.prospec/archive/` is absent (gitignored by design) — the sample
-   *  is then honestly partial rather than silently so. */
-  archive_available: boolean;
-  changes: QualityLedgerChange[];
 }
 
 /** Collect defined REQ ids from feature spec headings (deprecated ~~REQ~~ included). */
@@ -2323,78 +2296,6 @@ export function collectConstitutionRules(
   return { available: true, source_path, rules };
 }
 
-/**
- * Collect the gate ledger across BOTH `.prospec/changes/` and `.prospec/archive/`
- * (REQ-LIB-034) — the input to escaped-defect aggregation. The archive is
- * gitignored by design, so its absence is reported rather than treated as an empty
- * history. Needs no git.
- */
-export function collectQualityLedger(cwd: string): QualityLedgerSource {
-  const changesDir = path.resolve(cwd, '.prospec/changes');
-  const archiveDir = path.resolve(cwd, '.prospec/archive');
-  const archive_available = existsSync(archiveDir);
-  if (!existsSync(changesDir) && !archive_available) {
-    return {
-      available: false,
-      reason: 'source unavailable: neither .prospec/changes/ nor .prospec/archive/ found',
-      archive_available: false,
-      changes: [],
-    };
-  }
-  const changes: QualityLedgerChange[] = [];
-  const ledgers: Array<{ dir: string; ledger: 'changes' | 'archive' }> = [
-    { dir: changesDir, ledger: 'changes' },
-    { dir: archiveDir, ledger: 'archive' },
-  ];
-  for (const { dir, ledger } of ledgers) {
-    if (!existsSync(dir)) continue;
-    for (const entry of enumerateChangeMetadata(dir, cwd)) {
-      if (entry.meta === null) continue; // unparseable — no gate facts to harvest
-      const introduced = entry.meta.introduced_by;
-      const declaredName = readString(entry.meta.name).trim();
-      changes.push({
-        name: declaredName.length > 0 ? declaredName : entry.name,
-        dir: entry.name,
-        ledger,
-        status: readString(entry.meta.status),
-        introduced_by:
-          typeof introduced === 'string' && introduced.trim().length > 0
-            ? introduced.trim()
-            : null,
-        gate_results: readGateResults(entry.meta.quality_log),
-      });
-    }
-  }
-  return { available: true, archive_available, changes };
-}
-
-/** Distil quality_log into `{skill, result}` pairs, dropping malformed entries —
- *  an aggregate must not invent a gate record it cannot read. Exported for the
- *  escaped-defect gate-set tests. */
-export function readGateResults(quality_log: unknown): Array<{ skill: string; result: string }> {
-  if (!Array.isArray(quality_log)) return [];
-  const out: Array<{ skill: string; result: string }> = [];
-  for (const entry of quality_log) {
-    if (entry === null || typeof entry !== 'object') continue;
-    const e = entry as { skill?: unknown; result?: unknown; round?: unknown; signoff_option?: unknown };
-    if (typeof e.skill !== 'string' || typeof e.result !== 'string') continue;
-    // A merge-written round-counts entry (skill: prospec-review + a `round`) is a
-    // metric, not a gate outcome — its PASS would register the review gate as passed
-    // even when the round-less close entry is a WARN, skewing escaped-defect rates.
-    if (isReviewRoundCountsEntry({ skill: e.skill, round: typeof e.round === 'number' ? e.round : undefined })) continue;
-    // A plan sign-off is provenance too — its PASS would register the plan gate as passed.
-    if (isPlanSignoffEntry({ skill: e.skill, signoff_option: typeof e.signoff_option === 'string' ? e.signoff_option : undefined })) continue;
-    // A blank skill/result is as malformed as a missing one — and downstream the
-    // escaped-defect schema rejects an empty gate name, so letting it through
-    // would take the whole report down instead of dropping one bad record.
-    if (e.skill.trim().length === 0 || e.result.trim().length === 0) continue;
-    // Both trimmed, symmetrically: an untrimmed result made `'PASS '` invisible to
-    // the exact-match PASS comparison — the change silently left the escape stats.
-    out.push({ skill: e.skill.trim(), result: e.result.trim() });
-  }
-  return out;
-}
-
 function readString(value: unknown): string {
   return typeof value === 'string' ? value : '';
 }
@@ -2504,7 +2405,7 @@ export function collectMetadataCompleteness(cwd: string): MetadataCompletenessSo
 function hasVerifyGrade(quality_log: unknown, status: string): boolean {
   if (!Array.isArray(quality_log)) return false;
 
-  // Trimmed like readGateResults: these rows come off raw YAML with no schema
+  // Trimmed like every quality_log consumer: these rows come off raw YAML with no schema
   // pass, and an exact match on `"A "` would flip a genuinely verified change
   // into a FAIL-class metadata-completeness finding (#103, PB-007 sweep).
   const str = (v: unknown): string => (typeof v === 'string' ? v.trim() : '');

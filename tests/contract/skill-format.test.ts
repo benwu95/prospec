@@ -45,6 +45,7 @@ import {
   REVIEW_SEVERITIES,
   ReviewFindingsInputSchema,
   JudgmentDimensionsInputSchema,
+  JudgmentDimensionInputSchema,
   JudgmentItemSchema,
   ScenarioFindingSchema,
   TASKS_VERIFIER_DIMENSIONS,
@@ -3174,10 +3175,15 @@ describe('Skill Format Contract', () => {
       expect(flow).toMatch(/cumulative diff/i);
       // must NOT recommend narrow pass
       expect(flow).not.toMatch(/mode B narrow pass/i);
-      // Step 5: dual-axis circuit breaker
-      expect(flow).toMatch(/dual-axis/i);
-      expect(flow).toMatch(/fix-induced/i);
-      expect(flow).toMatch(/spend/i);
+      // Step 5: the CLI-evaluated breakers — round cap, oscillation, fix-induced ratio,
+      // persistent test failure — and no retired spend axis (REQ-TEMPLATES-066)
+      const step5 = flow.split('\n').find((l) => l.startsWith('5. **Circuit Breakers & Hard Cap**'));
+      expect(step5, 'step 5 of The Loop').toBeDefined();
+      expect(step5).toMatch(/hard cap: \*\*3 rounds\*\*/i);
+      expect(step5).toMatch(/oscillation/i);
+      expect(step5).toMatch(/fix-induced/i);
+      expect(step5).toMatch(/persistent test failure/i);
+      expect(flow).not.toMatch(/dual-axis|\bspend\b|\bbudget\b/i);
     });
 
     it('pins prospec review merge flags and origin_round CLI-stamped semantics (REQ-TEMPLATES-203)', () => {
@@ -3185,8 +3191,8 @@ describe('Skill Format Contract', () => {
       const persist = sectionOf(c, '### Persistence');
       expect(persist).toContain('prospec review merge --findings <file> --lenses <lens,lens,…>');
       expect(persist).toContain('--round <n>');
-      expect(persist).toContain('--spend <tokens>');
-      expect(persist).toContain('--budget <tokens>');
+      expect(persist).not.toContain('--spend');
+      expect(persist).not.toContain('--budget');
       expect(persist).toContain('origin_round');
       expect(persist).toMatch(/stamped by the CLI|CLI stamps/i);
       expect(persist).toMatch(/in-loop round|this review loop's round counter/i);
@@ -3207,6 +3213,8 @@ describe('Skill Format Contract', () => {
       // the pin gate is satisfiable without a mutation tool, and the stopping rules live in one place
       expect(fmt).toContain('no mutation tool');
       expect(fmt).toContain('[`circuit-breaker.md`](circuit-breaker.md)');
+      // the retired spend axis leaves no flag, metric or dual-axis claim behind (REQ-TEMPLATES-067)
+      expect(fmt).not.toMatch(/--spend|--budget|dual-axis|\bspend\b/i);
     });
   });
 
@@ -6386,7 +6394,17 @@ describe('quick-scale-and-ceremony-cleanup — scale reduction + ceremony prunin
   });
 });
 
-describe('Structured quality_log + escaped-defect registration (issue #61)', () => {
+describe('Structured quality_log (issue #61)', () => {
+  it('prospec-verify Record & Status Update names --executor and no spend flag (REQ-CLI-038)', () => {
+    const verify = renderTemplate('skills/prospec-verify.hbs', TEMPLATE_CONTEXT);
+    const start = verify.indexOf('## Record & Status Update');
+    expect(start, 'Record & Status Update section').toBeGreaterThan(-1);
+    const end = verify.indexOf('\n## ', start + 1);
+    const record = verify.slice(start, end === -1 ? undefined : end);
+    expect(record).toContain('--executor');
+    expect(record).not.toMatch(/--spend|\bspend\b/);
+  });
+
   it('prospec-verify Record & Status Update has the CLI append the structured grade + dimensions quality_log entry (issue #107)', () => {
     const verify = renderTemplate('skills/prospec-verify.hbs', TEMPLATE_CONTEXT);
     const section = sectionOf(verify, '## Record & Status Update');
@@ -6434,14 +6452,25 @@ describe('Structured quality_log + escaped-defect registration (issue #61)', () 
     expect(exitGate).toContain('close the round with a `prospec-review` entry');
   });
 
-  it('the shipped status-lifecycle template documents the introduced_by convention + example', () => {
-    const lifecycle = renderTemplate('init/status-lifecycle.md.hbs', TEMPLATE_CONTEXT);
-    const section = sectionOf(lifecycle, '## Escaped-defect registration (`introduced_by`)');
-    expect(section).toContain('introduced_by');
-    expect(section).toMatch(/convention-only|does \*\*not\*\* verify/);
-    expect(section).toContain('<change-name>');
-    // REQ-TYPES-058 AC2: a concrete example value, not just the <change-name> placeholder
-    expect(section).toMatch(/introduced_by:\s*[a-z][a-z0-9-]+/);
+  it('neither status-lifecycle copy documents an escaped-defect registration any more (REQ-TYPES-058 removed)', () => {
+    const copies = [
+      renderTemplate('init/status-lifecycle.md.hbs', TEMPLATE_CONTEXT),
+      fs.readFileSync(path.join(process.cwd(), 'prospec/ai-knowledge/_status-lifecycle.md'), 'utf-8'),
+    ];
+    for (const copy of copies) {
+      const headings = copy.split('\n').filter((l) => l.startsWith('## '));
+      expect(headings).toEqual([
+        '## States and transitions',
+        '## Station order',
+        '## Light-scale artifact matrix',
+        '## Gates (why some transitions are conditional)',
+        '## Stations without a status transition',
+        '## What each gate checks (artifact ownership)',
+        '## Provenance audit scope',
+        '## Rules',
+      ]);
+      expect(copy).not.toMatch(/introduced_by|escaped-defect|--escaped-defects/i);
+    }
   });
 
   describe('verify dimension adjudication split (REQ-TEMPLATES-153..157)', () => {
@@ -6651,16 +6680,16 @@ describe('Structured quality_log + escaped-defect registration (issue #61)', () 
       expect(inventory).toContain('severity');
       expect(inventory).toContain('null');
       expect(inventory).toContain('a not-adjudicated check');
-      const sibling = sectionOf(ref, '## Sibling report — `escaped-defect-report.json`');
-      expect(sibling).toContain('escaped_rate');
-      expect(sibling).toContain('sample_count: 0');
-      expect(sibling).toContain('archive_available');
+      // the retired escaped-defect sibling report leaves no section or field behind (REQ-TEMPLATES-157)
+      expect(ref.split('\n').filter((l) => l.startsWith('## Sibling report'))).toEqual([]);
+      expect(ref).not.toMatch(/escaped-defect|escaped_rate|introduced_by|--escaped-defects/);
     });
 
     it('documents test_provenance in the metadata-format reference, in canonical order', () => {
       const ref = renderTemplate('skills/references/metadata-format.hbs', TEMPLATE_CONTEXT);
       const order = sectionOf(ref, '## Canonical field order');
-      expect(order).toContain('`review_provenance` → `test_provenance` → `test_attempt` → `delta_spec_provenance` → `introduced_by`');
+      expect(order).toContain('`review_provenance` → `test_provenance` → `test_attempt` → `delta_spec_provenance` → `issue`');
+      expect(order).not.toContain('introduced_by');
       expect(order).toContain('--record-tests');
       const prov = sectionOf(ref, '### `test_provenance` — the recorded test run');
       expect(prov).toContain('exit_code');
@@ -6676,7 +6705,7 @@ describe('Structured quality_log + escaped-defect registration (issue #61)', () 
       const lifecycle = renderTemplate('init/status-lifecycle.md.hbs', TEMPLATE_CONTEXT);
       expect(lifecycle).toContain('adjudicated by `prospec check`');
       expect(lifecycle).toContain('not-adjudicated');
-      expect(lifecycle).toContain('--escaped-defects');
+      expect(lifecycle).not.toContain('--escaped-defects');
     });
   });
 
@@ -6684,7 +6713,8 @@ describe('Structured quality_log + escaped-defect registration (issue #61)', () 
     it('metadata-format documents the judgment grading-context fields', () => {
       const ref = renderTemplate('skills/references/metadata-format.hbs', TEMPLATE_CONTEXT);
       const log = sectionOf(ref, '## `quality_log` entry shape');
-      expect(flat(log)).toContain('`graded_by` / `executor` / `spend`');
+      expect(flat(log)).toContain('**`graded_by` / `executor`**');
+      expect(ref).not.toMatch(/\bspend\b/);
       expect(log).toContain('fresh-subagent');
       expect(log).toContain('in-session');
       // it states the where-required and the S-cap consequence
@@ -7019,7 +7049,7 @@ describe('issue registration documented in both references (REQ-TEMPLATES-178, i
   it('metadata-format places `issue` last in the canonical order and rows it with its command', () => {
     const ref = renderTemplate('skills/references/metadata-format.hbs', TEMPLATE_CONTEXT);
     const order = section(ref, '## Canonical field order');
-    expect(order).toContain('`introduced_by` → `issue`');
+    expect(order).toContain('`delta_spec_provenance` → `issue`');
     // the row, not merely the word: the field table is what a skill reads to
     // learn WHICH command owns the write
     expect(order).toMatch(/\|\s*`issue`\s*\|\s*no\s*\|\s*`prospec change story --issue`/);
@@ -7046,8 +7076,8 @@ describe('issue registration documented in both references (REQ-TEMPLATES-178, i
     expect(entry).toContain('never an empty string');
     // the field registers; the convention itself lives in the project's own docs
     expect(entry).toContain('contributor docs');
-    // and it is not the escaped-defect field
-    expect(entry).toContain('introduced_by');
+    // the retired escaped-defect field is no longer the contrast it is drawn against
+    expect(entry).not.toContain('introduced_by');
   });
 
   it('the two change-creating skills ask for the tracker item and pass --issue at scaffold', () => {
@@ -7604,12 +7634,20 @@ describe("Autonomous Pipeline Cascading & Verifier Gates (issue #183)", () => {
     expect(content).toContain("FAIL → PASS → FAIL");
     expect(content).toContain("Escalation Protocol");
     expect(content).toContain("Trade-off Options for Developer");
-    // dual-axis sections and the escalation enum, kept in step with EscalationReportSchema
-    expect(content).toContain("Fix-Induced Defect Ratio (Dual-Axis #1)");
-    expect(content).toContain("Spend Budget Ceiling (Dual-Axis #2)");
-    for (const type of EscalationReportSchema.shape.type.options) {
-      expect(content, `escalation type ${type} missing from the Trigger line`).toContain(type);
-    }
+    // the breaker dimensions, in order, with no retired spend axis (REQ-TEMPLATES-203)
+    expect(content.split("\n").filter((l) => l.startsWith("### ") && /^### \d\./.test(l))).toEqual([
+      "### 1. Maximum Iteration Ceiling (Round Limit)",
+      "### 2. Oscillation Breaker (Flip-Flop Defect Detection)",
+      "### 3. Fix-Induced Defect Ratio",
+      "### 4. Early-Stop Conditions & Regression Pin Gate",
+      "### 5. Persistent Test Failure (`persistent_test_failure`)",
+    ]);
+    expect(content).not.toMatch(/dual-axis|\bspend\b|--budget/i);
+    // the Trigger line lists exactly the EscalationReportSchema enum
+    const trigger = content.split("\n").find((l) => l.startsWith("- **Trigger**: ["));
+    expect(trigger, "Trigger line").toBeDefined();
+    const listed = trigger!.slice(trigger!.indexOf("[") + 1, trigger!.lastIndexOf("]")).split("|").map((t) => t.trim());
+    expect(listed).toEqual([...EscalationReportSchema.shape.type.options]);
     // the protocol names its real integration points only
     expect(content).not.toContain("prospec-implement");
   });
@@ -8803,7 +8841,6 @@ describe('split and trim references contract (REQ-TEMPLATES-215~220, REQ-AGNT-04
             result: 'PASS' as const,
             graded_by: 'fresh-subagent' as const,
             executor: 'code-reviewer',
-            spend: 1500,
             summary: 'All acceptance scenarios met',
             evidence: 'Full verification logs and traceability matrix.',
           },
@@ -9597,7 +9634,7 @@ describe('fresh-test gate — prose demoted to one CLI-refusal sentence, maps an
 
     it('circuit-breaker documents persistent_test_failure with the independent default threshold, CLI-owned counting, replay dedupe and ESCALATE_TO_HUMAN', () => {
       const cb = renderTemplate('skills/references/circuit-breaker.hbs', TEMPLATE_CONTEXT);
-      const section = sectionOf(cb, '### 6. Persistent Test Failure');
+      const section = sectionOf(cb, '### 5. Persistent Test Failure');
       expect(section).toContain('persistent_test_failure');
       expect(section).toContain(`default **${DEFAULT_CIRCUIT_BREAKER_CONFIG.maxConsecutiveTestFailures}**`);
       expect(section).toMatch(/CLI/);
@@ -9717,6 +9754,13 @@ describe('fresh-test gate — prose demoted to one CLI-refusal sentence, maps an
       for (const field of Object.keys(ScenarioFindingSchema.shape)) expect(findings).toContain('`' + field + '`');
       expect(items).not.toContain('`id`');
       expect(findings).not.toMatch(/spec_anchor|implementation_anchor|`finding`/);
+      // the projected top-level field set is the schema's, so the retired `spend` cannot linger (REQ-CLI-038)
+      const fields = projection
+        .split('\n')
+        .filter((line) => line.startsWith('- `'))
+        .map((line) => line.slice(3, line.indexOf('`', 3)));
+      expect([...fields].sort()).toEqual(Object.keys(JudgmentDimensionInputSchema.shape).sort());
+      expect(fields).not.toContain('spend');
     });
 
     it('verify-backfill reflects shared prepared-context, per-REQ payload, baseline gap, and grade caps (REQ-TEMPLATES-115)', () => {

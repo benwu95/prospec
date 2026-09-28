@@ -36,15 +36,6 @@ export function formatReviewMergeOutput(
   if (round.roundNumber > 1 && round.fixInducedRatio !== undefined) {
     roundMetrics.push(`fix_induced_ratio=${(round.fixInducedRatio * 100).toFixed(1)}%`);
   }
-  if (round.spend !== undefined || round.cumulativeSpend !== undefined) {
-    const spendParts = [
-      round.spend !== undefined ? `spend: ${round.spend.toLocaleString('en-US')}` : null,
-      round.cumulativeSpend !== undefined
-        ? `cumulative: ${round.cumulativeSpend.toLocaleString('en-US')}${round.budget !== undefined ? ` / ${round.budget.toLocaleString('en-US')}` : ''}`
-        : null,
-    ].filter(Boolean);
-    roundMetrics.push(`(${spendParts.join(', ')})`);
-  }
 
   const lines = [
     `${pc.green('✓')} Merged review round into ${pc.cyan(sanitizeTerminal(result.reviewPath))} (${result.totalRows} row(s) cumulative${evidence})`,

@@ -18,7 +18,7 @@ composing structured CLI input) knows what each field means.
 ## Canonical field order
 
 `name` → `created_at` → `status` → `scale` → `related_modules` → `description` →
-`quality_log` → `review_provenance` → `test_provenance` → `test_attempt` → `delta_spec_provenance` → `introduced_by` → `issue` → `acceptance`
+`quality_log` → `review_provenance` → `test_provenance` → `test_attempt` → `delta_spec_provenance` → `issue` → `acceptance`
 
 Existing documents containing YAML aliases retain their authored field order: anchor/alias bindings
 take precedence over canonical ordering. Comments and unknown fields remain preserved.
@@ -36,7 +36,6 @@ take precedence over canonical ordering. Comments and unknown fields remain pres
 | `test_provenance` | no | `prospec check --record-tests` at verify | machine-written test baseline — see below |
 | `test_attempt` | no | `prospec check --record-tests` | latest attempt, including running and uncertified outcomes |
 | `delta_spec_provenance` | no | `prospec check --record-review` | delta-spec baseline |
-| `introduced_by` | no | `prospec change story --introduced-by` (bug-fix changes only) | escaped-defect registration |
 | `issue` | no | `prospec change story --issue`, `prospec change auto-draft --issue` | external-tracker registration — see below |
 | `acceptance` | no | `prospec change story` (`--freeze-scenarios`, `--amend-scenarios`) | versioned acceptance baseline — see below |
 
@@ -107,10 +106,9 @@ is called. Three consequences worth knowing:
   where a second line would render a forged `##` heading or a forged `- **Quality Grade**:` row for
   real. Same defence the pipe-table and code-span writers apply to free-form text.
 
-Like `introduced_by`, this is a **registration convention only**: outside the required-field floor
-(no pre-existing change turns red for lacking it) and enforced by no drift check. And it is
-deliberately not `introduced_by`, which names the *change* whose gates let a defect through — this
-names the *external item* the change belongs to. Whether a project registers one at all, how its
+This is a **registration convention only**: outside the required-field floor (no pre-existing
+change turns red for lacking it) and enforced by no drift check. It names the *external item* the
+change belongs to, never another change. Whether a project registers one at all, how its
 tracker items map to changes, and how a merge closes them are that project's own conventions,
 documented in its contributor docs; this field only makes the link machine-readable.
 `prospec status` and the archive summary print it when present.
@@ -159,7 +157,6 @@ quality_log:
         adjudicator: judgment
         graded_by: fresh-subagent  # judgment only: fresh-subagent | in-session
         executor: "strongest-tier model, fresh subagent"  # optional self-report
-        spend: 18500               # optional self-reported tokens
 ```
 
 - **`result` is always the gate three-state `PASS` / `WARN` / `FAIL`.** The `prospec-verify`
@@ -177,14 +174,13 @@ quality_log:
 - **`adjudicator`** (optional, verify only) records who decided the dimension: `machine` for the
   engine-adjudicated ones (task completion, knowledge, tests) and `judgment` for the ones a
   fresh-context reviewer grades. Absent on entries written before the field existed.
-- **`graded_by` / `executor` / `spend`** (optional, judgment dimensions only) record the grading
+- **`graded_by` / `executor`** (optional, judgment dimensions only) record the grading
   context, so a PASS is attributable. `graded_by` is `fresh-subagent` or `in-session` — required for a
   judgment dimension at the `verify record` write path (refused when absent), but optional at the
   schema level so machine dimensions and pre-existing entries stay valid; `in-session` mechanically
-  caps the grade below S. `executor` is a free-string self-report (model / harness) and `spend` a
-  self-reported token count — both optional and non-blocking; they are recorded so a per-executor
-  statistic can be aggregated later, and no station consumes them yet. prospec detects no model:
-  all three are self-declared.
+  caps the grade below S. `executor` is a free-string self-report (model / harness) — optional and
+  non-blocking; it is recorded so a per-executor statistic can be aggregated later, and no station
+  consumes it yet. prospec detects no model: both are self-declared.
 - **`verifier_verdict`** (plan/tasks only) is written solely by `prospec change log --verifier-report`
   — the verifier's own verdict (`PASS` | `WARN` | `FLAWS`; `FLAWS` maps to `result: FAIL`). It is the
   provenance stamp `prospec status` keys on: only a stamped entry is the station's verifier result, a

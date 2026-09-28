@@ -6,11 +6,11 @@
  * run by every delegation caller with `GIT_OPTIONAL_LOCKS=0`, so no read on this
  * path refreshes the index's stat cache (which no facet includes anyway).
  *
- * `computeChangeState` deliberately leaves the two reports `prospec check` writes
- * at the project root out of its digest (a check must not invalidate its own
- * baseline). A delegate rewriting one of them in the main tree is still a mutation
- * of the human's files, so the content facet hashes those two files alongside that
- * digest and the checkpoint copies them like any other uncommitted file.
+ * `computeChangeState` deliberately leaves the report `prospec check` writes at
+ * the project root out of its digest (a check must not invalidate its own
+ * baseline). A delegate rewriting it in the main tree is still a mutation of the
+ * human's files, so the content facet hashes that file alongside that digest and
+ * the checkpoint copies it like any other uncommitted file.
  */
 import { createHash } from 'node:crypto';
 import { existsSync, lstatSync, readFileSync, readlinkSync } from 'node:fs';
@@ -24,12 +24,11 @@ import {
   type RepoState,
 } from '../types/delegation.js';
 import { DRIFT_REPORT_FILENAME } from '../types/drift-report.js';
-import { ESCAPED_DEFECT_REPORT_FILENAME } from '../types/escaped-defect.js';
 import { computeChangeState, gitProjectPrefix } from './drift-sources.js';
 import { gitRead, gitReadOptional, gitReadRecords, withFixedGitEnv } from './git-read.js';
 
 /** The project-root reports `computeChangeState` excludes; the content facet covers them itself. */
-export const DELEGATION_REPORT_FILES = [DRIFT_REPORT_FILENAME, ESCAPED_DEFECT_REPORT_FILENAME] as const;
+export const DELEGATION_REPORT_FILES = [DRIFT_REPORT_FILENAME] as const;
 
 /** The one sha256 helper of the delegation path. */
 export function sha256(text: string | Buffer): string {
@@ -58,7 +57,7 @@ function reportToken(cwd: string, name: string): string {
 
 /**
  * The content facet: the `computeChangeState` digest of the project's non-ignored
- * files outside `.prospec/`, hashed together with the two root reports that digest
+ * files outside `.prospec/`, hashed together with the root report that digest
  * excludes. The snapshot self-check computes the same value at the snapshot's path.
  */
 export function contentDigest(cwd: string): RepoState['content'] {
@@ -73,7 +72,7 @@ export function contentDigest(cwd: string): RepoState['content'] {
 /**
  * The report files the checkpoint must copy: those `git status` shows as changed,
  * untracked (non-ignored) or deleted — the same shape `workTreePaths` returns for the
- * rest of the tree, which leaves these two files out.
+ * rest of the tree, which leaves this file out.
  */
 export function reportPaths(cwd: string): { changed: string[]; deleted: Set<string> } {
   return withFixedGitEnv(() => {
