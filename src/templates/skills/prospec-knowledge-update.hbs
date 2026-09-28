@@ -38,12 +38,11 @@ Run `prospec knowledge update --change [name]` (Bash) — or `--module <name>` (
 is no delta-spec (quick changes, manual refresh). The CLI owns every deterministic step: parsing
 delta-spec REQ ids (`REQ-{MODULE}-{NNN}` → lowercased module; feature-prefix ids resolved via
 feature-map + `metadata.related_modules`, never minting a phantom module), creating a skeleton
-README for a genuinely NEW module, banner-deprecating REMOVED modules (the README gets the banner
-and stays; the `module-map.yaml` entry is removed, so the module drops out of the regenerated
-index table), adding new `module-map.yaml` entries, and regenerating the `{{base_dir}}/index.md`
+README for a genuinely NEW module, listing a REMOVED REQ's module as README-pending (the module
+stays registered — only the behavior leaves its README), adding new `module-map.yaml` entries, and regenerating the `{{base_dir}}/index.md`
 auto block from module-map.
 
-Read its report: `created` (skeletons to fill), `deprecated`, **`README content pending`** — the
+Read its report: `created` (skeletons to fill), **`README content pending`** — the
 judgment worklist this skill exists for — and **`stamp-only (diff-attributed)`**: modules a
 working-tree diff attributes but no delta-spec REQ named (typically a generated artifact pulling in
 its module), which need only a freshness stamp, not a README edit. The CLI never rewrites an existing
@@ -51,7 +50,7 @@ README: its `prospec:auto` block carries authored knowledge that a mechanical re
 
 > **Phase 1 Gate** — proceed when:
 > - [ ] `prospec knowledge update` ran (change mode or `--module` mode)
-> - [ ] the created / deprecated / readme-pending worklist captured from its report
+> - [ ] the created / readme-pending worklist captured from its report
 
 ### Phase 2: Scan Affected Modules
 
@@ -114,7 +113,7 @@ For README-PENDING modules (the CLI's judgment worklist):
 
 #### 3b: Module README.md (REMOVED)
 
-Review the banner's reason wording; refine it in place if the delta-spec description reads poorly as prose.
+Remove the REMOVED requirement's behavior from its module README.
 
 #### 3c: module-map.yaml (curated single source)
 
@@ -123,7 +122,7 @@ The module table's curated columns — Keywords, Aliases, Rationale, Description
 `{{base_dir}}/index.md`'s `prospec:auto` block is **generated** from it (`updateIndex`). Curate here,
 NOT by hand-editing the index table (it gets regenerated).
 
-The CLI added/removed the entries in Phase 1 — an ADDED entry is a SKELETON (`"<name> module"`
+The CLI added the entries in Phase 1 — an ADDED entry is a SKELETON (`"<name> module"`
 description, guessed paths). What remains is curation (judgment):
 
 - Curate the ADDED entries: real `description`, `keywords`, `aliases`, `rationale`, `paths`, `relationships`
@@ -140,7 +139,7 @@ On a project that curated in index.md, the first run **backfills** the curated c
 populated (re-run `prospec-knowledge-generate`).
 
 After the re-run, verify (read, don't write):
-- ADDED modules appear as Active; REMOVED modules are GONE from the table (their README keeps the deprecation banner)
+- ADDED modules appear as Active
 - the Progressive Knowledge Loading Strategy section (outside the auto block) is intact
 
 #### 3e: Stamp Knowledge Freshness (`prospec knowledge verify`)
@@ -155,7 +154,7 @@ After reviewing/updating the README content for each confirmed module, run `pros
 - [ ] every affected module README updated
 - [ ] {{base_dir}}/index.md and module-map.yaml synced
 - [ ] knowledge freshness stamped via `prospec knowledge verify` for reviewed modules
-- [ ] REMOVED requirements marked deprecated (not deleted)
+- [ ] REMOVED behavior removed from its module README
 
 ### Failure Conditions
 - no delta-spec and no manually specified module
@@ -168,7 +167,7 @@ Emit one line: `Met N/M | Unmet: <items> | Overall: PASS|WARN|FAIL | Next: <one-
 
 - **NEVER** overwrite content between `prospec:user-start/end` markers — preserve marked extension sections and freeform user notes
 - **NEVER** migrate an existing Knowledge file's format without listing the drift and getting user consent (Phase 2.5) — content increments are fine, format rewrites need a yes
-- **NEVER** delete module directories for REMOVED requirements — mark as deprecated only
+- **NEVER** delete or unregister a module for a REMOVED requirement — only its behavior leaves the README
 - **NEVER** scan the entire codebase — only scan modules identified from delta-spec
 - **NEVER** run without either delta-spec.md or manual module specification — one input source is required
 - **NEVER** hand-edit the {{base_dir}}/index.md auto block — it is CLI-generated from module-map; curate in module-map and re-run `prospec knowledge update`

@@ -118,7 +118,7 @@ your-project/
   - **核心用途**：依變更的 `delta-spec.md` 或指定模組進行機械式知識庫增量同步。
   - **執行行為**：
     - 依據 `module-map.yaml` 重新生成 `prospec/index.md` 的 auto 區塊。
-    - 為全新模組建立 skeleton README，為已移除模組加上棄用標記。
+    - 為全新模組建立 skeleton README；REMOVED 需求只把所屬模組列為 README-pending，不會棄用模組或從 module-map 移除。
     - 絕不重寫既有 README 內容（保留手寫知識），並於終端回報待人工撰寫清單（`README content pending`）。
 
 - **`prospec knowledge verify <module>...`**

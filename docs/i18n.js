@@ -46,7 +46,7 @@
     'hero.lbl2': '// 啟動任何專案 —— 新專案或既有專案皆可',
     'hero.ctaPrimary': '約 5 分鐘快速上手 <span class="arr" aria-hidden="true">→</span>',
     'hero.ctaGhost': '在 GitHub 上查看',
-    'hero.facts.tests': '共 <b>6,612</b> 個測試 · <b>6,608</b> 個通過 · <b>4</b> 個略過',
+    'hero.facts.tests': '共 <b>6,663</b> 個測試 · <b>6,659</b> 個通過 · <b>4</b> 個略過',
     'hero.facts.skills': '<b>17</b> 個 Skills',
     'hero.facts.principles': '<b>8</b> 條強制原則',
     'hero.facts.mcp': '唯讀 <b>MCP</b> server',
@@ -214,7 +214,7 @@
     'brownfield.c1.p': '成熟的程式碼庫會累積大量沒有規格描述的行為。Backfill 是一條一等、雙 skill 的流程，反向萃取這些行為，並把它 graduate 進規格信任區（只有 Archive 能寫、經人工驗證的規格檔）—— 而且絕不手寫那個信任區。',
     'brownfield.c1.li1': '<b>萃取</b> —— <code>prospec-backfill-spec</code> 讀程式碼、測試與歷史；無法推得的 intent 標為 <code>[NEEDS CLARIFICATION]</code>，絕不捏造。',
     'brownfield.c1.li2': '<b>審閱</b> —— 你解決每一個 clarification。這是人工關卡。',
-    'brownfield.c1.li3': '<b>Promote → Verify → Knowledge Sync → Archive</b> —— proven backfill 跳過 review provenance；只同步宣告的 modules，再由 Archive 寫入信任區。',
+    'brownfield.c1.li3': '<b>Promote → Verify → Knowledge Sync → Archive</b> —— proven backfill 跳過 review provenance；同步 <code>prospec knowledge update</code> 回報的 modules（related modules ∪ feature 的 modules），再由 Archive 寫入信任區。',
     'brownfield.c2.h': '<span class="num" aria-hidden="true">⇌</span> 唯讀的 MCP server',
     'brownfield.c2.p': '把你專案的真相 —— 架構、規格、依賴方向、已晉升的 playbook、知識新鮮度 —— 暴露給任何支援 MCP 的 agent，即使它沒安裝 Prospec Skills。',
 

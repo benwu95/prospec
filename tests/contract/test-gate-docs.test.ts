@@ -66,3 +66,14 @@ describe('README workflow summaries — bilingual parity for the test gate', () 
     expect(row).toContain('not-adjudicated');
   });
 });
+
+describe('reference/cli-reference*.md — knowledge update never retires a module for a REMOVED requirement', () => {
+  const docs = { en: read('reference/cli-reference.md'), zh: read('reference/cli-reference.zh-TW.md') };
+
+  it.each(Object.entries(docs))('%s entry lists the REMOVED module as README-pending and adds no deprecation', (_lang, doc) => {
+    const entry = entryOf(doc, 'prospec knowledge update');
+    expect(entry).toContain('README-pending');
+    expect(entry).toContain('module-map');
+    expect(entry).not.toMatch(/deprecation banners? for removed|為已移除模組加上棄用標記/);
+  });
+});

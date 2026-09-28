@@ -6,7 +6,7 @@ import { parseYaml, stringifyYaml } from '../lib/yaml-utils.js';
 import { parseTaskLine } from '../lib/task-markers.js';
 import { isArchivedSpec, isSafeResourceName, loadModuleMap, loadFeatureSpecContent } from '../lib/knowledge-reader.js';
 import { reqIdToPrefix } from '../lib/drift-sources.js';
-import { checkKnowledgeSync } from '../lib/knowledge-sync.js';
+import { findUnsyncedModules } from '../lib/knowledge-sync.js';
 import { evaluateArchiveEntryGate, formatWorkflowReason } from '../lib/archive-gate.js';
 import { matchReqHeading, readSpecCounters, indexSpec, hasChangeHistorySection, type SpecContent, type SpecIndex } from '../lib/spec-headings.js';
 import { hasUnclosedFence, withoutFencedBlocks } from '../lib/markdown-fences.js';
@@ -14,7 +14,7 @@ import { constitutionFallbackModuleMap } from '../lib/drift-checker.js';
 import { renderTemplate } from '../lib/template.js';
 import { escapeTableCell } from '../lib/markdown-table.js';
 import { stripTrailingCr } from '../lib/text-lines.js';
-import { latestFreshPlanSignoff, normalizeIssueRef } from '../lib/change-metadata.js';
+import { isProvenBackfill, latestFreshPlanSignoff, normalizeIssueRef } from '../lib/change-metadata.js';
 import {
   assessDrops,
   classifyBlockTerminator,
@@ -1473,9 +1473,10 @@ export async function execute(options: ArchiveOptions): Promise<ArchiveResult> {
       const relatedModules = Array.isArray(relatedRaw)
         ? relatedRaw.filter((m): m is string => typeof m === 'string')
         : undefined;
-      const knowledgeSynced = await checkKnowledgeSync(
+      const scale = typeof change.metadata.scale === 'string' ? change.metadata.scale : undefined;
+      const knowledgeGaps = await findUnsyncedModules(
         change.dir,
-        { related_modules: relatedModules },
+        { related_modules: relatedModules, scale },
         cwd,
         configObj,
       );
@@ -1483,12 +1484,10 @@ export async function execute(options: ArchiveOptions): Promise<ArchiveResult> {
       // it. A PROVEN backfill (draft present) has no tasks.md by contract, so
       // task-completion is not applicable to it — the same policy verify record
       // applies; `scale` alone (hand-editable) proves nothing.
-      const taskCompletionApplicable = !(
-        change.metadata.scale === 'backfill' && fs.existsSync(path.join(change.dir, 'backfill-draft.md'))
-      );
+      const taskCompletionApplicable = !isProvenBackfill(change.dir, scale);
       const gate = evaluateArchiveEntryGate(assessment.report, {
         changeName: change.name,
-        knowledgeSynced,
+        knowledgeGaps,
         allowIncomplete,
         taskCompletionApplicable,
       });

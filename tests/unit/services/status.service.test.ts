@@ -571,6 +571,62 @@ describe('status.service — knowledge-aware routing at verified', () => {
     expect(routedFacts[0]?.hasKnowledgeSync).toBe(false);
   });
 
+  it('routes to knowledge-update when a delta-spec module is stale though related_modules is fresh (union)', async () => {
+    const { collectGitTimestamps } = await import('../../../src/lib/drift-sources.js');
+    const ts = (name: string, src: string) => ({
+      name,
+      readme_path: `prospec/ai-knowledge/modules/${name}/README.md`,
+      readme_exists: true,
+      last_src_commit: src,
+      last_readme_commit: '2026-01-01T00:00:00Z',
+      last_sub_module_commit: null,
+      last_verified: '2026-01-01T00:00:00Z',
+    });
+    vi.mocked(collectGitTimestamps).mockReturnValueOnce({
+      available: true,
+      modules: [ts('lib', '2026-01-01T00:00:00Z'), ts('services', '2026-01-05T00:00:00Z')],
+    });
+    vol.fromJSON({
+      [`${CWD}/.prospec/changes/a-change/metadata.yaml`]: metadataYaml({
+        name: 'a-change',
+        status: 'verified',
+        extra: 'related_modules:\n  - lib\n',
+      }),
+      [`${CWD}/.prospec/changes/a-change/delta-spec.md`]: '## ADDED\n\n### REQ-SERVICES-001: x\n',
+      [`${CWD}/prospec/ai-knowledge/module-map.yaml`]:
+        'modules:\n  - name: lib\n    paths: [src/lib]\n    keywords: [lib]\n    last_verified: "2026-01-01T00:00:00Z"\n' +
+        '  - name: services\n    paths: [src/services]\n    keywords: [services]\n    last_verified: "2026-01-01T00:00:00Z"\n',
+      [`${CWD}/prospec/ai-knowledge/modules/lib/README.md`]: '# lib\n',
+      [`${CWD}/prospec/ai-knowledge/modules/services/README.md`]: '# services\n',
+    });
+
+    const report = await execute({ cwd: CWD });
+    expect(report.changes[0]?.next).toBe('knowledge-update');
+    expect(routedFacts[0]?.hasKnowledgeSync).toBe(false);
+  });
+
+  it('resolves a proven backfill feature slug through its Feature header, so the change routes to archive', async () => {
+    vol.fromJSON({
+      [`${CWD}/.prospec/changes/bf/metadata.yaml`]: metadataYaml({
+        name: 'bf',
+        status: 'verified',
+        scale: 'backfill',
+        extra: 'related_modules:\n  - lib\n',
+      }),
+      [`${CWD}/.prospec/changes/bf/backfill-draft.md`]: '# draft\n',
+      [`${CWD}/.prospec/changes/bf/delta-spec.md`]: '## ADDED\n\n### REQ-USER-PROFILE-001: profile\n\n**Feature:** user-profile\n',
+      [`${CWD}/prospec/ai-knowledge/feature-map.yaml`]:
+        'features:\n  - feature: user-profile\n    modules: [lib]\n    req_prefixes: []\n    status: active\n',
+      [`${CWD}/prospec/ai-knowledge/module-map.yaml`]:
+        'modules:\n  - name: lib\n    paths: [src/lib]\n    keywords: [lib]\n    last_verified: "2026-01-01T00:00:00Z"\n',
+      [`${CWD}/prospec/ai-knowledge/modules/lib/README.md`]: '# lib\n',
+    });
+
+    await execute({ cwd: CWD });
+    // without `scale` the slug would read as a new, unregistered module
+    expect(routedFacts[0]?.hasKnowledgeSync).toBe(true);
+  });
+
   it('routes verified to archive when git timestamps confirm module knowledge is fresh', async () => {
     const { collectGitTimestamps } = await import('../../../src/lib/drift-sources.js');
     vi.mocked(collectGitTimestamps).mockReturnValueOnce({

@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { evaluateArchiveEntryGate, formatWorkflowReason } from '../../../src/lib/archive-gate.js';
 import { WORKFLOW_REASON_CODES } from '../../../src/types/status.js';
+import type { KnowledgeSyncGaps } from '../../../src/lib/knowledge-sync.js';
 import {
   DRIFT_REPORT_VERSION,
   type DriftCheckId,
@@ -41,9 +42,12 @@ function report(
   } as DriftReport;
 }
 
+const NO_GAPS: KnowledgeSyncGaps = { stale: [], unregistered: [], malformedIds: [], moduleMapUnreadable: false };
+const STALE: KnowledgeSyncGaps = { ...NO_GAPS, stale: ['services'] };
+
 const inputs = (over: Partial<Parameters<typeof evaluateArchiveEntryGate>[1]> = {}) => ({
   changeName: TARGET,
-  knowledgeSynced: true,
+  knowledgeGaps: NO_GAPS,
   allowIncomplete: false,
   taskCompletionApplicable: true,
   ...over,
@@ -87,14 +91,38 @@ describe('evaluateArchiveEntryGate', () => {
   });
 
   it('blocks when Knowledge is not synced', () => {
-    const v = evaluateArchiveEntryGate(report(), inputs({ knowledgeSynced: false }));
+    const v = evaluateArchiveEntryGate(report(), inputs({ knowledgeGaps: STALE }));
     expect(codes(v)).toEqual(['KNOWLEDGE_UNSYNCED']);
+  });
+
+  it('names stale modules and points them at knowledge-update + knowledge verify', () => {
+    const [r] = evaluateArchiveEntryGate(report(), inputs({ knowledgeGaps: { ...NO_GAPS, stale: ['services', 'lib'] } })).reasons;
+    expect(r!.message).toContain('services, lib');
+    expect(r!.remediation).toContain('prospec-knowledge-update');
+    expect(r!.remediation).toContain('prospec knowledge verify services lib');
+  });
+
+  it('names unregistered modules without suggesting knowledge verify for them', () => {
+    const [r] = evaluateArchiveEntryGate(report(), inputs({ knowledgeGaps: { ...NO_GAPS, unregistered: ['auth'] } })).reasons;
+    expect(r!.message).toContain('auth');
+    expect(r!.remediation).toContain('req_prefixes');
+    expect(r!.remediation).not.toContain('knowledge verify');
+  });
+
+  it('names a non-canonical REQ id and an unreadable module map with their own remedies', () => {
+    const [bad] = evaluateArchiveEntryGate(report(), inputs({ knowledgeGaps: { ...NO_GAPS, malformedIds: ['REQ-LIB-0001'] } })).reasons;
+    expect(bad!.message).toContain('REQ-LIB-0001');
+    expect(bad!.remediation).toContain('REQ-{MODULE}-NNN');
+    const [map] = evaluateArchiveEntryGate(report(), inputs({ knowledgeGaps: { ...NO_GAPS, moduleMapUnreadable: true } })).reasons;
+    expect(map!.message).toContain('module-map.yaml cannot be read or parsed');
+    expect(map!.remediation).toContain('repair module-map.yaml');
+    expect(map!.remediation).not.toContain('knowledge verify');
   });
 
   it('names one reason per failing cause', () => {
     const v = evaluateArchiveEntryGate(
       report({ 'metadata-completeness': [TARGET], 'review-provenance': [TARGET], 'test-provenance': [TARGET], 'delta-spec-provenance': [TARGET] }),
-      inputs({ knowledgeSynced: false }),
+      inputs({ knowledgeGaps: STALE }),
     );
     expect(v.reasons).toHaveLength(5);
   });
@@ -161,7 +189,7 @@ describe('evaluateArchiveEntryGate', () => {
   it('every reason code is a member of WORKFLOW_REASON_CODES and formats as CODE: message — remediation', () => {
     const v = evaluateArchiveEntryGate(
       report({ 'review-provenance': [TARGET] }, { skipped: { 'delta-spec-provenance': 'source unavailable' } }),
-      inputs({ knowledgeSynced: false }),
+      inputs({ knowledgeGaps: STALE }),
     );
     for (const r of v.reasons) {
       expect(WORKFLOW_REASON_CODES).toContain(r.code);

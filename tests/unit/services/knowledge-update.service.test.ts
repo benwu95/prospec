@@ -11,6 +11,7 @@ import {
   execute,
 } from '../../../src/services/knowledge-update.service.js';
 import { PrerequisiteError } from '../../../src/types/errors.js';
+import { classifyDeltaSpec, loadDeltaModuleContext } from '../../../src/lib/knowledge-sync.js';
 import {
   INDEX_TABLE_HEADER,
   INDEX_TABLE_SEPARATOR,
@@ -958,7 +959,7 @@ describe('execute', () => {
     ).toBe(true);
   });
 
-  it('treats a module that is both MODIFIED and REMOVED as removed only', async () => {
+  it('acknowledges a module that is both MODIFIED and REMOVED once, as README-pending, never deprecated', async () => {
     const deltaContent = `## MODIFIED
 
 ### REQ-AUTH-001: Tweak auth
@@ -976,20 +977,21 @@ describe('execute', () => {
 ---
 `;
     vol.fromJSON({
-      // resolveBasePaths is mocked to knowledgePath '/test/prospec/ai-knowledge',
-      // so the module README must live there for markModuleDeprecated to find it.
+      // resolveBasePaths is mocked to knowledgePath '/test/prospec/ai-knowledge'
       '/test/prospec/ai-knowledge/modules/auth/README.md': '# auth\n',
       '/project/delta-spec.md': deltaContent,
     });
 
     const result = await execute({ deltaSpecPath: '/project/delta-spec.md', cwd: '/project' });
 
-    expect(result.deprecated).toContain('auth');
-    // removal wins — must NOT also be reported as updated
-    expect(result.updated).not.toContain('auth');
+    // a REMOVED REQ removes behavior from the README, not the module
+    expect(result.updated).toEqual(['auth']);
+    expect(result.readmePending).toEqual(['auth']);
+    expect(result.deprecated).toEqual([]);
+    expect(vol.readFileSync('/test/prospec/ai-knowledge/modules/auth/README.md', 'utf-8')).toBe('# auth\n');
   });
 
-  it('skips an ADDED module that is also REMOVED, and reports an existing README as readme-pending (never rewritten)', async () => {
+  it('keeps an ADDED module that is also REMOVED README-pending, and reports an existing README as readme-pending (never rewritten)', async () => {
     const { scanDir } = await import('../../../src/lib/scanner.js');
     const deltaContent = `## ADDED
 
@@ -1018,17 +1020,17 @@ describe('execute', () => {
       // existing billing README -> ADDED billing reported as `updated` (L421 else)
       '/test/prospec/ai-knowledge/modules/billing/README.md':
         '# billing\n\n<!-- prospec:auto-start -->\nold\n<!-- prospec:auto-end -->\n\n<!-- prospec:user-start -->\nkeep me\n<!-- prospec:user-end -->\n',
-      // auth README exists so it can be deprecated by the REMOVED loop
+      // auth README exists, so both its ADDED and REMOVED REQs are README work
       '/test/prospec/ai-knowledge/modules/auth/README.md': '# auth\n',
       '/project/delta-spec.md': deltaContent,
     });
 
     const result = await execute({ deltaSpecPath: '/project/delta-spec.md', cwd: '/project' });
 
-    // auth is in both ADDED and REMOVED -> removal wins, never created/updated
+    // auth is in both ADDED and REMOVED -> README-pending, never created or deprecated
     expect(result.created).not.toContain('auth');
-    expect(result.updated).not.toContain('auth');
-    expect(result.deprecated).toContain('auth');
+    expect(result.readmePending).toContain('auth');
+    expect(result.deprecated).toEqual([]);
 
     // billing README pre-existed -> readme-pending judgment work, not created,
     // and the file is never scanned or rewritten (create-only guard fires first)
@@ -1042,13 +1044,12 @@ describe('execute', () => {
       vol.readFileSync('/test/prospec/ai-knowledge/modules/billing/README.md', 'utf-8'),
     ).toContain('keep me');
 
-    // billing already exists and auth is not in the map, so the map needs no
-    // edit — and an unchanged curated file is never rewritten (no file entry).
-    const mapFile = result.generatedFiles.find((f) => f.path.endsWith('module-map.yaml'));
-    expect(mapFile).toBeUndefined();
-    expect(vol.readFileSync('/test/prospec/ai-knowledge/module-map.yaml', 'utf-8')).toContain(
-      'name: billing',
-    );
+    // auth has a README but no map entry: its ADDED REQ registers it (the gate
+    // would otherwise report it unregistered); billing's curated entry survives.
+    const mapAfter = vol.readFileSync('/test/prospec/ai-knowledge/module-map.yaml', 'utf-8') as string;
+    expect(mapAfter).toContain('name: auth');
+    expect(mapAfter).toContain('name: billing');
+    expect(mapAfter).toContain('billing svc');
   });
 
   it('acknowledges a MODIFIED module as readme-pending without touching any README (issue #107)', async () => {
@@ -1060,6 +1061,8 @@ describe('execute', () => {
 **Description:** change
 `;
     vol.fromJSON({
+      '/test/prospec/ai-knowledge/module-map.yaml':
+        'modules:\n  - name: payments\n    paths: ["src/payments/**"]\n    keywords: []\n',
       '/project/delta-spec.md': deltaContent,
     });
 
@@ -1119,6 +1122,8 @@ describe('execute', () => {
 **Description:** two
 `;
     vol.fromJSON({
+      '/test/prospec/ai-knowledge/module-map.yaml':
+        'modules:\n  - name: orders\n    paths: ["src/orders/**"]\n    keywords: []\n',
       '/project/delta-spec.md': deltaContent,
     });
 
@@ -1128,7 +1133,7 @@ describe('execute', () => {
     expect(result.updated).toEqual(['orders']);
   });
 
-  it('REMOVED flow end-to-end: map entry deleted, module absent from the regenerated index, README keeps its banner', async () => {
+  it('REMOVED flow end-to-end: the module stays registered and indexed, its README untouched and README-pending', async () => {
     vol.fromJSON({
       '/test/prospec/index.md':
         '# AI Knowledge Index\n\n<!-- prospec:auto-start -->\n## Modules\n<!-- prospec:auto-end -->\n\n<!-- prospec:user-start -->\n<!-- prospec:user-end -->\n',
@@ -1140,23 +1145,20 @@ describe('execute', () => {
 
     const result = await execute({ deltaSpecPath: '/project/delta-spec.md', cwd: '/project' });
 
-    expect(result.deprecated).toEqual(['legacy']);
-    // the module-map entry is gone, not marked
+    // removing one REQ is not removing the module: the knowledge-sync gate keeps
+    // checking it, so it must stay registered and its README becomes judgment work
+    expect(result.deprecated).toEqual([]);
+    expect(result.readmePending).toEqual(['legacy']);
     const mapAfter = vol.readFileSync('/test/prospec/ai-knowledge/module-map.yaml', 'utf-8') as string;
-    expect(mapAfter).not.toContain('legacy');
-    // the regenerated index has NO row for the removed module (there is no
-    // "Deprecated" row in the live flow — the entry was deleted before the
-    // index rebuild); surviving modules still render
+    expect(mapAfter).toContain('name: legacy');
     const indexAfter = vol.readFileSync('/test/prospec/index.md', 'utf-8') as string;
-    expect(indexAfter).not.toContain('**legacy**');
+    expect(indexAfter).toContain('**legacy**');
     expect(indexAfter).toContain('**services**');
-    // the README is kept, banner-marked — never deleted
     const readme = vol.readFileSync('/test/prospec/ai-knowledge/modules/legacy/README.md', 'utf-8') as string;
-    expect(readme).toContain('> **DEPRECATED**');
-    expect(readme).toContain('content');
+    expect(readme).toBe('# legacy\n\ncontent\n');
   });
 
-  it('skips deprecation reporting when the REMOVED module README is absent (L444 else, L453 else)', async () => {
+  it('skips a REMOVED REQ whose prefix names no module', async () => {
     const deltaContent = `## REMOVED
 
 ### REQ-GHOST-001: remove ghost
@@ -1170,8 +1172,10 @@ describe('execute', () => {
 
     const result = await execute({ deltaSpecPath: '/project/delta-spec.md', cwd: '/project' });
 
-    // markModuleDeprecated returned null -> not added to deprecated/generatedFiles
+    // ghost is neither a module nor a feature prefix: skipped with a warning, nothing written
     expect(result.deprecated).toEqual([]);
+    expect(result.readmePending).toEqual([]);
+    expect(result.warnings.join(' ')).toContain('REQ-GHOST-001');
     expect(result.generatedFiles.some((f) => f.path.includes('ghost'))).toBe(false);
   });
 
@@ -1286,7 +1290,7 @@ describe('execute', () => {
     expect(result.generatedFiles.every((f) => !f.path.includes('modules/mcp/'))).toBe(true);
   });
 
-  it('still treats a non-feature-prefix unknown module as a module name (legacy fallback preserved)', async () => {
+  it('skips a MODIFIED REQ whose prefix is neither a known module nor a feature prefix, with a warning', async () => {
     const deltaContent = '## MODIFIED\n\n### REQ-PAYMENTS-001: tweak payments\n\n**Description:** change\n';
     vol.fromJSON({
       // feature-map exists but does NOT declare PAYMENTS as a req_prefix
@@ -1297,8 +1301,11 @@ describe('execute', () => {
 
     const result = await execute({ deltaSpecPath: '/project/delta-spec.md', cwd: '/project' });
 
-    // PAYMENTS is not a feature prefix → treated as a module name (fallback), as before
-    expect(result.updated).toEqual(['payments']);
+    // PAYMENTS is neither a module nor a feature prefix, and a MODIFIED REQ cannot name a new module
+    expect(result.updated).toEqual([]);
+    expect(result.readmePending).toEqual([]);
+    expect(result.warnings.join(' ')).toContain('REQ-PAYMENTS-001');
+    expect(result.warnings.join(' ')).toContain('neither a known module nor a feature prefix');
   });
 });
 
@@ -1319,6 +1326,8 @@ status: implemented
 related_modules:
   - payments
 `,
+      '/test/prospec/ai-knowledge/module-map.yaml':
+        'modules:\n  - name: payments\n    paths: ["src/payments/**"]\n    keywords: []\n',
     });
 
     const { executeForChange } = await import('../../../src/services/knowledge-update.service.js');
@@ -1365,5 +1374,93 @@ scale: quick
     const written = Object.keys(vol.toJSON());
     expect(written.some((p) => p.includes('evil'))).toBe(false);
     expect(written.some((p) => p.endsWith('README.md'))).toBe(false);
+  });
+});
+
+// --- shared classifier (REQ-SERVICES-032 / REQ-TESTS-128) ---
+
+describe('knowledge update and the knowledge-sync gate share one classifier', () => {
+  const MODULE_MAP =
+    'modules:\n  - name: lib\n    paths: ["src/lib/**"]\n    keywords: []\n  - name: services\n    paths: ["src/services/**"]\n    keywords: []\n  - name: types\n    paths: ["src/types/**"]\n    keywords: []\n  - name: cli\n    paths: ["src/cli/**"]\n    keywords: []\n';
+  const FEATURE_MAP =
+    'features:\n  - feature: mcp-server\n    modules: [lib, types]\n    req_prefixes: [MCP]\n    status: active\n  - feature: user-profile\n    modules: [services]\n    req_prefixes: []\n    status: active\n';
+
+  it('acknowledges exactly the modules the classifier resolves for every entry', async () => {
+    const deltaContent =
+      '## ADDED\n\n### REQ-AUTH-001: new module\n\n### REQ-LIB-001: add to lib\n\n' +
+      '## MODIFIED\n\n### REQ-MCP-001: feature prefix\n\n### REQ-SPEC-001: unknown prefix\n\n' +
+      '## REMOVED\n\n### REQ-CLI-001: drop a cli behavior\n';
+    vol.fromJSON({
+      '/test/prospec/ai-knowledge/module-map.yaml': MODULE_MAP,
+      '/test/prospec/ai-knowledge/feature-map.yaml': FEATURE_MAP,
+      '/project/src/auth/index.ts': 'export {}\n',
+      '/project/delta-spec.md': deltaContent,
+    });
+    const expected = new Set(
+      classifyDeltaSpec(deltaContent, loadDeltaModuleContext('/test/prospec/ai-knowledge', ['services'], false))
+        .flatMap((e) => e.modules),
+    );
+
+    const result = await execute({ deltaSpecPath: '/project/delta-spec.md', cwd: '/project', relatedModules: ['services'] });
+
+    const acknowledged = new Set([...result.created, ...result.updated, ...result.readmePending]);
+    expect([...acknowledged].sort()).toEqual([...expected].sort());
+    expect([...acknowledged].sort()).toEqual(['auth', 'cli', 'lib', 'services', 'types']);
+    expect(result.deprecated).toEqual([]);
+  });
+
+  it('resolves a proven backfill slug through its Feature header and mints no module', async () => {
+    vol.fromJSON({
+      '/test/prospec/ai-knowledge/module-map.yaml': MODULE_MAP,
+      '/test/prospec/ai-knowledge/feature-map.yaml': FEATURE_MAP,
+      '/project/.prospec/changes/bf/delta-spec.md':
+        '## ADDED\n\n### REQ-USER-PROFILE-001: profile\n\n**Feature:** user-profile\n',
+      '/project/.prospec/changes/bf/backfill-draft.md': '# draft\n',
+      '/test/prospec/ai-knowledge/modules/lib/README.md': '# lib\n',
+      '/test/prospec/ai-knowledge/modules/services/README.md': '# services\n',
+      '/project/.prospec/changes/bf/metadata.yaml':
+        'name: bf\ncreated_at: 2026-07-30T00:00:00.000Z\nstatus: implemented\nscale: backfill\nrelated_modules:\n  - lib\n',
+    });
+    const { executeForChange } = await import('../../../src/services/knowledge-update.service.js');
+    const result = await executeForChange({ change: 'bf', cwd: '/project' });
+    expect(result.created).toEqual([]);
+    expect([...result.readmePending].sort()).toEqual(['lib', 'services']);
+    expect(Object.keys(vol.toJSON()).some((p) => p.includes('modules/user-profile/'))).toBe(false);
+  });
+
+  it('treats a modules/ directory the module map does not register as no module until an ADDED REQ registers it', async () => {
+    vol.fromJSON({
+      '/test/prospec/ai-knowledge/module-map.yaml': MODULE_MAP,
+      '/test/prospec/ai-knowledge/modules/legacy/README.md': '# legacy\n',
+      '/project/delta-spec.md': '## MODIFIED\n\n### REQ-LEGACY-001: tweak\n',
+    });
+    const modified = await execute({ deltaSpecPath: '/project/delta-spec.md', cwd: '/project' });
+    expect(modified.readmePending).toEqual([]);
+    expect(modified.warnings.join(' ')).toContain('REQ-LEGACY-001');
+
+    vol.fromJSON({ '/project/delta-spec.md': '## ADDED\n\n### REQ-LEGACY-002: back\n' });
+    const added = await execute({ deltaSpecPath: '/project/delta-spec.md', cwd: '/project' });
+    expect(added.readmePending).toEqual(['legacy']);
+    expect(vol.readFileSync('/test/prospec/ai-knowledge/module-map.yaml', 'utf-8')).toContain('name: legacy');
+  });
+
+  it('warns when a proven backfill slug resolves to no known module', async () => {
+    vol.fromJSON({
+      '/test/prospec/ai-knowledge/module-map.yaml': MODULE_MAP,
+      '/project/delta-spec.md': '## ADDED\n\n### REQ-NEW-FEATURE-001: x\n\n**Feature:** new-feature\n',
+    });
+    const result = await execute({ deltaSpecPath: '/project/delta-spec.md', cwd: '/project', backfill: true });
+    expect(result.created).toEqual([]);
+    expect(result.warnings.join(' ')).toContain('REQ-NEW-FEATURE-001: "new-feature" is a backfill feature slug with no known module');
+  });
+
+  it('ignores a REQ heading inside a fenced example', async () => {
+    vol.fromJSON({
+      '/test/prospec/ai-knowledge/module-map.yaml': MODULE_MAP,
+      '/project/delta-spec.md': '## MODIFIED\n\n### REQ-LIB-001: lib\n\n```markdown\n### REQ-AUTH-001: example\n```\n',
+    });
+    const result = await execute({ deltaSpecPath: '/project/delta-spec.md', cwd: '/project' });
+    expect(result.updated).toEqual(['lib']);
+    expect(result.created).toEqual([]);
   });
 });
