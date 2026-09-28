@@ -182,8 +182,9 @@ function walkLines(content: string, from: number): { raw: string; probe: string;
 }
 
 /**
- * THE walk. Both public readers below consume it, so the Deprecated-section rule
- * and the heading-level rule exist once rather than once per reader.
+ * THE walk. `readSpecCounters`, `indexSpec` and `retiredReqIds` consume it, so the
+ * Deprecated-section rule and the heading-level rule exist once rather than once
+ * per reader.
  *
  * Branch ORDER is load-bearing and preserved from the counter reader this
  * replaced: an active REQ heading is decided FIRST, because `## REQ-X-001` is a
@@ -305,24 +306,57 @@ export interface SpecIndex {
  * quoted requirement is exactly the text a graduation edit would replace.
  */
 export function indexSpec(content: SpecContent, options: MatchReqHeadingOptions = {}): SpecIndex {
-  const isMulti = typeof content !== 'string';
-  const mainContent = isMulti ? content.main : content;
+  const index: SpecIndex = { requirements: [], stories: [] };
+  for (const part of specParts(content)) {
+    const partIndex = indexSpecInternal(part.content, options, part.slice);
+    index.requirements.push(...partIndex.requirements);
+    index.stories.push(...partIndex.stories);
+  }
+  return index;
+}
 
-  const mainIndex = indexSpecInternal(mainContent, options);
+/**
+ * The main file, then each slice its `## Slices` index registers, in that order —
+ * the parts `indexSpec` and `retiredReqIds` walk. `readSpecCounters` assembles the
+ * same parts itself because it starts the main file after the frontmatter.
+ */
+function specParts(content: SpecContent): { content: string; slice?: string }[] {
+  if (typeof content === 'string') return [{ content }];
+  const parts: { content: string; slice?: string }[] = [{ content: content.main }];
+  for (const slice of parseSpecSlices(content.main)) {
+    const sliceContent = content.slices[slice];
+    if (sliceContent !== undefined) parts.push({ content: sliceContent, slice });
+  }
+  return parts;
+}
 
-  if (isMulti) {
-    const multiContent = content as { main: string; slices: Record<string, string> };
-    const slicesList = parseSpecSlices(mainContent);
-    for (const sliceName of slicesList) {
-      const sliceContent = multiContent.slices[sliceName];
-      if (sliceContent !== undefined) {
-        const sliceIndex = indexSpecInternal(sliceContent, options, sliceName);
-        mainIndex.requirements.push(...sliceIndex.requirements);
-        mainIndex.stories.push(...sliceIndex.stories);
-      }
+/**
+ * The entry `prospec archive` writes for a REMOVED requirement:
+ * `- **REQ-X-001**: title _(removed …)_`. Matched only as far as the closing `**`
+ * — no `$` anchor and no trailing capture, for the cubic-backtracking reason given
+ * above `STORY_HEADING`.
+ */
+const RETIRED_BULLET = new RegExp(String.raw`^[-*+][ \t]+\*\*(${REQ_ID_SOURCE})\*\*`);
+
+/**
+ * Ids a `## Deprecated Requirements` section lists as retired bullets, main file
+ * and slices, deduplicated in document order.
+ *
+ * For reference resolution ONLY: a retired bullet is not a definition, so no
+ * definition reader (uniqueness, counters, the archive merge, the narrow read)
+ * consults this. Section membership and fence masking are the walk's own, so an
+ * unclosed fence degrades this reader exactly as it degrades `indexSpec`.
+ */
+export function retiredReqIds(content: SpecContent): string[] {
+  const ids = new Set<string>();
+  for (const part of specParts(content)) {
+    for (const line of scanSpec(part.content, 0)) {
+      if (!line.deprecated || line.heading !== null) continue;
+      const match = RETIRED_BULLET.exec(line.probe);
+      if (match !== null) ids.add(match[1]!);
     }
   }
-  return mainIndex;
+  return [...ids];
 }
 
 function indexSpecInternal(content: string, options: MatchReqHeadingOptions, sliceName?: string): SpecIndex {

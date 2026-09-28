@@ -13,7 +13,14 @@ import type { LanguageScope } from '../types/constitution.js';
 import { parseConstitutionRules } from './constitution-parser.js';
 import { defaultExecutableProbe, unspawnableReason, type ExecutableProbe } from './test-runner.js';
 import { parseTaskLine, type TaskKind } from './task-markers.js';
-import { indexSpec, matchReqHeading, readSpecCounters, REQ_ID_SOURCE, type SpecContent } from './spec-headings.js';
+import {
+  indexSpec,
+  matchReqHeading,
+  readSpecCounters,
+  REQ_ID_SOURCE,
+  retiredReqIds,
+  type SpecContent,
+} from './spec-headings.js';
 import { stripTrailingCr } from './text-lines.js';
 import {
   classifyRoutingResolution,
@@ -91,6 +98,9 @@ export interface ReqDefinitionIndex {
   available: boolean;
   reason?: string;
   ids: string[];
+  /** Ids retired as Deprecated bullets — resolvable by a reference, never a
+   *  definition. Absent means no retired entries. */
+  retired?: string[];
 }
 
 export interface ReqReference {
@@ -363,7 +373,8 @@ export interface ConstitutionRuleSource {
   rules: ConstitutionRuleEntry[];
 }
 
-/** Collect defined REQ ids from feature spec headings (deprecated ~~REQ~~ included). */
+/** Collect defined REQ ids from feature spec headings (deprecated ~~REQ~~ included),
+ *  and apart from them the ids retired as Deprecated bullets. */
 export function collectReqDefinitions(featuresDir: string): ReqDefinitionIndex {
   if (!existsSync(featuresDir)) {
     return { available: false, reason: `source unavailable: ${featuresDir} not found`, ids: [] };
@@ -373,6 +384,7 @@ export function collectReqDefinitions(featuresDir: string): ReqDefinitionIndex {
     return { available: false, reason: `source unavailable: no feature specs in ${featuresDir}`, ids: [] };
   }
   const ids = new Set<string>();
+  const retired = new Set<string>();
   for (const feature of features) {
     // Assemble main + `features/{feature}/` slices, so a REQ defined only in a
     // slice still registers here — otherwise its own heading, scanned as a
@@ -384,8 +396,9 @@ export function collectReqDefinitions(featuresDir: string): ReqDefinitionIndex {
     // A struck id is still DEFINED — this index answers "does this REQ exist
     // anywhere", so a reference to a deprecated REQ is not a dangling one.
     for (const req of indexSpec(loaded.specContent, { includeStruck: true }).requirements) ids.add(req.id);
+    for (const id of retiredReqIds(loaded.specContent)) retired.add(id);
   }
-  return { available: true, ids: [...ids].sort() };
+  return { available: true, ids: [...ids].sort(), retired: [...retired].sort() };
 }
 
 /** One definition site of a REQ id (heading location). */

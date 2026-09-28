@@ -42,6 +42,7 @@ import { languagePolicyRule } from '../../../src/lib/constitution-rules.js';
 import { evaluateKnowledgeHealth, evaluateReqReferences, evaluateChangeTestEvidence } from '../../../src/lib/drift-checker.js';
 import { BUNDLED_TEMPLATES_SOURCE } from '../../../src/lib/generated-artifacts.js';
 import { DRIFT_REPORT_FILENAME } from '../../../src/types/drift-report.js';
+import { indexSpec } from '../../../src/lib/spec-headings.js';
 import type { KnowledgeSizeBudget, ProspecConfig } from '../../../src/types/config.js';
 import type { ModuleMap } from '../../../src/types/module-map.js';
 import {
@@ -654,6 +655,77 @@ describe('collectReqDefinitions', () => {
     mkdirSync(path.join(tmpDir, 'empty'));
     const empty = collectReqDefinitions(path.join(tmpDir, 'empty'));
     expect(empty.available).toBe(false);
+  });
+
+  // REQ-LIB-096 / REQ-LIB-014: a REQ the archive retired as a Deprecated bullet is
+  // resolvable, but it is NOT a definition — it stays out of `ids`.
+  it('returns retired bullet ids from main and slices apart from the defined ids', () => {
+    write(
+      'specs/features/widget.md',
+      [
+        '---',
+        'feature: widget',
+        '---',
+        '',
+        '## Slices',
+        '',
+        '- [Extra](./widget/extra.md)',
+        '',
+        '#### REQ-WIDGET-001: main',
+        '',
+        '## Deprecated Requirements',
+        '',
+        '- **REQ-WIDGET-002**: retired in main _(removed 2026-01-01)_',
+        '',
+      ].join('\n'),
+    );
+    write(
+      'specs/features/widget/extra.md',
+      '## Deprecated Requirements\n\n- **REQ-WIDGET-051**: retired in a slice _(removed 2026-01-01)_\n',
+    );
+    const r = collectReqDefinitions(path.join(tmpDir, 'specs/features'));
+    expect(r.ids).toEqual(['REQ-WIDGET-001']);
+    expect(r.retired).toEqual(['REQ-WIDGET-002', 'REQ-WIDGET-051']);
+  });
+
+  it('leaves uniqueness, counters and the spec index unchanged by a retired bullet', () => {
+    // US-2.1: the same spec with and without the bullet, in two sibling trees, so
+    // repo-relative source paths match and only the bullet differs.
+    const spec = (bullet: string): string =>
+      [
+        '---',
+        'feature: widget',
+        'story_count: 1',
+        'req_count: 1',
+        '---',
+        '',
+        '## US-1: story',
+        '',
+        '#### REQ-WIDGET-001: active',
+        'Body.',
+        '',
+        '## Deprecated Requirements',
+        '',
+        bullet,
+        '',
+      ].join('\n');
+    const withBullet = spec('- **REQ-WIDGET-002**: retired _(removed 2026-01-01)_');
+    const without = spec('_(None)_');
+    write('with/specs/features/widget.md', withBullet);
+    write('without/specs/features/widget.md', without);
+    const featuresOf = (tree: string): string => path.join(tmpDir, tree, 'specs/features');
+
+    expect(collectReqIdUniqueness(featuresOf('with'), path.join(tmpDir, 'with'))).toEqual(
+      collectReqIdUniqueness(featuresOf('without'), path.join(tmpDir, 'without')),
+    );
+    expect(collectSpecCounters(featuresOf('with'), path.join(tmpDir, 'with'))).toEqual(
+      collectSpecCounters(featuresOf('without'), path.join(tmpDir, 'without')),
+    );
+    expect(indexSpec(withBullet, { includeStruck: true })).toEqual(indexSpec(without, { includeStruck: true }));
+    expect(collectReqDefinitions(featuresOf('with')).ids).toEqual(collectReqDefinitions(featuresOf('without')).ids);
+    // …while the bullet itself is still seen — or the equalities above prove nothing.
+    expect(collectReqDefinitions(featuresOf('with')).retired).toEqual(['REQ-WIDGET-002']);
+    expect(collectReqDefinitions(featuresOf('without')).retired).toEqual([]);
   });
 });
 

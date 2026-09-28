@@ -99,6 +99,43 @@ function offenders(pattern: RegExp): string[] {
 const BOUNDARY_PROBE = /trim\(\)\s*===\s*'---'/;
 const BOUNDARY_OWNERS = ['src/lib/spec-headings.ts'];
 
+/**
+ * A pattern for the retired Deprecated bullet (`- **REQ-X**: …`): a bold delimiter
+ * written as regex source — `\*\*` raw or `\\*\\*` in a plain string, `\*{2}`,
+ * `[*]{2}` or `[*][*]` — directly followed by the id, re-typed, interpolated from
+ * `REQ_ID_SOURCE` (a plain or a named group), or concatenated with it from any quote. The shared
+ * id source is the reason this detector exists: `REQ_ID_IN_PATTERN` only sees a
+ * re-typed id class, so a second bullet reader built on it would slip past and fork
+ * the Deprecated-section and fence rules that `retiredReqIds` reads through the walk.
+ * Like every textual detector it bounds WHERE the rule may live, not every way to
+ * spell it: a delimiter or id source reached through another variable is not seen,
+ * which is why the reference confinement below exists beside it.
+ */
+const RETIRED_BULLET_PATTERN =
+  /(?:\\{1,2}\*\\{1,2}\*|\\{1,2}\*\{2\}|\[\*\]\{2\}|\[\*\]\[\*\])\(?(?:\?:|\?<\w+>)?(?:REQ-|\$\{REQ_ID_SOURCE\}|['"`]\s*\+\s*REQ_ID_SOURCE)/;
+
+/**
+ * Any mention of the retired-bullet reader — a call, an import under another name, or
+ * the function passed as a value — since reference resolution is its only consumer.
+ * The set it returns is data once collected: a reader taking the collector's `retired`
+ * field is not visible to any textual detector.
+ */
+const RETIRED_READER_REF = /\bretiredReqIds\b/;
+
+/**
+ * The top-level declaration enclosing each retired-reader mention (`<module>` before
+ * the first one, where the imports sit): the file-level ban cannot tell the
+ * definition collector from the routing and landing-fidelity reads in the same file.
+ */
+function retiredReaderSites(source: string): string[] {
+  const declarations = [
+    ...source.matchAll(/^(?:export\s+)?(?:async\s+)?(?:function\*?|const|let|class)\s+(\w+)/gm),
+  ];
+  return [...source.matchAll(new RegExp(RETIRED_READER_REF.source, 'g'))].map(
+    (ref) => declarations.filter((d) => d.index < ref.index).at(-1)?.[1] ?? '<module>',
+  );
+}
+
 /** The two shapes this change deleted, as text — the detectors must see both. */
 const REMOVED_SHAPES = {
   'h4-only recount regex': String.raw`if (!inDeprecated && /^####\s+REQ-/.test(line)) reqCount++;`,
@@ -165,6 +202,66 @@ describe('feature-spec REQ heading single source', () => {
     expect(offenders(BOUNDARY_PROBE)).toEqual(BOUNDARY_OWNERS);
   });
 
+  it('detects a second retired-bullet matcher, and confines it to the single source', () => {
+    // Positive controls FIRST (PB-001): the inline regex a collector would grow,
+    // interpolating the shared id source, and the same rule with the id re-typed.
+    const inlineInterpolated =
+      'const bullet = new RegExp(String.raw`^[-*+]\\s+\\*\\*(${REQ_ID_SOURCE})\\*\\*`);';
+    const inlineLiteral = String.raw`if (/^- \*\*REQ-[A-Z]+-\d+\*\*/.test(line)) retired.add(id);`;
+    expect(RETIRED_BULLET_PATTERN.test(inlineInterpolated)).toBe(true);
+    expect(RETIRED_BULLET_PATTERN.test(inlineLiteral)).toBe(true);
+    // ...and every other spelling of the same bold delimiter and id the pattern names
+    const spellings = {
+      'plain template literal': 'const b = new RegExp(`^-\\\\s+\\\\*\\\\*(${REQ_ID_SOURCE})\\\\*\\\\*`);',
+      concatenation: "const b = new RegExp('^- \\\\*\\\\*(' + REQ_ID_SOURCE + ')\\\\*\\\\*');",
+      'named group': 'const b = new RegExp(String.raw`^- \\*\\*(?<id>${REQ_ID_SOURCE})\\*\\*`);',
+      'quantified star': 'const b = new RegExp(String.raw`^- \\*{2}(${REQ_ID_SOURCE})\\*{2}`);',
+      'star class': 'const b = new RegExp(String.raw`^- [*]{2}(${REQ_ID_SOURCE})[*]{2}`);',
+      'doubled star class': 'const b = new RegExp(String.raw`^- [*][*](${REQ_ID_SOURCE})[*][*]`);',
+      'template concatenation': "const b = new RegExp(`^- \\\\*\\\\*(` + REQ_ID_SOURCE + `)\\\\*\\\\*`);",
+    };
+    for (const [name, text] of Object.entries(spellings)) {
+      expect(RETIRED_BULLET_PATTERN.test(text), name).toBe(true);
+    }
+    // Negative controls: the bullet as documentation text and as the archive
+    // writer's emitted template literal are not matchers — and both really are in
+    // src/, so the ban below would redden if the detector confused them.
+    const documented = '- **REQ-{MODULE}-{NNN}**: {title} _(removed YYYY-MM-DD)_';
+    const emitted = '`\\n- **${route.reqId}**: ${route.description} _(removed ${today})_`';
+    expect(RETIRED_BULLET_PATTERN.test(documented)).toBe(false);
+    expect(RETIRED_BULLET_PATTERN.test(emitted)).toBe(false);
+    const bundled = fs.readFileSync(path.join(SRC, 'lib/bundled-templates.ts'), 'utf-8');
+    const archive = fs.readFileSync(path.join(SRC, 'services/archive.service.ts'), 'utf-8');
+    expect(bundled).toContain('- **REQ-{MODULE}-{NNN}**');
+    expect(archive).toContain('- **${route.reqId}**');
+    expect(archive).toContain('- **${r.reqId}**');
+
+    expect(offenders(RETIRED_BULLET_PATTERN)).toEqual([SINGLE_SOURCE]);
+  });
+
+  it('lets only the definition collector read retired ids, so every other reader stays heading-only', () => {
+    // Positive control: routing (`buildReqHomeIndex`) wiring the retired set in —
+    // which would turn a bullet-only REQ from not-found into resolved/wrong-feature.
+    const wired = 'const homes = buildReqHomeIndex(dir);\nfor (const id of retiredReqIds(content)) homes.add(id);';
+    const aliased = "import { indexSpec, retiredReqIds as readRetired } from './spec-headings.js';";
+    const passed = 'for (const ids of parts.map(retiredReqIds)) ids.forEach((id) => homes.add(id));';
+    for (const shape of [wired, aliased, passed]) expect(RETIRED_READER_REF.test(shape), shape).toBe(true);
+    expect(offenders(RETIRED_READER_REF)).toEqual(['src/lib/drift-sources.ts', SINGLE_SOURCE]);
+    // Inside that file the ban is per function: the landing-fidelity read wiring the
+    // retired set into its homes, beside the definition collector, must be named.
+    const beside = [
+      'export function collectReqDefinitions(featuresDir: string) {',
+      '  for (const id of retiredReqIds(loaded.specContent)) retired.add(id);',
+      '}',
+      'export function collectDeltaSpecLandingFidelity(cwd: string) {',
+      '  for (const id of retiredReqIds(loaded.specContent)) reqHomes.set(id, feature);',
+      '}',
+    ].join('\n');
+    expect(retiredReaderSites(beside)).toEqual(['collectReqDefinitions', 'collectDeltaSpecLandingFidelity']);
+    const driftSources = fs.readFileSync(path.join(SRC, 'lib/drift-sources.ts'), 'utf-8');
+    expect(retiredReaderSites(driftSources)).toEqual(['<module>', 'collectReqDefinitions']);
+  });
+
   it('keeps heading-string literals to their per-file budget', () => {
     const counts = Object.fromEntries(
       tsFiles(SRC)
@@ -194,6 +291,9 @@ describe('feature-spec REQ heading single source', () => {
         /indexSpec\(loaded\.specContent, \{ includeStruck: true \}\)/,
         /matchReqHeading\(line\)\?\.id/,
         /readSpecCounters\(loaded\.specContent\)/,
+        // the retired set that req-references also resolves against — read
+        // through the same walk, never a collector-local bullet rule
+        /retiredReqIds\(loaded\.specContent\)/,
       ],
       'src/lib/spec-slices.ts': [/type SpecIndex/, /DEPRECATED_SECTION/],
       // The narrow REQ-scoped read: the ONE shared entry both surfaces route

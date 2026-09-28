@@ -847,6 +847,37 @@ describe('Skill Format Contract', () => {
       expect(content).toContain('Edge Cases');
       expect(content).toContain('Success Criteria');
     });
+
+    // REQ-SPEC-010: §7 names the entry the archive actually writes and the forms a
+    // check accepts, so an agent stops hand-converting every retired bullet.
+    it('§7 shows the archive-written bullet and the two accepted forms, with the removal reason added to the entry', () => {
+      const raw = sectionOf(
+        renderTemplate('skills/references/feature-spec-format.hbs', TEMPLATE_CONTEXT),
+        '### 7. Deprecated Requirements',
+      );
+      const s7 = flat(raw);
+      // the written bullet, as its own line of the example — not a paraphrase of it
+      expect(raw.split('\n')).toContain('- **REQ-{MODULE}-{NNN}**: {title} _(removed YYYY-MM-DD)_');
+      // The prose outside the examples is exactly these two paragraphs, each one source
+      // line pinned WHOLE: a substring match let "either form" read as "neither form"
+      // and "does too" as "does not", and only a closed set refuses an ADDED paragraph
+      // (say, one claiming the archive strikes the section itself). The second scopes
+      // the resolution to `req-references`, conditions the struck-heading rewrite on
+      // the active section being gone (an active and a struck heading for one id are a
+      // duplicate definition), and states what a bullet-only REQ is invisible to.
+      const prose = withoutFencedBlocks(raw.split('\n'))
+        .join('\n')
+        .split(/\n\s*\n/)
+        .map((paragraph) => paragraph.trim())
+        .filter((paragraph) => paragraph !== '');
+      expect(prose).toEqual([
+        'When a requirement is removed, `prospec archive` lists it here as a bullet:',
+        "For the `req-references` check, keeping that bullet keeps references to the REQ ID resolving; so does striking the requirement's active section in place beside it, or deleting the active section and rewriting the entry as a struck heading `#### ~~REQ-{MODULE}-{NNN}: {title}~~`. Only a heading is a definition: `prospec spec show` and `req-id-uniqueness` read headings alone, so a REQ recorded only as a bullet is not found by them and its ID is not protected from reuse. Add the removal reason to the entry when you delete or strike the active section.",
+      ]);
+      // negative: the old instruction is gone from the examples too
+      expect(s7).not.toContain('move them here with removal reason and date');
+      expect(s7).not.toMatch(/\bPB-\d{3}\b|\bissue\s+#\d+|\bREQ-(?:LIB|SPEC|SERVICES|TEMPLATES|TESTS)-\d+/);
+    });
   });
 
   describe('Product spec format structure', () => {

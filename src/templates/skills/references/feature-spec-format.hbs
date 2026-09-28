@@ -133,7 +133,13 @@ Every Feature Spec must include these rules:
 _(None)_
 ```
 
-When requirements are removed, move them here with removal reason and date.
+When a requirement is removed, `prospec archive` lists it here as a bullet:
+
+```markdown
+- **REQ-{MODULE}-{NNN}**: {title} _(removed YYYY-MM-DD)_
+```
+
+For the `req-references` check, keeping that bullet keeps references to the REQ ID resolving; so does striking the requirement's active section in place beside it, or deleting the active section and rewriting the entry as a struck heading `#### ~~REQ-{MODULE}-{NNN}: {title}~~`. Only a heading is a definition: `prospec spec show` and `req-id-uniqueness` read headings alone, so a REQ recorded only as a bullet is not found by them and its ID is not protected from reuse. Add the removal reason to the entry when you delete or strike the active section.
 
 ### 8. Change History
 
