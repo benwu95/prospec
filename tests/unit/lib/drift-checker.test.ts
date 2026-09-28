@@ -460,6 +460,19 @@ describe('evaluateReqReferences', () => {
     expect(r.result.status).toBe('pass');
   });
 
+  // REQ-LIB-096 / REQ-LIB-014: a retired bullet resolves a reference without
+  // being a definition; without it the same reference is dangling.
+  it('resolves a reference against the retired set as well as the defined ids', () => {
+    const refs = [{ id: 'REQ-A-002', source_path: 'spec.md', line: 9 }];
+    const resolved = evaluateReqReferences({ available: true, ids: ['REQ-A-001'], retired: ['REQ-A-002'] }, refs);
+    expect(resolved.result.status).toBe('pass');
+    expect(resolved.findings).toEqual([]);
+
+    const dangling = evaluateReqReferences({ available: true, ids: ['REQ-A-001'] }, refs);
+    expect(dangling.result.status).toBe('fail');
+    expect(dangling.findings[0]?.detail).toContain('REQ-A-002');
+  });
+
   it('skips with reason when the definition source is unavailable', () => {
     const r = evaluateReqReferences({ available: false, reason: 'source unavailable: x', ids: [] }, []);
     expect(r.result.status).toBe('skipped');

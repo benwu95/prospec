@@ -22,6 +22,7 @@ so that the spec truly becomes the Single Source of Truth for SDD.
 - WHEN the User Stories section is measured, THEN it occupies at least 40% of total content
 - WHEN Maintenance Rules are written, THEN they define Replace-in-Place, Functional Grouping, No Inline Provenance, and Deprecation over Deletion
 - WHEN the scenarios label appears in the scaffold, THEN the reference states that a delta-spec landing block may not carry it and what the archive does when one does
+- WHEN the Deprecated Requirements section is described, THEN the reference shows the bullet the archive writes for a removed requirement; states that, for `req-references`, keeping it, striking the active section in place beside it, or rewriting the entry as a struck `#### ~~REQ-X: title~~` heading once the active section is deleted keeps references to the REQ ID resolving; states that `spec show` and `req-id-uniqueness` read headings only, so a REQ recorded only as a bullet is invisible to them; and states that the removal reason is added to the entry
 
 #### REQ-SPEC-011: Product Spec Format Template
 `product-spec-format.hbs` (the PRD entry contract) defines vision, target users, feature map, a summary of core Stories, and the ownership boundary between the author and the generator.

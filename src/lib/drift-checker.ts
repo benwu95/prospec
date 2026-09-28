@@ -138,7 +138,7 @@ export function evaluateReqReferences(
   if (!defs.available) {
     return skipped('req-references', defs.reason ?? 'source unavailable');
   }
-  const defined = new Set(defs.ids);
+  const defined = new Set([...defs.ids, ...(defs.retired ?? [])]);
   const findings: DriftFinding[] = refs
     .filter((r) => !defined.has(r.id))
     .map((r) => ({

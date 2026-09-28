@@ -1,7 +1,14 @@
 import { describe, it, expect } from 'vitest';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
-import { indexSpec, matchReqHeading, readSpecCounters, parseSpecSlices, hasChangeHistorySection } from '../../../src/lib/spec-headings.js';
+import {
+  indexSpec,
+  matchReqHeading,
+  readSpecCounters,
+  parseSpecSlices,
+  hasChangeHistorySection,
+  retiredReqIds,
+} from '../../../src/lib/spec-headings.js';
 
 /**
  * The ONE definition of a feature-spec REQ heading (REQ-LIB-041). It exists
@@ -567,5 +574,126 @@ describe('indexSpec', () => {
 
     // Stories should also have slice tracking
     expect(index.stories.find(s => s.id === 'US-1')!.slice).toBe('a');
+  });
+});
+
+/**
+ * `prospec archive` retires a REMOVED requirement as a bullet under
+ * `## Deprecated Requirements`. `retiredReqIds` reads those ids for reference
+ * resolution only — through the same walk `indexSpec` uses, so its section and
+ * fence rules are the walk's own (REQ-LIB-096).
+ */
+describe('retiredReqIds', () => {
+  const deprecated = (...entries: string[]): string =>
+    ['# Spec', '', '## Deprecated Requirements', '', ...entries, ''].join('\n');
+
+  it('reads a bold-id entry written with any unordered bullet marker', () => {
+    const spec = deprecated(
+      '- **REQ-A-001**: dash _(removed 2026-01-01)_',
+      '* **REQ-A-002**: star',
+      '+ **REQ-A-003**: plus',
+    );
+    expect(retiredReqIds(spec)).toEqual(['REQ-A-001', 'REQ-A-002', 'REQ-A-003']);
+  });
+
+  it('reads the entries of a main file and of every registered slice, in order, without duplicates', () => {
+    const main = [
+      '## Slices',
+      '- [One](./quiz/one.md)',
+      '- [Two](./quiz/two.md)',
+      '',
+      '## Deprecated Requirements',
+      '',
+      '- **REQ-QUIZ-001**: in main',
+      '- **REQ-QUIZ-001**: listed twice',
+    ].join('\n');
+    const slices = {
+      one: '## Deprecated Requirements\n\n* **REQ-QUIZ-010**: in slice one\n',
+      two: '## Deprecated Requirements\n\n+ **REQ-QUIZ-020**: in slice two\n',
+      unregistered: '## Deprecated Requirements\n\n- **REQ-QUIZ-099**: no Slices link\n',
+    };
+    expect(retiredReqIds({ main, slices })).toEqual(['REQ-QUIZ-001', 'REQ-QUIZ-010', 'REQ-QUIZ-020']);
+  });
+
+  it('keeps the section open across h1 headings and struck h1 REQ headings, as the walk does', () => {
+    const spec = deprecated(
+      '# Top',
+      '- **REQ-A-001**: after an h1',
+      '# ~~REQ-B-001~~: struck at h1',
+      '- **REQ-A-002**: after a struck h1',
+      '#### ~~REQ-B-002~~: struck at h4',
+      '- **REQ-A-003**: after a struck h4',
+    );
+    expect(retiredReqIds(spec)).toEqual(['REQ-A-001', 'REQ-A-002', 'REQ-A-003']);
+  });
+
+  it('closes the section at the next h2 and at an h1/h2 active REQ heading', () => {
+    const nextH2 = deprecated('- **REQ-A-001**: inside', '## Change History', '- **REQ-A-002**: outside');
+    expect(retiredReqIds(nextH2)).toEqual(['REQ-A-001']);
+    for (const heading of ['# REQ-B-001: active h1', '## REQ-B-001: active h2']) {
+      const spec = deprecated('- **REQ-A-001**: inside', heading, '- **REQ-A-002**: outside');
+      expect(retiredReqIds(spec), heading).toEqual(['REQ-A-001']);
+    }
+    // an active REQ heading below h2 does not close it
+    const h4 = deprecated('- **REQ-A-001**: inside', '#### REQ-B-001: active h4', '- **REQ-A-002**: still inside');
+    expect(retiredReqIds(h4)).toEqual(['REQ-A-001', 'REQ-A-002']);
+  });
+
+  it('ignores a bold-id bullet outside the Deprecated section', () => {
+    const spec = ['## User Stories', '', '- **REQ-A-001**: not retired', ''].join('\n');
+    expect(retiredReqIds(spec)).toEqual([]);
+  });
+
+  it('ignores ids mentioned mid-sentence, ordered items, nested items and unbolded ids', () => {
+    const spec = deprecated(
+      'REQ-A-001 was retired, see **REQ-A-002** too.',
+      '- retired alongside **REQ-A-003**',
+      '1. **REQ-A-004**: ordered',
+      '  - **REQ-A-005**: nested',
+      '- REQ-A-006: not bold',
+      '-**REQ-A-007**: no space after the marker',
+      '- **REQ-A-008-draft**: the bold span holds more than the id',
+      '- **REQ-A-009 and REQ-A-010**: two ids in one span',
+    );
+    expect(retiredReqIds(spec)).toEqual([]);
+  });
+
+  it('ignores an entry inside a closed fence', () => {
+    const spec = deprecated('```md', '- **REQ-A-001**: only an example', '```', '- **REQ-A-002**: real');
+    expect(retiredReqIds(spec)).toEqual(['REQ-A-002']);
+  });
+
+  it('reads the whole file raw when it holds an unclosed fence, closed fences included', () => {
+    // The walk distrusts a mask over an unclosed tail and reads every line raw,
+    // exactly as `indexSpec` does — so even an earlier, properly closed fence is
+    // read unmasked.
+    const spec = deprecated(
+      '```md',
+      '- **REQ-A-001**: inside a closed fence',
+      '```',
+      '```md',
+      '- **REQ-A-002**: after an unclosed opener',
+    );
+    expect(retiredReqIds(spec)).toEqual(['REQ-A-001', 'REQ-A-002']);
+  });
+
+  it('reads a CRLF checkout', () => {
+    const spec = deprecated('- **REQ-A-001**: crlf', '- **REQ-A-002**: crlf').replace(/\n/g, '\r\n');
+    expect(retiredReqIds(spec)).toEqual(['REQ-A-001', 'REQ-A-002']);
+  });
+
+  it('stays linear on a long line carrying a mid-line CR', () => {
+    // The heading scan once went cubic on exactly this input (see the indexSpec
+    // guard above); the bullet rule matches only as far as the closing `**`.
+    const spec = deprecated(
+      `-${' '.repeat(16000)}\r**REQ-A-001**`,
+      `- **REQ-${'A-'.repeat(8000)}\r1**`,
+      `- **REQ-A-002**${' '.repeat(16000)}\rZ`,
+    );
+    const started = performance.now();
+    const ids = retiredReqIds(spec);
+    const elapsed = performance.now() - started;
+    expect(elapsed, `took ${elapsed.toFixed(0)}ms`).toBeLessThan(2000);
+    expect(ids).toEqual(['REQ-A-002']);
   });
 });
