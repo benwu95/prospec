@@ -660,6 +660,20 @@ describe('Skill Format Contract', () => {
       expect(section).toContain("project's knowledge-sync mechanical gate");
     });
 
+    it('knowledge-update treats a REMOVED REQ as behavior leaving a README, never a module leaving the map', () => {
+      const content = render('skills/prospec-knowledge-update.hbs');
+      const phase1 = sectionOf(content, '### Phase 1');
+      expect(phase1).toContain("listing a REMOVED REQ's module as README-pending");
+      expect(phase1).not.toContain('banner-deprecating');
+      expect(phase1).not.toContain('`deprecated`');
+      const removed = sectionOf(content, '#### 3b: Module README.md (REMOVED)');
+      expect(removed).toContain("Remove the REMOVED requirement's behavior from its module README");
+      expect(removed).not.toContain('banner');
+      const never = sectionOf(content, '## NEVER');
+      expect(never).toContain('**NEVER** delete or unregister a module for a REMOVED requirement');
+      expect(never).not.toContain('mark as deprecated only');
+    });
+
     it('knowledge-update 3e defines affected modules as REQ-prefix ∪ diff-path; Phase 1 surfaces stamp-only', () => {
       const content = render('skills/prospec-knowledge-update.hbs');
       const section = sectionOf(content, '#### 3e:');
@@ -2776,6 +2790,24 @@ describe('Skill Format Contract', () => {
       expect(zhOverlay).toContain('backfill → Promote → verify → knowledge verify → archive');
       expect(zhOverlay).toContain('Promote → Verify → Knowledge Sync → Archive');
       expect(zhOverlay).toContain('proven backfill 的 code review 是 optional');
+    });
+
+    it('describes the backfill Knowledge Sync as the set knowledge update reports, never related_modules only', () => {
+      const brownfield = htmlSectionById(website, 'brownfield');
+      expect(brownfield).toContain('sync the modules <code>prospec knowledge update</code> reports (related modules ∪ the feature’s modules)');
+      expect(brownfield).not.toContain('sync only its declared modules');
+      expect(zhOverlay).toContain('同步 <code>prospec knowledge update</code> 回報的 modules（related modules ∪ feature 的 modules）');
+      expect(zhOverlay).not.toContain('只同步宣告的 modules');
+      for (const [file, expected, banned] of [
+        ['README.md', 'it resolves feature-slug REQ IDs to `metadata.related_modules` ∪ the modules of the feature their `**Feature:**` header names, minting nothing', 'update only the module READMEs named in `metadata.related_modules`'],
+        ['README.zh-TW.md', '它把 feature-slug REQ IDs 解析為 `metadata.related_modules` ∪ `**Feature:**` 所指 feature 的 modules，不會 mint 任何 module', '只更新 `metadata.related_modules` 指定的 module READMEs'],
+      ] as const) {
+        const readme = fs.readFileSync(path.resolve(file), 'utf-8');
+        const step = readme.split('\n').find((l) => l.startsWith('5. **Knowledge Sync**'));
+        expect(step, `${file} Knowledge Sync step missing`).toBeDefined();
+        expect(step).toContain(expected);
+        expect(readme).not.toContain(banned);
+      }
     });
 
     it('uses bare Skill identities in shared prose and isolates host sigils to the matrix', () => {
@@ -5022,6 +5054,16 @@ describe('backfill graduation — verify spec-fidelity contract (scale: backfill
     expect(v5).toContain('FAIL');
   });
 
+  it('Knowledge Sync syncs the set knowledge update reports — related_modules ∪ the Feature header feature modules', () => {
+    const section = sectionOf(renderVerifyBackfill(), '## 4. Post-Verify Commit & Knowledge Sync');
+    const item = section.split('\n').find((l) => l.startsWith('- **Knowledge Sync**:'));
+    expect(item, 'Knowledge Sync item missing').toBeDefined();
+    expect(item).toContain('Run `prospec knowledge update --change <name>`');
+    expect(item).toContain('`metadata.related_modules` ∪ the modules of the feature their `**Feature:**` header names, minting nothing');
+    expect(item).not.toContain('would mint phantom modules');
+    expect(item).not.toContain('Sync only the module READMEs named in `metadata.related_modules`');
+  });
+
   it('Record & Status Update notes backfill S/A means fidelity, not code quality', () => {
     const status = sectionOf(renderVerifyBackfill(), '## 4. Post-Verify Commit & Knowledge Sync');
     expect(status).toContain('faithful to the');
@@ -5064,6 +5106,33 @@ describe('backfill graduation — archive acceptance + module derivation (scale:
     expect(p4).toContain('scale: backfill');
     expect(p4).toContain('related_modules');
     expect(p4).toContain('does not apply to feature-slug REQ IDs');
+  });
+
+  // REQ-TEMPLATES-083 / REQ-TEMPLATES-120: the knowledge-sync affected set is a union,
+  // and a feature prefix resolves through the features that declare it in req_prefixes.
+  it('Entry Gate describes the affected set as related_modules ∪ delta-spec-classified modules', () => {
+    const gate = sectionOf(renderArchive(), '## Entry Gate');
+    const item = gate.split('\n').find((l) => l.startsWith('- Knowledge is synced for this change:'));
+    expect(item, 'knowledge-sync item missing').toBeDefined();
+    expect(item).toContain('it checks `metadata.related_modules` ∪ the modules of the delta-spec ADDED/MODIFIED/REMOVED REQ ID prefixes');
+    expect(item).toContain('a new module only on an ADDED REQ, else ignored');
+    expect(item).toContain('naming each unsynced module');
+    expect(gate).not.toContain('falling back to the delta-spec');
+    expect(gate).not.toContain('no delta-spec to fall back to');
+  });
+
+  it('Entry Gate and Phase 4 resolve a feature prefix through the features whose req_prefixes declare it', () => {
+    const gate = sectionOf(renderArchive(), '## Entry Gate');
+    const featureItem = gate.split('\n').find((l) => l.includes('with a **feature-prefixed REQ**'));
+    expect(featureItem, 'feature-prefix item missing').toBeDefined();
+    expect(featureItem).toContain('plus the `modules` of the features whose `req_prefixes` declare it');
+    expect(featureItem).not.toContain('(`**Feature:**` → feature-map `modules`)');
+    const p4 = sectionOf(renderArchive(), '### Phase 4: Knowledge Sync Re-check');
+    const step1 = p4.split('\n').find((l) => l.startsWith('1. '));
+    expect(step1, 'Phase 4 step 1 missing').toBeDefined();
+    expect(step1).toContain("Reuse the Entry Gate's set — `metadata.related_modules` ∪ REQ ID prefix modules");
+    expect(step1).toContain('`metadata.related_modules` + the features whose `req_prefixes` declare it');
+    expect(step1).not.toContain('`**Feature:**`→feature-map, not as a module name');
   });
 
   it('Phase 3.5 graduation key includes the backfill → delta-spec arm', () => {
@@ -5971,8 +6040,9 @@ describe('Knowledge sync folded into the verify S/A commit prompt (REQ-TEMPLATES
     expect(status).toContain('prospec knowledge verify <modules...>');
     expect(status).toContain('scale: backfill');
     expect(status).toContain(
-      'sync only the READMEs named by `metadata.related_modules` (by description) and run `prospec knowledge verify <modules...>`',
+      'sync the READMEs of `metadata.related_modules` ∪ the modules of the feature its `**Feature:**` header names',
     );
+    expect(status).not.toContain('sync only the READMEs named by `metadata.related_modules`');
   });
 
   it('verify commit prompt cites cascade-protocol and stays generic — no repo-specific count command hardcoded', () => {

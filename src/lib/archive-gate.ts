@@ -1,6 +1,7 @@
 import type { DriftReport } from '../types/drift-report.js';
 import type { WorkflowReason } from '../types/status.js';
 import { adjudicateChangeCheck } from './change-gate.js';
+import { hasKnowledgeSyncGap, type KnowledgeSyncGaps } from './knowledge-sync.js';
 
 /** The archive Entry-Gate verdict: blocked when any reason is present. */
 export interface ArchiveGateVerdict {
@@ -12,8 +13,8 @@ export interface ArchiveGateVerdict {
 export interface ArchiveGateInputs {
   /** The change being archived — the gate adjudicates the report for IT alone. */
   changeName: string;
-  /** Whether affected-module Knowledge is synced (from `checkKnowledgeSync`). */
-  knowledgeSynced: boolean;
+  /** Why affected-module Knowledge is not synced (from `findUnsyncedModules`); no gap = synced. */
+  knowledgeGaps: KnowledgeSyncGaps;
   /** `--allow-incomplete`: exempt the `metadata-completeness` condition only. */
   allowIncomplete: boolean;
   /**
@@ -74,7 +75,7 @@ const FAIL_REASONS: Record<(typeof GATED_CHECKS)[number], WorkflowReason> = {
  */
 export function evaluateArchiveEntryGate(
   report: DriftReport,
-  { changeName, knowledgeSynced, allowIncomplete, taskCompletionApplicable }: ArchiveGateInputs,
+  { changeName, knowledgeGaps, allowIncomplete, taskCompletionApplicable }: ArchiveGateInputs,
 ): ArchiveGateVerdict {
   const reasons: WorkflowReason[] = [];
 
@@ -104,15 +105,38 @@ export function evaluateArchiveEntryGate(
     }
     if (verdict.status === 'fail') reasons.push({ ...FAIL_REASONS[id] });
   }
-  if (!knowledgeSynced) {
-    reasons.push({
-      code: 'KNOWLEDGE_UNSYNCED',
-      message: 'affected-module Knowledge is not synced',
-      remediation: 'run `prospec-knowledge-update` (then `prospec knowledge verify <modules>`)',
-    });
-  }
+  if (hasKnowledgeSyncGap(knowledgeGaps)) reasons.push(knowledgeUnsyncedReason(knowledgeGaps));
 
   return { blocked: reasons.length > 0, reasons };
+}
+
+/** Each gap gets its own remedy: `knowledge verify` only stamps a module the map already registers. */
+function knowledgeUnsyncedReason(gaps: KnowledgeSyncGaps): WorkflowReason {
+  const causes: string[] = [];
+  const remedies: string[] = [];
+  if (gaps.moduleMapUnreadable) {
+    causes.push('module-map.yaml cannot be read or parsed');
+    remedies.push('repair module-map.yaml');
+  }
+  if (gaps.stale.length > 0) {
+    causes.push(`stale: ${gaps.stale.join(', ')}`);
+    remedies.push(`run \`prospec-knowledge-update\`, then \`prospec knowledge verify ${gaps.stale.join(' ')}\``);
+  }
+  if (gaps.unregistered.length > 0) {
+    causes.push(`not registered in module-map: ${gaps.unregistered.join(', ')}`);
+    remedies.push(
+      `for ${gaps.unregistered.join(', ')}: declare the REQ prefix in feature-map.yaml \`req_prefixes\`, or create the module through \`prospec-knowledge-update\``,
+    );
+  }
+  if (gaps.malformedIds.length > 0) {
+    causes.push(`non-canonical REQ id(s): ${gaps.malformedIds.join(', ')}`);
+    remedies.push('rename each to REQ-{MODULE}-NNN');
+  }
+  return {
+    code: 'KNOWLEDGE_UNSYNCED',
+    message: `affected-module Knowledge is not synced — ${causes.join('; ')}`,
+    remediation: remedies.join('; '),
+  };
 }
 
 /** One line per reason, in the shape the archive refusal prints. */

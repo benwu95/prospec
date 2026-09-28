@@ -4,7 +4,7 @@ import { PrerequisiteError } from '../types/errors.js';
 import { forbiddenArtifacts } from '../types/change.js';
 import { readConfig, resolveBasePaths, resolveKnowledgeTokenBudget } from '../lib/config.js';
 import type { KnowledgeSizeBudget } from '../types/config.js';
-import { readChangeMetadata, readScaleQuietly } from '../lib/change-metadata.js';
+import { isProvenBackfill, readChangeMetadata, readScaleQuietly } from '../lib/change-metadata.js';
 import { resolveChange } from './change-resolver.js';
 import { scanDir, filterConventions, moduleScanPatterns } from '../lib/scanner.js';
 import { renderTemplate } from '../lib/template.js';
@@ -12,14 +12,18 @@ import { hasAutoBlock, replaceAutoBlock } from '../lib/content-merger.js';
 import { deriveKeyExports } from '../lib/key-exports.js';
 import { atomicWrite, ensureDir, readFileIfExists } from '../lib/fs-utils.js';
 import { parseYaml, parseYamlDocument, stringifyYamlDocument, mergeIntoDocument } from '../lib/yaml-utils.js';
-import { isSafeResourceName, loadFeatureMap, loadModuleMap, readContainedText, sweepModuleReadme } from '../lib/knowledge-reader.js';
+import { isSafeResourceName, loadModuleMap, readContainedText, sweepModuleReadme } from '../lib/knowledge-reader.js';
 import { applicableModuleReadmeExtensions, parseModuleReadmeExtensions } from '../lib/module-readme-format.js';
 import { changedPathsFromWorkTree, partitionDiffAttributedModules } from '../lib/drift-sources.js';
 import type { ModuleMap } from '../types/module-map.js';
-import type { FeatureMap } from '../types/feature-map.js';
 import { buildIndexTemplateContext } from '../lib/index-template.js';
 import { buildIndexTable, backfillCuratedFromIndex, type IndexRowModule } from '../lib/index-table.js';
-import { parseDeltaSpec, type DeltaReqEntry } from '../lib/delta-spec-parser.js';
+import {
+  buildModulePathMap,
+  classifyDeltaSpec,
+  loadDeltaModuleContext,
+  type ClassifiedDeltaEntry,
+} from '../lib/knowledge-sync.js';
 
 // --- Interfaces (Task 5: REQ-SERVICES-023) ---
 
@@ -36,6 +40,11 @@ export interface KnowledgeUpdateOptions {
    * feature, not a module. Ignored for module-prefix REQ ids.
    */
   relatedModules?: string[];
+  /**
+   * The change is a proven backfill (`isProvenBackfill`): its feature-slug REQ ids
+   * resolve through their `**Feature:**` header instead of minting a module.
+   */
+  backfill?: boolean;
 }
 
 export interface GeneratedFile {
@@ -389,55 +398,53 @@ export async function execute(
   if (options.deltaSpecPath) {
     // --- Delta Spec Mode ---
     const deltaContent = await fs.promises.readFile(options.deltaSpecPath, 'utf-8');
-    const delta = parseDeltaSpec(deltaContent);
-    if (delta.malformed.length > 0) {
+    // The knowledge-sync gate classifies the same entries through the same context,
+    // so the modules acknowledged here are the modules the gate checks.
+    const ctx = loadDeltaModuleContext(knowledgePath, options.relatedModules ?? [], options.backfill ?? false);
+    const modulePathMap = ctx.modulePaths;
+    const entries = classifyDeltaSpec(deltaContent, ctx);
+    const malformed = entries.filter((e) => e.kind === 'malformed').map((e) => e.id);
+    if (malformed.length > 0) {
       result.warnings.push(
-        `Skipped ${delta.malformed.length} non-canonical REQ id(s) ` +
-          `(expected REQ-MODULE-NNN with a 3-digit sequence): ${delta.malformed.join(', ')}`,
+        `Skipped ${malformed.length} non-canonical REQ id(s) ` +
+          `(expected REQ-MODULE-NNN with a 3-digit sequence): ${malformed.join(', ')}`,
       );
     }
+    const added = entries.filter((e) => e.section === 'added' && e.kind !== 'malformed');
+    const modified = entries.filter((e) => e.section === 'modified' && e.kind !== 'malformed');
+    const removed = entries.filter((e) => e.section === 'removed' && e.kind !== 'malformed');
 
-    // Resolve module paths from module-map.yaml
-    const modulePathMap = buildModulePathMap(moduleMapPath);
-    const knownModules = collectKnownModules(modulePathMap, knowledgePath);
-    const featureMap = loadFeatureMap(knowledgePath);
-    const relatedModules = (options.relatedModules ?? []).map((m) => m.toLowerCase());
-
-    // Map a delta REQ entry to the module(s) whose README it should sync.
-    // A module-prefix REQ maps to that one module (legacy behavior, incl. the
-    // src/<name>/** fallback for a genuinely new module). A feature-prefix REQ
-    // (its prefix is a feature-map req_prefix, NOT a module — e.g. REQ-MCP) is
-    // re-mapped to that feature's modules ∪ related_modules, intersected with
-    // known modules — never minting a phantom modules/<prefix>/ (BL-043).
-    const resolveEntryModules = (entry: DeltaReqEntry): string[] => {
-      if (knownModules.has(entry.module)) return [entry.module];
-      const featureModules = featurePrefixModules(featureMap, entry.module);
-      if (featureModules === null) return [entry.module]; // a module name, not a feature prefix
-      const resolved = [...new Set([...featureModules, ...relatedModules])].filter((m) =>
-        knownModules.has(m),
-      );
-      if (resolved.length === 0) {
+    // A feature prefix or backfill slug that resolves to no known module is skipped,
+    // never minted as a phantom modules/<prefix>/ (BL-043); a MODIFIED REQ with an
+    // unknown non-feature prefix names no module at all.
+    const modulesToSync = (entry: ClassifiedDeltaEntry): string[] => {
+      if (entry.kind === 'feature' && entry.modules.length === 0) {
         result.warnings.push(
-          `${entry.id}: "${entry.module}" is a feature prefix, not a module — set ` +
+          `${entry.id}: "${entry.prefix}" is a feature prefix, not a module — set ` +
             `metadata.related_modules (or feature-map modules) so the change can sync ` +
             `(skipped; no module minted)`,
         );
+      } else if (entry.kind === 'feature-slug' && entry.modules.length === 0) {
+        result.warnings.push(
+          `${entry.id}: "${entry.prefix}" is a backfill feature slug with no known module — set ` +
+            `metadata.related_modules so the change can sync (skipped; no module minted)`,
+        );
+      } else if (entry.kind === 'ignored') {
+        result.warnings.push(
+          `${entry.id}: "${entry.prefix}" is neither a known module nor a feature prefix — ` +
+            `skipped (only an ADDED REQ can name a new module)`,
+        );
       }
-      return resolved;
+      return entry.modules;
     };
 
-    // Removal wins: a module that is also REMOVED must not be created/updated
-    // (its README would be regenerated then immediately deprecated, and it would
-    // be falsely reported as both updated and deprecated).
-    const removedModules = new Set(delta.removed.map((e) => e.module));
     const addedSynced = new Set<string>();
 
     // Process ADDED modules — a genuinely new module gets a skeleton README
     // for the skill to fill; an ADDED entry resolving to an existing module
     // (its README already exists) becomes readme-pending judgment work.
-    for (const entry of delta.added) {
-      for (const mod of resolveEntryModules(entry)) {
-        if (removedModules.has(mod)) continue;
+    for (const entry of added) {
+      for (const mod of modulesToSync(entry)) {
         const paths = modulePathMap.get(mod) ?? [`src/${mod}/**`];
         const file = await updateModuleReadme(mod, paths, baseOpts);
         if (file) {
@@ -450,12 +457,12 @@ export async function execute(
       }
     }
 
-    // Process MODIFIED modules — README content is the skill's judgment work
-    // (never regenerated here; see updateModuleReadme). The module is still
-    // acknowledged so its index/module-map rows refresh below.
-    for (const entry of delta.modified) {
-      for (const mod of resolveEntryModules(entry)) {
-        if (removedModules.has(mod)) continue;
+    // Process MODIFIED and REMOVED modules — README content is the skill's judgment
+    // work (never regenerated here; see updateModuleReadme). A REMOVED REQ takes
+    // behavior out of its module's README; it never deprecates or unregisters the
+    // module, which the knowledge-sync gate goes on checking.
+    for (const entry of [...modified, ...removed]) {
+      for (const mod of modulesToSync(entry)) {
         if (!result.updated.includes(mod) && !result.created.includes(mod)) {
           result.updated.push(mod);
         }
@@ -474,31 +481,12 @@ export async function execute(
       }
     }
 
-    // Process REMOVED modules — a feature-prefix REMOVED (e.g. REQ-MCP) is not a
-    // module, so markModuleDeprecated no-ops on it (no modules/<prefix>/ README);
-    // shared modules are never deprecated because one feature's REQ was removed.
-    for (const entry of delta.removed) {
-      const file = await markModuleDeprecated(
-        entry.module,
-        entry.description,
-        { cwd, knowledgeBasePath },
-      );
-      if (file) {
-        result.generatedFiles.push(file);
-        result.deprecated.push(entry.module);
-      }
-    }
-
     // Update module-map.yaml — only modules actually synced (feature-prefix-resolved
     // modules are already known, so updateModuleMap no-ops on them; a genuinely new
     // module-prefix module is added as before).
     const uniqueAdded = [...addedSynced];
-    const uniqueRemoved = [...new Set(delta.removed.map((e) => e.module))];
-    if (uniqueAdded.length > 0 || uniqueRemoved.length > 0) {
-      const mapFile = await updateModuleMap(
-        { added: uniqueAdded, removed: uniqueRemoved },
-        moduleMapPath,
-      );
+    if (uniqueAdded.length > 0) {
+      const mapFile = await updateModuleMap({ added: uniqueAdded, removed: [] }, moduleMapPath);
       if (mapFile) {
         result.generatedFiles.push(mapFile);
       }
@@ -515,7 +503,7 @@ export async function execute(
         'A module name must match [A-Za-z0-9][A-Za-z0-9._-]* with no path separators or ".." — use the names declared in module-map.yaml',
       );
     }
-    const modulePathMap = buildModulePathMap(moduleMapPath);
+    const modulePathMap = buildModulePathMap(moduleMapPath) ?? new Map<string, string[]>();
 
     for (const moduleName of options.manualModules) {
       const paths = modulePathMap.get(moduleName.toLowerCase()) ?? [`src/${moduleName}/**`];
@@ -635,6 +623,7 @@ export async function executeForChange(
     cwd,
     deltaSpecPath,
     relatedModules: metadata.related_modules ?? [],
+    backfill: isProvenBackfill(changeDir, metadata.scale),
   });
 
   // Diff-path attribution (union with the REQ-prefix modules `execute` resolved):
@@ -678,55 +667,6 @@ export async function executeForChange(
 }
 
 // --- Internal helpers ---
-
-function buildModulePathMap(moduleMapPath: string): Map<string, string[]> {
-  const pathMap = new Map<string, string[]>();
-  try {
-    const content = fs.readFileSync(moduleMapPath, 'utf-8');
-    const moduleMap = parseYaml<ModuleMap>(content, moduleMapPath);
-    for (const entry of moduleMap.modules) {
-      pathMap.set(entry.name.toLowerCase(), entry.paths);
-    }
-  } catch {
-    // module-map.yaml doesn't exist — return empty map
-  }
-  return pathMap;
-}
-
-/** Known modules = module-map names ∪ existing modules/<name>/ directories (lowercased). */
-function collectKnownModules(
-  modulePathMap: Map<string, string[]>,
-  knowledgePath: string,
-): Set<string> {
-  const known = new Set<string>(modulePathMap.keys());
-  try {
-    for (const e of fs.readdirSync(path.join(knowledgePath, 'modules'), { withFileTypes: true })) {
-      if (e.isDirectory()) known.add(e.name.toLowerCase());
-    }
-  } catch {
-    // no modules/ directory yet — module-map keys are the known set
-  }
-  return known;
-}
-
-/**
- * Lowercased modules of every feature whose declared req_prefixes include this
- * prefix (case-insensitive). Returns null when the prefix is NOT any feature's
- * req_prefix — the caller then treats it as a module name, not a feature prefix.
- */
-function featurePrefixModules(featureMap: FeatureMap | null, prefix: string): string[] | null {
-  if (featureMap === null) return null;
-  const want = prefix.toUpperCase();
-  const modules = new Set<string>();
-  let matched = false;
-  for (const f of featureMap.features) {
-    if ((f.req_prefixes ?? []).some((p) => p.toUpperCase() === want)) {
-      matched = true;
-      for (const m of f.modules) modules.add(m.toLowerCase());
-    }
-  }
-  return matched ? [...modules] : null;
-}
 
 export function collectAllModules(
   result: KnowledgeUpdateResult,

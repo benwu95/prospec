@@ -56,7 +56,7 @@ Under `scale: backfill`, the existing code is the **ground truth**. The goal of 
 
 ## 4. Post-Verify Commit & Knowledge Sync
 
-- **Knowledge Sync**: Do **not** run REQ-prefix-driven `prospec-knowledge-update` (feature-slug REQ IDs like `REQ-AUTH-FLOW-001` would mint phantom modules). Sync only the module READMEs named in `metadata.related_modules` (by description) and stamp freshness via `prospec knowledge verify <modules...>`.
+- **Knowledge Sync**: Run `prospec knowledge update --change <name>` — under a proven backfill it resolves feature-slug REQ IDs (e.g. `REQ-AUTH-FLOW-001`) to `metadata.related_modules` ∪ the modules of the feature their `**Feature:**` header names, minting nothing. Sync the READMEs it reports and stamp freshness via `prospec knowledge verify <modules...>`.
 - **Grade S/A Meaning**: S/A grade certifies that the spec is **100% faithful to the existing code**.
 
 ---

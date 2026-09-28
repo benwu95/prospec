@@ -1,0 +1,250 @@
+import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { vol } from 'memfs';
+import {
+  buildModulePathMap,
+  checkKnowledgeSync,
+  classifyDeltaSpec,
+  findUnsyncedModules,
+  loadDeltaModuleContext,
+} from '../../../src/lib/knowledge-sync.js';
+
+vi.mock('node:fs', async () => {
+  const memfs = await import('memfs');
+  return { ...memfs.fs, default: memfs.fs };
+});
+
+vi.mock('../../../src/lib/drift-sources.js', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../../../src/lib/drift-sources.js')>();
+  return { ...actual, collectGitTimestamps: vi.fn(() => ({ available: false, reason: 'test', modules: [] })) };
+});
+
+const CWD = '/project';
+const KP = `${CWD}/prospec/ai-knowledge`;
+const CHANGE = `${CWD}/.prospec/changes/c`;
+
+const moduleEntry = (name: string, lastVerified = '2026-01-01T00:00:00Z') =>
+  `  - name: ${name}\n    paths: [src/${name}]\n    keywords: [${name}]\n    last_verified: "${lastVerified}"\n`;
+
+function knowledge(modules: string[], featureMap?: string): Record<string, string> {
+  const files: Record<string, string> = {
+    [`${KP}/module-map.yaml`]: `modules:\n${modules.map((m) => moduleEntry(m)).join('')}`,
+  };
+  for (const m of modules) files[`${KP}/modules/${m}/README.md`] = `# ${m}\n`;
+  if (featureMap !== undefined) files[`${KP}/feature-map.yaml`] = featureMap;
+  return files;
+}
+
+const FEATURE_MAP =
+  'features:\n' +
+  '  - feature: payments\n    modules: [lib, services]\n    req_prefixes: [PAY]\n    status: active\n' +
+  '  - feature: user-profile\n    modules: [types, ghost]\n    req_prefixes: []\n    status: active\n';
+
+function delta(sections: Record<string, string[]>): string {
+  let out = '# Delta Spec\n';
+  for (const [section, entries] of Object.entries(sections)) {
+    out += `\n## ${section}\n`;
+    for (const entry of entries) out += `\n${entry}\n`;
+  }
+  return out;
+}
+
+const req = (id: string, feature?: string) =>
+  `### ${id}: title\n${feature === undefined ? '' : `\n**Feature:** ${feature}\n`}`;
+
+beforeEach(() => {
+  vol.reset();
+  vi.clearAllMocks();
+});
+
+describe('classifyDeltaSpec', () => {
+  const ctxFor = (related: string[] = [], backfill = false) =>
+    loadDeltaModuleContext(KP, related, backfill);
+
+  it('maps a known-module prefix to that module', () => {
+    vol.fromJSON(knowledge(['lib', 'services']));
+    const [entry] = classifyDeltaSpec(delta({ MODIFIED: [req('REQ-SERVICES-001')] }), ctxFor());
+    expect(entry).toMatchObject({ kind: 'module', modules: ['services'], section: 'modified' });
+  });
+
+  it('prefers a known module over a feature that also declares its name in req_prefixes', () => {
+    vol.fromJSON(knowledge(['lib', 'services', 'types'],
+      'features:\n  - feature: binary\n    modules: [lib, services, types]\n    req_prefixes: [LIB]\n    status: active\n'));
+    const [entry] = classifyDeltaSpec(delta({ MODIFIED: [req('REQ-LIB-001')] }), ctxFor(['types']));
+    expect(entry).toMatchObject({ kind: 'module', modules: ['lib'] });
+  });
+
+  it('expands a feature prefix to (owning feature modules ∪ related) ∩ known', () => {
+    vol.fromJSON(knowledge(['lib', 'services', 'types'], FEATURE_MAP));
+    const [entry] = classifyDeltaSpec(delta({ MODIFIED: [req('REQ-PAY-001')] }), ctxFor(['types', 'nope']));
+    expect(entry?.kind).toBe('feature');
+    expect([...(entry?.modules ?? [])].sort()).toEqual(['lib', 'services', 'types']);
+  });
+
+  it('resolves a proven-backfill slug through its **Feature:** header, dropping unknown feature modules', () => {
+    vol.fromJSON(knowledge(['lib', 'types'], FEATURE_MAP));
+    const [entry] = classifyDeltaSpec(
+      delta({ ADDED: [req('REQ-USER-PROFILE-001', 'user-profile')] }),
+      ctxFor(['lib'], true),
+    );
+    expect(entry?.kind).toBe('feature-slug');
+    // `ghost` is a feature-map module the module map does not know: it cannot be checked
+    expect([...(entry?.modules ?? [])].sort()).toEqual(['lib', 'types']);
+  });
+
+  it('falls back to related ∩ known when a proven backfill has no **Feature:** header', () => {
+    vol.fromJSON(knowledge(['lib', 'types'], FEATURE_MAP));
+    const [entry] = classifyDeltaSpec(delta({ ADDED: [req('REQ-USER-PROFILE-001')] }), ctxFor(['lib'], true));
+    expect(entry).toMatchObject({ kind: 'feature-slug', modules: ['lib'] });
+  });
+
+  it('treats the same slug as a new module when the backfill is not proven', () => {
+    vol.fromJSON(knowledge(['lib', 'types'], FEATURE_MAP));
+    const [entry] = classifyDeltaSpec(
+      delta({ ADDED: [req('REQ-USER-PROFILE-001', 'user-profile')] }),
+      ctxFor(['lib'], false),
+    );
+    expect(entry).toMatchObject({ kind: 'new', modules: ['user-profile'] });
+  });
+
+  it.each(['MODIFIED', 'REMOVED'])('ignores an unknown non-feature prefix under %s', (section) => {
+    vol.fromJSON(knowledge(['lib'], FEATURE_MAP));
+    const [entry] = classifyDeltaSpec(delta({ [section]: [req('REQ-SPEC-001')] }), ctxFor());
+    expect(entry).toMatchObject({ kind: 'ignored', modules: [] });
+  });
+
+  it('marks a non-canonical REQ id as malformed', () => {
+    vol.fromJSON(knowledge(['services']));
+    const [entry] = classifyDeltaSpec(delta({ ADDED: [req('REQ-SERVICES-0001')] }), ctxFor());
+    expect(entry).toMatchObject({ kind: 'malformed', id: 'REQ-SERVICES-0001', modules: [] });
+  });
+
+  it('does not treat a fenced example heading as an entry', () => {
+    vol.fromJSON(knowledge(['lib']));
+    const content = delta({ ADDED: [`${req('REQ-LIB-001')}\n\`\`\`markdown\n### REQ-AUTH-001: example\n\`\`\``] });
+    const entries = classifyDeltaSpec(content, ctxFor());
+    expect(entries.map((e) => e.id)).toEqual(['REQ-LIB-001']);
+  });
+});
+
+describe('module-map loading', () => {
+  it('distinguishes an absent module map (empty) from an unparseable one (null)', () => {
+    vol.fromJSON({ [`${KP}/.keep`]: '' });
+    expect(buildModulePathMap(`${KP}/module-map.yaml`)).toEqual(new Map());
+    vol.fromJSON({ [`${KP}/module-map.yaml`]: 'modules: [\n  - : :\n' });
+    expect(buildModulePathMap(`${KP}/module-map.yaml`)).toBeNull();
+  });
+
+  it('knows only the registered names when a module map exists, and the modules/ directories when it does not', () => {
+    vol.fromJSON({ ...knowledge(['lib']), [`${KP}/modules/legacy/README.md`]: '> **DEPRECATED**\n' });
+    expect([...loadDeltaModuleContext(KP, [], false).known]).toEqual(['lib']);
+    vol.reset();
+    vol.fromJSON({ [`${KP}/modules/legacy/README.md`]: '# legacy\n' });
+    expect([...loadDeltaModuleContext(KP, [], false).known]).toEqual(['legacy']);
+  });
+});
+
+describe('findUnsyncedModules', () => {
+  const meta = (related?: string[], scale?: string) => ({
+    ...(related === undefined ? {} : { related_modules: related }),
+    ...(scale === undefined ? {} : { scale }),
+  }) as Parameters<typeof findUnsyncedModules>[1];
+
+  it('checks delta-spec modules even when related_modules is non-empty (AC-1)', async () => {
+    const files = knowledge(['lib', 'services']);
+    files[`${KP}/module-map.yaml`] = `modules:\n${moduleEntry('lib')}  - name: services\n    paths: [src/services]\n    keywords: [services]\n`;
+    vol.fromJSON({ ...files, [`${CHANGE}/delta-spec.md`]: delta({ ADDED: [req('REQ-SERVICES-001')] }) });
+    const gaps = await findUnsyncedModules(CHANGE, meta(['lib']), CWD, null);
+    expect(gaps.stale).toEqual(['services']);
+    expect(await checkKnowledgeSync(CHANGE, meta(['lib']), CWD, null)).toBe(false);
+  });
+
+  it('is synced when every affected module is current and an unknown MODIFIED prefix is ignored (AC-2)', async () => {
+    for (const related of [[], ['lib']]) {
+      vol.reset();
+      vol.fromJSON({
+        ...knowledge(['lib'], FEATURE_MAP),
+        [`${CHANGE}/delta-spec.md`]: delta({ MODIFIED: [req('REQ-SPEC-001')] }),
+      });
+      expect(await checkKnowledgeSync(CHANGE, meta(related), CWD, null)).toBe(true);
+    }
+  });
+
+  it('lists an ADDED new-module prefix as unregistered', async () => {
+    vol.fromJSON({ ...knowledge(['lib']), [`${CHANGE}/delta-spec.md`]: delta({ ADDED: [req('REQ-AUTH-001')] }) });
+    const gaps = await findUnsyncedModules(CHANGE, meta(['lib']), CWD, null);
+    expect(gaps).toMatchObject({ stale: [], unregistered: ['auth'] });
+    expect(await checkKnowledgeSync(CHANGE, meta(['lib']), CWD, null)).toBe(false);
+  });
+
+  it('ignores a MODIFIED or REMOVED REQ of a modules/ directory the module map does not register', async () => {
+    for (const section of ['MODIFIED', 'REMOVED']) {
+      vol.reset();
+      vol.fromJSON({
+        ...knowledge(['lib']),
+        [`${KP}/modules/legacy/README.md`]: '> **DEPRECATED**: This module was removed.\n',
+        [`${CHANGE}/delta-spec.md`]: delta({ [section]: [req('REQ-LEGACY-002')] }),
+      });
+      expect(await findUnsyncedModules(CHANGE, meta(['lib']), CWD, null)).toEqual({
+        stale: [], unregistered: [], malformedIds: [], moduleMapUnreadable: false,
+      });
+    }
+  });
+
+  it('keeps a related_modules name absent from the module map unsynced', async () => {
+    vol.fromJSON(knowledge(['lib']));
+    const gaps = await findUnsyncedModules(CHANGE, meta(['lib', 'ghost']), CWD, null);
+    expect(gaps.unregistered).toEqual(['ghost']);
+  });
+
+  it('reports a non-canonical REQ id', async () => {
+    vol.fromJSON({ ...knowledge(['services']), [`${CHANGE}/delta-spec.md`]: delta({ ADDED: [req('REQ-SERVICES-0001')] }) });
+    const gaps = await findUnsyncedModules(CHANGE, meta([]), CWD, null);
+    expect(gaps.malformedIds).toEqual(['REQ-SERVICES-0001']);
+    expect(await checkKnowledgeSync(CHANGE, meta([]), CWD, null)).toBe(false);
+  });
+
+  it('fails closed when the module map exists but cannot be parsed', async () => {
+    vol.fromJSON({
+      [`${KP}/module-map.yaml`]: 'modules: [\n  - : :\n',
+      [`${CHANGE}/delta-spec.md`]: delta({ MODIFIED: [req('REQ-LIB-001')] }),
+    });
+    const gaps = await findUnsyncedModules(CHANGE, meta([]), CWD, null);
+    expect(gaps.moduleMapUnreadable).toBe(true);
+    expect(await checkKnowledgeSync(CHANGE, meta([]), CWD, null)).toBe(false);
+  });
+
+  it('fails closed when the module map fails its schema', async () => {
+    vol.fromJSON({ [`${KP}/module-map.yaml`]: 'modules:\n  - paths: [src/lib]\n' });
+    expect((await findUnsyncedModules(CHANGE, meta(['lib']), CWD, null)).moduleMapUnreadable).toBe(true);
+  });
+
+  it('yields no gap without a module map', async () => {
+    vol.fromJSON({ [`${CHANGE}/delta-spec.md`]: delta({ ADDED: [req('REQ-LIB-001')] }) });
+    expect(await checkKnowledgeSync(CHANGE, meta(['lib']), CWD, null)).toBe(true);
+  });
+
+  it('raises on a malformed feature map when a delta-spec exists', async () => {
+    vol.fromJSON({
+      ...knowledge(['lib'], 'features: nope\n'),
+      [`${CHANGE}/delta-spec.md`]: delta({ MODIFIED: [req('REQ-LIB-001')] }),
+    });
+    await expect(findUnsyncedModules(CHANGE, meta([]), CWD, null)).rejects.toThrow(/feature-map/);
+  });
+
+  it('judges a change without a delta-spec on related_modules alone and never reads the feature map (AC quick)', async () => {
+    vol.fromJSON(knowledge(['lib'], 'features: nope\n'));
+    expect(await checkKnowledgeSync(CHANGE, meta(['lib'], 'quick'), CWD, null)).toBe(true);
+    expect(await checkKnowledgeSync(CHANGE, meta(['ghost'], 'quick'), CWD, null)).toBe(false);
+  });
+
+  it('applies the feature-slug rule only for a proven backfill', async () => {
+    const files = {
+      ...knowledge(['lib', 'types'], FEATURE_MAP),
+      [`${CHANGE}/delta-spec.md`]: delta({ ADDED: [req('REQ-USER-PROFILE-001', 'user-profile')] }),
+    };
+    vol.fromJSON(files);
+    expect((await findUnsyncedModules(CHANGE, meta(['lib'], 'backfill'), CWD, null)).unregistered).toEqual(['user-profile']);
+    vol.fromJSON({ [`${CHANGE}/backfill-draft.md`]: '# draft\n' });
+    expect(await checkKnowledgeSync(CHANGE, meta(['lib'], 'backfill'), CWD, null)).toBe(true);
+  });
+});

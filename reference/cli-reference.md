@@ -119,7 +119,7 @@ your-project/
   - **Purpose**: Incrementally sync knowledge boundaries from a change's `delta-spec.md` or named modules.
   - **Behavior**:
     - Regenerates the `prospec/index.md` auto block from `module-map.yaml`.
-    - Creates skeleton READMEs for genuinely new modules and adds deprecation banners for removed ones.
+    - Creates skeleton READMEs for genuinely new modules; a REMOVED requirement lists its module as README-pending and never deprecates or unregisters the module.
     - Never rewrites existing README content (preserving authored knowledge) and reports a `README content pending` worklist.
 
 - **`prospec knowledge verify <module>...`**

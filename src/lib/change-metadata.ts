@@ -1,4 +1,5 @@
 import * as fs from 'node:fs';
+import * as path from 'node:path';
 import { isMap, isScalar, isSeq, visit, type Document } from 'yaml';
 import {
   ChangeMetadataSchema,
@@ -91,6 +92,15 @@ export function readScaleQuietly(
   } catch {
     return undefined;
   }
+}
+
+/**
+ * A proven backfill: `scale: backfill` with its `backfill-draft.md` beside the
+ * metadata. `scale` alone is hand-editable, so every gate that relaxes for a
+ * backfill keys on the draft the promotion path alone produces (PB-024).
+ */
+export function isProvenBackfill(changeDir: string, scale: string | undefined): boolean {
+  return scale === 'backfill' && fs.existsSync(path.join(changeDir, 'backfill-draft.md'));
 }
 
 /**

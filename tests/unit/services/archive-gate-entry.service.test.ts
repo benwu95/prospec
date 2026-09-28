@@ -103,6 +103,43 @@ describe('archive Entry Gate (mechanized)', () => {
     expect(result.refused[0]!.reason).toContain('Knowledge');
   });
 
+  it('resolves a proven backfill feature slug through its Feature header instead of refusing it as unregistered', async () => {
+    seed({
+      moduleMap: 'modules:\n  - name: lib\n    paths: [src/lib]\n    keywords: []\n    last_verified: "2026-01-01T00:00:00Z"\n',
+    });
+    vol.fromJSON({
+      [META]: `name: ${CHANGE}\ncreated_at: 2026-07-01T00:00:00.000Z\nstatus: verified\nscale: backfill\nrelated_modules:\n  - lib\n`,
+      [`/repo/.prospec/changes/${CHANGE}/backfill-draft.md`]: '# draft\n',
+      [`/repo/.prospec/changes/${CHANGE}/delta-spec.md`]:
+        '# Delta\n\n## ADDED\n\n### REQ-USER-PROFILE-001: profile\n\n**Feature:** user-profile\n**Story:** US-1\n',
+      '/repo/prospec/ai-knowledge/feature-map.yaml':
+        'features:\n  - feature: user-profile\n    modules: [lib]\n    req_prefixes: []\n    status: active\n',
+      '/repo/prospec/ai-knowledge/modules/lib/README.md': '# lib\n',
+    });
+    const result = await run();
+    expect(result.refused.map((r) => r.reason).join(' ')).not.toContain('KNOWLEDGE_UNSYNCED');
+  });
+
+  it('checks delta-spec modules even when related_modules names another module (union)', async () => {
+    seed({
+      moduleMap:
+        'modules:\n  - name: lib\n    paths: [src/lib]\n    keywords: []\n    last_verified: "2026-01-01T00:00:00Z"\n' +
+        '  - name: services\n    paths: [src/services]\n    keywords: []\n',
+    });
+    vol.fromJSON({
+      [META]: `name: ${CHANGE}\ncreated_at: 2026-07-01T00:00:00.000Z\nstatus: verified\nscale: standard\nrelated_modules:\n  - lib\n`,
+      [`/repo/.prospec/changes/${CHANGE}/delta-spec.md`]:
+        '# Delta\n\n## MODIFIED\n\n### REQ-SERVICES-001: x\n\n**Feature:** alpha\n**Story:** US-1\n',
+      '/repo/prospec/ai-knowledge/modules/lib/README.md': '# lib\n',
+      '/repo/prospec/ai-knowledge/modules/services/README.md': '# services\n',
+    });
+    const result = await run();
+    expect(result.refused).toHaveLength(1);
+    expect(result.refused[0]!.reason).toContain('KNOWLEDGE_UNSYNCED');
+    expect(result.refused[0]!.reason).toContain('stale: services');
+    expect(result.refused[0]!.reason).not.toContain('lib,');
+  });
+
   it('refuses when inputs change after the current assessment', async () => {
     live.recheck = false;
     seed({ reportJson: report({}, 'OLD') });
