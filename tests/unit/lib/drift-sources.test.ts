@@ -19,7 +19,6 @@ import {
   collectConstitutionRules,
   scriptGapReason,
   scriptPatternFor,
-  collectQualityLedger,
   collectDeltaSpecProvenance,
   collectDeltaSpecLandingFidelity,
   collectReviewProvenance,
@@ -36,7 +35,6 @@ import {
   changedPathsFromWorkTree,
   partitionDiffAttributedModules,
   collectLanguagePolicyDrift,
-  readGateResults,
 } from '../../../src/lib/drift-sources.js';
 import { ProspecError } from '../../../src/types/errors.js';
 import { resolveLanguageScope } from '../../../src/lib/language-policy.js';
@@ -44,7 +42,6 @@ import { languagePolicyRule } from '../../../src/lib/constitution-rules.js';
 import { evaluateKnowledgeHealth, evaluateReqReferences, evaluateChangeTestEvidence } from '../../../src/lib/drift-checker.js';
 import { BUNDLED_TEMPLATES_SOURCE } from '../../../src/lib/generated-artifacts.js';
 import { DRIFT_REPORT_FILENAME } from '../../../src/types/drift-report.js';
-import { ESCAPED_DEFECT_REPORT_FILENAME } from '../../../src/types/escaped-defect.js';
 import type { KnowledgeSizeBudget, ProspecConfig } from '../../../src/types/config.js';
 import type { ModuleMap } from '../../../src/types/module-map.js';
 import {
@@ -1719,7 +1716,7 @@ describe('computeChangeDigest', () => {
   // Derived from the filename CONSTANTS, not hand-listed: the hand-enumerated
   // version of this guard silently stopped covering the artifact set when a new
   // report was added, which is exactly how the self-trip hole reopened.
-  it.each([DRIFT_REPORT_FILENAME, ESCAPED_DEFECT_REPORT_FILENAME])(
+  it.each([DRIFT_REPORT_FILENAME])(
     'never self-trips on the check-written report %s',
     (reportFile) => {
       initRepo();
@@ -1728,6 +1725,13 @@ describe('computeChangeDigest', () => {
       expect(computeChangeDigest(tmpDir)).toBe(d0);
     },
   );
+
+  it('treats a leftover escaped-defect-report.json as an ordinary input — writing it changes the digest (REQ-LIB-090)', () => {
+    initRepo();
+    const d0 = computeChangeDigest(tmpDir);
+    write('escaped-defect-report.json', '{"generated_at":"now"}\n');
+    expect(computeChangeDigest(tmpDir)).not.toBe(d0);
+  });
 
   it('flips when the generated bundle changes — the digest scope is NOT the staleness scope', () => {
     initRepo();
@@ -1997,7 +2001,7 @@ describe('collectMetadataCompleteness', () => {
     expect(c?.missing_verify_grade).toBe(false);
   });
 
-  // Same trim rule as readGateResults: these rows come off raw YAML (no schema),
+  // Same trim rule as every quality_log consumer: these rows come off raw YAML (no schema),
   // and an exact match on `"A "` would FAIL a genuinely verified change —
   // a wrong FAIL-class verdict from whitespace (#103 review, PB-007 sweep).
   it('accepts an S/A grade carrying stray whitespace (trimmed like every quality_log consumer)', () => {
@@ -2603,82 +2607,6 @@ describe('collectLanguagePolicyDrift (REQ-LIB-074)', () => {
     expect(r.reason).toMatch(/^source unavailable: /);
     expect(r.reason).not.toContain('not found');
     expect(r.verdict).toBeNull();
-  });
-});
-
-describe('collectQualityLedger (REQ-LIB-034)', () => {
-  it('reports unavailable when neither ledger directory exists', () => {
-    const r = collectQualityLedger(tmpDir);
-    expect(r.available).toBe(false);
-    expect(r.reason).toContain('.prospec/archive');
-    expect(r.archive_available).toBe(false);
-  });
-
-  it('collects both ledgers, keeping the dated archive dir alongside the canonical name', () => {
-    write(
-      '.prospec/changes/live/metadata.yaml',
-      'name: live\nstatus: implemented\nintroduced_by: old-change\n',
-    );
-    write(
-      '.prospec/archive/2026-07-05-old-change/metadata.yaml',
-      'name: old-change\nstatus: archived\nquality_log:\n' +
-        '  - skill: prospec-verify\n    date: "2026-07-05"\n    result: PASS\n    grade: S\n',
-    );
-    const r = collectQualityLedger(tmpDir);
-    expect(r.available).toBe(true);
-    expect(r.archive_available).toBe(true);
-    expect(r.changes).toEqual([
-      {
-        name: 'live',
-        dir: 'live',
-        ledger: 'changes',
-        status: 'implemented',
-        introduced_by: 'old-change',
-        gate_results: [],
-      },
-      {
-        name: 'old-change',
-        dir: '2026-07-05-old-change',
-        ledger: 'archive',
-        status: 'archived',
-        introduced_by: null,
-        gate_results: [{ skill: 'prospec-verify', result: 'PASS' }],
-      },
-    ]);
-  });
-
-  it('falls back to the directory name when metadata declares no name', () => {
-    write('.prospec/changes/nameless/metadata.yaml', 'status: tasks\n');
-    const r = collectQualityLedger(tmpDir);
-    expect(r.changes[0]).toMatchObject({ name: 'nameless', dir: 'nameless' });
-  });
-
-  it('flags an absent archive ledger instead of silently reporting a partial sample', () => {
-    write('.prospec/changes/live/metadata.yaml', 'name: live\nstatus: tasks\n');
-    const r = collectQualityLedger(tmpDir);
-    expect(r.available).toBe(true);
-    expect(r.archive_available).toBe(false);
-  });
-
-  it('drops malformed quality_log entries rather than inventing a gate record', () => {
-    write(
-      '.prospec/changes/c/metadata.yaml',
-      'name: c\nstatus: tasks\nquality_log:\n  - skill: prospec-plan\n    result: PASS\n  - date: "2026-07-01"\n  - null\n',
-    );
-    const r = collectQualityLedger(tmpDir);
-    expect(r.changes[0]?.gate_results).toEqual([{ skill: 'prospec-plan', result: 'PASS' }]);
-  });
-
-  // `skill` was already trimmed; `result` was not — a `'PASS '` record neither
-  // entered the gate's denominator nor gates_passed, silently vanishing from the
-  // escape stats (issue #103).
-  it('trims result the same way it trims skill', () => {
-    write(
-      '.prospec/changes/c/metadata.yaml',
-      'name: c\nstatus: tasks\nquality_log:\n  - skill: prospec-plan\n    result: "PASS "\n',
-    );
-    const r = collectQualityLedger(tmpDir);
-    expect(r.changes[0]?.gate_results).toEqual([{ skill: 'prospec-plan', result: 'PASS' }]);
   });
 });
 
@@ -3512,37 +3440,5 @@ describe('collectChangeTestEvidence — target-scoped facts for the lifecycle ga
     write('.prospec/changes/c1/metadata.yaml', fresh('c1', snapshot.digest!).replace(/test_attempt:[\s\S]*$/, 'test_attempt:\n  id: a2\n  outcome: failed\n  command: pnpm test\n  exit_code: 1\n'));
     const { facts } = collectChangeTestEvidence(tmpDir, 'c1', 'pnpm test', snapshot);
     expect(evaluateChangeTestEvidence(facts)).toMatchObject({ verdict: 'refuse', knownFailure: true, failedAttemptId: 'a2' });
-  });
-});
-
-describe('readGateResults', () => {
-  it('drops merge-written round-tagged prospec-review counts entries (metrics, not gate outcomes)', () => {
-    // A round-tagged counts entry (PASS) alongside a round-less close entry (WARN):
-    // only the close entry is a gate outcome. If the PASS counts entry survived, the
-    // escaped-defect aggregate would register prospec-review as passed on a WARN round.
-    const gates = readGateResults([
-      { skill: 'prospec-review', date: '2026-09-19', result: 'PASS', round: 1 },
-      { skill: 'prospec-review', date: '2026-09-19', result: 'WARN', warnings: ['circuit breaker tripped'] },
-      { skill: 'prospec-verify', date: '2026-09-19', result: 'A' },
-    ]);
-    expect(gates).toEqual([
-      { skill: 'prospec-review', result: 'WARN' },
-      { skill: 'prospec-verify', result: 'A' },
-    ]);
-  });
-
-  it('drops a plan sign-off entry — provenance, not a gate outcome (REQ-LIB-088)', () => {
-    const gates = readGateResults([
-      { skill: 'prospec-plan', date: '2026-09-24', result: 'WARN', verifier_verdict: 'WARN' },
-      { skill: 'prospec-plan', date: '2026-09-24', result: 'PASS', signoff_option: 'option-a' },
-    ]);
-    expect(gates).toEqual([{ skill: 'prospec-plan', result: 'WARN' }]);
-  });
-
-  it('keeps a round-less prospec-review entry (round === undefined is a close/gate entry)', () => {
-    const gates = readGateResults([
-      { skill: 'prospec-review', date: '2026-09-19', result: 'PASS' },
-    ]);
-    expect(gates).toEqual([{ skill: 'prospec-review', result: 'PASS' }]);
   });
 });

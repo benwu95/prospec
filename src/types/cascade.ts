@@ -36,8 +36,6 @@ export const CircuitBreakerConfigSchema = z.object({
   maxOscillationFlips: z.number().int().min(1).default(2),
   /** Maximum allowed fix-induced ratio before tripping in rounds > 1 (default 0.5). */
   maxFixInducedRatio: z.number().min(0).max(1).default(0.5),
-  /** Maximum allowed cumulative spend in tokens before tripping (optional). */
-  maxSpend: z.number().int().nonnegative().optional(),
   /** Distinct failed test attempts `review merge` may observe in a row before
    *  `persistent_test_failure` trips (default 3). Independent of the round and
    *  flip caps; the bounded streak reducer saturates at this same value. */
@@ -87,7 +85,6 @@ export const EscalationReportSchema = z.object({
     'unrecoverable_critical',
     'persistent_test_failure',
     'fix_induced_threshold_exceeded',
-    'spend_budget_exceeded',
     'station_retry_limit_exceeded',
   ]),
   message: z.string(),
@@ -106,7 +103,6 @@ export const CircuitBreakerStateSchema = z.object({
   reviewRounds: z.number().int().nonnegative(),
   oscillatingSignatures: z.array(z.string()),
   fixInducedRatio: z.number().optional(),
-  cumulativeSpend: z.number().int().nonnegative().optional(),
   escalationReport: EscalationReportSchema.optional(),
 });
 

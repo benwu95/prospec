@@ -406,9 +406,6 @@ export const JudgmentDimensionInputSchema = z
      *  and non-blocking — recorded for future per-executor statistics (no station
      *  consumes it yet), not a gate. */
     executor: z.string().min(1).optional(),
-    /** Self-reported tokens spent on this verdict — the detection-per-cost
-     *  denominator. Optional and non-blocking. */
-    spend: z.number().int().nonnegative().optional(),
     /** One-line verdict rationale — relayed, so bounded. */
     summary: relayedString('summary').optional(),
     /** The command that re-establishes this verdict. */

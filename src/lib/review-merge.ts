@@ -342,9 +342,6 @@ const decodeToken = (s: string): string => {
 
 export interface ReviewMetrics {
   round?: number;
-  spendBefore?: number;
-  lastRoundSpend?: number;
-  cumulativeSpend?: number;
   loopBase?: number;
   provenanceDigest?: string;
   lenses?: string[];
@@ -393,14 +390,6 @@ function metricsFromAttributes(attrs: Record<string, string>): ReviewMetrics {
   }
 
   const round = attrs.round ? parseInt(attrs.round, 10) : undefined;
-  const spendBefore = attrs.spend_before !== undefined ? parseInt(attrs.spend_before, 10) : undefined;
-  const lastRoundSpend = attrs.round_spend !== undefined ? parseInt(attrs.round_spend, 10) : undefined;
-  const cumulativeSpend =
-    attrs.cumulative_spend !== undefined
-      ? parseInt(attrs.cumulative_spend, 10)
-      : spendBefore !== undefined && lastRoundSpend !== undefined
-        ? spendBefore + lastRoundSpend
-        : undefined;
   const loopBase = attrs.loop_base !== undefined ? parseInt(attrs.loop_base, 10) : undefined;
   const provenanceDigest = attrs.provenance || undefined;
   const lenses = attrs.lenses
@@ -412,9 +401,6 @@ function metricsFromAttributes(attrs: Record<string, string>): ReviewMetrics {
 
   return {
     round: !isNaN(round as number) ? round : undefined,
-    spendBefore: spendBefore !== undefined && !isNaN(spendBefore) ? spendBefore : undefined,
-    lastRoundSpend: lastRoundSpend !== undefined && !isNaN(lastRoundSpend) ? lastRoundSpend : undefined,
-    cumulativeSpend: cumulativeSpend !== undefined && !isNaN(cumulativeSpend) ? cumulativeSpend : undefined,
     loopBase: loopBase !== undefined && !isNaN(loopBase) ? loopBase : undefined,
     provenanceDigest,
     lenses,
@@ -500,15 +486,6 @@ export function renderReviewMetricsComment(metrics: ReviewMetrics): string {
   if (metrics.round !== undefined) {
     attrs.push(`round="${metrics.round}"`);
   }
-  if (metrics.spendBefore !== undefined) {
-    attrs.push(`spend_before="${metrics.spendBefore}"`);
-  }
-  if (metrics.lastRoundSpend !== undefined) {
-    attrs.push(`round_spend="${metrics.lastRoundSpend}"`);
-  }
-  if (metrics.cumulativeSpend !== undefined) {
-    attrs.push(`cumulative_spend="${metrics.cumulativeSpend}"`);
-  }
   if (metrics.loopBase !== undefined && metrics.loopBase > 0) {
     attrs.push(`loop_base="${metrics.loopBase}"`);
   }
@@ -581,9 +558,6 @@ export function renderReviewDocument(
   const effectiveMetrics: ReviewMetrics = metrics
     ? {
         round: metrics.round ?? existingMetrics.round,
-        spendBefore: metrics.spendBefore ?? existingMetrics.spendBefore,
-        lastRoundSpend: metrics.lastRoundSpend,
-        cumulativeSpend: metrics.cumulativeSpend,
         loopBase: metrics.loopBase ?? existingMetrics.loopBase,
         provenanceDigest: metrics.provenanceDigest ?? existingMetrics.provenanceDigest,
         lenses: metrics.lenses ?? existingMetrics.lenses,

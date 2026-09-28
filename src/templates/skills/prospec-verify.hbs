@@ -326,9 +326,9 @@ Before executing the record command with delegated payloads:
 - **Delegation & receipt**: `--dimensions <file>` combines the `JudgmentDimensionsInputSchema` payloads of the 2/5 and 6 graders, each ticketed before its spawn and received when it returns per [`references/delegation-protocol.md`](references/delegation-protocol.md); a terminal failure takes 2/5's degraded path, disclosing `--graded-by in-session` when it grades in-session.
 
 Run `prospec verify record` (Bash) with ONLY the judgment verdicts — as `--dimensions <file>` (the
-grader's JSON array, `graded_by` and optional `executor`/`spend` per entry, evidence included) or as
+grader's JSON array, `graded_by` and optional `executor` per entry, evidence included) or as
 one `--dimension <name>=<result>` each with a run-level `--graded-by <fresh-subagent|in-session>`
-(and optional `--executor`/`--spend`) when there is no prose to record; the two are **alternatives**,
+(and optional `--executor`) when there is no prose to record; the two are **alternatives**,
 supplying both is refused. Either way cover exactly `delta-spec-compliance`, `constitution`, `design`
 (one that does not apply is reported `not-applicable` — `=not-applicable`, never omitted), and declare
 each judgment verdict's `graded_by` (refused when absent), plus one `--warning "<detail>"` per

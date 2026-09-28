@@ -89,20 +89,6 @@ amend preserves evidence. Legacy records need one real revalidation. Test attemp
 provable equal before/after inputs with exit 0. Verify/archive read current workflow facts and
 recheck their observations before writing; saved reports are display artifacts, never gate authority.
 
-## Escaped-defect registration (`introduced_by`)
-
-A bug-fix change MAY name the earlier change whose gates let the defect through, so
-per-gate escaped-defect rate becomes trackable — `prospec check --escaped-defects` aggregates it
-across `.prospec/changes/` and `.prospec/archive/`. In `metadata.yaml`:
-
-```yaml
-introduced_by: <change-name>   # the change whose gates missed this defect
-```
-
-- **Value**: the offending change's directory name (a plain string), e.g. `introduced_by: add-user-auth`. The aggregator resolves it against both ledgers, dated archive directories included; an unresolved or ambiguous name is reported, never dropped.
-- **Optional, convention-only**: absent on non-bug-fix changes; the schema neither requires it nor verifies the referenced change exists (a registration convention, not a referential-integrity check).
-- **When to set it**: once the offending change is identified — at `prospec-new-story`, or back-filled onto the bug-fix change's metadata.
-
 ## Rules
 
 - The skill that owns a transition MUST update `metadata.yaml` `status` when it completes its phase.

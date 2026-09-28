@@ -397,13 +397,14 @@ describe('verify-record service', () => {
     expect(vol.readFileSync(META, 'utf-8')).toContain('graded_by: in-session');
   });
 
-  it('records executor and spend from the run-level flag form', async () => {
+  // The flag form carries no spend: `--spend` is refused at the parser (e2e), so the
+  // service has nothing to strip — asserting its absence here would pass vacuously.
+  it('records executor from the run-level flag form (REQ-CLI-038)', async () => {
     seed();
-    const dims = judgment().map((d) => ({ ...d, executor: 'opus-tier fresh subagent', spend: 12000 }));
+    const dims = judgment().map((d) => ({ ...d, executor: 'opus-tier fresh subagent' }));
     await execute({ cwd: CWD, judgmentDimensions: dims, warnings: [], date: '2026-08-22' });
     const written = (vol.readFileSync(META, 'utf-8') as string).replace(/\n\s+/g, ' ');
     expect(written).toContain('executor: opus-tier fresh subagent');
-    expect(written).toContain('spend: 12000');
   });
 });
 
@@ -602,7 +603,9 @@ describe('report freshness guard', () => {
       expect(vol.readFileSync(META, 'utf-8')).toBe(before);
     });
 
-    it('carries per-entry graded_by / executor / spend from the file form into metadata', async () => {
+    it('carries per-entry graded_by / executor from the file form into metadata, dropping a spend key (REQ-CLI-038)', async () => {
+      // Two gates drop `spend`: `JudgmentDimensionInputSchema` (z.object strips it) and the
+      // service projection (which never copies it) — restoring only one of them keeps this green.
       seed();
       vol.writeFileSync(
         DIMS,
@@ -619,7 +622,7 @@ describe('report freshness guard', () => {
       const written = (vol.readFileSync(META, 'utf-8') as string).replace(/\n\s+/g, ' ');
       expect(written).toContain('graded_by: in-session');
       expect(written).toContain('executor: sonnet in-session');
-      expect(written).toContain('spend: 8000');
+      expect(written).not.toMatch(/\bspend:/);
     });
   });
 });

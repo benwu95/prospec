@@ -1,0 +1,139 @@
+name: normalize-executor-labels-and-stats
+created_at: 2026-09-03T05:22:44.521Z
+status: archived
+related_modules:
+  - types
+  - lib
+  - services
+  - cli
+  - templates
+  - tests
+description: Normalize executor labels via config vocabulary, add
+  review-provenance executor, and ship prospec learn stats
+issue: https://github.com/benwu95/prospec/issues/259
+scale: full
+quality_log:
+  - skill: prospec-ff
+    date: 2026-09-03
+    result: WARN
+    warnings:
+      - Architecture Verifier WARN（fresh
+        subagent，.tasks/feat/259-normalize-executor-labels-and-stats/plan-verifier.json）：Story
+        指標誤用 slice 檔名（已改 US-008/US-24/US-6）、US-4/FR-009 未聲明刻意不落 REQ（已加 Coverage
+        Note）、vendor-name 掃描未涵蓋 metadata-format/config-example（已排入 step
+        7）、README 無契約守衛（已排入 parity 斷言）、archive 改寫無 git 回復（已加備份步驟）、false-green
+        同日粒度（已註明）——全數就地修正
+  - skill: prospec-ff
+    date: 2026-09-03
+    result: WARN
+    warnings:
+      - Task Verifier WARN（fresh
+        subagent，.tasks/feat/259-normalize-executor-labels-and-stats/tasks-verifier.json）：pnpm
+        bundle 產 diff 不應標 [M]、.prospec.yaml 改動混入 [M]、knowledge verify/counts
+        早於測試任務、T2/T13 微任務、T22 過大——tasks.md 全數就地重排（bundle 改 code、.prospec.yaml 併入
+        docs task、verify+counts 移至 T24、微任務合併、services/cli 測試拆開）
+  - skill: prospec-review
+    date: 2026-09-03
+    result: WARN
+    warnings:
+      - round 1：R1-1 critical（負 spend 使 learn stats 崩潰）verifier 已
+        confirmed、待修；10 majors 使用者裁決全修
+    criticals_found: 1
+    criticals_fixed: 0
+    majors: 10
+  - skill: prospec-review
+    date: 2026-09-03
+    result: WARN
+    warnings:
+      - round 2：11 筆 round-1 finding 全數 fixed（fresh 複審確認）；新增 R4-1 major（file
+        form 純空白 executor 落盤 ""）＋4 minor，續修
+    criticals_found: 0
+    criticals_fixed: 1
+    majors: 1
+  - skill: prospec-review
+    date: 2026-09-03
+    result: PASS
+    warnings: []
+    criticals_found: 0
+    criticals_fixed: 0
+    majors: 0
+  - skill: prospec-verify
+    date: 2026-09-03
+    result: PASS
+    warnings: []
+    grade: S
+    dimensions:
+      - name: task-completion
+        result: PASS
+        adjudicator: machine
+      - name: knowledge
+        result: PASS
+        adjudicator: machine
+      - name: tests
+        result: PASS
+        adjudicator: machine
+      - name: delta-spec-compliance
+        result: PASS
+        adjudicator: judgment
+        graded_by: fresh-subagent
+        executor: claude-fable-5-1
+        spend: 135000
+      - name: constitution
+        result: PASS
+        adjudicator: judgment
+        graded_by: fresh-subagent
+        executor: claude-fable-5-1
+        spend: 135000
+      - name: design
+        result: not-applicable
+        adjudicator: judgment
+        graded_by: fresh-subagent
+        executor: claude-fable-5-1
+        spend: 135000
+  - skill: prospec-verify
+    date: 2026-09-03
+    result: PASS
+    warnings: []
+    grade: S
+    dimensions:
+      - name: task-completion
+        result: PASS
+        adjudicator: machine
+      - name: knowledge
+        result: PASS
+        adjudicator: machine
+      - name: tests
+        result: PASS
+        adjudicator: machine
+      - name: delta-spec-compliance
+        result: PASS
+        adjudicator: judgment
+        graded_by: fresh-subagent
+        executor: claude-fable-5-1
+        spend: 135000
+      - name: constitution
+        result: PASS
+        adjudicator: judgment
+        graded_by: fresh-subagent
+        executor: claude-fable-5-1
+        spend: 135000
+      - name: design
+        result: not-applicable
+        adjudicator: judgment
+        graded_by: fresh-subagent
+        executor: claude-fable-5-1
+        spend: 135000
+test_provenance:
+  command: pnpm test
+  exit_code: 0
+  digest: 5a60d4f7f6f70cbfdbd11cefc5b65c476143b1b4e9d8528f12677d9fcf90c267
+  date: 2026-09-03
+review_provenance:
+  digest: 5a60d4f7f6f70cbfdbd11cefc5b65c476143b1b4e9d8528f12677d9fcf90c267
+  date: 2026-09-03
+  graded_by: fresh-subagent
+  executor: claude-fable-5-1
+delta_spec_provenance:
+  digest: 064392eb3e738c9865450fc51b6f3129ba7167133c7407350c9236da3f1f5b47
+  date: 2026-09-03
+archived_at: 2026-09-03

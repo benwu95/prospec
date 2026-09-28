@@ -3,7 +3,6 @@ import path from 'node:path';
 import type { LogLevel } from '../../types/config.js';
 import type {
   CheckResult,
-  EscapedDefectsResult,
   InitCiResult,
   RecordReviewResult,
   RecordTestsResult,
@@ -42,8 +41,7 @@ export function formatCheckOutput(
     | CheckResult
     | InitCiResult
     | RecordReviewResult
-    | RecordTestsResult
-    | EscapedDefectsResult,
+    | RecordTestsResult,
   logLevel: LogLevel,
 ): void {
   if (logLevel === 'quiet') {
@@ -71,11 +69,6 @@ export function formatCheckOutput(
 
   if (result.kind === 'record-tests') {
     formatRecordTests(result);
-    return;
-  }
-
-  if (result.kind === 'escaped-defects') {
-    formatEscapedDefects(result);
     return;
   }
 
@@ -236,54 +229,6 @@ function formatRecordTests(result: RecordTestsResult): void {
     console.log('  → recorded as failing; `test-provenance` will FAIL until the suite is green');
   }
 
-}
-
-function formatEscapedDefects(result: EscapedDefectsResult): void {
-  const { report } = result;
-  console.log(pc.bold('Escaped-defect rate per gate (from metadata `introduced_by`)'));
-  console.log('');
-  if (!report.ledger_available) {
-    // Never claim a fact about records that were never opened.
-    console.log(
-      `  ${pc.dim('ledger unavailable')} — neither \`.prospec/changes/\` nor \`.prospec/archive/\` exists,` +
-        ' so no gate record was read at all',
-    );
-  } else if (report.sample_count === 0) {
-    console.log(
-      `  ${pc.dim('no registered samples')} — no change records \`introduced_by\`, so no rate can be computed`,
-    );
-    console.log(pc.dim('  (an empty sample is not a 0% escape rate)'));
-  } else {
-    for (const g of report.gates) {
-      const pct = `${(g.escaped_rate * 100).toFixed(1)}%`;
-      const label = g.escaped > 0 ? pc.yellow(pct) : pc.green(pct);
-      console.log(`  ${label}  ${sanitizeTerminal(g.gate)} — ${g.escaped}/${g.passed} passed changes later blamed`);
-    }
-    console.log('');
-    console.log(`Samples: ${report.sample_count}`);
-    for (const s of report.samples) {
-      console.log(
-        `  ${sanitizeTerminal(s.fix_change)} → blames ${sanitizeTerminal(s.introduced_by)}` +
-          ` (gates passed: ${s.gates_passed.map(sanitizeTerminal).join(', ') || 'none'})`,
-      );
-    }
-  }
-  if (report.unresolved_references.length > 0) {
-    console.log('');
-    console.log(pc.yellow(`Unresolved \`introduced_by\` references: ${report.unresolved_references.length}`));
-    for (const s of report.unresolved_references) {
-      console.log(
-        `  ${sanitizeTerminal(s.fix_change)} names "${sanitizeTerminal(s.introduced_by)}" — no single change in either ledger resolves it (missing, or the name is shared)`,
-      );
-    }
-  }
-  if (!report.archive_available) {
-    console.log('');
-    console.log(pc.dim('.prospec/archive/ not found — sample covers in-flight changes only'));
-  }
-  if (result.reportPath) {
-    console.log(pc.dim(`Report written: ${path.relative(process.cwd(), result.reportPath)}`));
-  }
 }
 
 function printFinding(f: DriftFinding, indent: string): void {

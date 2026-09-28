@@ -1,0 +1,110 @@
+name: relax-readme-marker-adjacency
+created_at: 2026-09-04T11:59:50.842Z
+status: archived
+related_modules:
+  - lib
+  - templates
+  - tests
+description: Relax the module README format marker adjacency rule and anchor the
+  missing-marker finding
+introduced_by: 2026-09-01-standardize-module-readme-format
+issue: "#263"
+scale: standard
+quality_log:
+  - skill: prospec-plan
+    date: 2026-09-04
+    result: WARN
+    warnings:
+      - 架構驗證器 WARN：blast_radius 漏列 REQ-TEMPLATES-226（trust zone 仍寫 immediately
+        after the title summary）與 conventions 第 30 行第二個 immediately；delta_spec
+        指出缺 marker 錨點條件在 plan（summaryIndex >= 0）與 delta-spec/AC（無合法 summary 才退回
+        line 1）字面相反。已於進入 tasks 前全數修正：補 MODIFIED REQ-TEMPLATES-226、plan Step 2 改用
+        hasSummary 判準、Step 4 一併修第二個 immediately、Step 6 補 dogfood 還原、Risk 補
+        conventions canonical-doc-drift 列、proposal 零遷移主張限定為 module README 面。
+  - skill: prospec-tasks
+    date: 2026-09-04
+    result: WARN
+    warnings:
+      - 任務驗證器 WARN（bidirectional_coverage / tdd_module_closure /
+        task_sizing_schema）。已於進入 implement 前修正：檔頭 REQ 對應表把 root README 誤掛
+        REQ-TEMPLATES-226（改掛 FR-006 與 Constitution [SHOULD]）；補 T6（重複 marker
+        錨點回歸）與 T7（marker 在 summary 之前）兩條無守衛的驗收情境；補 T16 負向 contract 斷言守住
+        REQ-TEMPLATES-226 新增的 prose 條款（unguarded prose 腐化路徑）；T14/T19 因產生必須進
+        feature commit 的 diff，依 tasks-format §4 由 [M] 改為 code；T21/T22 改用 source
+        CLI（裸 prospec 會落到全域安裝版）；T9 描述修正（該 .hbs 只有一個 immediately，前半是 sit
+        above）；估計行數 160→179 校正。dag_topological_order 判 PASS，確認測試置頂的 TDD 裁量成立。
+  - skill: prospec-review
+    date: 2026-09-04
+    result: WARN
+    warnings:
+      - "round 1: 0 critical / 2 major（F-1 負向守衛只認舊字面、對 conventions 這對權威空轉；F-2
+        conventions 第 35 行 blockquote directly under the title 與產生器空行形態矛盾）/ 2
+        minor（F-3 新 prose 的 no other content 與同輪釘住的 fenced-block PASS 相牴觸；F-4
+        掃描迴圈 break 與相鄰迴圈診斷密度不一致）"
+    criticals_found: 0
+    criticals_fixed: 0
+    majors: 2
+  - skill: prospec-review
+    date: 2026-09-04
+    result: WARN
+    warnings:
+      - "round 2: 0 critical / 1 major（F-5：round 1 對 F-4 的修復移除 break
+        卻沒搬相鄰迴圈的順序守衛，marker 落在 auto block 之後時逐行掃描整份文件——實測 modules/lib/README.md
+        產生 51 條 finding、50 條指引錯誤）/ 1 minor（F-6：marker contract 區段的示例 fence
+        無任何測試引用）。兩者皆已修並各補 mutation 驗證過的回歸樁。"
+    criticals_found: 0
+    criticals_fixed: 0
+    majors: 1
+  - skill: prospec-review
+    date: 2026-09-04
+    result: WARN
+    warnings:
+      - "round 3（hard cap）: 0 critical / 2 major，兩者皆已修。F-7：round 2 補的
+        out-of-order 回歸樁落地後未重跑 pnpm counts，6 檔 20 處測試數落後 1（CI counts:check 必紅）→
+        已重跑同步。F-8：delta-spec REQ-LIB-073 的 Spec 絕對句與實作三條例外（closed fence 遮蔽、反序
+        header 單一 finding、block 殘缺提早 return）不符，且會逐字畢業進 trust zone，等於把 F-3
+        剛拔掉的矛盾種回規格 → 已補限定語。fix_induced_ratio 50.0%（等於門檻、未觸發斷路器）；本輪修復只動文件與計數，未改
+        src/。審查迴圈於 hard cap 收斂：0 unresolved critical。"
+    criticals_found: 0
+    criticals_fixed: 0
+    majors: 2
+  - skill: prospec-verify
+    date: 2026-09-04
+    result: PASS
+    warnings: []
+    grade: S
+    dimensions:
+      - name: task-completion
+        result: PASS
+        adjudicator: machine
+      - name: knowledge
+        result: PASS
+        adjudicator: machine
+      - name: tests
+        result: PASS
+        adjudicator: machine
+      - name: delta-spec-compliance
+        result: PASS
+        adjudicator: judgment
+        graded_by: fresh-subagent
+      - name: constitution
+        result: PASS
+        adjudicator: judgment
+        graded_by: fresh-subagent
+      - name: design
+        result: not-applicable
+        adjudicator: judgment
+        graded_by: fresh-subagent
+test_provenance:
+  command: pnpm test
+  exit_code: 0
+  digest: 8f67cbb991bde58725990d653d3c7f47d62c223c4e3c60ea378e3147d824434f
+  date: 2026-09-04
+review_provenance:
+  digest: 8f67cbb991bde58725990d653d3c7f47d62c223c4e3c60ea378e3147d824434f
+  date: 2026-09-04
+  graded_by: fresh-subagent
+delta_spec_provenance:
+  digest: 49dbbd783b6f5b9d6ef3de5efbdad3c40ffef270ab50062145763fc25b8541a8
+  date: 2026-09-04
+archived_at: 2026-09-04

@@ -196,30 +196,40 @@ describe('writeCheckpoint (REQ-LIB-091)', () => {
   });
 
   it.skipIf(process.platform === 'win32')('sees a report symlink through its target and refuses a report a directory replaced (T-6 pin)', async () => {
-    fs.symlinkSync('t1.json', path.join(project, 'escaped-defect-report.json'));
+    fs.symlinkSync('t1.json', path.join(project, 'prospec-report.json'));
     const linked = captureRepoState(project);
-    fs.rmSync(path.join(project, 'escaped-defect-report.json'));
-    fs.symlinkSync('t2.json', path.join(project, 'escaped-defect-report.json'));
+    fs.rmSync(path.join(project, 'prospec-report.json'));
+    fs.symlinkSync('t2.json', path.join(project, 'prospec-report.json'));
     expect(diffRepoState(linked, captureRepoState(project)).changed).toEqual(['content']);
-    fs.rmSync(path.join(project, 'escaped-defect-report.json'));
-    fs.mkdirSync(path.join(project, 'escaped-defect-report.json'));
-    put('escaped-defect-report.json/inner', 'x\n');
+    fs.rmSync(path.join(project, 'prospec-report.json'));
+    fs.mkdirSync(path.join(project, 'prospec-report.json'));
+    put('prospec-report.json/inner', 'x\n');
     const state = captureRepoState(project);
-    expect(state.content).toMatchObject({ unreadable: expect.stringMatching(/escaped-defect-report\.json is neither a regular file nor a symlink/) });
+    expect(state.content).toMatchObject({ unreadable: expect.stringMatching(/prospec-report\.json is neither a regular file nor a symlink/) });
   });
 
-  it('copies a rewritten tracked report file and an untracked one, and the snapshot reproduces both (C-1 pin)', async () => {
+  it('copies a rewritten tracked report file, and the snapshot reproduces it (C-1 pin)', async () => {
     put('prospec-report.json', '{"v":1}\n');
     git('add', 'prospec-report.json');
     git('commit', '-qm', 'report');
     put('prospec-report.json', '{"v":2}\n');
-    put('escaped-defect-report.json', '{"escaped":[]}\n');
     const stem = nextStem();
     const { checkpoint, snapshot } = await snapshotOf(stem);
     try {
-      expect(checkpoint.entries.map((e) => e.path).sort()).toEqual(['escaped-defect-report.json', 'prospec-report.json']);
+      expect(checkpoint.entries.map((e) => e.path)).toEqual(['prospec-report.json']);
       expect(fs.readFileSync(path.join(snapshot.path, 'prospec-report.json'), 'utf8')).toBe('{"v":2}\n');
-      expect(fs.readFileSync(path.join(snapshot.path, 'escaped-defect-report.json'), 'utf8')).toBe('{"escaped":[]}\n');
+    } finally {
+      fs.rmSync(snapshot.path, { recursive: true, force: true });
+    }
+  });
+
+  it('copies an untracked report file, and the snapshot reproduces it (C-1 pin)', async () => {
+    put('prospec-report.json', '{"v":1}\n');
+    const stem = nextStem();
+    const { checkpoint, snapshot } = await snapshotOf(stem);
+    try {
+      expect(checkpoint.entries.map((e) => e.path)).toEqual(['prospec-report.json']);
+      expect(fs.readFileSync(path.join(snapshot.path, 'prospec-report.json'), 'utf8')).toBe('{"v":1}\n');
     } finally {
       fs.rmSync(snapshot.path, { recursive: true, force: true });
     }

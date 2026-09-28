@@ -54,7 +54,6 @@ silently drift.
 - `result`: `"PASS"` | `"WARN"` | `"FAIL"` | `"not-applicable"` | `"not-adjudicated"` (required; closed enum)
 - `graded_by`: `"fresh-subagent"` | `"in-session"` (required; closed enum)
 - `executor`: non-empty string (optional)
-- `spend`: non-negative integer (optional)
 - `summary`: non-empty, bounded single-line string (optional)
 - `repro`: non-empty, bounded single-line command (optional)
 - `evidence`: non-empty full prose string (optional; never relayed)

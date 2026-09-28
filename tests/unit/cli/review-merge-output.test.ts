@@ -128,7 +128,7 @@ describe('review-merge-output', () => {
     expect(out).toContain('a.ts:1');
   });
 
-  it('formats round metrics with fix_induced_ratio and spend (REQ-CLI-043)', () => {
+  it('formats round metrics with fix_induced_ratio and prints no spend line (REQ-CLI-043)', () => {
     const out = captureStdout(() =>
       formatReviewMergeOutput(
         baseResult({
@@ -138,26 +138,13 @@ describe('review-merge-output', () => {
             criticals_fixed: 1,
             majors: 0,
             fixInducedRatio: 0.667,
-            spend: 3500,
-            cumulativeSpend: 6000,
           },
         }),
         'normal',
       ),
     );
-    expect(out).toContain('round: round=2 · criticals_found=2 · criticals_fixed=1 · majors=0 · fix_induced_ratio=66.7% · (spend: 3,500, cumulative: 6,000)');
-  });
-
-  it('prints cumulative spend against the declared budget when one is set (REQ-CLI-043)', () => {
-    const out = captureStdout(() =>
-      formatReviewMergeOutput(
-        baseResult({
-          round: { roundNumber: 1, criticals_found: 0, criticals_fixed: 0, majors: 0, spend: 4000, cumulativeSpend: 4000, budget: 6000 },
-        }),
-        'normal',
-      ),
-    );
-    expect(out).toContain('(spend: 4,000, cumulative: 4,000 / 6,000)');
+    expect(out).toMatch(/^ {2}round: round=2 · criticals_found=2 · criticals_fixed=1 · majors=0 · fix_induced_ratio=66\.7%$/m);
+    expect(out).not.toMatch(/spend|budget|cumulative:/);
   });
 
   it('renders prominent EscalationReport when circuit breaker trips (REQ-CLI-043)', () => {

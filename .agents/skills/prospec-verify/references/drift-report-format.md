@@ -135,18 +135,6 @@ structured facts behind its `detail` (additive, so a report without it still val
 - The whole object is **optional** (absent when the Constitution is missing or declares no
   principles) → audit from the file and record the missing-inventory WARN.
 
-## Sibling report — `escaped-defect-report.json`
-
-`prospec check --escaped-defects [--json]` writes a **separate** report (schema authority: the prospec CLI's escaped-defect schema): `{ version, generated_at, archive_available, ledger_available, sample_count, gates[], samples[], unresolved_references[] }`, each `gates[]` entry `{ gate, passed, escaped, escaped_rate }`. It aggregates `introduced_by` across `.prospec/changes/` **and** `.prospec/archive/` for per-gate escaped-defect rate — a historical aggregate, not a drift check (no findings, never affects `--strict`).
-
-Three honesty flags, each a different question — never collapse them:
-
-- `ledger_available: false` — **no records read at all** (neither ledger directory exists).
-- `sample_count: 0` — records read but **none registered** `introduced_by`; `gates` is empty, not 0% rows.
-- `archive_available: false` — the sample is **honestly partial** (the archive is gitignored by design).
-
-`escaped` counts DISTINCT blamed changes (matching `passed`, so `escaped_rate` ∈ 0..1); a name resolving to no change — or to several — lands in `unresolved_references`, not an arbitrary winner.
-
 ## `semantic` and `summary`
 
 - `semantic.status` is **always** `not-checked` — semantic consistency is `prospec-review`'s

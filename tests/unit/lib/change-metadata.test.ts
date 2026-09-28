@@ -579,7 +579,7 @@ describe('normalizeIssueRef (issue #131)', () => {
 });
 
 it('orders evidence fields without losing attached comments or unknown fields', async () => {
-  seed(VALID + 'introduced_by: old\n# attempt note\ntest_attempt:\n  id: x\n  outcome: running\ncustom: kept\n');
+  seed(VALID + 'issue: "#1"\nintroduced_by: old\ndelta_spec_provenance:\n  digest: d\n  date: today\n# attempt note\ntest_attempt:\n  id: x\n  outcome: running\ncustom: kept\n');
   const { doc } = readChangeMetadata(PATH, 'add-widget');
   doc.set('test_provenance', { digest: 'd', date: 'today', command: 'test', exit_code: 0 });
   doc.set('review_provenance', { digest: 'd', date: 'today' });
@@ -588,7 +588,12 @@ it('orders evidence fields without losing attached comments or unknown fields', 
   const keys = Object.keys(readChangeMetadata(PATH, 'add-widget').doc.toJS());
   expect(keys.indexOf('review_provenance')).toBeLessThan(keys.indexOf('test_provenance'));
   expect(keys.indexOf('test_provenance')).toBeLessThan(keys.indexOf('test_attempt'));
-  expect(keys.indexOf('test_attempt')).toBeLessThan(keys.indexOf('introduced_by'));
+  expect(keys.indexOf('test_attempt')).toBeLessThan(keys.indexOf('delta_spec_provenance'));
+  expect(keys.indexOf('delta_spec_provenance')).toBeLessThan(keys.indexOf('issue'));
+  // A legacy `introduced_by` has no canonical slot: it is kept verbatim as an
+  // unknown key at the tail, in its authored order beside the other unknown keys.
+  expect(keys.slice(-2)).toEqual(['introduced_by', 'custom']);
+  expect(raw).toContain('introduced_by: old');
   expect(raw).toContain('# attempt note');
   expect(raw).toContain('custom: kept');
 });

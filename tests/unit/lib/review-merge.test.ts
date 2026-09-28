@@ -520,16 +520,13 @@ describe('origin_round tracking and Origin column (REQ-LIB-064, REQ-CLI-028)', (
     expect(reparsed[1]!.origin_round).toBe(3);
   });
 
-  it('round-trips extended review metrics comment (spend, loop_base, provenance, signatures, lenses)', () => {
+  it('round-trips extended review metrics comment (loop_base, provenance, signatures, lenses)', () => {
     const doc = renderReviewDocument(
       '',
       [{ id: 'F-1', location: 'a.ts:1', severity: 'critical', lens: 'correctness', status: 'open', origin_round: 2, summary: 'bug' }],
       'test-change',
       {
         round: 2,
-        spendBefore: 1000,
-        lastRoundSpend: 500,
-        cumulativeSpend: 1500,
         loopBase: 1,
         provenanceDigest: 'abc1234',
         lenses: ['correctness', 'security'],
@@ -539,16 +536,42 @@ describe('origin_round tracking and Origin column (REQ-LIB-064, REQ-CLI-028)', (
       },
     );
 
-    expect(doc).toContain('<!-- prospec:review-metrics round="2" spend_before="1000" round_spend="500" cumulative_spend="1500" loop_base="1" provenance="abc1234" lenses="correctness,security" signatures="F-1:FPF" -->');
+    expect(doc).toContain('<!-- prospec:review-metrics round="2" loop_base="1" provenance="abc1234" lenses="correctness,security" signatures="F-1:FPF" -->');
     const parsed = parseReviewMetrics(doc);
     expect(parsed.round).toBe(2);
-    expect(parsed.spendBefore).toBe(1000);
-    expect(parsed.lastRoundSpend).toBe(500);
-    expect(parsed.cumulativeSpend).toBe(1500);
     expect(parsed.loopBase).toBe(1);
     expect(parsed.provenanceDigest).toBe('abc1234');
     expect(parsed.lenses).toEqual(['correctness', 'security']);
     expect(parsed.trials?.['F-1']).toEqual([false, true, false]);
+  });
+
+  describe('legacy spend attributes (REQ-SERVICES-098, REQ-TESTS-099)', () => {
+    const LEGACY_SPEND = /spend_before|round_spend|cumulative_spend/;
+    const legacyDoc = (spendBefore: string) =>
+      `<!-- prospec:review-metrics round="2" spend_before="${spendBefore}" round_spend="50" cumulative_spend="150" loop_base="1" lenses="correctness" signatures="F-1:FP" -->\n` +
+      '# Review Findings: c\n\n| ID | Location | Severity | Lens | Status | Origin | Summary | Repro |\n|---|---|---|---|---|---|---|---|\n| F-1 | a.ts:1 | critical | correctness | fixed | 1 | bug | pnpm a |\n';
+
+    it.each(['100', 'abc'])('parses a metrics comment carrying spend_before="%s" and keeps every other metric', (spendBefore) => {
+      const doc = legacyDoc(spendBefore);
+      for (const parsed of [parseReviewMetrics(doc), parseReviewMetricsStrict(doc)]) {
+        expect(parsed).toEqual({ round: 2, loopBase: 1, lenses: ['correctness'], trials: { 'F-1': [false, true] } });
+      }
+    });
+
+    it.each(['100', 'abc'])('never re-serializes them: carried metrics, a new round, and the test-metrics splice all drop them (spend_before="%s")', (spendBefore) => {
+      const doc = legacyDoc(spendBefore);
+      const rows = parseReviewDocument(doc).rows;
+      const carried = renderReviewDocument(doc, rows, 'c');
+      const nextRound = renderReviewDocument(doc, rows, 'c', { round: 3 });
+      const spliced = replaceReviewMetrics(doc, { consecutiveTestFailures: 1, testFailureAttemptIds: ['a'] });
+      for (const out of [carried, nextRound, spliced]) {
+        expect(out).not.toMatch(LEGACY_SPEND);
+        expect(out).toContain('loop_base="1"');
+        expect(out).toContain('lenses="correctness"');
+      }
+      expect(carried).toContain('<!-- prospec:review-metrics round="2" loop_base="1" lenses="correctness" signatures="F-1:FP" -->');
+      expect(nextRound).toContain('round="3"');
+    });
   });
 
   it('a pre-existing row without Origin is stamped 1, never the current round (legacy-table upgrade)', () => {
@@ -663,7 +686,6 @@ describe('test-failure metrics in review.md (REQ-SERVICES-098, REQ-SERVICES-086,
   it('round-trips the bounded streak through the metrics comment beside the existing fields', () => {
     const doc = renderReviewDocument('', [], 'c', {
       round: 2,
-      cumulativeSpend: 10,
       lenses: ['a'],
       testFailureAttemptIds: ['id-1', 'id,2'],
       consecutiveTestFailures: 2,
@@ -671,7 +693,7 @@ describe('test-failure metrics in review.md (REQ-SERVICES-098, REQ-SERVICES-086,
     expect(doc).toContain('test_failures="2"');
     expect(doc).toContain('test_failure_ids="id-1,id%2C2"');
     const parsed = parseReviewMetricsStrict(doc);
-    expect(parsed).toMatchObject({ round: 2, cumulativeSpend: 10, lenses: ['a'], consecutiveTestFailures: 2, testFailureAttemptIds: ['id-1', 'id,2'] });
+    expect(parsed).toMatchObject({ round: 2, lenses: ['a'], consecutiveTestFailures: 2, testFailureAttemptIds: ['id-1', 'id,2'] });
   });
 
   it('omits the test fields entirely when the streak is empty (a green reset leaves no trace)', () => {
@@ -733,7 +755,7 @@ describe('test-failure metrics in review.md (REQ-SERVICES-098, REQ-SERVICES-086,
   describe('replaceReviewMetrics — the one metrics splice both paths share', () => {
     // A hand-written legacy table the canonical renderer would normalize: a whole-file
     // rebuild changes these bytes, an in-place splice must not.
-    const legacy = '<!-- prospec:review-metrics round="1" cumulative_spend="7" lenses="x" -->\n# Review Findings: c\n\nprose   with   odd spacing\n\n| Location | Severity |   Lens | Status | Summary |\n|---|---|---|---|---|\n| a.ts:1 |   critical | correctness | open | bug |\n\ntrailing note\n';
+    const legacy = '<!-- prospec:review-metrics round="1" loop_base="1" lenses="x" -->\n# Review Findings: c\n\nprose   with   odd spacing\n\n| Location | Severity |   Lens | Status | Summary |\n|---|---|---|---|---|\n| a.ts:1 |   critical | correctness | open | bug |\n\ntrailing note\n';
 
     it('rewrites only the metrics comment: bytes outside it and the non-test metric values are preserved', () => {
       const out = replaceReviewMetrics(legacy, { consecutiveTestFailures: 1, testFailureAttemptIds: ['a'] });
@@ -741,7 +763,7 @@ describe('test-failure metrics in review.md (REQ-SERVICES-098, REQ-SERVICES-086,
       const [, ...restIn] = legacy.split('\n');
       expect(restOut).toEqual(restIn);
       expect(commentOut).toContain('round="1"');
-      expect(commentOut).toContain('cumulative_spend="7"');
+      expect(commentOut).toContain('loop_base="1"');
       expect(commentOut).toContain('lenses="x"');
       expect(commentOut).toContain('test_failures="1"');
       expect(renderReviewDocument(legacy, parseReviewDocument(legacy).rows, 'c')).not.toBe(legacy);

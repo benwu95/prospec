@@ -10,29 +10,23 @@ import { resolveLogLevel } from '../log-level.js';
  *
  * Usage:
  *   prospec check [--json] [--strict] [--init-ci] [--record-review]
- *                [--record-tests] [--escaped-defects]
+ *                [--record-tests]
  *
  * Deterministic, zero-LLM drift check (REQ-CLI-011). `--strict` maps any
  * FAIL to exit code 1 — warn and skipped never affect the exit code.
  * `--record-review` records the active change's review baseline (REQ-CLI-012);
- * `--record-tests` runs the project's test command and records its outcome, and
- * `--escaped-defects` reports per-gate miss rate (REQ-CLI-022) — both are
- * non-check modes that exit without grading drift.
+ * `--record-tests` runs the project's test command and records its outcome
+ * (REQ-CLI-022) — both are non-check modes that exit without grading drift.
  */
 export function registerCheckCommand(program: Command): void {
   program
     .command('check')
     .description('Run the deterministic spec/code/knowledge drift check')
-    .option(
-      '--json',
-      'Write the machine-readable report to a file (prospec-report.json; ' +
-        'escaped-defect-report.json with --escaped-defects)',
-    )
+    .option('--json', 'Write the machine-readable report to prospec-report.json')
     .option('--strict', 'Exit with code 1 when any check fails (CI gate)')
     .option('--init-ci', 'Scaffold .github/workflows/prospec-check.yml and exit')
     .option('--record-review', "Record the active change's review baseline and exit")
     .option('--record-tests', "Run the project's test command, record the outcome, and exit")
-    .option('--escaped-defects', 'Report per-gate escaped-defect rate from `introduced_by` and exit')
     .option('--auto-draft', 'Auto-draft fix changes for detected FAIL/WARN findings')
     .option(
       '--auto-draft-dry-run',
@@ -55,7 +49,6 @@ export function registerCheckCommand(program: Command): void {
         initCi?: boolean;
         recordReview?: boolean;
         recordTests?: boolean;
-        escapedDefects?: boolean;
         change?: string;
         gradedBy?: DimensionGradedBy;
         autoDraft?: boolean;
@@ -71,7 +64,6 @@ export function registerCheckCommand(program: Command): void {
             initCi: options.initCi,
             recordReview: options.recordReview,
             recordTests: options.recordTests,
-            escapedDefects: options.escapedDefects,
             change: options.change,
             gradedBy: options.gradedBy,
             autoDraft: options.autoDraft,
