@@ -1,3 +1,5 @@
+import { renderTemplate } from '../../src/lib/template.js';
+import { CANONICAL_CLAIMS } from '../../src/types/canonical-claims.js';
 import { describe, it, expect } from 'vitest';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
@@ -110,7 +112,8 @@ describe('reference/cli-reference*.md — related_modules correction and the kno
   it.each(['prospec/ai-knowledge/_status-lifecycle.md', 'src/templates/init/status-lifecycle.md.hbs'])(
     '%s names the knowledge-sync input halt with the related-only qualifier',
     (file) => {
-      const bullet = read(file).split('\n').find((l) => l.startsWith('- **`prospec-knowledge-update`**'));
+      const content = file.endsWith('.hbs') ? renderTemplate('init/status-lifecycle.md.hbs', { canonical_claims: CANONICAL_CLAIMS }) : read(file);
+      const bullet = content.split('\n').find((l) => l.startsWith('- **`prospec-knowledge-update`**'));
       expect(bullet, 'knowledge-update bullet missing').toBeDefined();
       expect(bullet).toContain('a `related_modules` name the map does not register and no ADDED REQ introduces as a new module');
       expect(bullet).toContain('`code: KNOWLEDGE_INPUT_INVALID`');

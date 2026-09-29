@@ -1,5 +1,6 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
+import { CANONICAL_CLAIMS } from '../types/canonical-claims.js';
 import {
   readConfig,
   resolveBasePaths,
@@ -179,6 +180,7 @@ export async function execute(
     // The cli-first probe floor (issue #107): skills STOP when the installed
     // CLI is older — always a variable, never a hardcoded version literal.
     minimum_cli_version: MINIMUM_CLI_VERSION,
+    canonical_claims: CANONICAL_CLAIMS,
     // Language scope rendered into the entry config's Language Policy — the SAME
     // resolved path sets the seeded Constitution rule is generated from
     // (lib/language-policy), so L0 and the audited Constitution cannot declare

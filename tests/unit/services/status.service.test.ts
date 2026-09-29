@@ -433,7 +433,7 @@ describe('status.service — knowledge-aware routing at verified', () => {
 
   // #310 R1-5: knowledge-update cannot register a mistyped related_modules name,
   // so the route halts and names the correction command instead of looping there.
-  it('halts with KNOWLEDGE_INPUT_INVALID when a related_modules name is missing from module-map.yaml and no ADDED REQ introduces it', async () => {
+  it('halts with KNOWLEDGE_INPUT_INVALID for related-only unregistered input', async () => {
     vol.fromJSON({
       [`${CWD}/.prospec/changes/a-change/metadata.yaml`]: metadataYaml({
         name: 'a-change',

@@ -1,4 +1,5 @@
 import * as path from 'node:path';
+import { CANONICAL_CLAIMS } from '../types/canonical-claims.js';
 import type { ProspecConfig } from '../types/config.js';
 import { DEFAULT_BASE_DIR } from '../types/config.js';
 import { MINIMUM_CLI_VERSION } from '../types/version.js';
@@ -70,6 +71,7 @@ export function buildInitDocContexts(
     // `version ≥ {{minimum_cli_version}}` — without this key a fresh init
     // ships an AGENTS.md with an empty hole where the floor should be.
     minimum_cli_version: MINIMUM_CLI_VERSION,
+    canonical_claims: CANONICAL_CLAIMS,
     example_rules: [languagePolicyRule(languageScope), ...exampleRulesFor(techStack)].map((rule) => ({
       ...rule,
       verify_hint: formatVerifyHint(rule),

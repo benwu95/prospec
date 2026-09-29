@@ -4,7 +4,7 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg?style=flat-square)](LICENSE)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.9-blue?style=flat-square&logo=typescript)](https://www.typescriptlang.org/)
-[![測試](https://img.shields.io/badge/測試-6716%20總計-success?style=flat-square)](tests/)
+[![測試](https://img.shields.io/badge/測試-6780%20總計-success?style=flat-square)](tests/)
 [![Node](https://img.shields.io/badge/node-%3E%3D22.13-brightgreen?style=flat-square&logo=node.js)](https://nodejs.org/)
 [![pnpm](https://img.shields.io/badge/pnpm-%3E%3D11-orange?style=flat-square&logo=pnpm)](https://pnpm.io/)
 
@@ -616,7 +616,7 @@ flowchart TD
 2. **審閱** —— 解決每個 `[NEEDS CLARIFICATION]`（*So that* 價值、目標角色、模糊 AC），確認候選 feature slug。這是人工關卡。
 3. **晉升** —— `prospec-promote-backfill` 把審閱過的草稿展開為 change scaffold（proposal + delta-spec + metadata），標記 `scale: backfill`、`status: implemented`。`backfill` 是像 `quick` 的**輕量 scale** —— 不產空殼 `plan.md`/`tasks.md`，因為程式碼已存在。
 4. **驗證** —— `prospec-verify` 改評 **spec-fidelity**（每條 REQ 的 `file:line` 須成立），把既有程式碼品質落差（如未測的 brownfield code）記為 informational 技術債，且此降級僅在 `backfill-draft.md` 證明 provenance 時套用 —— 因此忠實的草稿能達 S/A、不被它只是「記錄」的技術債擋住，而 marker 也無法替新程式碼 bypass 品質 gate。依 contract，proven backfill 的 code review 是 optional。
-5. **Knowledge Sync** —— 執行 `prospec knowledge update --change <name>`（不會為 feature-slug REQ ID mint 任何 module）。更新它回報的 modules ∪ `metadata.related_modules` 的 READMEs，再用 `prospec knowledge verify` stamp。
+5. **Knowledge Sync** —— 執行 `prospec knowledge update --change <name>`（不會為 feature-slug REQ ID mint 任何 module）。更新`prospec knowledge update --change` 回報的 modules ∪ `metadata.related_modules` 的 READMEs，再用 `prospec knowledge verify` stamp。
 6. **歸檔** —— `prospec-archive` 把需求 graduate 進 `prospec/specs/features/{slug}.md`。這是唯一會寫信任區的環節。
 
 ### 升級 Prospec
@@ -669,7 +669,7 @@ Prospec 採用 **Pragmatic Layered Architecture**（`cli → services → lib �
 ## 測試
 
 ```bash
-# 執行所有測試（共 6716 個；4 個略過）
+# 執行所有測試（共 6780 個；4 個略過）
 pnpm test
 
 # Watch 模式
@@ -682,9 +682,9 @@ pnpm run typecheck
 pnpm run lint
 ```
 
-**測試覆蓋率**：共 6716 個測試（6712 個通過；4 個略過），橫跨 4 大類：
+**測試覆蓋率**：共 6780 個測試（6776 個通過；4 個略過），橫跨 4 大類：
 - Unit tests（types + lib + services + cli）：4932 tests
-- Contract tests（CLI 輸出 + Skill 格式）：1451 tests
+- Contract tests（CLI 輸出 + Skill 格式）：1515 tests
 - Integration tests：133 tests
 - E2E tests：200 tests
 

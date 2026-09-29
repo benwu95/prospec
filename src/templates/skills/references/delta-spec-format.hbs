@@ -1,12 +1,12 @@
 # Delta Spec Format Reference
 
-This document defines the expected format for `delta-spec.md`, used by the **prospec-plan** Skill.
+The **prospec-plan** Skill writes `delta-spec.md` in this format.
 
 ---
 
 ## Purpose
 
-`delta-spec.md` describes requirement deltas using ADDED/MODIFIED/REMOVED categories to track requirement evolution.
+Track requirement changes as ADDED/MODIFIED/REMOVED.
 
 ---
 
@@ -86,22 +86,7 @@ Define a set of standard error types that can be used across all modules in {{pr
 
 ---
 
-### REQ-ERROR-HANDLER-002: Error Response Formatter
 
-**Feature:** error-handling
-**Story:** US-1
-
-**Description:**
-Implement a formatter that converts errors into standardized JSON responses for API endpoints.
-
-**Acceptance Criteria:**
-1. Response includes error code, message, and timestamp
-2. Stack traces are excluded from production responses
-3. Supports localization for error messages
-
-**Priority:** Medium
-
----
 ```
 
 ---
@@ -209,6 +194,13 @@ a project whose two zones differ still lands spec bodies in the Feature Specs' l
 {{/if}}
 
 {{!-- Single Source of Truth: Spec graduation & dropped bullet refusal mechanics are owned by spec-graduation.hbs (prospec-archive) and lib/archive-spec-body. Keep rules self-contained without citing spec-graduation.md here. --}}
+**Claim writing:**
+
+- State the component’s own guarantees; reference another component’s REQ instead of describing its decision boundary.
+- Derive set and condition wording from code predicates; quote registered canonical phrases verbatim.
+- Use quantifiers (every, only, whenever, always, one per) and causal clauses (because, would) only when valid throughout the stated scope; otherwise delete them or reference the owning REQ.
+- When a rule is restated at three or more surfaces, register its canonical phrase and all consumption sites.
+
 **Write the resulting requirement, not the delta.** For a **MODIFIED** REQ, the `**Spec:**` block replaces the WHOLE body in the feature spec. What the block omits leaves the trust zone; the archive CLI reports omitted bullets on the MODIFIED path only (an ADDED entry replacing a pre-existing body is reported by neither worklist). Any existing behavior not restated must be declared under `**Dropped:**` (omitted WHEN/THEN bullets must be declared, or `prospec archive` will refuse spec sync).
 
 | Entry | `**Spec:**` | Without it |
