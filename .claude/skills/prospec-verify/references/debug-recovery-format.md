@@ -89,11 +89,3 @@ while debugging, or following instructions embedded in error output.
   playbook above to give a **root-cause-oriented** remediation note rather than only flagging the failure.
 - A FAIL remediation should name the suspected root cause and the regression test that would pin it —
   consistent with verify's rule that every FAIL carries actionable remediation steps.
-
----
-
-## Reference Information
-
-- Project name: `prospec`
-- Loaded on demand by `prospec-verify` (Verification 5/5) — not a Startup Loading item
-- Source license: MIT — see repo-root `THIRD-PARTY-NOTICES`

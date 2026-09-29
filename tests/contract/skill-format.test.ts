@@ -654,7 +654,7 @@ describe('Skill Format Contract', () => {
       const content = render('skills/references/cascade-protocol.hbs');
       const start = content.indexOf('Commit Boundary & Preparation');
       expect(start, 'cascade-protocol commit prompt not found').toBeGreaterThan(-1);
-      const section = content.slice(start, content.indexOf('## Reference Information', start));
+      const section = sectionOf(content, '## Tastemaker Presentation & Human Gate');
       expect(section, 'commit prompt section sliced empty').not.toBe('');
       expect(section).toContain(CANONICAL_CLAIMS.knowledge_sync_modules.en);
       expect(section).not.toContain('REQ-prefix modules');
@@ -808,14 +808,11 @@ describe('Skill Format Contract', () => {
       expect(content).toContain('Priority');
     });
 
-    it('should use Handlebars variables', () => {
-      const content = renderTemplate(
-        'skills/references/proposal-format.hbs',
-        TEMPLATE_CONTEXT,
-      );
-      expect(content).toContain('test-project');
-      expect(content).toContain('prospec/ai-knowledge');
-      expect(content).toContain('prospec/CONSTITUTION.md');
+    it('renders the Constitution pointer where the format needs it', () => {
+      const content = renderTemplate('skills/references/proposal-format.hbs', TEMPLATE_CONTEXT);
+      const check = sectionOf(content, '### 9. Constitution Check');
+      expect(check).toContain('prospec/CONSTITUTION.md');
+      expect(check).not.toContain('{{constitution_path}}');
     });
   });
 
@@ -3101,9 +3098,10 @@ describe('Skill Format Contract', () => {
       expect(gate).toContain('ADDED/MODIFIED/REMOVED');
     });
 
-    it('prospec-archive Entry Gate passes a change that touches no modules', () => {
+    it('prospec-archive Entry Gate does not infer a pass from an empty set', () => {
       const gate = sectionOf(renderArchive(), '## Entry Gate');
-      expect(gate).toContain('touches no modules');
+      expect(gate).toContain('An empty module set does not bypass input validation');
+      expect(gate).not.toContain('touches no modules (planning/docs-only) passes');
     });
 
     it('prospec-archive Phase 4 is a gate re-check, not an interactive prompt', () => {
@@ -4049,7 +4047,7 @@ describe('Harness capability flags replace per-station prose (REQ-TEMPLATES-167,
     // Verb before or after the noun ("read its SKILL.md" / "the SKILL.md must be read"),
     // in any inflection ("reads", "loading").
     const LOADS_SKILL_FILE = new RegExp(`${LOAD_VERB}[\\s\\S]{0,200}?${SKILL_FILE}|${SKILL_FILE}[\\s\\S]{0,120}?${LOAD_VERB}`, 'i');
-    const PATH_FROM_STATUS = /\bstatus\b[\s\S]{0,160}?\b(prints?|path|resolve[sd]?)\b|\bpath\b[\s\S]{0,100}?\bstatus\b/i;
+    const PATH_FROM_STATUS = /\bstatus\b[\s\S]{0,320}?\b(prints?|path|resolve[sd]?)\b|\bpath\b[\s\S]{0,100}?\bstatus\b/i;
     const restatesRoute = (paragraph: string) => LOADS_SKILL_FILE.test(paragraph) && PATH_FROM_STATUS.test(paragraph);
     const ROUTE_OWNERS = ['skills/references/cascade-protocol.hbs', 'agent-configs/entry.md.hbs'];
     const templatesDir = path.resolve(skillsDir, '..');
@@ -4069,9 +4067,14 @@ describe('Harness capability flags replace per-station prose (REQ-TEMPLATES-167,
     // The allowlist cannot go stale: each owner must still state BOTH halves of the
     // route — how the instructions are loaded, and that status prints where.
     for (const owner of ROUTE_OWNERS) {
-      const body = paragraphsOf(owner).join('\n\n');
-      expect(LOADS_SKILL_FILE.test(body), `${owner} no longer states how a station is loaded`).toBe(true);
-      expect(PATH_FROM_STATUS.test(body), `${owner} no longer states that status prints the path`).toBe(true);
+      const source = fs.readFileSync(path.join(templatesDir, owner), 'utf-8');
+      const body = owner === 'skills/references/cascade-protocol.hbs'
+        ? sectionOf(source, '## Per-Station Execution Loop').split('\n')
+          .find((line) => line.startsWith('1. **Step 1 [LOAD]**'))
+        : source.match(/\*\*Station Transition Protocol\*\*:[\s\S]*?(?=\*\*Checkpoint Correction Capture Protocol\*\*:)/)?.[0];
+      expect(body, `${owner} route owner is missing`).toBeDefined();
+      expect(LOADS_SKILL_FILE.test(body!), `${owner} no longer states how a station is loaded`).toBe(true);
+      expect(PATH_FROM_STATUS.test(body!), `${owner} no longer states that status prints the path`).toBe(true);
     }
     const offenders = scanned
       .filter((f) => !ROUTE_OWNERS.includes(f))
@@ -5100,7 +5103,8 @@ describe('backfill graduation — verify spec-fidelity contract (scale: backfill
 
   it('Record & Status Update notes backfill S/A means fidelity, not code quality', () => {
     const status = sectionOf(renderVerifyBackfill(), '## 4. Post-Verify Commit & Knowledge Sync');
-    expect(status).toContain('faithful to the');
+    expect(status).toContain('fidelity judgments and limitations');
+    expect(status).not.toContain('100% faithful');
   });
 
   it('Entry Gate binds the backfill quality relaxations to backfill-draft.md provenance', () => {
@@ -5125,21 +5129,14 @@ describe('backfill graduation — archive acceptance + module derivation (scale:
   const renderArchive = () =>
     renderTemplate('skills/prospec-archive.hbs', TEMPLATE_CONTEXT);
 
-  it('Entry Gate derives backfill affected modules from related_modules + Feature→feature-map', () => {
+  it('Entry Gate and Phase 4 consume the canonical backfill report set', () => {
     const gate = sectionOf(renderArchive(), '## Entry Gate');
-    expect(gate).toContain('`metadata.scale: backfill`');
-    expect(gate).toContain('metadata.related_modules');
-    expect(gate).toContain('feature-map.yaml');
-    expect(gate).toContain('never silently empty');
-    // feature-slug REQ ids must NOT be the backfill module source
-    expect(gate).toContain('REQ-prefix extraction does **not** map to modules');
-  });
-
-  it('Phase 4 reuses the backfill module set, not REQ-id prefixes', () => {
     const p4 = sectionOf(renderArchive(), '### Phase 4: Knowledge Sync Re-check');
-    expect(p4).toContain('scale: backfill');
-    expect(p4).toContain('related_modules');
-    expect(p4).toContain('does not apply to feature-slug REQ IDs');
+    for (const section of [gate, p4]) {
+      expect(section).toContain(CANONICAL_CLAIMS.backfill_sync_modules.en);
+      expect(section).not.toContain('REQ-prefix extraction does **not** map to modules');
+      expect(section).not.toContain('feature-map.yaml');
+    }
   });
 
   // REQ-TEMPLATES-083 / REQ-TEMPLATES-120: the knowledge-sync affected set is a union,
@@ -5169,18 +5166,15 @@ describe('backfill graduation — archive acceptance + module derivation (scale:
     expect(row).not.toContain('Guide user to run `prospec-knowledge-update`');
   });
 
-  it('Entry Gate and Phase 4 resolve a feature prefix through the features whose req_prefixes declare it', () => {
+  it('Entry Gate and Phase 4 delegate classification to the CLI', () => {
     const gate = sectionOf(renderArchive(), '## Entry Gate');
-    const featureItem = gate.split('\n').find((l) => l.includes('with a **feature-prefixed REQ**'));
-    expect(featureItem, 'feature-prefix item missing').toBeDefined();
-    expect(featureItem).toContain('plus the `modules` of the features whose `req_prefixes` declare it');
-    expect(featureItem).not.toContain('(`**Feature:**` → feature-map `modules`)');
     const p4 = sectionOf(renderArchive(), '### Phase 4: Knowledge Sync Re-check');
-    const step1 = p4.split('\n').find((l) => l.startsWith('1. '));
-    expect(step1, 'Phase 4 step 1 missing').toBeDefined();
-    expect(step1).toContain("Reuse the Entry Gate's set — `metadata.related_modules` ∪ REQ ID prefix modules");
-    expect(step1).toContain('`metadata.related_modules` + the features whose `req_prefixes` declare it');
-    expect(step1).not.toContain('`**Feature:**`→feature-map, not as a module name');
+    expect(gate).toContain('Use the CLI-reported modules');
+    expect(p4).toContain("Reuse the Entry Gate's resolved set");
+    for (const section of [gate, p4]) {
+      expect(section).not.toContain('whose `req_prefixes`');
+      expect(section).not.toContain('REQ ID prefix modules');
+    }
   });
 
   it('Phase 3.5 graduation key includes the backfill → delta-spec arm', () => {
@@ -10095,5 +10089,176 @@ describe('Constitution station slices and playbook catalog on this repository (R
     expect(section).toContain('`SDD_STATIONS`');
     expect(section).toContain('A list containing `all` means every station');
     expect(section).toContain('`null` = undeclared');
+  });
+});
+
+// #316: falsifiable, owner-scoped claims after the full shipped-template audit.
+describe('shipped claim audit', () => {
+  const render = (file: string) => renderTemplate(file, TEMPLATE_CONTEXT);
+  const references = fs.readdirSync(path.resolve(__dirname, '../../src/templates/skills/references'))
+    .filter((file) => file.endsWith('.hbs'));
+
+  it.each(references)('%s omits redundant reference headings in rendered prose', (file) => {
+    const content = render(`skills/references/${file}`);
+    const headings = withoutFencedBlocks(content.split('\n')).filter((line) => /^## /.test(line));
+    expect(headings.length).toBeGreaterThan(0);
+    expect(headings).not.toContain('## Purpose');
+    expect(headings).not.toContain('## Reference Information');
+  });
+
+  it('archive separates CLI gaps from README semantic review', () => {
+    const gate = sectionOf(render('skills/prospec-archive.hbs'), '## Entry Gate');
+    expect(gate).toContain('The skill also checks README content');
+    expect(gate).toContain('REMOVED behavior must no longer appear');
+    expect(gate).not.toContain('until each module\'s README reflects');
+    expect(gate).toContain('An empty module set does not bypass input validation');
+    const never = sectionOf(render('skills/prospec-archive.hbs'), '## NEVER');
+    expect(never).toContain('**NEVER** reimplement REQ-prefix classification');
+    expect(never).not.toContain('derive modules from `metadata.related_modules` + `**Feature:**`');
+  });
+
+  it('knowledge update repairs invalid maps before retrying change mode', () => {
+    const handling = sectionOf(render('skills/prospec-knowledge-update.hbs'), '## Error Handling');
+    const row = handling.split('\n').find((line) => line.startsWith('| module-map.yaml exists but'));
+    expect(row).toBeDefined();
+    expect(row).toContain('unreadable, invalid, or outside the knowledge root');
+    expect(row).toContain('Repair the named input and retry `--change`');
+    expect(row).toContain('do not bypass with `--module`');
+  });
+
+  it.each([
+    ['skills/prospec-promote-backfill.hbs', '### Phase 3: delta-spec.md'],
+    ['skills/references/delta-spec-format.hbs', '## REQ ID Naming Convention'],
+  ])('%s keeps routing without reimplementing module classification', (file, heading) => {
+    const section = sectionOf(render(file), heading);
+    expect(section).toContain('Feature:');
+    expect(section).toContain('REQ-{FEATURE-SLUG}');
+    expect(section).not.toMatch(/derives (?:affected )?modules/);
+  });
+
+  it('delta scaffold keeps identifier guidance without a classifier copy', () => {
+    const header = render('change/delta-spec.md.hbs').split('\n## ADDED')[0]!;
+    expect(header).toContain('REQ-{FEATURE-SLUG}');
+    expect(header).toContain('Feature:');
+    expect(header).not.toContain('derives modules');
+  });
+
+  it('verify names live assessment as machine authority', () => {
+    const never = sectionOf(render('skills/prospec-verify.hbs'), '## NEVER');
+    expect(never).toContain('the CLI self-sources them from a live assessment');
+    expect(never).not.toContain('the CLI reads them from the report');
+  });
+
+  it.each([
+    ['skills/prospec-explore.hbs', '## Constitution Checkpoint'],
+    ['skills/prospec-knowledge-generate.hbs', '### Step 8: Constitution Emptiness Check'],
+  ])('%s limits the empty-Constitution warning to authored principles', (file, heading) => {
+    const section = sectionOf(render(file), heading);
+    expect(section).toContain('no project-authored principles to audit');
+    expect(section).toContain('prospec/CONSTITUTION.md');
+    expect(section).not.toContain('no-ops');
+  });
+
+  it('backfill handoffs do not guarantee grade or absolute fidelity', () => {
+    const handoff = sectionOf(render('skills/prospec-promote-backfill.hbs'), '### Phase 5: Handoff');
+    expect(handoff).toContain('the CLI determines the grade');
+    expect(handoff).toContain('archive gates');
+    expect(handoff).not.toContain('a faithful draft reaches grade S/A');
+    const sync = sectionOf(render('skills/references/verify-backfill.hbs'), '## 4. Post-Verify Commit & Knowledge Sync');
+    expect(sync).toContain(CANONICAL_CLAIMS.backfill_sync_modules.en);
+    expect(sync).toContain('fidelity judgments and limitations');
+    expect(sync).not.toMatch(/100% faithful|it mints no module/);
+  });
+
+  it('archive harvest does not infer the retired cause from refusal', () => {
+    const harvest = sectionOf(render('skills/prospec-archive.hbs'), '### Phase 4.5: Auto-Harvest Recurring Lessons');
+    expect(harvest).toContain('retired');
+    expect(harvest).not.toContain('because its root cause is gone');
+  });
+
+  it('task guidance supports quick inputs and optional parallel markers', () => {
+    const header = render('change/tasks.md.hbs').split('\n## Format')[0]!;
+    expect(header).toContain('CLI-selected planning input');
+    expect(header).not.toContain('**Prerequisites**: plan.md, delta-spec.md');
+    const trace = sectionOf(render('skills/references/tasks-format.hbs'), '## Bidirectional Contract Traceability');
+    expect(trace.split('\n').find((line) => line.includes('Backward Plan Traceability'))).toContain('proposal.md');
+    const verdict = sectionOf(render('skills/references/tasks-verifier-rubric.hbs'), '## Verdict & Severity Contract');
+    expect(verdict).not.toContain('missing optional');
+  });
+
+  it('candidate and rubric adaptation survive purpose removal', () => {
+    const candidate = sectionOf(render('skills/references/candidate-evaluation.hbs'), '## Candidate Generation Protocol');
+    expect(candidate).toContain('manifests');
+    expect(candidate).toContain('L2 Module READMEs');
+    expect(candidate).toContain('prospec/ai-knowledge/_conventions.md');
+    for (const name of ['plan', 'tasks']) {
+      const content = render(`skills/references/${name}-verifier-rubric.hbs`);
+      expect(content.split('**Language- and Architecture-Agnostic Principle**')).toHaveLength(2);
+      expect(sectionOf(content, '## Break-Glass Override (Manual Bypass)')).toContain('explicit rationale');
+      expect(sectionOf(content, '## Language Policy')).toContain('artifact_language');
+      expect(content).not.toMatch(/eliminates single-pass|it prevents requirement gaps/);
+    }
+  });
+
+  it('design measurement follows the platform adapter, including HTML', () => {
+    const rules = sectionOf(render('skills/references/design-spec-format.hbs'), '## Guidelines');
+    expect(rules).toContain('precise values');
+    expect(rules).toContain('platform adapter');
+    expect(rules).toContain('HTML prototype');
+    expect(sectionOf(render('skills/references/interaction-spec-format.hbs'), '## Guidelines')).toContain('**Draft DSL**');
+  });
+
+  it('delegation paths and full license attribution survive footer removal', () => {
+    const flow = sectionOf(render('skills/references/delegation-protocol.hbs'), '## Ticketed delegation (review and verify)');
+    expect(flow).toContain(`.prospec/changes/{name}/${DELEGATION_DIR}/`);
+    for (const name of ['debug-recovery-format', 'review-lenses-content']) {
+      const attribution = sectionOf(render(`skills/references/${name}.hbs`), '## Attribution');
+      expect(attribution).toContain('Copyright (c) 2025 Addy Osmani');
+      expect(attribution).toContain('THE SOFTWARE IS PROVIDED "AS IS"');
+      expect(attribution).toContain('662910cd1a23');
+    }
+  });
+
+  it('breaker ratio describes observed rounds without causal or rate inference', () => {
+    const ratio = sectionOf(render('skills/references/circuit-breaker.hbs'), '### 3. Fix-Induced Defect Ratio');
+    expect(ratio).toContain('newly surfaced findings');
+    expect(ratio).toContain('origin_round');
+    expect(ratio).not.toMatch(/created by this loop|generating defects faster/);
+  });
+
+  it('feature boundaries allow story slices within one logical feature', () => {
+    const split = sectionOf(render('skills/references/feature-boundary-criteria.hbs'), '## Decision 1');
+    expect(split).toContain('one logical feature');
+    expect(split).toContain('registered story slices');
+    expect(split).not.toContain('one slug / one file');
+  });
+
+  it('metadata entry shape does not impose one entry per station', () => {
+    const entry = sectionOf(render('skills/references/metadata-format.hbs'), '## `quality_log` entry shape');
+    expect(entry).toContain('Fixed keys');
+    expect(entry).not.toContain('Each station appends one entry');
+  });
+
+  it('secondary summaries avoid unproven effects and repository-specific examples', () => {
+    const counts = sectionOf(render('skills/references/cascade-protocol.hbs'), '## Tastemaker Presentation & Human Gate');
+    expect(counts).toContain('factual count generator');
+    expect(counts).not.toContain('pnpm counts');
+    const archive = sectionOf(render('skills/references/archive-format.hbs'), '## Spec Archiving');
+    expect(archive).toContain('spec-history audit trail');
+    expect(archive).not.toContain('only per-change record');
+    const evidence = sectionOf(render('skills/references/archive-format.hbs'), '### 6. Review & Verify');
+    expect(evidence).toContain('quality_log');
+    expect(evidence).not.toMatch(/survives only|lives only|sole durable record/);
+    for (const heading of ['### Phase 3.7: Finalize (post-judgment CLI step)', '## NEVER']) {
+      const section = sectionOf(render('skills/prospec-archive.hbs'), heading);
+      expect(section).toContain('_archived-history');
+      expect(section).not.toMatch(/only per-change|sole durable record|lives only/);
+    }
+    const pencil = render('skills/references/adapter-pencil.hbs').split('\n').find((line) => line.startsWith('Use `set_variables()`'));
+    expect(pencil).toContain('design tokens');
+    expect(pencil).not.toContain('ensures consistency across all components');
+    const health = sectionOf(render('skills/references/drift-report-format.hbs'), '### Key Check Interpretations');
+    expect(health).toContain('knowledge-health');
+    expect(health).not.toContain('README git timestamp staleness');
   });
 });

@@ -4,15 +4,6 @@ This document defines the **orthogonal criteria decomposition** and verification
 
 ---
 
-## Purpose
-
-The Architecture Verifier provides an independent, adversarial audit of `plan.md` and `delta-spec.md` before implementation begins. Grounded in the *LLM-as-a-Verifier* methodology (Criteria Decomposition + Independent Verification), it eliminates single-pass confirmation bias and catches structural flaws, layering violations, and ripple effects early.
-
-> **Language- and Architecture-Agnostic Principle**:
-> Prospec is a language-agnostic and architecture-agnostic SDD framework. The Architecture Verifier dynamically reads the project's `prospec/CONSTITUTION.md` and `prospec/ai-knowledge/_conventions.md`. It **never** hardcodes any specific framework layering (e.g. Prospec's CLI layer structure).
-
----
-
 ## Evaluation Dimensions (Criteria Decomposition)
 
 The Verifier audits the planning artifacts across five orthogonal dimensions:
@@ -124,11 +115,3 @@ If the Verifier produces a false positive or the project requires a deliberate, 
 ## Language Policy
 
 Verifier audit reports, warnings, and risk entries must follow the project's configured `artifact_language` (e.g. Traditional Chinese for `.prospec/changes/**`). Technical identifiers and REQ IDs remain in English.
-
----
-
-## Reference Information
-
-- Project name: `prospec`
-- AI Knowledge path: `prospec/ai-knowledge`
-- Constitution file: `prospec/CONSTITUTION.md`

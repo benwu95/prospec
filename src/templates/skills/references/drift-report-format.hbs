@@ -71,7 +71,7 @@ subject_skips? }`, adopted **verbatim**.
 | `language-policy-drift` | `warn` | Flags a Constitution whose Language Policy Description no longer matches the one generated for the resolved language scope, or still carries the old seed (the old English seed in an English-only project passes — nothing to migrate). | Constitution unreadable, no Language Policy principle, or no `**Description**:` field. |
 | `task-completion` | `warn`/`fail` | Tracks code-task completion in `tasks.md` (`[M]`/`[V]` excluded). | No tasks.md or not in git repo. |
 | `constitution-severity` | `warn` | Checks Constitution principles for RFC-2119 severity tags (`MUST`/`SHOULD`/`MAY`). | Constitution missing or empty. |
-| `knowledge-health` | `warn`/`fail` | Tracks module README git timestamp staleness and documentation coverage. | Module map unavailable. |
+| `knowledge-health` | `warn`/`fail` | Reports freshness and coverage; see `structural.knowledge_health` below. | Module map unavailable. |
 | `test-provenance` | `fail` | Validates test execution record, freshness, and exit code. | No test command configured (skips honestly). |
 
 **Verdicts are definitive**: `prospec-verify` machine dimensions adopt check results verbatim; `skipped` maps to `not-adjudicated`, never `pass`.
@@ -140,11 +140,3 @@ structured facts behind its `detail` (additive, so a report without it still val
 - `semantic.status` is **always** `not-checked` — semantic consistency is `prospec-review`'s
   job and must never be presented as `pass` from this report.
 - `summary` carries `fail_count` / `warn_count` / `skipped_count` (aggregates over `checks`).
-
----
-
-## Reference Information
-
-- Project name: `{{project_name}}`
-- Schema authority: the prospec CLI's `DriftReportSchema` / `DRIFT_CHECK_IDS`
-- Produced by: `prospec check --json` (writes `prospec-report.json`)

@@ -4,12 +4,6 @@ This document defines the **Circuit Breaker & Escalation Protocol** used by `pro
 
 ---
 
-## Purpose
-
-Unattended autonomous execution carries the risk of runaway token consumption, infinite retry loops, and flip-flop defect oscillations. Grounded in Site Reliability Engineering (SRE) circuit breaker patterns, this mechanism establishes deterministic stopping boundaries that bound unattended cost and surface actionable choices when loops fail to converge.
-
----
-
 ## Circuit Breaker Dimensions
 
 ### 1. Maximum Iteration Ceiling (Round Limit)
@@ -24,8 +18,8 @@ Unattended autonomous execution carries the risk of runaway token consumption, i
 - **Action**: Immediately abort automated retry, roll back the unstable patch, and notify the developer with the specific oscillating signatures.
 
 ### 3. Fix-Induced Defect Ratio
-- **Mechanism**: In round `R > 1` of the current review loop, the CLI computes `fix_induced_ratio` as the proportion of active (non-dismissed) findings whose `origin_round` is later than this loop's first round (findings created by this loop's earlier fix rounds).
-- **Rule**: When `fix_induced_ratio` exceeds the threshold (default **0.5** / 50%), the fix attempts are generating defects faster than resolving them.
+- **Mechanism**: In round `R > 1` of the current review loop, the CLI computes `fix_induced_ratio` as the proportion of active (non-dismissed) findings whose `origin_round` is later than this loop's first round (newly surfaced findings).
+- **Rule**: Trip when `fix_induced_ratio` exceeds the threshold (default **0.5** / 50%); the ratio does not establish causation.
 - **Action**: Trip the circuit breaker immediately and emit an `EscalationReport` recommending **revert-and-redesign** rather than continued iterative patching.
 
 ### 4. Early-Stop Conditions & Regression Pin Gate
@@ -57,11 +51,3 @@ When a circuit breaker trips, the Agent MUST NOT silently fail or hallucinate a 
 3. **Break-Glass Override**: Acknowledge the finding as a non-blocking known issue / tech debt.
 4. **Re-scope / Rollback**: Roll back current change branch to pre-fix baseline and re-plan.
 ```
-
----
-
-## Reference Information
-
-- Project name: `prospec`
-- AI Knowledge path: `prospec/ai-knowledge`
-- Constitution file: `prospec/CONSTITUTION.md`

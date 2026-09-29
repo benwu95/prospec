@@ -97,9 +97,3 @@ Shared writes record **source changes**, **criteria fired**, **approver**, **dat
 ## Governance — TTL & Conflict
 
 Send expired, conflicting or sweep-matched rules to human arbitration.
-
-## Reference Information
-
-- Project: `prospec`
-- Tiers: accumulating `prospec/ai-knowledge/_lessons-ledger.md` → team `_playbook.md` → `CONSTITUTION.md`.
-- Constitution: `prospec/CONSTITUTION.md`

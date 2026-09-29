@@ -4,12 +4,6 @@ This document defines the format for Feature Specs in `prospec/specs/features/`.
 
 ---
 
-## Purpose
-
-A Feature Spec is the **single source of truth** for WHAT a feature does and WHY it exists. It answers "what value does this deliver to users?" while `ai-knowledge/` answers "how does it currently work?". When both agree, the system is healthy.
-
----
-
 ## Naming Convention
 
 Name files by **user-facing feature**, not by implementation module:
@@ -157,12 +151,3 @@ For the `req-references` check, keeping that bullet keeps references to the REQ 
 - Keep under **300 lines** per Feature Spec (or ≤ 5000 tokens)
 - If a Feature Spec exceeds the token budget, split it into per-story slices by creating a `## Slices` index in the main file (e.g., `- [Slice Name](./{feature-slug}/{slice}.md)`) and moving stories into those slice files.
 - User Stories section should occupy **40%+** of total content (not REQ-dominated)
-
----
-
-## Reference Information
-
-- Project name: `prospec`
-- Feature specs path: `prospec/specs/features/`
-- Product spec path: `prospec/specs/product.md`
-- AI Knowledge path: `prospec/ai-knowledge`

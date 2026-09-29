@@ -213,6 +213,7 @@ Emit one line: `Met N/M | Unmet: <items> | Overall: PASS|WARN|FAIL | Next: <one-
 | Scenario | Action |
 |----------|--------|
 | delta-spec.md not found | Re-run with `--module <name>` (repeatable) — the CLI refuses change mode without a delta-spec |
+| module-map.yaml exists but is unreadable, invalid, or outside the knowledge root | Repair the named input and retry `--change`; do not bypass with `--module` |
 | module-map.yaml not found | Skip module-map update, proceed with README and prospec/index.md only |
 | Module directory doesn't exist (MODIFIED) | Run `prospec knowledge update --module <name>` — manual mode scaffolds the skeleton; then fill it |
 | Auto/user marker conflict while editing | Prefer your new auto content, always preserve user sections |

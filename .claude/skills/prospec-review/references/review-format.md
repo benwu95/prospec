@@ -4,12 +4,6 @@ This document defines the **severity contract** (review's Output Contract), the 
 
 ---
 
-## Purpose
-
-`prospec-review` runs an adversarial, fresh-context review of a change diff between implement and verify. This reference fixes *what counts as which severity*, *what gets auto-fixed*, and *how findings are recorded* — so the loop is reproducible across runs and reviewers.
-
----
-
 ## Severity Criteria
 
 Three levels only — the same PASS/WARN/FAIL-family vocabulary used across prospec (no fourth state).
@@ -130,11 +124,3 @@ read foo.ts:38-46 — the `<=` bound overruns when n === len.
 | maintainability / DRY | new abstractions introduced, or an existing helper / guard / writer re-implemented | duplication, leaky abstraction, dead branches, documented single-source bypass |
 
 A pluggable language-specific engine may add language lenses; the **spec-architecture** lens is always layered on by prospec — it is what a generic code-review tool cannot provide.
-
----
-
-## Reference Information
-
-- Project name: `prospec`
-- Severity vocabulary: critical / major / minor (PASS/WARN/FAIL family — no fourth state)
-- Constitution file: `prospec/CONSTITUTION.md`

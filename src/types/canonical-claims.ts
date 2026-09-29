@@ -47,6 +47,8 @@ export const CANONICAL_CLAIMS = {
     en: 'the modules `prospec knowledge update --change` reports ∪ `metadata.related_modules`',
     zh: '`prospec knowledge update --change` 回報的 modules ∪ `metadata.related_modules`',
     sites: [
+      { id: 'archive-entry-backfill', path: 'src/templates/skills/prospec-archive.hbs', kind: 'template', language: 'en', start: '  - **`metadata.scale: backfill`**', end: '\n' },
+      { id: 'archive-recheck-backfill', path: 'src/templates/skills/prospec-archive.hbs', kind: 'template', language: 'en', start: '1. Reuse the Entry Gate', end: '\n' },
       { id: 'cascade-backfill', path: 'src/templates/skills/references/cascade-protocol.hbs', kind: 'template', language: 'en', start: '   - **Sync affected-module Knowledge**:', end: '\n' },
       { id: 'verify-backfill', path: 'src/templates/skills/references/verify-backfill.hbs', kind: 'template', language: 'en', start: '- **Knowledge Sync**:', end: '\n' },
       { id: 'readme-en', path: 'README.md', kind: 'authored', language: 'en', start: '5. **Knowledge Sync**', end: '\n' },

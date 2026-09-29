@@ -4,14 +4,6 @@ This document defines the expected format for `design-spec.md`, used by the **pr
 
 ---
 
-## Purpose
-
-`design-spec.md` is a platform-agnostic visual design specification that captures the design intent for a Story's UI scope. It serves as both a human-readable design document and a structured reference for AI implementation.
-
-**Important:** This document captures design *structure and intent*. During implementation, AI should read precise values (exact colors, spacing, sizes) directly from the design tool via MCP — this spec provides the blueprint, the design tool provides the measurements.
-
----
-
 ## Standard Format
 
 ### 1. Header
@@ -137,6 +129,8 @@ Define how the layout adapts across breakpoints.
 ---
 
 ## Guidelines
+
+- **Measurement source** — this spec records structure and intent; read precise values from the source named by the platform adapter, including an HTML prototype where applicable.
 
 - **No platform-specific references** — do not mention pencil nodes, Figma layers, or CSS class names
 - **Use design tokens** — prefer token names over raw values where a token exists

@@ -71,7 +71,7 @@ Then overwrite `proposal.md` per `references/proposal-format.md`: each draft sto
 
 ### Phase 3: delta-spec.md
 
-Write `delta-spec.md` per `references/delta-spec-format.md`: each draft AC candidate → a REQ under `## ADDED` with `**Feature:**` (the confirmed slug) and `**Story:**` routing. Keep the feature-first REQ-id (`REQ-{FEATURE-SLUG}-NNN`) — archive routes by `**Feature:**` and derives modules from `related_modules`/feature-map, so the REQ-id need not be module-based. Every AC keeps its `file:line` citation so `prospec-verify` can re-confirm fidelity.
+Write `delta-spec.md` per `references/delta-spec-format.md`: each draft AC candidate → a REQ under `## ADDED` with `**Feature:**` (the confirmed slug) and `**Story:**` routing. Keep the feature-first REQ-id (`REQ-{FEATURE-SLUG}-NNN`) and its `**Feature:**` routing header; module classification belongs to the CLI. Every AC keeps its `file:line` citation so `prospec-verify` can re-confirm fidelity.
 
 ### Phase 4: metadata.yaml (CLI-written)
 
@@ -90,7 +90,7 @@ plan.md/tasks.md**, `scale: backfill` + `status: implemented`, and no uncommitte
 
 ### Phase 5: Handoff
 
-Present the produced scaffold and route the user to `prospec-verify` — under `scale: backfill`, verify grades **spec-fidelity** (every REQ's `file:line` must resolve) and treats pre-existing code-quality gaps as informational tech debt, so a faithful draft reaches grade S/A → `verified` → archivable.
+Present the produced scaffold and route the user to `prospec-verify` — under `scale: backfill`, verify grades **spec-fidelity** (every REQ's `file:line` must resolve) and treats pre-existing code-quality gaps as informational tech debt, the CLI determines the grade, and eligibility remains subject to the archive gates.
 
 ## Output Contract
 

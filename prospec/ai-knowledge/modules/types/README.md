@@ -45,7 +45,7 @@ Also: `auto-draft.ts` (drift-drafting options/result, incl. the `created | skipp
 
 1. **Add a schema field** — use `.optional()`/`.default()` so existing YAML still validates.
 2. **Add an error class** — extend `ProspecError` with `code` (UPPER_SNAKE) + `suggestion`.
-3. **Register repeated behavior wording** — `canonical-claims.ts` owns bilingual phrases and bounded consumption sites; see [Frozen Registries](./frozen-registries.md).
+3. **Register repeated behavior wording** — `canonical-claims.ts` owns bilingual phrases and bounded consumption sites, including archive Entry Gate and Phase 4 backfill synchronization; see [Frozen Registries](./frozen-registries.md).
 4. **Add or extend a registry** (skill, agent, invocation mode, drift check id, scale, verify dimension, audit scope) — add each agent's invocation profile and update the shared guidance reducer, then see [Frozen Registries](./frozen-registries.md).
 5. **Add an index column** — one edit to `INDEX_TABLE_COLUMNS`; header, separator and `INDEX_COLUMN` indices follow.
 

@@ -37,8 +37,7 @@ human confirmation):
 3. **Actor and trigger both disjoint** — the two halves share only infrastructure modules, not domain intent.
 
 A "feature family" is expressed as **sibling slugs sharing a prefix/theme** — a naming convention, not a new
-nesting level. A large capability stays **one slug / one file** with multiple `US-NNN` (each US = one
-sub-story); do not invent a third structural layer.
+nesting level. A large capability remains one logical feature with multiple `US-NNN`; storage may use a mother file and registered story slices.
 
 **Safety valve (built-in, no new magic number):** the `>50%` `[NEEDS CLARIFICATION]` guardrail + the 40%
 US-share + the 300-line soft signal + per-story human review. A slice wide enough to push the NC ratio toward
@@ -58,11 +57,3 @@ it should split.
 
 Collapsing every `GET` into one "read feature" just swaps the WHERE-axis for a horizontal read layer — the
 exact anti-pattern feature-first extraction exists to kill.
-
----
-
-## Reference Information
-
-- Project name: `prospec`
-- Skill: `prospec-backfill-spec`
-- Companion: Feature Spec size governance, Constitution (trust-zone invariant)

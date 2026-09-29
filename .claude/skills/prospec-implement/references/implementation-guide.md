@@ -110,13 +110,3 @@ of scripts exists:**
 
 2. **Other gates (lint, type-check, coverage, …):** run whatever `prospec/CONSTITUTION.md` and
    `.prospec.yaml` define for this project; skip a gate the project does not declare.
-
----
-
-## Reference Information
-
-- Project name: `prospec`
-- Tech stack: `typescript` + ``
-- Package manager: `pnpm`
-- AI Knowledge path: `prospec/ai-knowledge`
-- Constitution file: `prospec/CONSTITUTION.md`
