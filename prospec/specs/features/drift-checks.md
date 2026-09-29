@@ -1,7 +1,7 @@
 ---
 feature: drift-checks
 status: active
-last_updated: 2026-09-18
+last_updated: 2026-09-29
 story_count: 5
 req_count: 5
 ---
@@ -65,6 +65,7 @@ The `delta-spec-landing-fidelity` check fails when a MODIFIED delta-spec landing
 - WHEN a `**Dropped:**` block carries non-empty content but no parseable list item, THEN a non-fail warning names the entry so the author sees the declaration was not registered
 - WHEN this check and the archive write path assess the same landing block and trust-zone body, THEN both derive the undeclared-drop set from one shared implementation and report the identical set
 - WHEN this check and the archive write path resolve the same routing header, THEN both derive the resolution from one shared implementation
+- WHEN a MODIFIED id is defined only by struck headings, THEN existingBody is null and no struck body enters the drop comparison, matching the archive active-only merge target in REQ-SERVICES-072
 
 ---
 
@@ -101,6 +102,7 @@ _(None)_
 
 | Date | Change | Impact | Stories/REQs |
 |------|--------|--------|-------------|
+| 2026-09-29 | fix-spec-sync-safety | MODIFIED REQ-LIB-061 | REQ-LIB-061 |
 | 2026-09-18 | internalize-skill-budgets | MODIFIED REQ-LIB-001 | REQ-LIB-001 |
 | 2026-09-01 | standardize-module-readme-format | MODIFIED REQ-LIB-052 | REQ-LIB-052 |
 | 2026-08-28 | add-req-id-uniqueness-check | ADDED REQ-LIB-068 | REQ-LIB-068 |
