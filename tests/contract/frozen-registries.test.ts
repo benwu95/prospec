@@ -22,6 +22,7 @@ describe('frozen registries append-only (T16, REQ-TYPES-070, REQ-TYPES-086, REQ-
       'ESCALATE_TO_HUMAN',
       'AWAITING_HUMAN_PLAN_SIGNOFF',
       'PLAN_VERIFIER_PENDING',
+      'KNOWLEDGE_INPUT_INVALID',
     ];
 
     const expectedGateCodes = [
@@ -95,8 +96,8 @@ workflow:
     expect(parsedConfigured.workflow?.max_station_retries).toBe(5);
   });
 
-  it('HUMAN_HALT_CODES names exactly the two human stop codes, both routing members (REQ-TYPES-106)', () => {
-    expect([...HUMAN_HALT_CODES]).toEqual(['ESCALATE_TO_HUMAN', 'AWAITING_HUMAN_PLAN_SIGNOFF']);
+  it('HUMAN_HALT_CODES names exactly the three human stop codes, all routing members (REQ-TYPES-106)', () => {
+    expect([...HUMAN_HALT_CODES]).toEqual(['ESCALATE_TO_HUMAN', 'AWAITING_HUMAN_PLAN_SIGNOFF', 'KNOWLEDGE_INPUT_INVALID']);
     for (const code of HUMAN_HALT_CODES) {
       expect(WORKFLOW_REASON_CODES.indexOf(code)).toBeLessThan(WORKFLOW_REASON_CODES.indexOf('CHECK_UNPROVABLE'));
     }

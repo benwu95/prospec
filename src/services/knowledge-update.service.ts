@@ -22,6 +22,7 @@ import {
   buildModulePathMap,
   classifyDeltaSpec,
   loadDeltaModuleContext,
+  readKnownModules,
   type ClassifiedDeltaEntry,
 } from '../lib/knowledge-sync.js';
 
@@ -398,6 +399,15 @@ export async function execute(
   if (options.deltaSpecPath) {
     // --- Delta Spec Mode ---
     const deltaContent = await fs.promises.readFile(options.deltaSpecPath, 'utf-8');
+    // With no trustworthy map every module REQ would classify as "not a module"; refuse
+    // before classifying or writing anything.
+    const { unreadable } = readKnownModules(knowledgePath, cwd);
+    if (unreadable) {
+      throw new PrerequisiteError(
+        `${unreadable.cause} — no delta-spec REQ was classified`,
+        `${unreadable.remedy}, then re-run \`prospec knowledge update\``,
+      );
+    }
     // The knowledge-sync gate classifies the same entries through the same context,
     // so the modules acknowledged here are the modules the gate checks.
     const ctx = loadDeltaModuleContext(knowledgePath, options.relatedModules ?? [], options.backfill ?? false);
@@ -420,14 +430,15 @@ export async function execute(
     const modulesToSync = (entry: ClassifiedDeltaEntry): string[] => {
       if (entry.kind === 'feature' && entry.modules.length === 0) {
         result.warnings.push(
-          `${entry.id}: "${entry.prefix}" is a feature prefix, not a module — set ` +
-            `metadata.related_modules (or feature-map modules) so the change can sync ` +
-            `(skipped; no module minted)`,
+          `${entry.id}: "${entry.prefix}" is a feature prefix, not a module — record the modules ` +
+            `with \`prospec change related-modules <module...>\` (or in the feature-map feature) so the ` +
+            `change can sync (skipped; no module minted)`,
         );
       } else if (entry.kind === 'feature-slug' && entry.modules.length === 0) {
         result.warnings.push(
-          `${entry.id}: "${entry.prefix}" is a backfill feature slug with no known module — set ` +
-            `metadata.related_modules so the change can sync (skipped; no module minted)`,
+          `${entry.id}: "${entry.prefix}" is a backfill feature slug with no known module — record ` +
+            `the modules with \`prospec change related-modules <module...>\` so the change can sync ` +
+            `(skipped; no module minted)`,
         );
       } else if (entry.kind === 'ignored') {
         result.warnings.push(
@@ -632,9 +643,9 @@ export async function executeForChange(
   // under a lib path). Those modules need a freshness stamp but no README edit, so
   // report them separately as stamp-only candidates. Advisory: it must never turn the
   // mechanical update into a new failure mode (the CI committed-range gate is the
-  // backstop), but the degradation is SCOPED — only the two environmental failures
-  // below (git unavailable, module map present-but-unreadable) fall back to an empty
-  // list; a logic error in the pure partition is NOT swallowed, it propagates.
+  // backstop), but the degradation is SCOPED — only git being unavailable falls back
+  // to an empty list (`execute` has already refused an unreadable module map); a
+  // logic error in the pure partition is NOT swallowed, it propagates.
   let stampOnly: string[] = [];
   const changed = changedPathsFromWorkTree(cwd); // null (fail-closed) on any git failure
   if (changed && changed.length > 0) {
@@ -643,15 +654,7 @@ export async function executeForChange(
     // cold, non-hot CLI path is cheaper than widening execute()'s public result
     // contract just to hand the resolved map back.
     const { knowledgePath } = resolveBasePaths(await readConfig(cwd), cwd);
-    // loadModuleMap fails LOUD on a present-but-unreadable map; scope the fallback to
-    // exactly that so an advisory feature cannot break a good run — without also
-    // hiding a genuine bug in partitionDiffAttributedModules below.
-    let moduleMap: ModuleMap | null = null;
-    try {
-      moduleMap = loadModuleMap(knowledgePath, cwd);
-    } catch {
-      moduleMap = null;
-    }
+    const moduleMap = loadModuleMap(knowledgePath, cwd);
     if (moduleMap) {
       const reqAcknowledged = [
         ...result.created,

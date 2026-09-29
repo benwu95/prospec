@@ -400,7 +400,10 @@ describe('status-output — identity-first action and fallback', () => {
 });
 
 describe('status-output — human halt routes (REQ-CLI-056, REQ-CLI-039)', () => {
-  const route = (code: 'AWAITING_HUMAN_PLAN_SIGNOFF' | 'ESCALATE_TO_HUMAN' | 'PLAN_VERIFIER_PENDING', next: 'plan' | null) =>
+  const route = (
+    code: 'AWAITING_HUMAN_PLAN_SIGNOFF' | 'ESCALATE_TO_HUMAN' | 'KNOWLEDGE_INPUT_INVALID' | 'PLAN_VERIFIER_PENDING',
+    next: 'plan' | null,
+  ) =>
     ({
       clean: false,
       changes: [
@@ -435,6 +438,19 @@ describe('status-output — human halt routes (REQ-CLI-056, REQ-CLI-039)', () =>
     const text = output();
     expect(text).toContain('HALT (escalated to human)');
     expect(text).not.toContain('awaiting human plan sign-off');
+  });
+
+  // #310: the third halt must never fall through to the terminal line.
+  it('prints the knowledge-sync input HALT with no station action, distinct from terminal', () => {
+    formatStatusOutput(route('KNOWLEDGE_INPUT_INVALID', null), 'normal');
+    const text = output();
+    expect(text).toContain('HALT (knowledge-sync input needs repair)');
+    expect(text).toContain('re-run `prospec status`');
+    expect(text).not.toContain('invoke skill');
+    expect(text).not.toContain('fallback:');
+    expect(text).not.toContain('terminal');
+    expect(text).not.toContain('escalated to human');
+    expect(text).toContain('[KNOWLEDGE_INPUT_INVALID]');
   });
 
   it('prints PLAN_VERIFIER_PENDING as an ordinary route back to plan', () => {

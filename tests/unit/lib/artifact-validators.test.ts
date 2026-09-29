@@ -111,6 +111,8 @@ describe('validatePromoteScaffold', () => {
     });
     expect(verdict.ok).toBe(false);
     expect(verdict.findings.map((f) => f.message).join(' ')).toContain('related_modules is empty');
+    expect(verdict.findings.map((f) => f.message).join(' ')).toContain('prospec change related-modules');
+    expect(verdict.findings.map((f) => f.message).join(' ')).not.toContain('change story --related-module');
   });
 
   it('fails when the trust zone has uncommitted changes', () => {

@@ -1,7 +1,7 @@
 import pc from 'picocolors';
 import type { LogLevel } from '../../types/config.js';
-import type { StatusReport } from '../../types/status.js';
-import { STATION_SKILLS } from '../../types/status.js';
+import type { HumanHaltCode, StatusReport } from '../../types/status.js';
+import { isHumanHaltCode, STATION_SKILLS } from '../../types/status.js';
 import { DRIFT_REPORT_FILENAME } from '../../types/drift-report.js';
 import { sanitizeTerminal } from './sanitize.js';
 
@@ -15,6 +15,26 @@ import { sanitizeTerminal } from './sanitize.js';
  *    identity and its file fallback, blocking gates, reasons
  * 3. Unroutable records (malformed metadata) — reported, never dropped
  */
+/** Each human halt's `next:` / `action:` lines — a `Record`, so a halt code without lines fails typecheck. */
+const HALT_LINES: Record<HumanHaltCode, { color: (s: string) => string; next: string; action: string }> = {
+  ESCALATE_TO_HUMAN: {
+    color: pc.red,
+    next: '— HALT (escalated to human)',
+    action: 'human intervention required; station retry limit exceeded',
+  },
+  AWAITING_HUMAN_PLAN_SIGNOFF: {
+    color: pc.yellow,
+    next: '— HALT (awaiting human plan sign-off)',
+    action:
+      'present the candidates, metrics table, rationale and plan verifier report; the human signs off with `prospec change log --skill prospec-plan --signoff <option>`',
+  },
+  KNOWLEDGE_INPUT_INVALID: {
+    color: pc.red,
+    next: '— HALT (knowledge-sync input needs repair)',
+    action: 'repair the knowledge-sync input each reason names, then re-run `prospec status`',
+  },
+};
+
 export function formatStatusJson(report: StatusReport): void {
   process.stdout.write(`${JSON.stringify(report, null, 2)}\n`);
 }
@@ -59,16 +79,10 @@ export function formatStatusOutput(report: StatusReport, logLevel: LogLevel): vo
       console.log(`  issue:   ${sanitizeTerminal(change.issue)}`);
     }
     if (change.next === null) {
-      if (change.code === 'ESCALATE_TO_HUMAN') {
-        console.log(`  next:    ${pc.red('— HALT (escalated to human)')}`);
-        console.log(
-          `  action:  ${pc.red('HALT')} — human intervention required; station retry limit exceeded`,
-        );
-      } else if (change.code === 'AWAITING_HUMAN_PLAN_SIGNOFF') {
-        console.log(`  next:    ${pc.yellow('— HALT (awaiting human plan sign-off)')}`);
-        console.log(
-          `  action:  ${pc.yellow('HALT')} — present the candidates, metrics table, rationale and plan verifier report; the human signs off with \`prospec change log --skill prospec-plan --signoff <option>\``,
-        );
+      if (isHumanHaltCode(change.code)) {
+        const halt = HALT_LINES[change.code];
+        console.log(`  next:    ${halt.color(halt.next)}`);
+        console.log(`  action:  ${halt.color('HALT')} — ${halt.action}`);
       } else {
         console.log(`  next:    ${pc.dim('— terminal (periodic prospec-learn)')}`);
       }

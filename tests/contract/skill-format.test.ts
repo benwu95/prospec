@@ -646,13 +646,16 @@ describe('Skill Format Contract', () => {
   describe('affected-module attribution wording (REQ-TEMPLATES-129, REQ-TEMPLATES-162)', () => {
     const render = (t: string) => renderTemplate(t, TEMPLATE_CONTEXT);
 
-    it('cascade-protocol commit prompt scopes affected modules to REQ-prefix ∪ diff-path (generated included)', () => {
+    // #311 R4-2: the gate checks what knowledge update reports ∪ related_modules — a
+    // feature-prefix REQ has no "REQ-prefix module", so the old wording under-stamped.
+    it('cascade-protocol commit prompt scopes affected modules to the reported set ∪ related_modules ∪ diff-path (generated included)', () => {
       const content = render('skills/references/cascade-protocol.hbs');
       const start = content.indexOf('Commit Boundary & Preparation');
       expect(start, 'cascade-protocol commit prompt not found').toBeGreaterThan(-1);
       const section = content.slice(start, content.indexOf('## Reference Information', start));
       expect(section, 'commit prompt section sliced empty').not.toBe('');
-      expect(section).toContain('REQ-prefix modules');
+      expect(section).toContain('the modules `prospec knowledge update --change` reports ∪ `metadata.related_modules` ∪ working-tree diff modules');
+      expect(section).not.toContain('REQ-prefix modules');
       expect(section).toContain('working-tree diff');
       expect(section).toContain('generated artifacts included');
       // post-commit gate re-run, worded project-agnostically
@@ -674,10 +677,13 @@ describe('Skill Format Contract', () => {
       expect(never).not.toContain('mark as deprecated only');
     });
 
-    it('knowledge-update 3e defines affected modules as REQ-prefix ∪ diff-path; Phase 1 surfaces stamp-only', () => {
+    it('knowledge-update 3e defines affected modules as the reported set ∪ related_modules ∪ diff-path; Phase 1 surfaces stamp-only', () => {
       const content = render('skills/prospec-knowledge-update.hbs');
       const section = sectionOf(content, '#### 3e:');
-      expect(section).toContain('REQ-prefix modules');
+      expect(section).toContain(
+        'the modules `prospec knowledge update --change` reports as created or README-pending ∪ `metadata.related_modules` ∪ the modules a working-tree diff attributes',
+      );
+      expect(section).not.toContain('REQ-prefix modules');
       expect(section).toContain('working-tree diff');
       expect(section).toContain('knowledge-sync mechanical gate');
       const phase1 = sectionOf(content, '### Phase 1');
@@ -2792,20 +2798,25 @@ describe('Skill Format Contract', () => {
       expect(zhOverlay).toContain('proven backfill 的 code review 是 optional');
     });
 
-    it('describes the backfill Knowledge Sync as the set knowledge update reports, never related_modules only', () => {
+    // #311 R3-2: the backfill sync set is what knowledge update reports ∪ related_modules,
+    // never "the Feature header's modules" (wrong when a slug collides or is claimed).
+    it('describes the backfill Knowledge Sync as the set knowledge update reports ∪ related_modules', () => {
       const brownfield = htmlSectionById(website, 'brownfield');
-      expect(brownfield).toContain('sync the modules <code>prospec knowledge update</code> reports (related modules ∪ the feature’s modules)');
+      expect(brownfield).toContain('sync the modules <code>prospec knowledge update</code> reports ∪ <code>related_modules</code>');
+      expect(brownfield).not.toContain('the feature’s modules');
       expect(brownfield).not.toContain('sync only its declared modules');
-      expect(zhOverlay).toContain('同步 <code>prospec knowledge update</code> 回報的 modules（related modules ∪ feature 的 modules）');
+      expect(zhOverlay).toContain('同步 <code>prospec knowledge update</code> 回報的 modules ∪ <code>related_modules</code>');
+      expect(zhOverlay).not.toContain('feature 的 modules）');
       expect(zhOverlay).not.toContain('只同步宣告的 modules');
       for (const [file, expected, banned] of [
-        ['README.md', 'it resolves feature-slug REQ IDs to `metadata.related_modules` ∪ the modules of the feature their `**Feature:**` header names, minting nothing', 'update only the module READMEs named in `metadata.related_modules`'],
-        ['README.zh-TW.md', '它把 feature-slug REQ IDs 解析為 `metadata.related_modules` ∪ `**Feature:**` 所指 feature 的 modules，不會 mint 任何 module', '只更新 `metadata.related_modules` 指定的 module READMEs'],
+        ['README.md', 'Update the READMEs of the modules it reports ∪ `metadata.related_modules`', 'update only the module READMEs named in `metadata.related_modules`'],
+        ['README.zh-TW.md', '更新它回報的 modules ∪ `metadata.related_modules` 的 READMEs', '只更新 `metadata.related_modules` 指定的 module READMEs'],
       ] as const) {
         const readme = fs.readFileSync(path.resolve(file), 'utf-8');
         const step = readme.split('\n').find((l) => l.startsWith('5. **Knowledge Sync**'));
         expect(step, `${file} Knowledge Sync step missing`).toBeDefined();
         expect(step).toContain(expected);
+        expect(step).not.toContain('`**Feature:**`');
         expect(readme).not.toContain(banned);
       }
     });
@@ -5054,12 +5065,15 @@ describe('backfill graduation — verify spec-fidelity contract (scale: backfill
     expect(v5).toContain('FAIL');
   });
 
-  it('Knowledge Sync syncs the set knowledge update reports — related_modules ∪ the Feature header feature modules', () => {
+  // #311 R3-2: a slug colliding with a module, or declared by another feature, makes
+  // "the Feature header's modules" wrong — the gate checks the reported set ∪ related.
+  it('Knowledge Sync syncs the set knowledge update reports ∪ related_modules', () => {
     const section = sectionOf(renderVerifyBackfill(), '## 4. Post-Verify Commit & Knowledge Sync');
     const item = section.split('\n').find((l) => l.startsWith('- **Knowledge Sync**:'));
     expect(item, 'Knowledge Sync item missing').toBeDefined();
     expect(item).toContain('Run `prospec knowledge update --change <name>`');
-    expect(item).toContain('`metadata.related_modules` ∪ the modules of the feature their `**Feature:**` header names, minting nothing');
+    expect(item).toContain('Sync the READMEs of the modules it reports ∪ `metadata.related_modules`');
+    expect(item).not.toContain('header names');
     expect(item).not.toContain('would mint phantom modules');
     expect(item).not.toContain('Sync only the module READMEs named in `metadata.related_modules`');
   });
@@ -5114,11 +5128,25 @@ describe('backfill graduation — archive acceptance + module derivation (scale:
     const gate = sectionOf(renderArchive(), '## Entry Gate');
     const item = gate.split('\n').find((l) => l.startsWith('- Knowledge is synced for this change:'));
     expect(item, 'knowledge-sync item missing').toBeDefined();
-    expect(item).toContain('it checks `metadata.related_modules` ∪ the modules of the delta-spec ADDED/MODIFIED/REMOVED REQ ID prefixes');
-    expect(item).toContain('a new module only on an ADDED REQ, else ignored');
-    expect(item).toContain('naming each unsynced module');
+    expect(item).toContain("it checks `metadata.related_modules` ∪ the modules classified from the delta-spec's ADDED/MODIFIED/REMOVED REQs");
+    expect(item).toContain('naming each cause');
     expect(gate).not.toContain('falling back to the delta-spec');
     expect(gate).not.toContain('no delta-spec to fall back to');
+  });
+
+  // REQ-TEMPLATES-083 / #310: knowledge-update repairs none of the KNOWLEDGE_INPUT_INVALID
+  // inputs, so the archive skill must not send every not-synced refusal there.
+  it('Entry Gate and Error Handling send each knowledge-sync refusal to its own remedy by code', () => {
+    const gate = sectionOf(renderArchive(), '## Entry Gate');
+    const item = gate.split('\n').find((l) => l.startsWith('- Knowledge is synced for this change:'));
+    expect(item).toContain('`KNOWLEDGE_UNSYNCED`: `prospec-knowledge-update` for those modules');
+    expect(item).toContain('`KNOWLEDGE_INPUT_INVALID`: repair the named input');
+    expect(item).not.toContain('Not synced → run `prospec-knowledge-update`');
+    const row = renderArchive().split('\n').find((l) => l.startsWith('| Entry Gate knowledge-sync FAIL |'));
+    expect(row, 'Error Handling row missing').toBeDefined();
+    expect(row).toContain('`prospec-knowledge-update` for `KNOWLEDGE_UNSYNCED`');
+    expect(row).toContain('repair the named input for `KNOWLEDGE_INPUT_INVALID`');
+    expect(row).not.toContain('Guide user to run `prospec-knowledge-update`');
   });
 
   it('Entry Gate and Phase 4 resolve a feature prefix through the features whose req_prefixes declare it', () => {
@@ -6039,9 +6067,8 @@ describe('Knowledge sync folded into the verify S/A commit prompt (REQ-TEMPLATES
     expect(status).toContain('prospec knowledge verify');
     expect(status).toContain('prospec knowledge verify <modules...>');
     expect(status).toContain('scale: backfill');
-    expect(status).toContain(
-      'sync the READMEs of `metadata.related_modules` ∪ the modules of the feature its `**Feature:**` header names',
-    );
+    expect(status).toContain('(`scale: backfill`: the reported modules ∪ `metadata.related_modules`, minting nothing)');
+    expect(status).not.toContain('the modules of the feature its `**Feature:**` header names');
     expect(status).not.toContain('sync only the READMEs named by `metadata.related_modules`');
   });
 
@@ -7156,6 +7183,17 @@ describe('issue registration documented in both references (REQ-TEMPLATES-178, i
     expect(order).toMatch(/\|\s*`issue`\s*\|\s*no\s*\|\s*`prospec change story --issue`/);
   });
 
+  // REQ-CLI-060: the field table names every writer of related_modules, the correction included
+  it('metadata-format rows related_modules with its creation writer and its correction command', () => {
+    const ref = renderTemplate('skills/references/metadata-format.hbs', TEMPLATE_CONTEXT);
+    const row = section(ref, '## Canonical field order').split('\n').find((l) => l.startsWith('| `related_modules` |'));
+    expect(row, 'related_modules row missing').toBeDefined();
+    expect(row).toContain('`prospec change story`');
+    expect(row).toContain('`change related-modules` corrects it');
+    // the intro's list of every metadata.yaml writer names it too
+    expect(ref.split('## Canonical field order')[0]).toContain('`change related-modules`');
+  });
+
   it('metadata-format records the no-validation stance, the quoting consequence, and absence semantics', () => {
     const ref = renderTemplate('skills/references/metadata-format.hbs', TEMPLATE_CONTEXT);
     const entry = section(ref, '### `issue` — the external-tracker registration');
@@ -7509,8 +7547,11 @@ describe('opt-in plan sign-off pause and autonomous selection (REQ-TEMPLATES-236
     const step5 = oneLine(cascade.split('\n').find((l) => l.includes('**Step 5 [NEXT]**')) ?? '');
     expect(step5).toMatch(/`code: ESCALATE_TO_HUMAN`, HALT immediately and emit an `EscalationReport`/);
     expect(step5).toMatch(/`code: AWAITING_HUMAN_PLAN_SIGNOFF`, HALT and present the candidate summary, metrics table, in-session rationale and plan verifier report — it is not a failure, so emit no `EscalationReport`/);
+    // REQ-TEMPLATES-195 / #310: the third halt exits the loop too, without a report
+    expect(step5).toMatch(/`code: KNOWLEDGE_INPUT_INVALID`, HALT and present the knowledge-sync input its reasons name \(no `EscalationReport`\)/);
     const table = sectionOf(cascade, '## Station Transition Gates');
     expect(table).not.toMatch(/\|\s*`?AWAITING_HUMAN_PLAN_SIGNOFF`?\s*\|/);
+    expect(table).not.toContain('KNOWLEDGE_INPUT_INVALID');
   });
 
   it('ff stops after plan on the pause and does not generate tasks', () => {
@@ -9474,10 +9515,12 @@ describe('one verdict vocabulary, one station route (issue #266 — REQ-TEMPLATE
     // every routable station has a row (learn is periodic; archive is terminal)
     expect([...table.keys()].sort()).toEqual([...SDD_STATIONS].filter((s) => s !== 'archive').sort());
 
+    const reason = (code: 'KNOWLEDGE_UNSYNCED' | 'KNOWLEDGE_INPUT_INVALID') => ({ code, message: 'm', remediation: 'r' });
+    const KNOWLEDGE_REASON_VARIANTS = [[], [reason('KNOWLEDGE_UNSYNCED')], [reason('KNOWLEDGE_INPUT_INVALID')]];
     const facts = (over: Partial<ChangeRouteFacts>): ChangeRouteFacts => ({
       name: 'c', status: 'story', scale: 'standard', hasTasks: true, hasDesignSpec: false, uiScope: null,
       codeTasksTotal: 1, codeTasksDone: 0, hasReviewProvenance: false, lastVerifyGrade: null,
-      lastPlanVerifierResult: null, lastTasksVerifierResult: null, hasKnowledgeSync: true,
+      lastPlanVerifierResult: null, lastTasksVerifierResult: null, knowledgeSyncReasons: [],
       verifyBelowBarStreak: 0, planFlawsStreak: 0, tasksFlawsStreak: 0, maxStationRetries: 3,
       // The opt-in pause is a loop-exit, not a routed station: parity is judged without it.
       pauseAtPlan: false, planSignedOff: false, ...over,
@@ -9504,8 +9547,9 @@ describe('one verdict vocabulary, one station route (issue #266 — REQ-TEMPLATE
       promote: routed(withoutTasks.map((scale) => ({ status: 'implemented', scale }))),
       implement: routed(withTasks.map((scale) => ({ status: 'implemented', scale }))),
       review: routed(scales.map((scale) => ({ status: 'implemented', scale, hasReviewProvenance: true }))),
-      verify: routed(grades.flatMap((lastVerifyGrade) => [true, false].map((hasKnowledgeSync) => ({ status: 'verified', lastVerifyGrade, hasKnowledgeSync })))),
-      'knowledge-update': routed((['S', 'A'] as const).map((lastVerifyGrade) => ({ status: 'verified', lastVerifyGrade, hasKnowledgeSync: true }))),
+      // the knowledge-sync input halt names no station, so the parity is judged on the routed edges alone
+      verify: routed(grades.flatMap((lastVerifyGrade) => KNOWLEDGE_REASON_VARIANTS.map((knowledgeSyncReasons) => ({ status: 'verified', lastVerifyGrade, knowledgeSyncReasons })))),
+      'knowledge-update': routed((['S', 'A'] as const).map((lastVerifyGrade) => ({ status: 'verified', lastVerifyGrade, knowledgeSyncReasons: [] }))),
     };
     for (const [station, next] of Object.entries(expected)) {
       expect([...table.get(station)!].sort(), `row ${station}`).toEqual([...next].sort());

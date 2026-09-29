@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import {
+  formatWorkflowReason,
   HUMAN_HALT_CODES,
   isHumanHaltCode,
   normalizeStationName,
@@ -148,6 +149,16 @@ describe('isHumanHaltCode (REQ-TYPES-106)', () => {
     expect(isHumanHaltCode('PLAN_VERIFIER_PENDING')).toBe(false);
     expect(isHumanHaltCode('TERMINAL')).toBe(false);
     expect(isHumanHaltCode('LIFECYCLE_NEXT')).toBe(false);
+    expect(isHumanHaltCode('KNOWLEDGE_UNSYNCED')).toBe(false);
+    expect(isHumanHaltCode('KNOWLEDGE_INPUT_INVALID')).toBe(true);
+  });
+});
+
+describe('formatWorkflowReason (REQ-LIB-035)', () => {
+  it('renders a reason as `<CODE>: <message> — <remediation>`', () => {
+    expect(
+      formatWorkflowReason({ code: 'KNOWLEDGE_INPUT_INVALID', message: 'm', remediation: 'r' }),
+    ).toBe('KNOWLEDGE_INPUT_INVALID: m — r');
   });
 });
 

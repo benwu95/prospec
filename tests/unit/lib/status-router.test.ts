@@ -7,6 +7,7 @@ import {
   isHumanHaltCode,
   PLAN_SIGNOFF_REMEDIES,
   type ChangeRouteFacts,
+  type WorkflowReason,
 } from '../../../src/types/status.js';
 import { CHANGE_SCALES, CHANGE_STATUSES } from '../../../src/types/change.js';
 
@@ -16,6 +17,17 @@ import { CHANGE_SCALES, CHANGE_STATUSES } from '../../../src/types/change.js';
  * (design/review) are pinned here so a lifecycle edit that misses the router
  * (or vice versa) turns red.
  */
+
+const UNSYNCED: WorkflowReason = {
+  code: 'KNOWLEDGE_UNSYNCED',
+  message: 'affected-module Knowledge is not synced — stale: services',
+  remediation: 'run `prospec-knowledge-update`, then `prospec knowledge verify services`',
+};
+const INVALID: WorkflowReason = {
+  code: 'KNOWLEDGE_INPUT_INVALID',
+  message: 'knowledge-sync input no station repairs — non-canonical REQ id(s): REQ-LIB-01',
+  remediation: 'rename each to REQ-{MODULE}-NNN',
+};
 
 function facts(overrides: Partial<ChangeRouteFacts> = {}): ChangeRouteFacts {
   return {
@@ -31,7 +43,7 @@ function facts(overrides: Partial<ChangeRouteFacts> = {}): ChangeRouteFacts {
     lastVerifyGrade: null,
     lastPlanVerifierResult: null,
     lastTasksVerifierResult: null,
-    hasKnowledgeSync: true,
+    knowledgeSyncReasons: [],
     verifyBelowBarStreak: 0,
     planFlawsStreak: 0,
     tasksFlawsStreak: 0,
@@ -137,15 +149,45 @@ describe('status-router — lifecycle edges', () => {
   });
 
   it('verified without knowledge sync → knowledge-update with sync gate', () => {
-    const route = routeChange(facts({ status: 'verified', hasKnowledgeSync: false }));
+    const route = routeChange(facts({ status: 'verified', knowledgeSyncReasons: [UNSYNCED] }));
     expect(route.current).toBe('verify');
     expect(route.next).toBe('knowledge-update');
+    expect(route.code).toBe('KNOWLEDGE_UNSYNCED');
     expect(route.blockingGates.join(' ')).toContain('Knowledge synced');
     expect(route.reasons.join(' ')).toContain('prospec-knowledge-update is the next station');
+    expect(route.reasons).toContain(`KNOWLEDGE_UNSYNCED: ${UNSYNCED.message} — ${UNSYNCED.remediation}`);
+  });
+
+  // REQ-LIB-035 / #310: knowledge-update repairs none of these inputs, so routing
+  // there would loop; the route names a human halt and every gap's own remedy.
+  it('verified with a knowledge-sync input no station repairs → KNOWLEDGE_INPUT_INVALID halt', () => {
+    for (const knowledgeSyncReasons of [[INVALID], [INVALID, UNSYNCED]]) {
+      const route = routeChange(facts({ status: 'verified', knowledgeSyncReasons }));
+      expect(route.current).toBe('verify');
+      expect(route.next).toBeNull();
+      expect(route.code).toBe('KNOWLEDGE_INPUT_INVALID');
+      expect(route.blockingGates.join(' ')).toMatch(/REQ id/);
+      expect(route.blockingGates.join(' ')).toContain('module-map.yaml');
+      expect(route.blockingGates.join(' ')).toContain('related_modules');
+      for (const reason of knowledgeSyncReasons) {
+        // each reason keeps its own code — the formatter prefixes every line with the route's
+        expect(route.reasons).toContain(`${reason.code}: ${reason.message} — ${reason.remediation}`);
+      }
+    }
+  });
+
+  // Only KNOWLEDGE_UNSYNCED is knowledge-update's to repair: any other code fails closed to the halt.
+  it('verified with a knowledge-sync reason of any other code halts rather than routing to knowledge-update', () => {
+    const other: WorkflowReason = { code: 'CHECK_UNPROVABLE', message: 'm', remediation: 'r' };
+    for (const knowledgeSyncReasons of [[other], [UNSYNCED, other]]) {
+      const route = routeChange(facts({ status: 'verified', knowledgeSyncReasons }));
+      expect(route.next).toBeNull();
+      expect(route.code).toBe('KNOWLEDGE_INPUT_INVALID');
+    }
   });
 
   it('verified with knowledge sync → archive with the Knowledge-sync gate', () => {
-    const route = routeChange(facts({ status: 'verified', hasKnowledgeSync: true }));
+    const route = routeChange(facts({ status: 'verified', knowledgeSyncReasons: [] }));
     expect(route.current).toBe('verify');
     expect(route.next).toBe('archive');
     expect(route.blockingGates.join(' ')).toContain('Knowledge synced');
@@ -156,7 +198,7 @@ describe('status-router — lifecycle edges', () => {
   // for exactly the state that widening the audit scope exists to guard.
   // Equivalent commits preserve both records; changed inputs require revalidation.
   it('verified declares the provenance gates and names the re-record remedy', () => {
-    const gates = routeChange(facts({ status: 'verified', hasKnowledgeSync: true })).blockingGates.join(' ');
+    const gates = routeChange(facts({ status: 'verified' })).blockingGates.join(' ');
     expect(gates).toContain('provenance');
     expect(gates).toContain('re-record');
   });
@@ -165,8 +207,8 @@ describe('status-router — lifecycle edges', () => {
 
   for (const grade of ['B', 'C', 'D'] as const) {
     it(`verified re-verified to ${grade} routes back to verify (status stays verified), ahead of knowledge sync`, () => {
-      for (const hasKnowledgeSync of [true, false]) {
-        const route = routeChange(facts({ status: 'verified', lastVerifyGrade: grade, hasKnowledgeSync }));
+      for (const knowledgeSyncReasons of [[], [UNSYNCED], [INVALID]]) {
+        const route = routeChange(facts({ status: 'verified', lastVerifyGrade: grade, knowledgeSyncReasons }));
         expect(route.status).toBe('verified');
         expect(route.next).toBe('verify');
         expect(route.code).toBe('VERIFY_GRADE_BELOW_BAR');
@@ -178,8 +220,9 @@ describe('status-router — lifecycle edges', () => {
 
   for (const grade of ['S', 'A', null] as const) {
     it(`verified with latest grade ${grade ?? 'none'} keeps the knowledge-update / archive edges`, () => {
-      expect(routeChange(facts({ status: 'verified', lastVerifyGrade: grade, hasKnowledgeSync: false })).next).toBe('knowledge-update');
-      const synced = routeChange(facts({ status: 'verified', lastVerifyGrade: grade, hasKnowledgeSync: true }));
+      expect(routeChange(facts({ status: 'verified', lastVerifyGrade: grade, knowledgeSyncReasons: [UNSYNCED] })).next).toBe('knowledge-update');
+      expect(routeChange(facts({ status: 'verified', lastVerifyGrade: grade, knowledgeSyncReasons: [INVALID] })).next).toBeNull();
+      const synced = routeChange(facts({ status: 'verified', lastVerifyGrade: grade, knowledgeSyncReasons: [] }));
       expect(synced.next).toBe('archive');
       expect(synced.code).toBe('LIFECYCLE_NEXT');
     });
@@ -483,7 +526,6 @@ describe('status-router — escalation bounds on consecutive failures (REQ-LIB-0
           facts({
             status: 'verified',
             lastVerifyGrade: grade,
-            hasKnowledgeSync: true,
             verifyBelowBarStreak: 5,
             maxStationRetries: 3,
           }),
@@ -668,28 +710,30 @@ describe('status-router — full status × scale matrix stays lifecycle-consiste
           for (const planSignedOff of [false, true]) {
             for (const lastPlanVerifierResult of [null, 'PASS', 'WARN', 'FAIL'] as const) {
               for (const streak of [0, 3]) {
-                const route = routeChange(facts({
-                  status, scale, pauseAtPlan, planSignedOff, lastPlanVerifierResult,
-                  lastTasksVerifierResult: lastPlanVerifierResult,
-                  planFlawsStreak: streak, tasksFlawsStreak: streak, verifyBelowBarStreak: streak,
-                  lastVerifyGrade: streak > 0 ? 'C' : null, maxStationRetries: 3,
-                }));
-                if (route.next !== null) continue;
-                halts.add(route.code);
-                expect(isHumanHaltCode(route.code), `${status} × ${scale} → ${route.code}`).toBe(true);
+                for (const knowledgeSyncReasons of [[], [UNSYNCED], [INVALID]]) {
+                  const route = routeChange(facts({
+                    status, scale, pauseAtPlan, planSignedOff, lastPlanVerifierResult,
+                    lastTasksVerifierResult: lastPlanVerifierResult,
+                    planFlawsStreak: streak, tasksFlawsStreak: streak, verifyBelowBarStreak: streak,
+                    lastVerifyGrade: streak > 0 ? 'C' : null, maxStationRetries: 3, knowledgeSyncReasons,
+                  }));
+                  if (route.next !== null) continue;
+                  halts.add(route.code);
+                  expect(isHumanHaltCode(route.code), `${status} × ${scale} → ${route.code}`).toBe(true);
+                }
               }
             }
           }
         }
       }
     }
-    // both halts are reached, so the invariant is not vacuously true
-    expect([...halts].sort()).toEqual(['AWAITING_HUMAN_PLAN_SIGNOFF', 'ESCALATE_TO_HUMAN']);
+    // every halt is reached, so the invariant is not vacuously true
+    expect([...halts].sort()).toEqual(['AWAITING_HUMAN_PLAN_SIGNOFF', 'ESCALATE_TO_HUMAN', 'KNOWLEDGE_INPUT_INVALID']);
   });
 
   for (const scale of CHANGE_SCALES) {
-    it(`verified × ${scale} routes to knowledge-update when hasKnowledgeSync is false`, () => {
-      const route = routeChange(facts({ status: 'verified', scale, hasKnowledgeSync: false }));
+    it(`verified × ${scale} routes to knowledge-update when every knowledge-sync reason is KNOWLEDGE_UNSYNCED`, () => {
+      const route = routeChange(facts({ status: 'verified', scale, knowledgeSyncReasons: [UNSYNCED] }));
       expect(route.next).toBe('knowledge-update');
       expect(route.reasons.join(' ')).toContain('prospec-knowledge-update is the next station');
     });

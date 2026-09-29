@@ -21,7 +21,7 @@ import { isDraftableFinding } from '../lib/draftable-findings.js';
 import { assessCurrentDrift } from '../lib/drift-assessment.js';
 import { EVIDENCE_SCOPE, FINGERPRINT_VERSION } from '../types/change.js';
 import { readFileIfExists } from '../lib/fs-utils.js';
-import { checkKnowledgeSync } from '../lib/knowledge-sync.js';
+import { findUnsyncedModules, knowledgeSyncReasons } from '../lib/knowledge-sync.js';
 import {
   routeChange,
   resolveNextSkill,
@@ -253,10 +253,10 @@ async function collectFacts(
     pauseAtPlan,
     planSignedOff: hasPlanSignoffAfterVerifier(metadata.quality_log),
     unresolvedWarnings: unresolvedWarnings(metadata.quality_log),
-    hasKnowledgeSync:
+    knowledgeSyncReasons:
       metadata.status === 'verified'
-        ? await checkKnowledgeSync(changeDir, metadata, cwd, config)
-        : true,
+        ? knowledgeSyncReasons(await findUnsyncedModules(changeDir, metadata, cwd, config), name)
+        : [],
     ...(issue === undefined ? {} : { issue }),
   };
 }

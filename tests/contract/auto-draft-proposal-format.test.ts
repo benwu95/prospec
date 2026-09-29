@@ -59,6 +59,9 @@ describe('auto-draft proposal template contract', () => {
     // hand-edit it, nor point at a flag that only exists at creation time.
     expect(unattributed).not.toContain('change story --related-module');
     expect(unattributed).toContain('must not be hand-edited');
+    // REQ-CLI-060: the recovery is the correction command, not deleting and re-drafting
+    expect(unattributed).toContain('prospec change related-modules <module>');
+    expect(unattributed).not.toContain('delete this change and re-draft');
   });
 
   it('carries every finding with its own path, and every distinct remedy', () => {

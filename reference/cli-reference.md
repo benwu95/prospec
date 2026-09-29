@@ -119,7 +119,8 @@ your-project/
   - **Purpose**: Incrementally sync knowledge boundaries from a change's `delta-spec.md` or named modules.
   - **Behavior**:
     - Regenerates the `prospec/index.md` auto block from `module-map.yaml`.
-    - Creates skeleton READMEs for genuinely new modules; a REMOVED requirement lists its module as README-pending and never deprecates or unregisters the module.
+    - Creates skeleton READMEs for genuinely new modules; a REMOVED requirement lists its module as README-pending and never deprecates or unregisters it from `module-map.yaml`.
+    - With `--change`, refuses before classifying or writing anything when `module-map.yaml` exists but cannot be read, parsed or validated, or resolves outside the knowledge root — naming that cause instead of reporting every REQ as not a module.
     - Never rewrites existing README content (preserving authored knowledge) and reports a `README content pending` worklist.
 
 - **`prospec knowledge verify <module>...`**
@@ -210,6 +211,7 @@ Entry Points, Dependencies, and Config Files have no per-language override — t
 | Command | Description |
 |---------|-------------|
 | `prospec change scale <scale> [--change <name>]` | Set complexity scale (`quick` / `standard` / `full` / `backfill`) |
+| `prospec change related-modules <module...> [--change <name>]` | Correct an existing change's `related_modules` (registered modules only; never removes a registered module) |
 | `prospec change status <to> [--change <name>]` | Forward-only lifecycle transition (refuses backward or invalid transitions) |
 | `prospec change progress [options]` | Calculate code-task progress (excluding `[M]` / `[V]`) and flip checkboxes |
 | `prospec change log [options]` | Append structured `quality_log` entry in `metadata.yaml`; `--verifier-report <file>` records a validated plan/tasks verifier report (`FLAWS` → `FAIL`) |
@@ -237,13 +239,14 @@ Entry Points, Dependencies, and Config Files have no per-language override — t
     - `--json` emits the whole status report (including each change's `nextSkill`, `unresolvedWarnings` and `nextReferenceMap`) to stdout for machine consumption.
     - With nothing in flight, reads `prospec-report.json` and reports its STATE: how many findings `--auto-draft` would draft, or that the report is unreadable or was generated against different code (compared by `change_digest`). A report it cannot trust is reported as such, never as an absence of drift.
     - When a station recovery loop (verify below-bar, plan verifier flaws, tasks verifier flaws) reaches `workflow.max_station_retries` (default 3), `status` routes to `next: null` with stable code `ESCALATE_TO_HUMAN`, printing a HALT directive and failure summary rather than looping back.
-    - **Opt-in plan sign-off pause**: when the resolved pause stations include `plan` — `PROSPEC_PAUSE_AT` when set (even empty; empty or `none` = no pause), otherwise `workflow.pause_at` — a `scale: full` change at `plan` with no verifier result routes back to plan (`PLAN_VERIFIER_PENDING`), and after a PASS/WARN verifier result routes to `next: null` with `AWAITING_HUMAN_PLAN_SIGNOFF`, printing a sign-off HALT and the `--signoff` command, until a sign-off newer than that verifier entry is recorded. The pause holds routing only: `status`, the cascade and `prospec-ff` stop there, while a manual `prospec change tasks` is not refused. An invalid pause value makes `status` (and `--json`) exit 1 with an error naming the source, the bad value and the valid stations — and no report — even with nothing in flight. `next: null` on a non-archived change always carries `ESCALATE_TO_HUMAN` or `AWAITING_HUMAN_PLAN_SIGNOFF` — match on `code`.
+    - At `verified`, a knowledge-sync gap `prospec-knowledge-update` cannot repair — a non-canonical REQ id, an unreadable `module-map.yaml`, a `related_modules` name the map does not register and no ADDED REQ introduces as a new module — routes to `next: null` with stable code `KNOWLEDGE_INPUT_INVALID`, printing a HALT and every gap's cause and repair, one reason per code (each keeps its own code); stale modules still route to `prospec-knowledge-update` (`KNOWLEDGE_UNSYNCED`).
+    - **Opt-in plan sign-off pause**: when the resolved pause stations include `plan` — `PROSPEC_PAUSE_AT` when set (even empty; empty or `none` = no pause), otherwise `workflow.pause_at` — a `scale: full` change at `plan` with no verifier result routes back to plan (`PLAN_VERIFIER_PENDING`), and after a PASS/WARN verifier result routes to `next: null` with `AWAITING_HUMAN_PLAN_SIGNOFF`, printing a sign-off HALT and the `--signoff` command, until a sign-off newer than that verifier entry is recorded. The pause holds routing only: `status`, the cascade and `prospec-ff` stop there, while a manual `prospec change tasks` is not refused. An invalid pause value makes `status` (and `--json`) exit 1 with an error naming the source, the bad value and the valid stations — and no report — even with nothing in flight. `next: null` on a non-archived change always carries `ESCALATE_TO_HUMAN`, `AWAITING_HUMAN_PLAN_SIGNOFF` or `KNOWLEDGE_INPUT_INVALID` — match on `code`.
 
 - **`prospec change story <name> [options]`**
   - **Purpose**: Scaffold a new change directory with `proposal.md` and `metadata.yaml` (`status: story`), or capture/amend acceptance scenario baselines.
   - **Scaffold Options**:
     - `--description <d>`: One-line summary of the change.
-    - `--related-module <m>...`: Explicitly associate modules (overrides auto-matching).
+    - `--related-module <m>...`: Explicitly associate modules (overrides auto-matching); written only at creation — correct it later with `prospec change related-modules`.
     - `--issue <ref>`: Register associated Issue / Ticket tracking identifier.
   - **Baseline Management Modes** (mutually exclusive with creation options):
     - `--freeze-scenarios`: Freeze substantive acceptance scenarios from `proposal.md` into `metadata.yaml` `acceptance` baseline (revision 1, origin: `story`). Refuses placeholders, unauthored content, missing `**Acceptance Scenarios:**`, duplicate/invalid IDs, or when combined with create-only flags. Idempotent on identical content; refuses differing content without amendment.
@@ -297,6 +300,10 @@ Entry Points, Dependencies, and Config Files have no per-language override — t
 
 - **`prospec change scale <quick|standard|full|backfill> [--change <name>]`**
   - **Purpose**: Write user-confirmed complexity scale to `metadata.yaml` (in-place edit preserving comments).
+
+- **`prospec change related-modules <module...> [--change <name>]`**
+  - **Purpose**: Replace an existing change's `metadata.yaml` `related_modules` with the given list — its only writer after `prospec change story` creates the change.
+  - **Behavior**: Every name must be a registered module (a `module-map.yaml` entry, or a `modules/<name>/` directory when there is no map), matched case-insensitively and written in the module's own spelling; a module map that cannot be read, parsed or validated, or that resolves outside the knowledge root, refuses with that cause. It never removes a registered module — that would narrow the knowledge-sync gate — so only a mistyped, unregistered name can be dropped. Idempotent; every refusal leaves the file byte-identical; writes no `quality_log` entry.
 
 - **`prospec change status <to> [--change <name>]`**
   - **Purpose**: Forward-only lifecycle state advancement (refuses illegal jumps and lists valid targets).

@@ -3,7 +3,7 @@ import type {
   ChangeRouteFacts,
   SddStation,
 } from '../types/status.js';
-import { BREAK_GLASS_PREFIX, PLAN_SIGNOFF_REMEDIES, STATION_SKILLS } from '../types/status.js';
+import { BREAK_GLASS_PREFIX, formatWorkflowReason, PLAN_SIGNOFF_REMEDIES, STATION_SKILLS } from '../types/status.js';
 import { forbiddenArtifacts, isStatusBefore } from '../types/change.js';
 import { AGENT_CONFIGS } from '../types/skill.js';
 import type { ValidAgent } from '../types/config.js';
@@ -38,7 +38,9 @@ import type { ValidAgent } from '../types/config.js';
  * - plan, opt-in pause: a `scale: full` change whose resolved pause stations
  *   include `plan` waits for a verifier result, then for a human sign-off newer
  *   than it, before any forward edge. The waiting code is not a failure.
- * - archive accepts only `verified` and re-confirms Knowledge sync.
+ * - archive accepts only `verified` and re-confirms Knowledge sync; at `verified`,
+ *   a `KNOWLEDGE_INPUT_INVALID` knowledge-sync reason (an input no station repairs)
+ *   halts for a human, and only `KNOWLEDGE_UNSYNCED` reasons route to knowledge-update.
  * - every route carries a stable `code` from `WORKFLOW_REASON_CODES`; `reasons`
  *   stays prose.
  */
@@ -354,7 +356,26 @@ export function routeChange(facts: ChangeRouteFacts): ChangeRoute {
           ],
         };
       }
-      if (!facts.hasKnowledgeSync) {
+      // Each gap reason keeps its own code: the formatter prefixes every reason line
+      // with the route's code, which a co-listed KNOWLEDGE_UNSYNCED reason does not share.
+      const gapReasons = facts.knowledgeSyncReasons.map(formatWorkflowReason);
+      // Only KNOWLEDGE_UNSYNCED is knowledge-update's to repair; any other reason
+      // halts for a human rather than naming a station that cannot fix it.
+      if (facts.knowledgeSyncReasons.some((r) => r.code !== 'KNOWLEDGE_UNSYNCED')) {
+        return {
+          ...base,
+          next: null,
+          code: 'KNOWLEDGE_INPUT_INVALID',
+          blockingGates: [
+            'knowledge-sync inputs repaired — every delta-spec REQ id canonical, module-map.yaml readable, every related_modules name registered or introduced as a new module by an ADDED REQ',
+          ],
+          reasons: [
+            'status `verified` — a knowledge-sync input no station repairs blocks archive; prospec-knowledge-update cannot fix it, so repair it and re-run prospec status',
+            ...gapReasons,
+          ],
+        };
+      }
+      if (facts.knowledgeSyncReasons.length > 0) {
         return {
           ...base,
           next: 'knowledge-update',
@@ -364,6 +385,7 @@ export function routeChange(facts: ChangeRouteFacts): ChangeRoute {
           ],
           reasons: [
             'status `verified` — knowledge is not yet synced for affected modules; prospec-knowledge-update is the next station',
+            ...gapReasons,
           ],
         };
       }

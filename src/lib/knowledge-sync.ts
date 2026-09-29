@@ -11,6 +11,7 @@ import { parseYaml } from './yaml-utils.js';
 import type { ProspecConfig } from '../types/config.js';
 import type { FeatureMap } from '../types/feature-map.js';
 import type { ModuleMap } from '../types/module-map.js';
+import type { WorkflowReason } from '../types/status.js';
 
 /** The canonical `REQ-{MODULE}-NNN` id (a 3-digit sequence); capture 1 is the module prefix, hyphenated segments included. */
 const CANONICAL_REQ_ID = /^REQ-([\w-]+)-\d{3}$/;
@@ -46,15 +47,58 @@ export function collectKnownModules(
   knowledgePath: string,
 ): Set<string> {
   if (fs.existsSync(path.join(knowledgePath, 'module-map.yaml'))) return new Set(modulePathMap.keys());
-  const known = new Set<string>();
+  return new Set(listModuleDirectories(knowledgePath).map((name) => name.toLowerCase()));
+}
+
+/** The `modules/<name>/` directory names as written on disk. */
+function listModuleDirectories(knowledgePath: string): string[] {
   try {
-    for (const e of fs.readdirSync(path.join(knowledgePath, 'modules'), { withFileTypes: true })) {
-      if (e.isDirectory()) known.add(e.name.toLowerCase());
-    }
+    return fs
+      .readdirSync(path.join(knowledgePath, 'modules'), { withFileTypes: true })
+      .filter((e) => e.isDirectory())
+      .map((e) => e.name);
   } catch {
     // no modules/ directory yet — nothing is known
+    return [];
   }
-  return known;
+}
+
+/** The cause and remedy of an unreadable `module-map.yaml`, shared by every surface that reports it. */
+export const MODULE_MAP_UNREADABLE_CAUSE = 'module-map.yaml cannot be read, parsed or validated';
+export const MODULE_MAP_UNREADABLE_REMEDY = 'repair module-map.yaml';
+const MODULE_MAP_OUTSIDE_ROOT = {
+  cause: 'module-map.yaml resolves outside the knowledge root',
+  remedy: 'keep module-map.yaml itself inside the knowledge root instead of linking to one outside it',
+} as const;
+
+export interface KnownModules {
+  /** Lowercased name → the module's own spelling (module-map name, else directory name). */
+  known: Map<string, string>;
+  /** Present when `module-map.yaml` exists but a writer cannot trust it: why, and what repairs it. */
+  unreadable?: { cause: string; remedy: string };
+}
+
+/**
+ * The known modules as a writer must judge them: through the validating,
+ * contained module-map reader, failing closed on a map that cannot be read,
+ * parsed or validated, or that resolves outside the knowledge root.
+ */
+export function readKnownModules(knowledgePath: string, cwd: string): KnownModules {
+  let moduleMap: ModuleMap | null;
+  try {
+    moduleMap = loadModuleMap(knowledgePath, cwd);
+  } catch {
+    return { known: new Map(), unreadable: { cause: MODULE_MAP_UNREADABLE_CAUSE, remedy: MODULE_MAP_UNREADABLE_REMEDY } };
+  }
+  if (moduleMap === null) {
+    // loadModuleMap reads a map outside the knowledge root as absent; falling back
+    // to modules/ past a map that is there would judge names against the wrong set
+    if (fs.existsSync(path.join(knowledgePath, 'module-map.yaml'))) {
+      return { known: new Map(), unreadable: { ...MODULE_MAP_OUTSIDE_ROOT } };
+    }
+    return { known: new Map(listModuleDirectories(knowledgePath).map((n) => [n.toLowerCase(), n])) };
+  }
+  return { known: new Map(moduleMap.modules.map((m) => [m.name.toLowerCase(), m.name])) };
 }
 
 /**
@@ -165,9 +209,12 @@ export interface KnowledgeSyncGaps {
   stale: string[];
   /** Affected names absent from the module map (`related_modules` guesses included). */
   unregistered: string[];
+  /** The `unregistered` names only `related_modules` supplies — no classified entry
+   *  produces them; present only when non-empty, so the four-field shape holds. */
+  relatedUnregistered?: string[];
   /** Non-canonical REQ ids — archive would still graduate them, so they cannot be skipped. */
   malformedIds: string[];
-  /** `module-map.yaml` exists but cannot be read, parsed or validated. */
+  /** Set when the gate's read of an existing `module-map.yaml` fails — it cannot be read, parsed or validated. */
   moduleMapUnreadable: boolean;
 }
 
@@ -195,6 +242,7 @@ export async function findUnsyncedModules(
   const related = (metadata.related_modules ?? []).map((m) => m.toLowerCase());
   const gaps: KnowledgeSyncGaps = { stale: [], unregistered: [], malformedIds: [], moduleMapUnreadable: false };
   const affected = new Set(related);
+  const deltaSourced = new Set<string>();
 
   const deltaSpecText = await readFileIfExists(path.join(changeDir, 'delta-spec.md'));
   if (deltaSpecText) {
@@ -202,7 +250,10 @@ export async function findUnsyncedModules(
     gaps.moduleMapUnreadable = ctx.moduleMapUnreadable;
     for (const entry of classifyDeltaSpec(deltaSpecText, ctx)) {
       if (entry.kind === 'malformed') gaps.malformedIds.push(entry.id);
-      for (const m of entry.modules) affected.add(m);
+      for (const m of entry.modules) {
+        affected.add(m);
+        deltaSourced.add(m);
+      }
     }
   }
   if (affected.size === 0) return gaps;
@@ -232,7 +283,67 @@ export async function findUnsyncedModules(
     }
     if (!isModuleCurrent(entry, norm, knowledgePath, timestamps)) gaps.stale.push(norm);
   }
+  const relatedOnly = gaps.unregistered.filter((m) => !deltaSourced.has(m));
+  if (relatedOnly.length > 0) gaps.relatedUnregistered = relatedOnly;
   return gaps;
+}
+
+/**
+ * The one mapping from knowledge-sync gaps to `WorkflowReason`s, shared by
+ * `prospec status` and `prospec archive`. Inputs no station repairs — an
+ * unreadable module map, non-canonical ids, a `related_modules` name the map
+ * does not register and no ADDED REQ introduces as a new module — come first
+ * under `KNOWLEDGE_INPUT_INVALID`; what
+ * `prospec-knowledge-update` repairs follows under `KNOWLEDGE_UNSYNCED`.
+ * Returns a reason exactly when `hasKnowledgeSyncGap` is true.
+ */
+export function knowledgeSyncReasons(gaps: KnowledgeSyncGaps, changeName: string): WorkflowReason[] {
+  const relatedOnly = (gaps.relatedUnregistered ?? []).filter((m) => gaps.unregistered.includes(m));
+  const deltaUnregistered = gaps.unregistered.filter((m) => !relatedOnly.includes(m));
+  const reasons: WorkflowReason[] = [];
+
+  const invalid = { causes: [] as string[], remedies: [] as string[] };
+  if (gaps.moduleMapUnreadable) {
+    invalid.causes.push(MODULE_MAP_UNREADABLE_CAUSE);
+    invalid.remedies.push(MODULE_MAP_UNREADABLE_REMEDY);
+  }
+  if (gaps.malformedIds.length > 0) {
+    invalid.causes.push(`non-canonical REQ id(s): ${gaps.malformedIds.join(', ')}`);
+    invalid.remedies.push('rename each to REQ-{MODULE}-NNN');
+  }
+  if (relatedOnly.length > 0) {
+    invalid.causes.push(`related_modules name(s) not registered in module-map: ${relatedOnly.join(', ')}`);
+    invalid.remedies.push(
+      `for ${relatedOnly.join(', ')}: register the module in module-map.yaml, or correct a mistyped name with \`prospec change related-modules <module...> --change ${changeName}\` (every registered module kept)`,
+    );
+  }
+  if (invalid.causes.length > 0) {
+    reasons.push({
+      code: 'KNOWLEDGE_INPUT_INVALID',
+      message: `knowledge-sync input no station repairs — ${invalid.causes.join('; ')}`,
+      remediation: invalid.remedies.join('; '),
+    });
+  }
+
+  const unsynced = { causes: [] as string[], remedies: [] as string[] };
+  if (gaps.stale.length > 0) {
+    unsynced.causes.push(`stale: ${gaps.stale.join(', ')}`);
+    unsynced.remedies.push(`run \`prospec-knowledge-update\`, then \`prospec knowledge verify ${gaps.stale.join(' ')}\``);
+  }
+  if (deltaUnregistered.length > 0) {
+    unsynced.causes.push(`not registered in module-map: ${deltaUnregistered.join(', ')}`);
+    unsynced.remedies.push(
+      `for ${deltaUnregistered.join(', ')}: declare the REQ prefix in feature-map.yaml \`req_prefixes\`, or create the module through \`prospec-knowledge-update\``,
+    );
+  }
+  if (unsynced.causes.length > 0) {
+    reasons.push({
+      code: 'KNOWLEDGE_UNSYNCED',
+      message: `affected-module Knowledge is not synced — ${unsynced.causes.join('; ')}`,
+      remediation: unsynced.remedies.join('; '),
+    });
+  }
+  return reasons;
 }
 
 function isModuleCurrent(
@@ -251,10 +362,8 @@ function isModuleCurrent(
 
 /**
  * Whether affected-module Knowledge is confirmed synced for a change — true
- * exactly when `findUnsyncedModules` reports no gap.
- *
- * The single owner of this derivation: `status.service` routes on it, and the
- * archive Entry Gate refuses on the gaps behind it, so neither computes its own.
+ * exactly when `findUnsyncedModules` reports no gap (and so exactly when
+ * `knowledgeSyncReasons` returns nothing).
  */
 export async function checkKnowledgeSync(
   changeDir: string,
