@@ -195,14 +195,16 @@ a project whose two zones differ still lands spec bodies in the Feature Specs' l
 - Use quantifiers (every, only, whenever, always, one per) and causal clauses (because, would) only when valid throughout the stated scope; otherwise delete them or reference the owning REQ.
 - When a rule is restated at three or more surfaces, register its canonical phrase and all consumption sites.
 
-**Write the resulting requirement, not the delta.** For a **MODIFIED** REQ, the `**Spec:**` block replaces the WHOLE body in the feature spec. What the block omits leaves the trust zone; the archive CLI reports omitted bullets on the MODIFIED path only (an ADDED entry replacing a pre-existing body is reported by neither worklist). Any existing behavior not restated must be declared under `**Dropped:**` (omitted WHEN/THEN bullets must be declared, or `prospec archive` will refuse spec sync).
+**Write the resulting requirement, not the delta.** A MODIFIED `**Spec:**` block replaces the WHOLE body of the active REQ. Restore omitted behavior or declare its bullets under `**Dropped:**`; undeclared omissions block sync. The archive CLI reports omitted bullets on the MODIFIED path only; ADDED replacing an existing body is reported by neither worklist.
+
+With only a struck definition, archive preserves it byte-identical and inserts a new active section: no active body to compare or drops to declare. `req-id-uniqueness` reports the duplicate for human resolution.
 
 | Entry | `**Spec:**` | Without it |
 |-------|-------------|------------|
-| **MODIFIED** | REQUIRED | Existing body is preserved unchanged; reported as pending convergence |
+| **MODIFIED** | REQUIRED | An existing active body is preserved unchanged; reported as pending convergence |
 | **ADDED** | Optional | `**Description:**` + `**Acceptance Criteria:**` land as body; title only (bare title) if neither |
 
-Fields outside the block (like Before, After, Reason) are narrative explanation and never copied into the Feature Spec.
+Before, After and Reason are narrative, never copied into the Feature Spec.
 
 **Where the block ends**: at one of this template's OWN field labels —
 `**Feature:**`, `**Story:**`, `**Description:**`, `**Acceptance Criteria:**`, `**Before:**`,
