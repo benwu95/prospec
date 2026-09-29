@@ -112,10 +112,35 @@ describe('classifyDeltaSpec', () => {
     expect(entry).toMatchObject({ kind: 'ignored', modules: [] });
   });
 
-  it('marks a non-canonical REQ id as malformed', () => {
+  it('keeps each entry\'s section, id, lowercased prefix and trimmed title', () => {
     vol.fromJSON(knowledge(['services']));
-    const [entry] = classifyDeltaSpec(delta({ ADDED: [req('REQ-SERVICES-0001')] }), ctxFor());
-    expect(entry).toMatchObject({ kind: 'malformed', id: 'REQ-SERVICES-0001', modules: [] });
+    const content = delta({
+      ADDED: ['### REQ-AUTH-001: Add authentication module   ', '### REQ-API-MIDDLEWARE-001: Add rate limiting'],
+      MODIFIED: ['### REQ-SERVICES-010: Update service layer'],
+      REMOVED: ['### REQ-LEGACY-001: Remove deprecated API'],
+    });
+    const entries = classifyDeltaSpec(content, ctxFor())
+      .map(({ section, id, prefix, description }) => ({ section, id, prefix, description }));
+    expect(entries).toEqual([
+      { section: 'added', id: 'REQ-AUTH-001', prefix: 'auth', description: 'Add authentication module' },
+      { section: 'added', id: 'REQ-API-MIDDLEWARE-001', prefix: 'api-middleware', description: 'Add rate limiting' },
+      { section: 'modified', id: 'REQ-SERVICES-010', prefix: 'services', description: 'Update service layer' },
+      { section: 'removed', id: 'REQ-LEGACY-001', prefix: 'legacy', description: 'Remove deprecated API' },
+    ]);
+  });
+
+  it.each(['REQ-TYPES-10', 'REQ-SERVICES-0001'])('marks the non-canonical REQ id %s as malformed', (id) => {
+    vol.fromJSON(knowledge(['services', 'types']));
+    const [entry] = classifyDeltaSpec(delta({ ADDED: [req(id)] }), ctxFor());
+    expect(entry).toMatchObject({ kind: 'malformed', id, modules: [] });
+  });
+
+  it.each([
+    ['empty content', ''],
+    ['a REQ heading outside any ADDED/MODIFIED/REMOVED section', '# Delta Spec\n\n### REQ-AUTH-001: x\n'],
+  ])('returns no entries for %s', (_label, content) => {
+    vol.fromJSON(knowledge(['auth']));
+    expect(classifyDeltaSpec(content, ctxFor())).toEqual([]);
   });
 
   it('does not treat a fenced example heading as an entry', () => {

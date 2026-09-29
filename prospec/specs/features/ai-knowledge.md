@@ -1,9 +1,9 @@
 ---
 feature: ai-knowledge
 status: active
-last_updated: 2026-09-28
+last_updated: 2026-09-29
 story_count: 15
-req_count: 74
+req_count: 73
 ---
 
 # AI Knowledge
@@ -123,10 +123,15 @@ The test suite proves the Module README format contract at every boundary using 
 **Removed**: 2026-07-30 | **Change**: restore-cli-first
 **Reason**: The persona-aware CLI fallback ladder retired: the CLI became a required file for the skills, so a probe STOP (REQ-TEMPLATES-160) replaced every degraded path. The `pnpm exec`/`npx` resolution ladder and the approximate working-tree scan were precisely the "approximate, not deterministic" behavior the cli-first turn set out to remove, leaving a single posture with no residual rule to keep.
 
+#### ~~REQ-SERVICES-020: Delta Spec Parser~~
+**Removed**: 2026-09-29 | **Change**: retire-parse-delta-spec
+**Reason**: The orphan `parseDeltaSpec` parser was deleted: every delta-spec entry already reaches the knowledge-sync gate and `prospec knowledge update` through `iterateDeltaEntries` and `classifyDeltaSpec`, and the parser read fenced example headings as entries, contradicting that walk. The behavior that still holds — module extraction from the canonical `REQ-{MODULE}-NNN` id, and an empty or malformed delta-spec yielding no entries without an error — is declared by REQ-LIB-097 and REQ-SERVICES-032.
+
 ## Change History
 
 | Date | Change | Impact | Stories/REQs |
 |------|--------|--------|-------------|
+| 2026-09-29 | retire-parse-delta-spec | REMOVED REQ-SERVICES-020 | REQ-SERVICES-020 |
 | 2026-09-28 | union-knowledge-sync-modules | MODIFIED REQ-SERVICES-032; MODIFIED REQ-SERVICES-021; MODIFIED REQ-SERVICES-023; MODIFIED REQ-CLI-026 | REQ-SERVICES-032, REQ-SERVICES-021, REQ-SERVICES-023, REQ-CLI-026 |
 | 2026-09-18 | internalize-skill-budgets | MODIFIED REQ-KNOW-013 | REQ-KNOW-013 |
 | 2026-09-05 | verified-input-evidence | MODIFIED REQ-LIB-062; MODIFIED REQ-TEMPLATES-207 | REQ-LIB-062, REQ-TEMPLATES-207 |

@@ -1,7 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { DEFAULT_KNOWLEDGE_TOKEN_BUDGET } from '../../../src/types/config.js';
 import { vol } from 'memfs';
-import { parseDeltaSpec } from '../../../src/lib/delta-spec-parser.js';
 import {
   updateModuleReadme,
   markModuleDeprecated,
@@ -88,106 +87,6 @@ vi.mock('../../../src/lib/template.js', async () => {
 
 beforeEach(() => {
   vol.reset();
-});
-
-// --- parseDeltaSpec ---
-
-describe('parseDeltaSpec', () => {
-  it('should parse ADDED/MODIFIED/REMOVED sections', () => {
-    const content = `# Delta Spec
-
-## ADDED
-
-### REQ-AUTH-001: Add authentication module
-
-**Description:** New auth system
-
----
-
-### REQ-AUTH-002: Add token management
-
-**Description:** Token refresh
-
----
-
-## MODIFIED
-
-### REQ-SERVICES-010: Update service layer
-
-**Before:** Old behavior
-**After:** New behavior
-
----
-
-## REMOVED
-
-### REQ-LEGACY-001: Remove deprecated API
-
-**Reason:** No longer needed
-
----
-`;
-
-    const result = parseDeltaSpec(content);
-    expect(result.added).toHaveLength(2);
-    expect(result.added[0]!.id).toBe('REQ-AUTH-001');
-    expect(result.added[0]!.module).toBe('auth');
-    expect(result.added[0]!.description).toBe('Add authentication module');
-    expect(result.added[1]!.id).toBe('REQ-AUTH-002');
-
-    expect(result.modified).toHaveLength(1);
-    expect(result.modified[0]!.id).toBe('REQ-SERVICES-010');
-    expect(result.modified[0]!.module).toBe('services');
-
-    expect(result.removed).toHaveLength(1);
-    expect(result.removed[0]!.id).toBe('REQ-LEGACY-001');
-    expect(result.removed[0]!.module).toBe('legacy');
-  });
-
-  it('should return empty result for empty content', () => {
-    const result = parseDeltaSpec('');
-    expect(result.added).toEqual([]);
-    expect(result.modified).toEqual([]);
-    expect(result.removed).toEqual([]);
-  });
-
-  it('should return empty result for malformed content', () => {
-    const result = parseDeltaSpec('just some random text\nno headers\n');
-    expect(result.added).toEqual([]);
-    expect(result.modified).toEqual([]);
-    expect(result.removed).toEqual([]);
-  });
-
-  it('should handle multi-word module names in REQ IDs', () => {
-    const content = `## ADDED
-
-### REQ-API-MIDDLEWARE-001: Add rate limiting
-
-**Description:** Rate limiter
-`;
-
-    const result = parseDeltaSpec(content);
-    expect(result.added).toHaveLength(1);
-    expect(result.added[0]!.module).toBe('api-middleware');
-  });
-
-  it('surfaces non-canonical REQ ids as malformed rather than silently dropping them (C1)', () => {
-    const content = `## ADDED
-
-### REQ-TYPES-010: canonical three-digit
-
-### REQ-TYPES-10: only two digits
-
-### REQ-SVC-0001: four digits
-`;
-
-    const result = parseDeltaSpec(content);
-    // only the spec-conformant 3-digit id is parsed as a real requirement
-    expect(result.added.map((e) => e.id)).toEqual(['REQ-TYPES-010']);
-    // the non-conforming ids are reported, not invisibly skipped
-    expect(result.malformed).toContain('REQ-TYPES-10');
-    expect(result.malformed).toContain('REQ-SVC-0001');
-  });
 });
 
 // --- identifyAffectedModules ---
@@ -924,6 +823,14 @@ describe('execute', () => {
 **Description:** non-canonical
 
 ---
+
+### REQ-AUTH-0002: malformed four-digit id
+
+\`\`\`markdown
+### REQ-FENCED-001: an example heading, not an entry
+\`\`\`
+
+---
 `;
     vol.fromJSON({
       '/project/.prospec.yaml': 'project:\n  name: test-project\n',
@@ -933,10 +840,13 @@ describe('execute', () => {
 
     const result = await execute({ deltaSpecPath: '/project/delta-spec.md', cwd: '/project' });
 
-    // the canonical id is processed; the malformed id is reported via the result
+    // the canonical id is processed; the malformed ids are reported via the result
     // (the field a caller surfaces), not dropped at parse
     expect(result.created).toContain('auth');
-    expect(result.warnings.join(' ')).toContain('REQ-AUTH-10');
+    expect(result.created).not.toContain('fenced');
+    expect(result.warnings).toContain(
+      'Skipped 2 non-canonical REQ id(s) (expected REQ-MODULE-NNN with a 3-digit sequence): REQ-AUTH-10, REQ-AUTH-0002',
+    );
   });
 
   it('should process manual mode', async () => {
