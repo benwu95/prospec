@@ -131,6 +131,7 @@ The test suite proves the Module README format contract at every boundary using 
 
 | Date | Change | Impact | Stories/REQs |
 |------|--------|--------|-------------|
+| 2026-09-29 | align-knowledge-sync-gap-guidance | MODIFIED REQ-SERVICES-032; MODIFIED REQ-TEMPLATES-162 | REQ-SERVICES-032, REQ-TEMPLATES-162 |
 | 2026-09-29 | retire-parse-delta-spec | REMOVED REQ-SERVICES-020 | REQ-SERVICES-020 |
 | 2026-09-28 | union-knowledge-sync-modules | MODIFIED REQ-SERVICES-032; MODIFIED REQ-SERVICES-021; MODIFIED REQ-SERVICES-023; MODIFIED REQ-CLI-026 | REQ-SERVICES-032, REQ-SERVICES-021, REQ-SERVICES-023, REQ-CLI-026 |
 | 2026-09-18 | internalize-skill-budgets | MODIFIED REQ-KNOW-013 | REQ-KNOW-013 |
