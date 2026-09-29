@@ -117,6 +117,7 @@ The `prospec-archive` skill's deterministic phases delegate to `prospec archive`
 - WHEN the Constitution's Language Policy rule is generated, THEN it names the landing block as a change-artifact spot that follows the trust-zone language, so a MUST audit cannot read that required text as a violation
 - WHEN the two resolved languages are equal, THEN the reference names the one shared language for the landing block instead of contrasting two identical names
 - WHEN the block definition, the fallback sentence, the refusal sentence, or the write-the-result instruction is deleted, THEN a section-scoped contract assertion turns red
+- WHEN authoring a Spec block, THEN its guidance requires component-local guarantees, predicate-derived conditions with verbatim canonical phrases where registered, and quantifiers or causal clauses only when valid throughout the stated scope; rules restated at three or more surfaces are registered with their sites.
 
 ---
 

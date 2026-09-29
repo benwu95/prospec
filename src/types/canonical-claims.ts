@@ -27,6 +27,7 @@ export const CANONICAL_CLAIMS = {
       { id: 'lifecycle-local', path: 'prospec/ai-knowledge/_status-lifecycle.md', kind: 'authored', language: 'en', start: '- **`prospec-knowledge-update`**', end: '\n' },
       { id: 'cli-en', path: 'reference/cli-reference.md', kind: 'authored', language: 'en', start: '    - At `verified`,', end: '\n' },
       { id: 'cli-zh', path: 'reference/cli-reference.zh-TW.md', kind: 'authored', language: 'zh', start: '    - 在 `verified`，', end: '\n' },
+      { id: 'spec-halt', path: 'prospec/specs/features/sdd-workflow/us-37.md', kind: 'authored', language: 'en', start: "`lib/knowledge-sync` is the single owner", end: '\n' },
     ],
   },
   knowledge_sync_modules: {
@@ -36,6 +37,10 @@ export const CANONICAL_CLAIMS = {
       { id: 'knowledge-update', path: 'src/templates/skills/prospec-knowledge-update.hbs', kind: 'template', language: 'en', start: 'After reviewing/updating the README', end: '\n' },
       { id: 'cascade-general', path: 'src/templates/skills/references/cascade-protocol.hbs', kind: 'template', language: 'en', start: '   - **Sync affected-module Knowledge**:', end: '\n' },
       { id: 'templates-readme', path: 'prospec/ai-knowledge/modules/templates/README.md', kind: 'authored', language: 'en', start: '- The modules the prevention point', end: '\n' },
+      { id: 'spec-prevention-description', path: 'prospec/specs/features/sdd-workflow/us-37.md', kind: 'authored', language: 'en', start: "Before the final effective review/tests/verify", end: '\n' },
+      { id: 'spec-prevention-scenario', path: 'prospec/specs/features/sdd-workflow/us-37.md', kind: 'authored', language: 'en', start: "- WHEN the commit prompt names the modules to sync, THEN", end: '\n' },
+      { id: 'spec-update-description', path: 'prospec/specs/features/ai-knowledge/us-310.md', kind: 'authored', language: 'en', start: "`/prospec-knowledge-update`'s mechanical work", end: '\n' },
+      { id: 'spec-update-scenario', path: 'prospec/specs/features/ai-knowledge/us-310.md', kind: 'authored', language: 'en', start: "- WHEN 3e names the affected modules, THEN", end: '\n' },
     ],
   },
   backfill_sync_modules: {
@@ -48,6 +53,8 @@ export const CANONICAL_CLAIMS = {
       { id: 'readme-zh', path: 'README.zh-TW.md', kind: 'authored', language: 'zh', start: '5. **Knowledge Sync**', end: '\n' },
       { id: 'website-en', path: 'docs/index.html', kind: 'authored', language: 'en', start: '<li data-i18n="brownfield.c1.li3">', end: '</li>', markup: 'html' },
       { id: 'website-zh', path: 'docs/i18n.js', kind: 'authored', language: 'zh', start: "    'brownfield.c1.li3':", end: '\n', markup: 'html' },
+      { id: 'spec-backfill-sync', path: 'prospec/specs/features/sdd-workflow/us-37.md', kind: 'authored', language: 'en', start: "- WHEN `scale: backfill`, THEN sync the READMEs", end: '\n' },
+      { id: 'spec-backfill-docs', path: 'prospec/specs/features/sdd-workflow/us-37.md', kind: 'authored', language: 'en', start: "- WHEN the backfill Knowledge Sync step is read", end: '\n' },
     ],
   },
 } as const satisfies Record<string, CanonicalClaim>;

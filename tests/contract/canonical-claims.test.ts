@@ -18,9 +18,9 @@ import type { ProspecConfig } from '../../src/types/config.js';
 import { executePlaybook } from '../../src/services/learn.service.js';
 // Independent inventory: deleting a registry descriptor must not reduce the sample.
 const INVENTORY = {
-  related_module_halt: ['gap-message', 'router-gate', 'lifecycle-template', 'lifecycle-local', 'cli-en', 'cli-zh'],
-  knowledge_sync_modules: ['knowledge-update', 'cascade-general', 'templates-readme'],
-  backfill_sync_modules: ['cascade-backfill', 'verify-backfill', 'readme-en', 'readme-zh', 'website-en', 'website-zh'],
+  related_module_halt: ['gap-message', 'router-gate', 'lifecycle-template', 'lifecycle-local', 'cli-en', 'cli-zh', 'spec-halt'],
+  knowledge_sync_modules: ['knowledge-update', 'cascade-general', 'templates-readme', 'spec-prevention-description', 'spec-prevention-scenario', 'spec-update-description', 'spec-update-scenario'],
+  backfill_sync_modules: ['cascade-backfill', 'verify-backfill', 'readme-en', 'readme-zh', 'website-en', 'website-zh', 'spec-backfill-sync', 'spec-backfill-docs'],
 };
 
 describe('canonical claim registry', () => {
