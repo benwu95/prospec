@@ -103,6 +103,22 @@ describe('archive Entry Gate (mechanized)', () => {
     expect(result.refused[0]!.reason).toContain('Knowledge');
   });
 
+  // #310 R1-5: a mistyped related_modules name gets its own reason and the correction command
+  it('refuses a related_modules typo under KNOWLEDGE_INPUT_INVALID, naming the correction command', async () => {
+    seed({
+      moduleMap: 'modules:\n  - name: lib\n    paths: [src/lib]\n    keywords: []\n    last_verified: "2026-01-01T00:00:00Z"\n',
+    });
+    vol.fromJSON({
+      [META]: `name: ${CHANGE}\ncreated_at: 2026-07-01T00:00:00.000Z\nstatus: verified\nscale: standard\nrelated_modules:\n  - lib\n  - lbi\n`,
+      '/repo/prospec/ai-knowledge/modules/lib/README.md': '# lib\n',
+    });
+    const reason = (await run()).refused.map((r) => r.reason).join(' ');
+    expect(reason).toContain('KNOWLEDGE_INPUT_INVALID');
+    expect(reason).toContain('lbi');
+    expect(reason).toContain(`prospec change related-modules <module...> --change ${CHANGE}`);
+    expect(reason).not.toContain('KNOWLEDGE_UNSYNCED');
+  });
+
   it('resolves a proven backfill feature slug through its Feature header instead of refusing it as unregistered', async () => {
     seed({
       moduleMap: 'modules:\n  - name: lib\n    paths: [src/lib]\n    keywords: []\n    last_verified: "2026-01-01T00:00:00Z"\n',

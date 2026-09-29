@@ -5,7 +5,13 @@ import {
   checkKnowledgeSync,
   classifyDeltaSpec,
   findUnsyncedModules,
+  hasKnowledgeSyncGap,
+  knowledgeSyncReasons,
   loadDeltaModuleContext,
+  MODULE_MAP_UNREADABLE_CAUSE,
+  MODULE_MAP_UNREADABLE_REMEDY,
+  readKnownModules,
+  type KnowledgeSyncGaps,
 } from '../../../src/lib/knowledge-sync.js';
 
 vi.mock('node:fs', async () => {
@@ -271,5 +277,172 @@ describe('findUnsyncedModules', () => {
     expect((await findUnsyncedModules(CHANGE, meta(['lib'], 'backfill'), CWD, null)).unregistered).toEqual(['user-profile']);
     vol.fromJSON({ [`${CHANGE}/backfill-draft.md`]: '# draft\n' });
     expect(await checkKnowledgeSync(CHANGE, meta(['lib'], 'backfill'), CWD, null)).toBe(true);
+  });
+});
+
+describe('relatedUnregistered (REQ-LIB-097)', () => {
+  const meta = (related: string[]) => ({ related_modules: related }) as Parameters<typeof findUnsyncedModules>[1];
+
+  it('lists a related_modules name the map does not register, and no classified entry produces, in both lists', async () => {
+    vol.fromJSON({ ...knowledge(['lib']), [`${CHANGE}/delta-spec.md`]: delta({ MODIFIED: [req('REQ-LIB-001')] }) });
+    const gaps = await findUnsyncedModules(CHANGE, meta(['lib', 'ghost']), CWD, null);
+    expect(gaps.unregistered).toEqual(['ghost']);
+    expect(gaps.relatedUnregistered).toEqual(['ghost']);
+  });
+
+  it('counts a name an ADDED REQ also produces as delta-spec-sourced', async () => {
+    vol.fromJSON({ ...knowledge(['lib']), [`${CHANGE}/delta-spec.md`]: delta({ ADDED: [req('REQ-AUTH-001')] }) });
+    const gaps = await findUnsyncedModules(CHANGE, meta(['lib', 'auth']), CWD, null);
+    expect(gaps.unregistered).toEqual(['auth']);
+    expect('relatedUnregistered' in gaps).toBe(false);
+  });
+
+  it('carries no relatedUnregistered key when every unregistered name comes from the delta-spec', async () => {
+    vol.fromJSON({ ...knowledge(['lib']), [`${CHANGE}/delta-spec.md`]: delta({ ADDED: [req('REQ-AUTH-001')] }) });
+    expect(await findUnsyncedModules(CHANGE, meta(['lib']), CWD, null)).toEqual({
+      stale: [], unregistered: ['auth'], malformedIds: [], moduleMapUnreadable: false,
+    });
+  });
+
+  it('judges a change without a delta-spec on related_modules alone, typos included', async () => {
+    vol.fromJSON(knowledge(['lib']));
+    expect((await findUnsyncedModules(CHANGE, meta(['ghost']), CWD, null)).relatedUnregistered).toEqual(['ghost']);
+  });
+});
+
+describe('knowledgeSyncReasons (REQ-LIB-097, REQ-LIB-071)', () => {
+  const NONE: KnowledgeSyncGaps = { stale: [], unregistered: [], malformedIds: [], moduleMapUnreadable: false };
+  const gaps = (over: Partial<KnowledgeSyncGaps>): KnowledgeSyncGaps => ({ ...NONE, ...over });
+
+  it('returns no reason when there is no gap', () => {
+    expect(knowledgeSyncReasons(NONE, 'c')).toEqual([]);
+  });
+
+  it('maps stale modules to a KNOWLEDGE_UNSYNCED reason that stamps them', () => {
+    const [reason, ...rest] = knowledgeSyncReasons(gaps({ stale: ['services'] }), 'c');
+    expect(rest).toEqual([]);
+    expect(reason?.code).toBe('KNOWLEDGE_UNSYNCED');
+    expect(reason?.message).toContain('stale: services');
+    expect(reason?.remediation).toContain('prospec-knowledge-update');
+    expect(reason?.remediation).toContain('prospec knowledge verify services');
+  });
+
+  it('maps a delta-spec-sourced unregistered name to KNOWLEDGE_UNSYNCED without suggesting knowledge verify for it', () => {
+    const [reason] = knowledgeSyncReasons(gaps({ unregistered: ['auth'] }), 'c');
+    expect(reason?.code).toBe('KNOWLEDGE_UNSYNCED');
+    expect(reason?.message).toContain('not registered in module-map: auth');
+    expect(reason?.remediation).toContain('req_prefixes');
+    expect(reason?.remediation).not.toContain('knowledge verify');
+  });
+
+  it('maps each input no station repairs to one KNOWLEDGE_INPUT_INVALID reason', () => {
+    const malformed = knowledgeSyncReasons(gaps({ malformedIds: ['REQ-LIB-01'] }), 'c');
+    expect(malformed.map((r) => r.code)).toEqual(['KNOWLEDGE_INPUT_INVALID']);
+    expect(malformed[0]?.message).toContain('REQ-LIB-01');
+    expect(malformed[0]?.remediation).toContain('REQ-{MODULE}-NNN');
+
+    const unreadable = knowledgeSyncReasons(gaps({ moduleMapUnreadable: true }), 'c');
+    expect(unreadable.map((r) => r.code)).toEqual(['KNOWLEDGE_INPUT_INVALID']);
+    expect(unreadable[0]?.message).toContain(MODULE_MAP_UNREADABLE_CAUSE);
+    expect(unreadable[0]?.remediation).toContain(MODULE_MAP_UNREADABLE_REMEDY);
+  });
+
+  it('points a related-only unregistered name at registering it first, then at the correction command', () => {
+    const reasons = knowledgeSyncReasons(gaps({ unregistered: ['ghost'], relatedUnregistered: ['ghost'] }), 'my-change');
+    expect(reasons.map((r) => r.code)).toEqual(['KNOWLEDGE_INPUT_INVALID']);
+    const remedy = reasons[0]!.remediation;
+    expect(reasons[0]!.message).toContain('ghost');
+    expect(remedy.indexOf('module-map.yaml')).toBeGreaterThanOrEqual(0);
+    expect(remedy.indexOf('module-map.yaml')).toBeLessThan(remedy.indexOf('prospec change related-modules'));
+    expect(remedy).toContain('--change my-change');
+    expect(remedy).toMatch(/registered module/);
+  });
+
+  it('lists the input-invalid reason first and keeps each cause under its own code', () => {
+    const reasons = knowledgeSyncReasons(
+      gaps({ stale: ['lib'], unregistered: ['auth', 'ghost'], relatedUnregistered: ['ghost'], malformedIds: ['REQ-X'] }),
+      'c',
+    );
+    expect(reasons.map((r) => r.code)).toEqual(['KNOWLEDGE_INPUT_INVALID', 'KNOWLEDGE_UNSYNCED']);
+    expect(reasons[0]!.message).toContain('ghost');
+    expect(reasons[0]!.message).not.toContain('auth');
+    expect(reasons[1]!.message).toContain('stale: lib');
+    expect(reasons[1]!.message).toContain('auth');
+    expect(reasons[1]!.message).not.toContain('ghost');
+  });
+
+  it('returns a reason exactly when there is a gap', () => {
+    const samples: KnowledgeSyncGaps[] = [
+      NONE,
+      gaps({ stale: ['a'] }),
+      gaps({ unregistered: ['a'] }),
+      gaps({ unregistered: ['a'], relatedUnregistered: ['a'] }),
+      gaps({ malformedIds: ['REQ-A'] }),
+      gaps({ moduleMapUnreadable: true }),
+      // a hand-built subset naming no unregistered name must not invent a gap
+      gaps({ relatedUnregistered: ['a'] }),
+    ];
+    for (const sample of samples) {
+      expect(knowledgeSyncReasons(sample, 'c').length > 0, JSON.stringify(sample)).toBe(hasKnowledgeSyncGap(sample));
+    }
+  });
+});
+
+describe('readKnownModules (REQ-LIB-097)', () => {
+  const SCHEMA_INVALID = 'modules:\n  - name: lib\n    paths: [src/lib]\n';
+
+  it('returns the module map names in their own spelling', () => {
+    vol.fromJSON({ [`${KP}/module-map.yaml`]: `modules:\n${moduleEntry('API')}${moduleEntry('lib')}` });
+    const { known, unreadable } = readKnownModules(KP, CWD);
+    expect(unreadable).toBeUndefined();
+    expect([...known]).toEqual([['api', 'API'], ['lib', 'lib']]);
+  });
+
+  it('falls back to the modules/ directories, spelling kept, when there is no module map', () => {
+    vol.fromJSON({ [`${KP}/modules/Legacy/README.md`]: '# Legacy\n' });
+    expect([...readKnownModules(KP, CWD).known]).toEqual([['legacy', 'Legacy']]);
+  });
+
+  it('is unreadable when the map cannot be parsed, fails its schema, or is a directory', () => {
+    const cases: Record<string, string>[] = [
+      { [`${KP}/module-map.yaml`]: 'modules: [\n  - : :\n' },
+      { [`${KP}/module-map.yaml`]: SCHEMA_INVALID },
+      { [`${KP}/module-map.yaml/nested`]: 'x' },
+    ];
+    for (const files of cases) {
+      vol.reset();
+      vol.fromJSON(files);
+      expect(readKnownModules(KP, CWD), JSON.stringify(files)).toEqual({
+        known: new Map(),
+        unreadable: { cause: MODULE_MAP_UNREADABLE_CAUSE, remedy: MODULE_MAP_UNREADABLE_REMEDY },
+      });
+    }
+  });
+
+  it('is unreadable when the map resolves outside the knowledge root', () => {
+    vol.fromJSON({ '/outside/module-map.yaml': `modules:\n${moduleEntry('lib')}`, [`${KP}/.keep`]: '' });
+    vol.symlinkSync('/outside/module-map.yaml', `${KP}/module-map.yaml`);
+    // the file parses and validates: the cause is where it lives, never "cannot be read"
+    const { unreadable } = readKnownModules(KP, CWD);
+    expect(unreadable?.cause).toContain('outside the knowledge root');
+    expect(unreadable?.cause).not.toBe(MODULE_MAP_UNREADABLE_CAUSE);
+    expect(unreadable?.remedy).not.toBe(MODULE_MAP_UNREADABLE_REMEDY);
+  });
+
+  it('matches the gate on these maps for a change with an affected module', async () => {
+    const meta = { related_modules: ['lib'] } as Parameters<typeof findUnsyncedModules>[1];
+    for (const map of ['modules: [\n  - : :\n', SCHEMA_INVALID, `modules:\n${moduleEntry('lib')}`]) {
+      vol.reset();
+      vol.fromJSON({ [`${KP}/module-map.yaml`]: map, [`${KP}/modules/lib/README.md`]: '# lib\n' });
+      const gate = await findUnsyncedModules(CHANGE, meta, CWD, null);
+      expect(readKnownModules(KP, CWD).unreadable !== undefined, map).toBe(gate.moduleMapUnreadable);
+    }
+  });
+
+  it('refuses a schema-invalid map even where the gate, with no affected module, passes the change', async () => {
+    vol.fromJSON({ [`${KP}/module-map.yaml`]: SCHEMA_INVALID });
+    const meta = { related_modules: [] } as Parameters<typeof findUnsyncedModules>[1];
+    expect(hasKnowledgeSyncGap(await findUnsyncedModules(CHANGE, meta, CWD, null))).toBe(false);
+    expect(readKnownModules(KP, CWD).unreadable).toBeDefined();
   });
 });

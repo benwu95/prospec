@@ -21,6 +21,7 @@ import { registerChangeLogCommand } from './commands/change-log.js';
 import { registerChangeDelegateCommand } from './commands/change-delegate.js';
 import { registerChangeStatusCommand } from './commands/change-status.js';
 import { registerChangeScaleCommand } from './commands/change-scale.js';
+import { registerChangeRelatedModulesCommand } from './commands/change-related-modules.js';
 import { registerChangeProgressCommand } from './commands/change-progress.js';
 import { registerChangeAutoDraftCommand } from './commands/change-auto-draft.js';
 import { registerStatusCommand } from './commands/status.js';
@@ -104,6 +105,7 @@ export function createProgram(): Command {
   registerChangeDelegateCommand(program);
   registerChangeStatusCommand(program);
   registerChangeScaleCommand(program);
+  registerChangeRelatedModulesCommand(program);
   registerChangeProgressCommand(program);
   registerChangeAutoDraftCommand(program);
   registerStatusCommand(program);

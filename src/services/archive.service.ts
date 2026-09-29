@@ -7,7 +7,7 @@ import { parseTaskLine } from '../lib/task-markers.js';
 import { isArchivedSpec, isSafeResourceName, loadModuleMap, loadFeatureSpecContent } from '../lib/knowledge-reader.js';
 import { reqIdToPrefix } from '../lib/drift-sources.js';
 import { findUnsyncedModules } from '../lib/knowledge-sync.js';
-import { evaluateArchiveEntryGate, formatWorkflowReason } from '../lib/archive-gate.js';
+import { evaluateArchiveEntryGate } from '../lib/archive-gate.js';
 import { matchReqHeading, readSpecCounters, indexSpec, hasChangeHistorySection, type SpecContent, type SpecIndex } from '../lib/spec-headings.js';
 import { hasUnclosedFence, withoutFencedBlocks } from '../lib/markdown-fences.js';
 import { constitutionFallbackModuleMap } from '../lib/drift-checker.js';
@@ -51,6 +51,7 @@ import type { CurrentDriftAssessment } from '../types/drift-report.js';
 import { PrerequisiteError } from '../types/errors.js';
 import type { ModuleMap } from '../types/module-map.js';
 import type { FeatureEntry } from '../types/feature-map.js';
+import { formatWorkflowReason } from '../types/status.js';
 import { ScanError, WriteError } from '../types/errors.js';
 
 // --- Interfaces ---

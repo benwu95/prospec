@@ -65,7 +65,7 @@ Run `prospec check` and confirm `{{check_id}}` is clean for `{{target}}`.
 {{#if module}}
 - **{{module}}**: [why this module owns the fix]
 {{else}}
-_No module could be attributed from the findings' paths. Name the owning module here once you have identified it. `metadata.yaml` is CLI-written and must not be hand-edited: to record the module there as well, delete this change and re-draft it with `prospec change auto-draft --target <module>`._
+_No module could be attributed from the findings' paths. Name the owning module here once you have identified it. `metadata.yaml` is CLI-written and must not be hand-edited: to record the module there as well, run `prospec change related-modules <module> --change <this change>`._
 {{/if}}
 
 ## Constitution Check

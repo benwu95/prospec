@@ -428,10 +428,12 @@ describe('status.service — knowledge-aware routing at verified', () => {
     });
     const report = await execute({ cwd: CWD });
     expect(report.changes[0]?.next).toBe('archive');
-    expect(routedFacts[0]?.hasKnowledgeSync).toBe(true);
+    expect(routedFacts[0]?.knowledgeSyncReasons).toEqual([]);
   });
 
-  it('routes verified to knowledge-update when affected module is missing in module-map.yaml', async () => {
+  // #310 R1-5: knowledge-update cannot register a mistyped related_modules name,
+  // so the route halts and names the correction command instead of looping there.
+  it('halts with KNOWLEDGE_INPUT_INVALID when a related_modules name is missing from module-map.yaml and no ADDED REQ introduces it', async () => {
     vol.fromJSON({
       [`${CWD}/.prospec/changes/a-change/metadata.yaml`]: metadataYaml({
         name: 'a-change',
@@ -442,8 +444,65 @@ describe('status.service — knowledge-aware routing at verified', () => {
         'modules:\n  - name: types\n    paths: [src/types]\n    keywords: [types]\n',
     });
     const report = await execute({ cwd: CWD });
-    expect(report.changes[0]?.next).toBe('knowledge-update');
-    expect(routedFacts[0]?.hasKnowledgeSync).toBe(false);
+    expect(report.changes[0]?.next).toBeNull();
+    expect(report.changes[0]?.code).toBe('KNOWLEDGE_INPUT_INVALID');
+    expect(routedFacts[0]?.knowledgeSyncReasons.map((r) => r.code)).toEqual(['KNOWLEDGE_INPUT_INVALID']);
+    const reasons = report.changes[0]!.reasons.join(' ');
+    expect(reasons).toContain('missing-module');
+    expect(reasons).toContain('prospec change related-modules <module...> --change a-change');
+  });
+
+  it('halts with KNOWLEDGE_INPUT_INVALID on a non-canonical REQ id, naming the id and the rename', async () => {
+    vol.fromJSON({
+      [`${CWD}/.prospec/changes/a-change/metadata.yaml`]: metadataYaml({ name: 'a-change', status: 'verified' }),
+      [`${CWD}/.prospec/changes/a-change/delta-spec.md`]: '## MODIFIED\n\n### REQ-TYPES-01: x\n',
+      [`${CWD}/prospec/ai-knowledge/module-map.yaml`]:
+        'modules:\n  - name: types\n    paths: [src/types]\n    keywords: [types]\n',
+    });
+    const report = await execute({ cwd: CWD });
+    expect(report.changes[0]?.next).toBeNull();
+    expect(report.changes[0]?.code).toBe('KNOWLEDGE_INPUT_INVALID');
+    const reasons = report.changes[0]!.reasons.join(' ');
+    expect(reasons).toContain('REQ-TYPES-01');
+    expect(reasons).toContain('REQ-{MODULE}-NNN');
+  });
+
+  it('halts with KNOWLEDGE_INPUT_INVALID on an unparseable module-map.yaml, naming the map', async () => {
+    vol.fromJSON({
+      [`${CWD}/.prospec/changes/a-change/metadata.yaml`]: metadataYaml({
+        name: 'a-change',
+        status: 'verified',
+        extra: 'related_modules:\n  - types\n',
+      }),
+      [`${CWD}/prospec/ai-knowledge/module-map.yaml`]: 'modules: [\n  - : :\n',
+    });
+    const report = await execute({ cwd: CWD });
+    expect(report.changes[0]?.next).toBeNull();
+    expect(report.changes[0]?.code).toBe('KNOWLEDGE_INPUT_INVALID');
+    expect(report.changes[0]!.reasons.join(' ')).toContain('repair module-map.yaml');
+  });
+
+  it('does not compute knowledge-sync reasons before a change is verified', async () => {
+    // A module map the typo is absent from, so the same change at `verified`
+    // does carry a reason — the empty list below is the status gate, not the fixture.
+    const files = (status: string) => ({
+      [`${CWD}/.prospec/changes/a-change/metadata.yaml`]: metadataYaml({
+        name: 'a-change',
+        status,
+        extra: 'related_modules:\n  - missing-module\n',
+      }),
+      [`${CWD}/prospec/ai-knowledge/module-map.yaml`]:
+        'modules:\n  - name: types\n    paths: [src/types]\n    keywords: [types]\n',
+    });
+    vol.fromJSON(files('verified'));
+    await execute({ cwd: CWD });
+    expect(routedFacts[0]?.knowledgeSyncReasons.length).toBeGreaterThan(0);
+
+    vol.reset();
+    routedFacts.length = 0;
+    vol.fromJSON(files('implemented'));
+    await execute({ cwd: CWD });
+    expect(routedFacts[0]?.knowledgeSyncReasons).toEqual([]);
   });
 
   it('routes verified to knowledge-update when affected module lacks last_verified', async () => {
@@ -459,7 +518,7 @@ describe('status.service — knowledge-aware routing at verified', () => {
     });
     const report = await execute({ cwd: CWD });
     expect(report.changes[0]?.next).toBe('knowledge-update');
-    expect(routedFacts[0]?.hasKnowledgeSync).toBe(false);
+    expect(routedFacts[0]?.knowledgeSyncReasons.map((r) => r.code)).toEqual(['KNOWLEDGE_UNSYNCED']);
   });
 
   it('routes verified to knowledge-update when affected module README is missing', async () => {
@@ -474,7 +533,7 @@ describe('status.service — knowledge-aware routing at verified', () => {
     });
     const report = await execute({ cwd: CWD });
     expect(report.changes[0]?.next).toBe('knowledge-update');
-    expect(routedFacts[0]?.hasKnowledgeSync).toBe(false);
+    expect(routedFacts[0]?.knowledgeSyncReasons.map((r) => r.code)).toEqual(['KNOWLEDGE_UNSYNCED']);
   });
 
   it('gathers git timestamps for only the affected modules, not the whole map (REQ-LIB-070)', async () => {
@@ -512,7 +571,7 @@ describe('status.service — knowledge-aware routing at verified', () => {
     });
     const report = await execute({ cwd: CWD });
     expect(report.changes[0]?.next).toBe('archive');
-    expect(routedFacts[0]?.hasKnowledgeSync).toBe(true);
+    expect(routedFacts[0]?.knowledgeSyncReasons).toEqual([]);
   });
 
   it('derives affected modules from delta-spec.md when related_modules is omitted', async () => {
@@ -535,7 +594,7 @@ describe('status.service — knowledge-aware routing at verified', () => {
     });
     const report = await execute({ cwd: CWD });
     expect(report.changes[0]?.next).toBe('archive');
-    expect(routedFacts[0]?.hasKnowledgeSync).toBe(true);
+    expect(routedFacts[0]?.knowledgeSyncReasons).toEqual([]);
   });
 
   it('routes verified to knowledge-update when git timestamp indicates stale module knowledge', async () => {
@@ -568,7 +627,7 @@ describe('status.service — knowledge-aware routing at verified', () => {
 
     const report = await execute({ cwd: CWD });
     expect(report.changes[0]?.next).toBe('knowledge-update');
-    expect(routedFacts[0]?.hasKnowledgeSync).toBe(false);
+    expect(routedFacts[0]?.knowledgeSyncReasons.map((r) => r.code)).toEqual(['KNOWLEDGE_UNSYNCED']);
   });
 
   it('routes to knowledge-update when a delta-spec module is stale though related_modules is fresh (union)', async () => {
@@ -602,7 +661,7 @@ describe('status.service — knowledge-aware routing at verified', () => {
 
     const report = await execute({ cwd: CWD });
     expect(report.changes[0]?.next).toBe('knowledge-update');
-    expect(routedFacts[0]?.hasKnowledgeSync).toBe(false);
+    expect(routedFacts[0]?.knowledgeSyncReasons.map((r) => r.code)).toEqual(['KNOWLEDGE_UNSYNCED']);
   });
 
   it('resolves a proven backfill feature slug through its Feature header, so the change routes to archive', async () => {
@@ -624,7 +683,7 @@ describe('status.service — knowledge-aware routing at verified', () => {
 
     await execute({ cwd: CWD });
     // without `scale` the slug would read as a new, unregistered module
-    expect(routedFacts[0]?.hasKnowledgeSync).toBe(true);
+    expect(routedFacts[0]?.knowledgeSyncReasons).toEqual([]);
   });
 
   it('routes verified to archive when git timestamps confirm module knowledge is fresh', async () => {
@@ -657,7 +716,7 @@ describe('status.service — knowledge-aware routing at verified', () => {
 
     const report = await execute({ cwd: CWD });
     expect(report.changes[0]?.next).toBe('archive');
-    expect(routedFacts[0]?.hasKnowledgeSync).toBe(true);
+    expect(routedFacts[0]?.knowledgeSyncReasons).toEqual([]);
   });
 
   it('routes verified to knowledge-update when last_verified is an unparseable date', async () => {
@@ -674,7 +733,7 @@ describe('status.service — knowledge-aware routing at verified', () => {
 
     const report = await execute({ cwd: CWD });
     expect(report.changes[0]?.next).toBe('knowledge-update');
-    expect(routedFacts[0]?.hasKnowledgeSync).toBe(false);
+    expect(routedFacts[0]?.knowledgeSyncReasons.map((r) => r.code)).toEqual(['KNOWLEDGE_UNSYNCED']);
   });
 });
 
@@ -871,13 +930,15 @@ describe('status.service — next-station reference map (REQ-SERVICES-111)', () 
   it('gives a reference-free next station an empty map, not a missing one', async () => {
     vol.fromJSON({
       [`${CWD}/.prospec.yaml`]: 'project:\n  name: test\nagents:\n  - claude\n',
+      // a stale (never-verified) module: the gap knowledge-update repairs
       [`${CWD}/.prospec/changes/add-auth/metadata.yaml`]: metadataYaml({
         name: 'add-auth',
         status: 'verified',
-        extra: 'related_modules:\n  - missing-module\n',
+        extra: 'related_modules:\n  - types\n',
       }),
       [`${CWD}/prospec/ai-knowledge/module-map.yaml`]:
         'modules:\n  - name: types\n    paths: [src/types]\n    keywords: [types]\n',
+      [`${CWD}/prospec/ai-knowledge/modules/types/README.md`]: '# Types\n',
     });
     const route = (await execute({ cwd: CWD })).changes[0]!;
     // prospec-knowledge-update ships no reference: an empty map, never an absent

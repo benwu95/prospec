@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import { evaluateArchiveEntryGate, formatWorkflowReason } from '../../../src/lib/archive-gate.js';
-import { WORKFLOW_REASON_CODES } from '../../../src/types/status.js';
+import { evaluateArchiveEntryGate } from '../../../src/lib/archive-gate.js';
+import { formatWorkflowReason, WORKFLOW_REASON_CODES } from '../../../src/types/status.js';
 import type { KnowledgeSyncGaps } from '../../../src/lib/knowledge-sync.js';
 import {
   DRIFT_REPORT_VERSION,
@@ -111,12 +111,29 @@ describe('evaluateArchiveEntryGate', () => {
 
   it('names a non-canonical REQ id and an unreadable module map with their own remedies', () => {
     const [bad] = evaluateArchiveEntryGate(report(), inputs({ knowledgeGaps: { ...NO_GAPS, malformedIds: ['REQ-LIB-0001'] } })).reasons;
+    expect(bad!.code).toBe('KNOWLEDGE_INPUT_INVALID');
     expect(bad!.message).toContain('REQ-LIB-0001');
     expect(bad!.remediation).toContain('REQ-{MODULE}-NNN');
     const [map] = evaluateArchiveEntryGate(report(), inputs({ knowledgeGaps: { ...NO_GAPS, moduleMapUnreadable: true } })).reasons;
-    expect(map!.message).toContain('module-map.yaml cannot be read or parsed');
+    expect(map!.code).toBe('KNOWLEDGE_INPUT_INVALID');
+    expect(map!.message).toContain('module-map.yaml cannot be read, parsed or validated');
     expect(map!.remediation).toContain('repair module-map.yaml');
     expect(map!.remediation).not.toContain('knowledge verify');
+  });
+
+  it('lists a related-only unregistered name apart from a delta-spec-sourced one, each with its own remedy', () => {
+    const v = evaluateArchiveEntryGate(
+      report(),
+      inputs({ knowledgeGaps: { ...NO_GAPS, unregistered: ['auth', 'ghost'], relatedUnregistered: ['ghost'] } }),
+    );
+    expect(codes(v)).toEqual(['KNOWLEDGE_INPUT_INVALID', 'KNOWLEDGE_UNSYNCED']);
+    const [related, delta] = v.reasons;
+    expect(related!.message).toContain('ghost');
+    expect(related!.message).not.toContain('auth');
+    expect(related!.remediation).toContain(`prospec change related-modules <module...> --change ${TARGET}`);
+    expect(delta!.message).toContain('auth');
+    expect(delta!.message).not.toContain('ghost');
+    expect(delta!.remediation).toContain('req_prefixes');
   });
 
   it('names one reason per failing cause', () => {

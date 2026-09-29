@@ -1217,6 +1217,67 @@ describe('execute', () => {
     expect(result.warnings.join(' ')).toContain('REQ-PAYMENTS-001');
     expect(result.warnings.join(' ')).toContain('neither a known module nor a feature prefix');
   });
+
+  // #310 R3-1: an empty known set used to report every module REQ as "not a module";
+  // the refusal names the map instead and runs before any classification or write.
+  describe('an unreadable module map (REQ-SERVICES-032)', () => {
+    const KP = '/test/prospec/ai-knowledge';
+    const DELTA = '## ADDED\n\n### REQ-AUTH-001: add\n\n## MODIFIED\n\n### REQ-LIB-001: tweak\n';
+
+    it.each([
+      ['cannot be parsed', 'modules: [\n  - : :\n'],
+      ['fails its schema', 'modules:\n  - name: lib\n    paths: [src/lib]\n'],
+    ])('refuses with one error naming module-map.yaml when the map %s, writing nothing', async (_label, map) => {
+      vol.fromJSON({
+        [`${KP}/module-map.yaml`]: map,
+        [`${KP}/modules/lib/README.md`]: '# lib\n',
+        '/project/delta-spec.md': DELTA,
+      });
+      const before = vol.toJSON();
+      const error = await execute({ deltaSpecPath: '/project/delta-spec.md', cwd: '/project' }).catch((e: unknown) => e);
+      expect(error).toBeInstanceOf(PrerequisiteError);
+      expect((error as PrerequisiteError).message).toContain('module-map.yaml cannot be read, parsed or validated');
+      expect((error as PrerequisiteError).message).not.toContain('neither a known module');
+      expect((error as PrerequisiteError).suggestion).toContain('repair module-map.yaml');
+      expect(vol.toJSON()).toEqual(before);
+    });
+
+    it('names a map outside the knowledge root by that cause, writing nothing', async () => {
+      vol.fromJSON({
+        '/outside/module-map.yaml': 'modules:\n  - name: lib\n    paths: [src/lib]\n    keywords: [lib]\n',
+        [`${KP}/modules/lib/README.md`]: '# lib\n',
+        '/project/delta-spec.md': DELTA,
+      });
+      vol.symlinkSync('/outside/module-map.yaml', `${KP}/module-map.yaml`);
+      const before = vol.toJSON();
+      const error = await execute({ deltaSpecPath: '/project/delta-spec.md', cwd: '/project' }).catch((e: unknown) => e);
+      expect(error).toBeInstanceOf(PrerequisiteError);
+      expect((error as PrerequisiteError).message).toContain('resolves outside the knowledge root');
+      expect((error as PrerequisiteError).message).not.toContain('cannot be read');
+      expect(vol.toJSON()).toEqual(before);
+    });
+
+    it('keeps the delta-spec output unchanged when the map is readable', async () => {
+      vol.fromJSON({
+        [`${KP}/module-map.yaml`]: 'modules:\n  - name: lib\n    paths: [src/lib]\n    keywords: [lib]\n',
+        [`${KP}/modules/lib/README.md`]: '# lib\n',
+        '/project/delta-spec.md': '## MODIFIED\n\n### REQ-LIB-001: tweak\n',
+      });
+      const result = await execute({ deltaSpecPath: '/project/delta-spec.md', cwd: '/project' });
+      expect(result.readmePending).toEqual(['lib']);
+      expect(result.warnings.join(' ')).not.toContain('module-map.yaml');
+    });
+  });
+
+  it('names the related-modules correction command when a feature prefix resolves to no known module', async () => {
+    vol.fromJSON({
+      '/test/prospec/ai-knowledge/feature-map.yaml':
+        'features:\n  - feature: mcp-server\n    modules: [ghost]\n    req_prefixes: [MCP]\n    status: active\n',
+      '/project/delta-spec.md': '## MODIFIED\n\n### REQ-MCP-002: tweak\n',
+    });
+    const result = await execute({ deltaSpecPath: '/project/delta-spec.md', cwd: '/project' });
+    expect(result.warnings.join(' ')).toContain('prospec change related-modules');
+  });
 });
 
 // --- executeForChange (`prospec knowledge update`) ---
@@ -1362,6 +1423,9 @@ describe('knowledge update and the knowledge-sync gate share one classifier', ()
     const result = await execute({ deltaSpecPath: '/project/delta-spec.md', cwd: '/project', backfill: true });
     expect(result.created).toEqual([]);
     expect(result.warnings.join(' ')).toContain('REQ-NEW-FEATURE-001: "new-feature" is a backfill feature slug with no known module');
+    // REQ-CLI-060: the remedy is the correction command, not a hand edit of metadata.yaml
+    expect(result.warnings.join(' ')).toContain('prospec change related-modules');
+    expect(result.warnings.join(' ')).not.toContain('set metadata.related_modules');
   });
 
   it('ignores a REQ heading inside a fenced example', async () => {

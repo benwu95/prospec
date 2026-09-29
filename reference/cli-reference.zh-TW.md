@@ -119,6 +119,7 @@ your-project/
   - **執行行為**：
     - 依據 `module-map.yaml` 重新生成 `prospec/index.md` 的 auto 區塊。
     - 為全新模組建立 skeleton README；REMOVED 需求只把所屬模組列為 README-pending，不會棄用模組或從 module-map 移除。
+    - 以 `--change` 執行時，若 `module-map.yaml` 存在卻無法讀取、解析或驗證，或解析到 knowledge root 之外，在分類與任何寫入之前拒收，指名該原因，而不是把每條 REQ 報成「不是模組」。
     - 絕不重寫既有 README 內容（保留手寫知識），並於終端回報待人工撰寫清單（`README content pending`）。
 
 - **`prospec knowledge verify <module>...`**
@@ -209,6 +210,7 @@ Entry Points、Dependencies、Config Files 沒有逐語言覆寫機制——未�
 | 命令 | 說明 |
 |------|------|
 | `prospec change scale <scale> [--change <name>]` | 設定複雜度規模（`quick` / `standard` / `full` / `backfill`） |
+| `prospec change related-modules <module...> [--change <name>]` | 修正既有變更的 `related_modules`（只收已註冊模組，絕不移除已註冊模組） |
 | `prospec change status <to> [--change <name>]` | 單向推進變更生命週期狀態（拒絕逆向或非法跳躍） |
 | `prospec change progress [options]` | 計算任務進度（排除 `[M]` / `[V]`）並支援勾選指定任務 |
 | `prospec change log [options]` | 在 `metadata.yaml` 追加結構化 `quality_log` 記錄；`--verifier-report <file>` 記錄經 schema 驗證的 plan/tasks verifier 報告（`FLAWS` → `FAIL`） |
@@ -236,13 +238,14 @@ Entry Points、Dependencies、Config Files 沒有逐語言覆寫機制——未�
     - `--json` 將整份 status 報告（含各變更的 `nextSkill`、`unresolvedWarnings` 與 `nextReferenceMap`）輸出至 stdout，供機器讀取。
     - 無任何進行中變更時，讀取 `prospec-report.json` 並回報其**狀態**：`--auto-draft` 會起草的 finding 數量，或該報告無法解析、或是對著不同的程式碼產生的（以 `change_digest` 比對）。無法信任的報告會如實回報，絕不當成「沒有漂移」。
     - 當站點恢復迴圈（verify below-bar、plan verifier flaws、tasks verifier flaws）達到 `workflow.max_station_retries`（預設 3）時，`status` 會路由至 `next: null` 並帶穩定代碼 `ESCALATE_TO_HUMAN`，印出 HALT 指引與失敗摘要，不再無限循環回原站。
-    - **Opt-in plan 簽核停頓**：解析出的停頓站含 `plan` 時——有設 `PROSPEC_PAUSE_AT`（即使為空；空值或 `none`＝不停）以它為準，否則看 `workflow.pause_at`——位於 `plan` 的 `scale: full` 變更若尚無 verifier 結果會導回 plan（`PLAN_VERIFIER_PENDING`），有 PASS/WARN verifier 結果後則路由至 `next: null` 並帶 `AWAITING_HUMAN_PLAN_SIGNOFF`，印出簽核 HALT 與 `--signoff` 指令，直到記錄晚於該 verifier 記錄的簽核為止。停頓只作用於路由：`status`、cascade 與 `prospec-ff` 會停下，手動執行的 `prospec change tasks` 不會被拒絕。停頓值無效時，`status`（含 `--json`）以 exit 1 結束，錯誤訊息指出來源、無效值與合法站名，且不輸出報告；即使沒有進行中的變更也一樣。非 archived 變更的 `next: null` 必帶 `ESCALATE_TO_HUMAN` 或 `AWAITING_HUMAN_PLAN_SIGNOFF`——請比對 `code`。
+    - 在 `verified`，`prospec-knowledge-update` 修不了的 knowledge-sync gap——非 canonical REQ id、無法解析的 `module-map.yaml`、module-map 未註冊、且沒有 ADDED REQ 以新模組引入的 `related_modules` 名稱——會路由至 `next: null` 並帶穩定代碼 `KNOWLEDGE_INPUT_INVALID`，印出 HALT 與每個 gap 的原因及修復方式，每個代碼一條 reason（各自保留自己的代碼）；stale 模組仍路由至 `prospec-knowledge-update`（`KNOWLEDGE_UNSYNCED`）。
+    - **Opt-in plan 簽核停頓**：解析出的停頓站含 `plan` 時——有設 `PROSPEC_PAUSE_AT`（即使為空；空值或 `none`＝不停）以它為準，否則看 `workflow.pause_at`——位於 `plan` 的 `scale: full` 變更若尚無 verifier 結果會導回 plan（`PLAN_VERIFIER_PENDING`），有 PASS/WARN verifier 結果後則路由至 `next: null` 並帶 `AWAITING_HUMAN_PLAN_SIGNOFF`，印出簽核 HALT 與 `--signoff` 指令，直到記錄晚於該 verifier 記錄的簽核為止。停頓只作用於路由：`status`、cascade 與 `prospec-ff` 會停下，手動執行的 `prospec change tasks` 不會被拒絕。停頓值無效時，`status`（含 `--json`）以 exit 1 結束，錯誤訊息指出來源、無效值與合法站名，且不輸出報告；即使沒有進行中的變更也一樣。非 archived 變更的 `next: null` 必帶 `ESCALATE_TO_HUMAN`、`AWAITING_HUMAN_PLAN_SIGNOFF` 或 `KNOWLEDGE_INPUT_INVALID`——請比對 `code`。
 
 - **`prospec change story <name> [options]`**
   - **核心用途**：建立新變更的目錄結構、`proposal.md` 骨架與 `metadata.yaml`（`status: story`），或凍結／受控修訂驗收場景基準。
   - **骨架選項**：
     - `--description <d>`：變更的一行簡短描述。
-    - `--related-module <m>...`：明確指定關聯模組（覆寫關鍵字自動比對）。
+    - `--related-module <m>...`：明確指定關聯模組（覆寫關鍵字自動比對）；只在建立時寫入，之後以 `prospec change related-modules` 修正。
     - `--issue <ref>`：登記此變更對應的 Issue / Ticket 追蹤編號。
   - **基準管理模式**（與骨架建立選項互斥）：
     - `--freeze-scenarios`：將 `proposal.md` 中已撰寫的實質驗收場景快照凍結進 `metadata.yaml` 的 `acceptance` 基準（revision 1，origin: `story`）。若含有未修改的 placeholder、缺少 `**Acceptance Scenarios:**` 區段、場景 ID 重複／非法，或與建立專用旗標混用時將拒絕執行。相同標準化內容具備冪等性；內容不同且未走修訂程序時拒絕。
@@ -296,6 +299,10 @@ Entry Points、Dependencies、Config Files 沒有逐語言覆寫機制——未�
 
 - **`prospec change scale <quick|standard|full|backfill> [--change <name>]`**
   - **核心用途**：設定變更的複雜度 scale，就地更新 `metadata.yaml` 並保留原有註解。
+
+- **`prospec change related-modules <module...> [--change <name>]`**
+  - **核心用途**：以給定清單取代既有變更 `metadata.yaml` 的 `related_modules`——`prospec change story` 建立變更之後，這是它唯一的寫入者。
+  - **執行行為**：每個名稱都必須是已註冊模組（`module-map.yaml` 的條目；沒有 map 時為 `modules/<name>/` 目錄），不分大小寫比對，並以模組自己的拼法寫入；module-map 無法讀取、解析或驗證，或解析到 knowledge root 之外時，以該原因拒收。絕不移除已註冊模組——那會讓 knowledge-sync 閘門變窄——所以只能拿掉拼錯、未註冊的名稱。重複執行結果相同；任何拒收都不改動檔案；不寫 `quality_log`。
 
 - **`prospec change status <to> [--change <name>]`**
   - **核心用途**：單向推進生命週期狀態（逆向或非法躍遷將被拒絕並列出合法目標）。

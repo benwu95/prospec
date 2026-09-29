@@ -2,7 +2,7 @@
 
 This document is a **reader's guide** to a change's `metadata.yaml`
 (`.prospec/changes/{name}/metadata.yaml`). The file is **CLI-written, skill-read**: every mutation goes through a `prospec` command — `change story` (create),
-`change scale`, `change auto-draft` (create), `change status`, `change log` (quality_log append), `verify record`,
+`change scale`, `change related-modules`, `change auto-draft` (create), `change status`, `change log` (quality_log append), `verify record`,
 `check --record-review` / `--record-tests`, `archive` — so skills never hand-serialize it.
 What follows documents the shape those commands emit, so a skill reading the file (or
 composing structured CLI input) knows what each field means.
@@ -29,7 +29,7 @@ take precedence over canonical ordering. Comments and unknown fields remain pres
 | `created_at` | yes | `prospec change story` (create) | full ISO 8601 |
 | `status` | yes | `prospec change plan/tasks/status` + `verify record` (S/A) + `archive` | one of the lifecycle values (`_status-lifecycle.md`), forward-only |
 | `scale` | no (defaults `standard`) | `prospec change scale`, after user-confirmed assessment; also `change auto-draft` at create time, from the drift check that triggered it | one of the schema's `CHANGE_SCALES` values |
-| `related_modules` | no | `prospec change story` (auto-match or `--related-module`); `change auto-draft` writes the module it attributed, or nothing | bare module names |
+| `related_modules` | no | `prospec change story` (auto-match or `--related-module`); `change auto-draft` writes the module it attributed, or nothing; `change related-modules` corrects it | bare module names |
 | `description` | no | `prospec change story --description` | one line, plain text |
 | `quality_log` | no | `prospec change log` (any station) + `verify record` (append) | gate trail — see below |
 | `review_provenance` | no | `prospec check --record-review` at review | machine-written baseline |

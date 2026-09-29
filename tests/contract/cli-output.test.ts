@@ -290,6 +290,7 @@ describe('CLI Output Contract', () => {
       const status = await helpOf('status');
       expect(status).toContain('PROSPEC_PAUSE_AT');
       expect(status).toContain('AWAITING_HUMAN_PLAN_SIGNOFF');
+      expect(status).toContain('KNOWLEDGE_INPUT_INVALID');
       expect(status).toMatch(/fallback:[^.]*absent when `next` is null/i);
       const changeLog = await helpOf('change log');
       expect(changeLog).toContain('--signoff <option>');

@@ -93,6 +93,7 @@ export const WORKFLOW_REASON_CODES = [
   'ESCALATE_TO_HUMAN',
   'AWAITING_HUMAN_PLAN_SIGNOFF',
   'PLAN_VERIFIER_PENDING',
+  'KNOWLEDGE_INPUT_INVALID',
   // archive Entry Gate
   'CHECK_UNPROVABLE',
   'TASKS_INCOMPLETE',
@@ -108,7 +109,7 @@ export type WorkflowReasonCode = (typeof WORKFLOW_REASON_CODES)[number];
  * The route codes that stop the loop for a human rather than naming a station:
  * a non-archived route with `next: null` carries one of these, never anything else.
  */
-export const HUMAN_HALT_CODES = ['ESCALATE_TO_HUMAN', 'AWAITING_HUMAN_PLAN_SIGNOFF'] as const;
+export const HUMAN_HALT_CODES = ['ESCALATE_TO_HUMAN', 'AWAITING_HUMAN_PLAN_SIGNOFF', 'KNOWLEDGE_INPUT_INVALID'] as const;
 export type HumanHaltCode = (typeof HUMAN_HALT_CODES)[number];
 
 export function isHumanHaltCode(code: WorkflowReasonCode): code is HumanHaltCode {
@@ -132,6 +133,11 @@ export interface WorkflowReason {
   code: WorkflowReasonCode;
   message: string;
   remediation: string;
+}
+
+/** One line per reason, in the shape the archive refusal and the status reasons print. */
+export function formatWorkflowReason(reason: WorkflowReason): string {
+  return `${reason.code}: ${reason.message} — ${reason.remediation}`;
 }
 
 /** proposal.md `## UI Scope` values (design engages only on full/partial). */
@@ -197,8 +203,9 @@ export interface ChangeRouteFacts {
   /** Whether a plan sign-off sits after the latest plan verifier result (and
    *  that result is PASS/WARN) — judged by quality_log position, not by date. */
   planSignedOff: boolean;
-  /** Whether affected-module Knowledge is confirmed synced for this change. */
-  hasKnowledgeSync: boolean;
+  /** The reasons affected-module Knowledge is not synced (`knowledgeSyncReasons`
+   *  over `findUnsyncedModules`), computed only at `verified`; empty means synced. */
+  knowledgeSyncReasons: WorkflowReason[];
   /** Unresolved WARNs computed from this change's `quality_log` (empty when
    *  none). Display data, NOT a routing fact; the router forwards it to the
    *  route only when non-empty (see `ChangeRoute.unresolvedWarnings`). */

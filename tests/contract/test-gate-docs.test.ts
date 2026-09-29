@@ -69,11 +69,79 @@ describe('README workflow summaries — bilingual parity for the test gate', () 
 
 describe('reference/cli-reference*.md — knowledge update never retires a module for a REMOVED requirement', () => {
   const docs = { en: read('reference/cli-reference.md'), zh: read('reference/cli-reference.zh-TW.md') };
+  // #311 R4-1: pin the positive meaning on the REMOVED bullet itself — another
+  // bullet's `module-map` (or the old sentence's absence) must not satisfy it.
+  const neverRetires = { en: 'never deprecates or unregisters it from `module-map.yaml`', zh: '不會棄用模組或從 module-map 移除' } as const;
 
-  it.each(Object.entries(docs))('%s entry lists the REMOVED module as README-pending and adds no deprecation', (_lang, doc) => {
+  it.each(Object.entries(docs))('%s REMOVED bullet lists the module as README-pending and says it is never retired', (lang, doc) => {
     const entry = entryOf(doc, 'prospec knowledge update');
-    expect(entry).toContain('README-pending');
-    expect(entry).toContain('module-map');
+    const removed = entry.split('\n').find((l) => l.includes('REMOVED'));
+    expect(removed, 'REMOVED bullet missing').toBeDefined();
+    expect(removed).toContain('README-pending');
+    expect(removed).toContain('module-map');
+    expect(removed).toContain(neverRetires[lang as keyof typeof neverRetires]);
     expect(entry).not.toMatch(/deprecation banners? for removed|為已移除模組加上棄用標記/);
+  });
+});
+
+describe('reference/cli-reference*.md — related_modules correction and the knowledge-sync input halt (REQ-CLI-060, REQ-CLI-039)', () => {
+  const docs = { en: read('reference/cli-reference.md'), zh: read('reference/cli-reference.zh-TW.md') };
+  const neverRemoves = { en: 'never removes a registered module', zh: '絕不移除已註冊模組' } as const;
+  // the Behavior sentence, not a token: an entry inverted to "may remove" must go red
+  const entryRule = {
+    en: 'It never removes a registered module — that would narrow the knowledge-sync gate',
+    zh: '絕不移除已註冊模組——那會讓 knowledge-sync 閘門變窄',
+  } as const;
+  // a related_modules name an ADDED REQ also produces is knowledge-update's to create:
+  // only the related-only name halts, so the qualifier is part of the rule
+  const haltRoute = {
+    en: [
+      'a `related_modules` name the map does not register and no ADDED REQ introduces as a new module',
+      'routes to `next: null` with stable code `KNOWLEDGE_INPUT_INVALID`',
+      'stale modules still route to `prospec-knowledge-update` (`KNOWLEDGE_UNSYNCED`)',
+    ],
+    zh: [
+      'module-map 未註冊、且沒有 ADDED REQ 以新模組引入的 `related_modules` 名稱',
+      '會路由至 `next: null` 並帶穩定代碼 `KNOWLEDGE_INPUT_INVALID`',
+      'stale 模組仍路由至 `prospec-knowledge-update`（`KNOWLEDGE_UNSYNCED`）',
+    ],
+  } as const;
+
+  it.each(['prospec/ai-knowledge/_status-lifecycle.md', 'src/templates/init/status-lifecycle.md.hbs'])(
+    '%s names the knowledge-sync input halt with the related-only qualifier',
+    (file) => {
+      const bullet = read(file).split('\n').find((l) => l.startsWith('- **`prospec-knowledge-update`**'));
+      expect(bullet, 'knowledge-update bullet missing').toBeDefined();
+      expect(bullet).toContain('a `related_modules` name the map does not register and no ADDED REQ introduces as a new module');
+      expect(bullet).toContain('`code: KNOWLEDGE_INPUT_INVALID`');
+    },
+  );
+
+  it.each(Object.entries(docs))('%s documents `prospec change related-modules` and its no-narrowing rule', (lang, doc) => {
+    const entry = entryOf(doc, 'prospec change related-modules');
+    expect(entry).toContain('related_modules');
+    expect(entry).toContain('module-map.yaml');
+    expect(entry).toContain(entryRule[lang as keyof typeof entryRule]);
+    // every refusal of an untrustworthy map, the outside-root one included
+    expect(entry).toContain(lang === 'en' ? 'resolves outside the knowledge root, refuses' : '解析到 knowledge root 之外時，以該原因拒收');
+    const row = doc.split('\n').find((l) => l.startsWith('| `prospec change related-modules'));
+    expect(row, 'summary row missing').toBeDefined();
+    expect(row).toContain(neverRemoves[lang as keyof typeof neverRemoves]);
+    const story = entryOf(doc, 'prospec change story');
+    expect(story.split('\n').find((l) => l.includes('--related-module'))).toContain('prospec change related-modules');
+  });
+
+  it.each(Object.entries(docs))('%s status entry lists KNOWLEDGE_INPUT_INVALID among the null-next codes', (lang, doc) => {
+    const entry = entryOf(doc, 'prospec status');
+    const bullet = entry.split('\n').find((l) => l.includes('KNOWLEDGE_INPUT_INVALID') && l.includes('KNOWLEDGE_UNSYNCED'));
+    expect(bullet, 'knowledge-sync halt bullet missing').toBeDefined();
+    for (const phrase of haltRoute[lang as keyof typeof haltRoute]) expect(bullet).toContain(phrase);
+    // the halt clause never names knowledge-update as its route (each language's own clause separator)
+    const haltClauseRoutesToUpdate =
+      lang === 'en'
+        ? /KNOWLEDGE_INPUT_INVALID`?[^;]*route[^;]*to `prospec-knowledge-update`/
+        : /KNOWLEDGE_INPUT_INVALID`?[^；]*路由至 `prospec-knowledge-update`/;
+    expect(bullet).not.toMatch(haltClauseRoutesToUpdate);
+    expect(entry).toMatch(/`AWAITING_HUMAN_PLAN_SIGNOFF`[^\n]*`KNOWLEDGE_INPUT_INVALID`[^\n]*`code`/);
   });
 });

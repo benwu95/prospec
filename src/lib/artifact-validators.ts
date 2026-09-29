@@ -175,7 +175,7 @@ export function validatePromoteScaffold(inputs: PromoteScaffoldInputs): Validati
     if ((inputs.metadata.relatedModules ?? []).length === 0) {
       findings.push({
         level: 'FAIL',
-        message: 'metadata.related_modules is empty — the traced modules from the draft must be recorded (`prospec change story --related-module <m>`)',
+        message: 'metadata.related_modules is empty — the traced modules from the draft must be recorded (`prospec change related-modules <m>...`)',
       });
     }
   }
