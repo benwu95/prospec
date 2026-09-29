@@ -12,7 +12,7 @@ import type { ProspecConfig } from '../types/config.js';
 import type { FeatureMap } from '../types/feature-map.js';
 import type { ModuleMap } from '../types/module-map.js';
 
-/** The canonical `REQ-{MODULE}-NNN` id `delta-spec-parser` accepts; capture 1 is the module prefix. */
+/** The canonical `REQ-{MODULE}-NNN` id (a 3-digit sequence); capture 1 is the module prefix, hyphenated segments included. */
 const CANONICAL_REQ_ID = /^REQ-([\w-]+)-\d{3}$/;
 
 /**
