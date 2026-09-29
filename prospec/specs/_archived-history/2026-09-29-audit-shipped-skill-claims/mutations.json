@@ -1,0 +1,212 @@
+[
+  {
+    "name": "reference-purpose",
+    "source": "src/templates/skills/references/plan-format.hbs",
+    "applied": true,
+    "killed": true,
+    "exit": 1
+  },
+  {
+    "name": "shared-footer",
+    "source": "src/templates/skills/_verifier-rubric-base.hbs",
+    "applied": true,
+    "killed": true,
+    "exit": 1
+  },
+  {
+    "name": "archive-empty",
+    "source": "src/templates/skills/prospec-archive.hbs",
+    "applied": true,
+    "killed": true,
+    "exit": 1
+  },
+  {
+    "name": "archive-readme",
+    "source": "src/templates/skills/prospec-archive.hbs",
+    "applied": true,
+    "killed": true,
+    "exit": 1
+  },
+  {
+    "name": "archive-never",
+    "source": "src/templates/skills/prospec-archive.hbs",
+    "applied": true,
+    "killed": true,
+    "exit": 1
+  },
+  {
+    "name": "map-repair",
+    "source": "src/templates/skills/prospec-knowledge-update.hbs",
+    "applied": true,
+    "killed": true,
+    "exit": 1
+  },
+  {
+    "name": "promote-classifier",
+    "source": "src/templates/skills/prospec-promote-backfill.hbs",
+    "applied": true,
+    "killed": true,
+    "exit": 1
+  },
+  {
+    "name": "delta-classifier",
+    "source": "src/templates/change/delta-spec.md.hbs",
+    "applied": true,
+    "killed": true,
+    "exit": 1
+  },
+  {
+    "name": "verify-live",
+    "source": "src/templates/skills/prospec-verify.hbs",
+    "applied": true,
+    "killed": true,
+    "exit": 1
+  },
+  {
+    "name": "explore-empty",
+    "source": "src/templates/skills/prospec-explore.hbs",
+    "applied": true,
+    "killed": true,
+    "exit": 1
+  },
+  {
+    "name": "generate-empty",
+    "source": "src/templates/skills/prospec-knowledge-generate.hbs",
+    "applied": true,
+    "killed": true,
+    "exit": 1
+  },
+  {
+    "name": "backfill-grade",
+    "source": "src/templates/skills/prospec-promote-backfill.hbs",
+    "applied": true,
+    "killed": true,
+    "exit": 1
+  },
+  {
+    "name": "backfill-fidelity",
+    "source": "src/templates/skills/references/verify-backfill.hbs",
+    "applied": true,
+    "killed": true,
+    "exit": 1
+  },
+  {
+    "name": "harvest-cause",
+    "source": "src/templates/skills/prospec-archive.hbs",
+    "applied": true,
+    "killed": true,
+    "exit": 1
+  },
+  {
+    "name": "quick-input",
+    "source": "src/templates/change/tasks.md.hbs",
+    "applied": true,
+    "killed": true,
+    "exit": 1
+  },
+  {
+    "name": "candidate-adaptation",
+    "source": "src/templates/skills/references/candidate-evaluation.hbs",
+    "applied": true,
+    "killed": true,
+    "exit": 1
+  },
+  {
+    "name": "design-measurement",
+    "source": "src/templates/skills/references/design-spec-format.hbs",
+    "applied": true,
+    "killed": true,
+    "exit": 1
+  },
+  {
+    "name": "interaction-dsl",
+    "source": "src/templates/skills/references/interaction-spec-format.hbs",
+    "applied": true,
+    "killed": true,
+    "exit": 1
+  },
+  {
+    "name": "delegation-path",
+    "source": "src/templates/skills/references/delegation-protocol.hbs",
+    "applied": true,
+    "killed": true,
+    "exit": 1
+  },
+  {
+    "name": "debug-license",
+    "source": "src/templates/skills/references/debug-recovery-format.hbs",
+    "applied": true,
+    "killed": true,
+    "exit": 1
+  },
+  {
+    "name": "review-license",
+    "source": "src/templates/skills/references/review-lenses-content.hbs",
+    "applied": true,
+    "killed": true,
+    "exit": 1
+  },
+  {
+    "name": "ratio",
+    "source": "src/templates/skills/references/circuit-breaker.hbs",
+    "applied": true,
+    "killed": true,
+    "exit": 1
+  },
+  {
+    "name": "feature-boundary",
+    "source": "src/templates/skills/references/feature-boundary-criteria.hbs",
+    "applied": true,
+    "killed": true,
+    "exit": 1
+  },
+  {
+    "name": "metadata-log",
+    "source": "src/templates/skills/references/metadata-format.hbs",
+    "applied": true,
+    "killed": true,
+    "exit": 1
+  },
+  {
+    "name": "counts-portability",
+    "source": "src/templates/skills/references/cascade-protocol.hbs",
+    "applied": true,
+    "killed": true,
+    "exit": 1
+  },
+  {
+    "name": "archive-record",
+    "source": "src/templates/skills/references/archive-format.hbs",
+    "applied": true,
+    "killed": true,
+    "exit": 1
+  },
+  {
+    "name": "pencil-effect",
+    "source": "src/templates/skills/references/adapter-pencil.hbs",
+    "applied": true,
+    "killed": true,
+    "exit": 1
+  },
+  {
+    "name": "health-summary",
+    "source": "src/templates/skills/references/drift-report-format.hbs",
+    "applied": true,
+    "killed": true,
+    "exit": 1
+  },
+  {
+    "name": "entry-site",
+    "source": "src/templates/skills/prospec-archive.hbs",
+    "applied": true,
+    "killed": true,
+    "exit": 1
+  },
+  {
+    "name": "recheck-site",
+    "source": "src/templates/skills/prospec-archive.hbs",
+    "applied": true,
+    "killed": true,
+    "exit": 1
+  }
+]

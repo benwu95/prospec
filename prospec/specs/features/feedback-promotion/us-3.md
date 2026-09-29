@@ -40,6 +40,7 @@ Govern: shared rules carry a TTL and source; on expiry, conflict, or a Staleness
 - WHEN `_playbook.md` is registered in the root-level `index.md` Conventions, THEN the skill loads it on demand (L2 load-on-demand, not entering core L1)
 - WHEN plan or implement loads the playbook, THEN its existing sixth Startup Loading item runs `prospec learn playbook --station plan|implement --modules <related_modules>` with that station name, retains the literal `_playbook.md`, and loads all active catalog lines plus station-selected bodies; item count and order and per-line token ceilings do not increase
 - WHEN startup snapshots are regenerated, THEN other stations' Startup Loading bytes are unchanged, learn still loads the full playbook, and workflow scenario ceilings are not increased
+- WHEN archive harvest encounters a retired row, THEN it reports the refusal without inferring that the root cause is gone
 
 #### REQ-TEMPLATES-174: Pre-Collect Staleness Sweep
 `/prospec-learn` opens with a **Sweep** station, before Collect, that audits BOTH governed files — `_lessons-ledger.md` and `_playbook.md` — for entries the project has outgrown, so a run never keys a new occurrence against a dead rule nor raises the frequency of a pattern whose root cause is gone. The expiry/needs-review tests, their evidence bar, the `Inlined into gate`/`Mechanized` `Landing:` anchor format, and the per-tier removal semantics are defined once in `references/promotion-format.md`; the skill states the station and its flow.

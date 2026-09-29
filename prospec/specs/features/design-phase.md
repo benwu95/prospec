@@ -1,7 +1,7 @@
 ---
 feature: design-phase
 status: active
-last_updated: 2026-07-30
+last_updated: 2026-09-29
 story_count: 4
 req_count: 11
 ---
@@ -32,9 +32,9 @@ so that when the AI implements the UI it has precise design references instead o
 #### REQ-DSGN-001: Design Spec Format
 `design-spec-format.hbs` defines the platform-agnostic visual design spec structure.
 
-**Scenarios:**
 - WHEN referencing design-spec-format, THEN includes Visual Identity (colors, fonts, spacing), Components (layout, states, tokens), Responsive Strategy (breakpoints)
 - WHEN writing design spec, THEN no platform-specific references (use tokens, not hardcoded values)
+- WHEN an agent needs precise visual values, THEN it reads the source specified by the platform adapter, including an HTML prototype when applicable, rather than requiring MCP for every platform
 
 #### REQ-DSGN-002: Interaction Spec Format
 `interaction-spec-format.hbs` defines the platform-agnostic interaction spec, using the Interaction DSL draft syntax.
@@ -94,10 +94,10 @@ so that I can integrate seamlessly with Prospec using tools I am familiar with.
 - WHEN design.platform is not set THEN default to the html adapter
 
 #### REQ-DSGN-004: Platform Adapter -- pencil.dev
-**Scenarios:**
 - WHEN Design Phase, THEN use batch_design() for components, set_variables() for tokens
 - WHEN Implement Phase, THEN use batch_get() + get_screenshot() for precise details
 - WHEN Verify Phase, THEN use get_screenshot() + search_all_unique_properties()
+- WHEN documenting design variables, THEN the adapter recommends their use without promising that all components are consistent
 
 #### REQ-DSGN-006: Platform Adapter -- Figma
 **Scenarios:**
@@ -171,6 +171,7 @@ _(None)_
 
 | Date | Change | Impact | Stories/REQs |
 |------|--------|--------|-------------|
+| 2026-09-29 | audit-shipped-skill-claims | MODIFIED REQ-DSGN-001; MODIFIED REQ-DSGN-004 | REQ-DSGN-001, REQ-DSGN-004 |
 | 2026-07-30 | restore-cli-first | ADDED REQ-TEMPLATES-164 | REQ-TEMPLATES-164 |
 | 2026-02-16 | add-design-phase | Design Phase Generate/Extract dual modes and 4 platform adapters | US-001~003, REQ-DSGN-001~009 |
 | 2026-03-02 | v2-product-first | Migrated to Feature Spec; REQ IDs changed from REQ-TEMPLATES-050~058 to REQ-DSGN-001~009 | All |
