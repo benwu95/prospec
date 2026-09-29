@@ -56,13 +56,5 @@ Under `scale: backfill`, the existing code is the **ground truth**. The goal of 
 
 ## 4. Post-Verify Commit & Knowledge Sync
 
-- **Knowledge Sync**: Run `prospec knowledge update --change <name>` (it mints no module for a feature-slug REQ ID such as `REQ-AUTH-FLOW-001`). Sync the READMEs of the modules `prospec knowledge update --change` reports ∪ `metadata.related_modules`, then stamp freshness via `prospec knowledge verify <modules...>`.
-- **Grade S/A Meaning**: S/A grade certifies that the spec is **100% faithful to the existing code**.
-
----
-
-## Reference Information
-
-- Project name: `prospec`
-- AI Knowledge path: `prospec/ai-knowledge`
-- Constitution file: `prospec/CONSTITUTION.md`
+- **Knowledge Sync**: Run `prospec knowledge update --change <name>`. Sync the READMEs of the modules `prospec knowledge update --change` reports ∪ `metadata.related_modules`, then stamp freshness via `prospec knowledge verify <modules...>`.
+- **Grade S/A Meaning**: Report the recorded fidelity judgments and limitations; the CLI determines the overall grade.

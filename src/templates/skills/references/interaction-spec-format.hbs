@@ -4,14 +4,6 @@ This document defines the expected format for `interaction-spec.md`, used by the
 
 ---
 
-## Purpose
-
-`interaction-spec.md` captures platform-agnostic interaction behaviors using a draft Interaction DSL. It defines how users move through screens, trigger actions, and experience state transitions.
-
-**Note:** The DSL syntax below is a **draft** — core concepts (States, Transitions, Flows) are stable, but exact syntax may evolve in future versions.
-
----
-
 ## Standard Format
 
 ### 1. Header

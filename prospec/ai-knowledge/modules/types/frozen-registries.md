@@ -52,7 +52,7 @@
 - `DRIFT_CHECK_IDS`, `MCP_RESOURCE_URIS` and `drift-report`'s `knowledge_health` are FROZEN — extend additively, never reorder or remove.
 - The per-id comments are behavioral claims read as the registry's source of truth — keep them matching the evaluators (every provenance check's backfill exemption is draft-gated; a recorded non-zero exit is never exempt). A stale claim here has twice reopened a closed bypass.
 - `SKILL_DEFINITIONS`/`AGENT_CONFIGS` counts are asserted in contract tests — update the test (and `VALID_AGENTS`) too.
-- `station.ts` is the judgment↔mechanics boundary: everything it models is LLM input, everything downstream of a successful parse is deterministic. `machine` dimensions are self-sourced by the CLI from `prospec-report.json` — never an agent's relayed verdict; 3/5 is registered `judgment` (machine rule inventory, judged violations).
+- `station.ts` is the judgment↔mechanics boundary: everything it models is LLM input, everything downstream of a successful parse is deterministic. `machine` dimensions are self-sourced by the CLI from a live assessment — never an agent's relayed verdict; 3/5 is registered `judgment` (machine rule inventory, judged violations).
 - `DIMENSION_RESULTS` is deliberately wider than the gate three-state — `not-applicable` and `not-adjudicated` are dimension-only.
 - A `satisfies`-closed registry turns an omission into a compile error — that IS the mechanism, so never widen the type to silence it.
 - `INIT_DOC_REGISTRY` is pinned by an init⇄registry equality test; resolve `root: 'knowledge'` via `resolveBasePaths()`.

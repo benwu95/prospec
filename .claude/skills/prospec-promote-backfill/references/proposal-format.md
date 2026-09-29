@@ -4,12 +4,6 @@ This document defines the expected format for `proposal.md`, used by the **prosp
 
 ---
 
-## Purpose
-
-`proposal.md` is the starting point of a Story: it captures WHY the change is needed, WHAT it delivers (as INVEST User Stories), and HOW success is measured. Each Story should be **Independent, Negotiable, Valuable, Estimable, Small, and Testable**.
-
----
-
 ## Standard Format
 
 ### 1. Background (Why)
@@ -182,11 +176,3 @@ Indicate the extent of UI work in this Story. Used by the **prospec-design** Ski
 - Keep under **150 lines**
 - If User Stories exceed 5, consider splitting into multiple proposals
 - Each Story should have 2-5 acceptance scenarios
-
----
-
-## Reference Information
-
-- Project name: `prospec`
-- AI Knowledge path: `prospec/ai-knowledge`
-- Constitution file: `prospec/CONSTITUTION.md`

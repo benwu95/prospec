@@ -63,6 +63,7 @@ Track status via metadata.yaml, with `ai-knowledge/_status-lifecycle.md` as the 
 - WHEN a downstream skill (plan/tasks/implement/review/verify/archive) appends a `quality_log` entry or edits `status`, THEN follow the reference's entry shape — `result` stays the gate three-state, the verify grade lives in `grade`, never in `result`
 - WHEN the reference documents field domains, THEN it points to the schema/`_status-lifecycle.md` rather than restating them (avoids the templates restatement-contract failure)
 - WHEN documenting acceptance metadata, THEN describe pending, frozen and late-capture states, revision identity and amendment audit fields by reference to the executable schema; never teach manual YAML serialization
+- WHEN describing quality_log entries, THEN the reference does not impose a one-entry-per-station cardinality
 
 ---
 
@@ -155,6 +156,7 @@ A structured architecture verification rubric template (`plan-verifier-rubric.md
 - WHEN measured for knowledge token budget, THEN the template size remains within the `reference_per_file` budget
 - WHEN the Architecture Verifier writes its report, THEN the reference owns a JSON schema with `verdict`, the exact five dimensions, evidence, and warnings; for the receipt it points at its station's own `delegation-protocol.md` — a readable non-empty schema-valid file, a bounded wait, disclosed terminal degradation — instead of restating it, and NEVER synthesizes PASS
 - WHEN the payload schema section renders its `verdict` and `dimensions` rows, THEN their vocabulary is projected from `PLANNING_VERDICTS` and `PLAN_VERIFIER_DIMENSIONS` through the render context, the section states that `rationale` and each `warnings[]` item are single-line and bounded by the injected relayed `summary` ceiling (detail belongs in `evidence`), and the receipt is recorded with `prospec change log --skill prospec-plan --verifier-report <file>`
+- WHEN the architecture rubric describes its audit, THEN it defines checks without claiming to eliminate confirmation bias
 
 #### REQ-TEMPLATES-183: Shift-Left Architecture Verifier in prospec-plan
 Phase 6 of `/prospec-plan` performs independent architecture verification against plan.md and delta-spec.md using orthogonal criteria decomposition.
@@ -293,6 +295,7 @@ A structured task verification rubric template (`tasks-verifier-rubric.md`) defi
 - WHEN evaluating a project, THEN the rubric instructs dynamic inspection against the project's `CONSTITUTION.md`, `_conventions.md`, and `module-map.yaml` without hardcoding CLI-specific layers
 - WHEN measured for knowledge token budget, THEN the template size remains within the `reference_per_file` budget
 - WHEN the Task Verifier writes its report, THEN the reference owns a JSON schema with `verdict`, the exact four dimensions, evidence, and warnings; for the receipt it points at its station's own `delegation-protocol.md` — a readable non-empty schema-valid file, a bounded wait, disclosed terminal degradation — instead of restating it, and NEVER synthesizes PASS
+- WHEN the task rubric describes its audit, THEN it defines checks without promising prevention of requirement gaps or treating a missing optional parallel marker as a warning
 
 ---
 
@@ -310,8 +313,9 @@ Phase 6 of `/prospec-tasks` performs independent task contract and DAG dependenc
 
 #### REQ-TEMPLATES-188: tasks-format.hbs Bidirectional Contract & Verifier Self-Check Enhancement
 The `tasks-format.md` reference specifies bidirectional traceability self-checking guidelines and verifier compliance for tasks generation.
-- WHEN referencing `tasks-format.md`, THEN it includes guidelines for forward REQ-ID coverage and backward traceability to plan steps
+- WHEN referencing `tasks-format.md`, THEN it includes guidelines for forward REQ-ID coverage and backward traceability to plan steps when those artifacts exist, or proposal acceptance-scenario traceability under quick scale
 - WHEN explaining layer ordering, THEN it specifies dynamic adaptation to project conventions with neutral examples only (e.g. `Domain → Ports → Adapters` or `Models → Services → Controllers`), never the host project's own dependency direction
+- WHEN quick tasks are scaffolded or traced, THEN guidance uses proposal acceptance scenarios instead of requiring plan.md and delta-spec.md
 
 ---
 
@@ -394,6 +398,7 @@ The template library includes skill references for cascading execution, circuit 
 - WHEN `cascade-protocol.md` states the plan → tasks transition gate, THEN it requires Architecture Verifier PASS on five orthogonal dimensions (or a documented Break-Glass override), matching the rubric's dimension count
 - WHEN `cascade-protocol.md` renders its Station Transition Gates table, THEN every station named is a member of `SDD_STATIONS`, `design` and `promote` have rows, `awaiting_signoff` does not appear, and the verify row states that a B/C/D grade is routed back to verify by `prospec status`
 - WHEN `cascade-protocol.md` lists scale-driven paths, THEN a `Scale: Backfill` trajectory `promote → review → verify → knowledge-update → Tastemaker sign-off` is present alongside quick/standard/full
+- WHEN cascading and breaker references describe their mechanisms, THEN they state station instructions and stopping conditions without promising model reliability or a monetary cost bound
 
 ---
 

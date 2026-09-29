@@ -35,7 +35,7 @@ Use `batch_design(operations)` with these operations:
 
 ### Setting Design Tokens
 
-Use `set_variables()` to define design tokens (colors, spacing, typography) as .pen file variables. This ensures consistency across all components.
+Use `set_variables()` to define design tokens (colors, spacing, typography) as .pen file variables.
 
 ### Tips
 

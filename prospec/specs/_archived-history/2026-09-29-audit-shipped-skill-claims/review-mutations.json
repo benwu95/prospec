@@ -1,0 +1,37 @@
+[
+  {
+    "name": "route-owner-deletion",
+    "source": "src/templates/skills/references/cascade-protocol.hbs",
+    "applied": true,
+    "killed": true,
+    "exit": 1
+  },
+  {
+    "name": "entry-owner-deletion",
+    "source": "src/templates/agent-configs/entry.md.hbs",
+    "applied": true,
+    "killed": true,
+    "exit": 1
+  },
+  {
+    "name": "archive-finalize-exclusive",
+    "source": "src/templates/skills/prospec-archive.hbs",
+    "applied": true,
+    "killed": true,
+    "exit": 1
+  },
+  {
+    "name": "archive-never-exclusive",
+    "source": "src/templates/skills/prospec-archive.hbs",
+    "applied": true,
+    "killed": true,
+    "exit": 1
+  },
+  {
+    "name": "archive-format-exclusive",
+    "source": "src/templates/skills/references/archive-format.hbs",
+    "applied": true,
+    "killed": true,
+    "exit": 1
+  }
+]

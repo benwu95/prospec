@@ -36,6 +36,8 @@ never under the station's own label, which its verifier gate reads.
 
 ## Ticketed delegation (review and verify)
 
+Tickets, payloads and checkpoints live under `.prospec/changes/{name}/{{delegation_dir}}/`.
+
 At review and verify the CLI records every delegation, so a delegate that changes the repository is
 caught the moment it returns — before the orchestrator applies any fix of its own — and what it may
 have destroyed is still on disk for the human.
@@ -119,11 +121,3 @@ change the `refs` facet, so a delegate's fetch can refuse an otherwise clean rec
 several changes running at once in one repository are not isolated from one another: the facets span the
 whole repository, so a sibling worktree's commit or stash during a delegation refuses the receipt.
 Snapshots cost a working-tree checkout each and live until their ticket settles.
-
----
-
-## Reference Information
-
-- Project name: `{{project_name}}`
-- Tickets, payloads and checkpoints: `.prospec/changes/{name}/{{delegation_dir}}/`
-- Commands: `prospec change delegate` (issue · `--receive` · `--spawn-failed [--accept-current-tree]`)

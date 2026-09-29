@@ -4,15 +4,6 @@ This document defines the **Autonomous Pipeline Cascading Protocol** used by `pr
 
 ---
 
-## Purpose
-
-To remove the friction of manual dispatch across SDD lifecycle stations (`story → plan → tasks → implement → review → verify → knowledge-update → archive`), this protocol enables **Type III Autonomous Execution**:
-- The AI Agent autonomously manages state transitions and progressive context loading across stations.
-- Verifier results (Plan Verifier, Tasks Verifier, Review findings, Verify 5+1 audit) serve as deterministic machine gates for stage progression.
-- The human developer transitions from a step-by-step dispatcher to a high-level strategic director and **Tastemaker** (responsible for initial intent and final delivery sign-off).
-
----
-
 ## Scale-Driven Cascading Paths
 
 The cascading workflow dynamically adapts its trajectory based on `metadata.scale`:
@@ -74,7 +65,7 @@ When the pipeline completes Verification with Grade S/A (and subsequent Knowledg
 
 1. **Commit Boundary & Preparation (S/A only)**:
    - **Sync affected-module Knowledge**: Run `prospec-knowledge-update` into the feature commit for the modules `prospec knowledge update --change` reports as created or README-pending ∪ `metadata.related_modules` ∪ the modules a working-tree diff attributes through the module map (generated artifacts included) (`scale: backfill`: the modules `prospec knowledge update --change` reports ∪ `metadata.related_modules`, minting nothing). Update descriptions only without citing ungraduated REQs. Stamp freshness via `prospec knowledge verify <modules...>`.
-   - **Re-derive factual counts**: If the project has a factual count generator (e.g. `pnpm counts`), run it to synchronize documentation counts; otherwise re-derive from source.
+   - **Re-derive factual counts**: If the project has a factual count generator, run it to synchronize documentation counts; otherwise re-derive from source.
    - **Final evidence order**: sync → final review → tests → verify → equivalent commit. If synchronization changed repository inputs, return to review and verify after sync; present only the resulting S/A. Existing current records need no rerun merely because staging, commit, amend or equivalent history changed.
 2. **Tastemaker Presentation Payload**: Present a structured delivery summary for the human Tastemaker:
    - **Verify Grade & Status**: S/A rating with verified timestamp.
@@ -96,11 +87,3 @@ When the pipeline completes Verification with Grade S/A (and subsequent Knowledg
 
 - Developers may pass `--no-cascade` or invoke individual station skills (e.g. `prospec-plan`, `prospec-review`) at any point to step manually.
 - If execution is interrupted, running `prospec status` indicates the current node and suggested next step for seamless resumption.
-
----
-
-## Reference Information
-
-- Project name: `prospec`
-- AI Knowledge path: `prospec/ai-knowledge`
-- Constitution file: `prospec/CONSTITUTION.md`

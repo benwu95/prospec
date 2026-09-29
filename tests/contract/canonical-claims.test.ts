@@ -20,7 +20,7 @@ import { executePlaybook } from '../../src/services/learn.service.js';
 const INVENTORY = {
   related_module_halt: ['gap-message', 'router-gate', 'lifecycle-template', 'lifecycle-local', 'cli-en', 'cli-zh', 'spec-halt'],
   knowledge_sync_modules: ['knowledge-update', 'cascade-general', 'templates-readme', 'spec-prevention-description', 'spec-prevention-scenario', 'spec-update-description', 'spec-update-scenario'],
-  backfill_sync_modules: ['cascade-backfill', 'verify-backfill', 'readme-en', 'readme-zh', 'website-en', 'website-zh', 'spec-backfill-sync', 'spec-backfill-docs'],
+  backfill_sync_modules: ['archive-entry-backfill', 'archive-recheck-backfill', 'cascade-backfill', 'verify-backfill', 'readme-en', 'readme-zh', 'website-en', 'website-zh', 'spec-backfill-sync', 'spec-backfill-docs'],
 };
 
 describe('canonical claim registry', () => {

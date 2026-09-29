@@ -47,7 +47,7 @@ The drift engine's 6 files are listed in the sub-module below; the station engin
 ## Modification Guide
 
 1. **Add a utility** — pure, stateless; `template.ts`'s latches are the sole exception.
-2. **Add a Handlebars helper/partial** — register in `template.ts`; `pnpm bundle` to ship it. `init-docs.ts` supplies `canonical_claims` from the types registry to init and upgrade; `knowledge-sync.ts` and `status-router.ts` consume its wording without changing their predicates.
+2. **Add a Handlebars helper/partial** — register in `template.ts`; `pnpm bundle` to ship it. Prose-only template audits also regenerate `bundled-templates.ts`; stamp this module after reviewing the generated diff. `init-docs.ts` supplies `canonical_claims` from the types registry to init and upgrade; `knowledge-sync.ts` and `status-router.ts` consume its wording without changing their predicates.
 3. **Add a drift check, or a generated artifact** — see [Drift Engine](./drift-engine.md).
 4. **Change config resolution** — edit `resolveBasePaths()`/`resolveTestCommand()` + callers.
 5. **Add a table-bearing doc** — reuse `markdown-table.ts`; own only the header predicate + columns. `needsTableEscape` is the one predicate that says whether a cell is rewritten — count escaped cells with it (`escapedCellsFor` in `review-merge` / `lessons-ledger`), never a second regex.

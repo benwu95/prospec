@@ -4,12 +4,6 @@ This document defines the expected format for `tasks.md`, used by the **prospec-
 
 ---
 
-## Purpose
-
-`tasks.md` breaks down `plan.md` implementation steps into concrete development tasks, each carrying its `[M]`/`[V]` kind marker (required); complexity estimates and `[P]` parallelization markers are optional.
-
----
-
 ## Standard Format
 
 ### 1. Checkbox Format
@@ -166,7 +160,7 @@ Add a summary at the end of the file:
 Before finalizing `tasks.md`, verify bidirectional contract integrity against `delta-spec.md` and `plan.md`:
 
 - **Forward REQ-ID Coverage**: Ensure every REQ-ID in `delta-spec.md` (or acceptance scenario in `proposal.md` under `scale: quick`) is explicitly covered or referenced in task descriptions.
-- **Backward Plan Traceability**: Ensure every task maps directly to an Implementation Step in `plan.md`. No orphan, speculative, or out-of-scope tasks.
+- **Backward Plan Traceability**: Ensure every task traces to an Implementation Step in `plan.md`, or to `proposal.md` acceptance scenarios under `scale: quick`. No orphan, speculative, or out-of-scope tasks.
 
 ---
 
@@ -221,11 +215,3 @@ Before finalizing `tasks.md`, verify bidirectional contract integrity against `d
 
 - Keep under **100 lines**
 - If tasks exceed 30, consider whether the Story scope is too large
-
----
-
-## Reference Information
-
-- Project name: `{{project_name}}`
-- AI Knowledge path: `{{knowledge_base_path}}`
-- Constitution file: `{{constitution_path}}`

@@ -115,7 +115,7 @@ documented in its contributor docs; this field only makes the link machine-reada
 
 ## `quality_log` entry shape
 
-Each station appends one entry. Fixed keys `skill` / `date` / `result` / `warnings`, plus
+Fixed keys `skill` / `date` / `result` / `warnings`, plus
 optional structured keys that only certain stations write:
 
 ```yaml
@@ -218,11 +218,3 @@ quality_log:
     warnings: []
 issue: "#412"
 ```
-
----
-
-## Reference Information
-
-- Project name: `prospec`
-- AI Knowledge path: `prospec/ai-knowledge`
-- Schema authority: the prospec CLI's `ChangeMetadataSchema` · Status authority: `prospec/ai-knowledge/_status-lifecycle.md`

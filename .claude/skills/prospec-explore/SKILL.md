@@ -67,9 +67,8 @@ Constitution Check:
 **Constitution emptiness check (before converging):** run `prospec check --json` and read its
 `constitution-severity` check. If it reports a "no project-authored principles" finding — the
 Constitution holds only the seeded example rules and the Language Policy — or is skipped because the
-Constitution declares none at all, it is **substantively empty**: `prospec-verify`'s Constitution
-audit and the Entry/Exit gates are no-ops until real principles exist. Tell the user this and point
-them to edit `prospec/CONSTITUTION.md` to add project principles. Advisory — do not block exploration.
+Constitution declares none at all, it is **substantively empty**: there are
+no project-authored principles to audit. Ask the user to edit `prospec/CONSTITUTION.md` to add project principles. Advisory — do not block exploration.
 
 ## Convergence Criteria
 

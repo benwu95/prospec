@@ -4,15 +4,6 @@ This document defines the **orthogonal criteria decomposition** and verification
 
 ---
 
-## Purpose
-
-The Task Verifier provides an independent, adversarial audit of `tasks.md` against `delta-spec.md` (or `proposal.md` under `scale: quick`) and `plan.md` before coding begins. Grounded in the *LLM-as-a-Verifier* methodology (Fine-grained Progress Tracking + Contract Verification), it prevents requirement gaps, inverted layer dependencies, missing module tests, and improper task sizing.
-
-> **Language- and Architecture-Agnostic Principle**:
-> Prospec is a language-agnostic and architecture-agnostic SDD framework. The Task Verifier dynamically reads the project's `prospec/CONSTITUTION.md`, `prospec/ai-knowledge/_conventions.md`, and `module-map.yaml`. It **never** hardcodes any specific framework layering or test runner.
-
----
-
 ## Evaluation Dimensions (Criteria Decomposition)
 
 The Verifier audits `tasks.md` across four orthogonal dimensions:
@@ -46,7 +37,7 @@ The Verifier audits `tasks.md` across four orthogonal dimensions:
 | Verdict | Condition | Action |
 |---------|-----------|--------|
 | **PASS** | All 4 dimensions satisfied; 100% contract coverage and correct topological ordering. | Advance to `prospec-implement` or manual review. |
-| **WARN** | Advisory concerns (e.g. minor task sizing variance, missing optional `[P]` markers). | Record to `metadata.yaml` `quality_log` (`result: WARN`). Does not block progression. |
+| **WARN** | Advisory concerns (e.g. minor task sizing variance). | Record to `metadata.yaml` `quality_log` (`result: WARN`). Does not block progression. |
 | **FLAWS** (FAIL) | Structural defect (uncovered REQ-ID, inverted dependency ordering, missing test task for affected module, missing `[M]`/`[V]` marker). | Revise `tasks.md` to resolve flaws, or exercise Break-Glass Override. |
 
 ---
@@ -108,11 +99,3 @@ If the Verifier produces a false positive or the project requires a deliberate, 
 ## Language Policy
 
 Verifier audit reports, warnings, and risk entries must follow the project's configured `artifact_language` (e.g. Traditional Chinese for `.prospec/changes/**`). Technical identifiers and REQ IDs remain in English.
-
----
-
-## Reference Information
-
-- Project name: `prospec`
-- AI Knowledge path: `prospec/ai-knowledge`
-- Constitution file: `prospec/CONSTITUTION.md`

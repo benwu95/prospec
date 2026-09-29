@@ -4,18 +4,9 @@ This document defines the **orthogonal candidate generation**, **mechanical metr
 
 ---
 
-## Purpose
-
-Complex, architectural changes (`scale: full`) are prone to the *Single Trajectory Trap* — where an AI assistant commits prematurely to its first intuitive approach, leading to over-engineering, brittle abstractions, or unnecessarily large blast radiuses.
-
-This protocol forces orthogonal solution divergence, measures what can be measured (blast radius and layering) with the CLI instead of asking a second model to re-read the same text, and leaves the one judgment the numbers cannot make — extensibility against simplicity — to a one-way rationale that a human can sign off when the project opts in to pausing after plan.
-
-> **Language- and Architecture-Agnostic Principle**:
-> Prospec is a language-agnostic and architecture-agnostic SDD framework. Candidate generation and comparison must dynamically anchor to the project's actual tech stack (detected from manifests such as `package.json`, `pyproject.toml`, `Cargo.toml`, `go.mod`, etc.), existing design patterns (L2 Module READMEs), and `{{knowledge_base_path}}/_conventions.md`. It **never** presumes specific language idioms or hardcodes internal framework assumptions.
-
----
-
 ## Candidate Generation Protocol
+
+**Language- and Architecture-Agnostic Principle**: Anchor candidates to the project’s manifests, L2 Module READMEs and `{{knowledge_base_path}}/_conventions.md`; use its language and architecture.
 
 When generating architecture options (`N <= 3`, default 2 orthogonal options):
 
@@ -131,11 +122,3 @@ The chosen architecture is reflected in `plan.md`'s Call Chain and Implementatio
 ## Language Policy
 
 Comparison notes, rationale, and trade-off records must follow the project's configured `artifact_language` (e.g. Traditional Chinese for `.prospec/changes/**`). Technical identifiers, code symbols, and REQ IDs remain in English.
-
----
-
-## Reference Information
-
-- Project name: `{{project_name}}`
-- AI Knowledge path: `{{knowledge_base_path}}`
-- Constitution file: `{{constitution_path}}`
