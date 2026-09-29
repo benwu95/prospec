@@ -51,6 +51,15 @@ function emptyResult(overrides: Partial<ArchiveResult> = {}): ArchiveResult {
 }
 
 describe('archive-output', () => {
+  it('names and sanitizes the unclosed-fence source with an actionable remedy', () => {
+    formatArchiveOutput(emptyResult({ refusedRequirements: [{ kind: 'unclosed-fence', feature: 'demo', reqId: 'REQ-DEMO-002', sourcePath: '/specs/\u001b[31mdemo.md' }] }), 'normal');
+    expect(stderr()).toContain('unclosed code fence');
+    expect(stderr()).toContain('/specs/[31mdemo.md');
+    expect(stderr()).toContain('close the fence');
+    expect(stderr()).not.toContain('\u001b');
+    expect(stderr()).not.toContain('undefined');
+  });
+
   it('prints the full planned-mutation list on dry-run', () => {
     formatArchiveOutput(
       emptyResult({

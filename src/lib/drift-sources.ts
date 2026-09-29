@@ -2007,7 +2007,7 @@ function resolveExistingReqBody(
   const loaded = loadFeatureSpecContent(featuresDir, feature);
   if (!loaded) return null;
   const specContent: SpecContent = loaded.specContent;
-  const rec = indexSpec(specContent, { includeStruck: true }).requirements.find(
+  const rec = indexSpec(specContent).requirements.find(
     (r) => r.id === reqId,
   );
   if (!rec) return null;

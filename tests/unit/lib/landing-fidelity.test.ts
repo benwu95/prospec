@@ -198,6 +198,21 @@ describe('the drift check and the archive write path share one comparison (REQ-L
     '',
   ].join('\n');
 
+  it('struck-only has no existingBody or archive drop/stale assessment', async () => {
+    const retired = FEATURE_SPEC.replace('#### REQ-LIB-900: Sample', '#### ~~REQ-LIB-900: Sample~~\n**Removed**: 2026-01-01\n**Reason**: superseded');
+    vol.fromJSON({
+      '/repo/prospec/specs/features/drift-checks.md': retired,
+      '/repo/.prospec/changes/x/delta-spec.md': DELTA_SPEC.replace('**Priority:** High', '**Dropped:**\n- WHEN b, THEN y\n\n**Priority:** High'),
+      '/repo/.prospec/changes/x/metadata.yaml': METADATA,
+    });
+    const facts = collectDeltaSpecLandingFidelity('/repo/prospec/specs/features', '/repo');
+    expect(facts.entries).toHaveLength(1);
+    expect(facts.entries[0]!.existingBody).toBeNull();
+    const result = await syncToFeatureSpecs('/repo/.prospec/changes/x', '/repo/prospec/specs/features', 'x');
+    expect(result.droppedBehavior).toEqual([]);
+    expect(result.staleDeclarations).toEqual([]);
+  });
+
   it('archive droppedBehavior and the check collector resolve the identical undeclared set', async () => {
     vol.fromJSON({
       '/repo/prospec/specs/features/drift-checks.md': FEATURE_SPEC,

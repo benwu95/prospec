@@ -80,7 +80,12 @@ export function formatArchiveOutput(result: ArchiveResult, logLevel: LogLevel): 
       `${pc.red('✗')} ${result.refusedRequirements.length} REQ(s) ${verb} — the feature spec was left unchanged:\n`,
     );
     for (const r of result.refusedRequirements) {
-      if (r.kind === 'unresolved-feature') {
+      if (r.kind === 'unclosed-fence') {
+        process.stderr.write(
+          `  ${pc.red('·')} ${sanitizeTerminal(r.feature)} ${sanitizeTerminal(r.reqId)} — ` +
+            `unclosed code fence in ${sanitizeTerminal(r.sourcePath)}; close the fence before retrying\n`,
+        );
+      } else if (r.kind === 'unresolved-feature') {
         process.stderr.write(
           `  ${pc.red('·')} ${sanitizeTerminal(r.feature)} ${sanitizeTerminal(r.reqId)} — ` +
             `its \`**Feature:**\` header does not host this REQ id; the REQ lives in \`${sanitizeTerminal(r.home)}\`\n`,
@@ -94,7 +99,7 @@ export function formatArchiveOutput(result: ArchiveResult, logLevel: LogLevel): 
       }
     }
     process.stderr.write(
-      `  fix the routing header or landing block each refusal names — for a truncation, inline the labelled section as bullets (a \`**Dropped:**\` declaration does NOT release it); for an unresolved header, route the REQ to the feature that hosts it\n`,
+      `  fix the source file, routing header or landing block each refusal names — close an unclosed fence in the named source file; for a truncation, inline the labelled section as bullets (a \`**Dropped:**\` declaration does NOT release it); for an unresolved header, route the REQ to the feature that hosts it\n`,
     );
   }
 

@@ -697,3 +697,40 @@ describe('retiredReqIds', () => {
     expect(ids).toEqual(['REQ-A-002']);
   });
 });
+
+describe('locateSpecSections — shared write anchors', () => {
+  it.each(['\n', '\r\n'])('returns original offsets and masked section lines with %j', async (eol) => {
+    const { locateSpecSections } = await import('../../../src/lib/spec-headings.js');
+    const example = ['````md', '## Edge Cases', '```', '## Deprecated Requirements', '## Change History', '````'].join(eol);
+    const historyBody = ['```md', '## Quoted section', '```', '| Date | Change |', '|------|--------|', '| 2026-01-01 | original |'];
+    const content = [example, '## Deprecated Requirements  ', '', '_(None)_', '~~~md', '| Date | Change |', '|------|--------|', '~~~', '## Other', '## Change History', ...historyBody, '# End'].join(eol);
+    const result = locateSpecSections(content);
+    expect(result.unclosedFence).toBe(false);
+    expect(result.sections.map((s) => s.name)).toEqual(['Deprecated Requirements', 'Change History']);
+    const section = result.sections[0]!;
+    expect(section.start).toBe(content.indexOf('## Deprecated Requirements  '));
+    expect(content.slice(section.bodyStart, section.end)).toBe(['', '_(None)_', '~~~md', '| Date | Change |', '|------|--------|', '~~~', ''].join(eol));
+    expect(section.lines.map((l) => l.probe)).not.toContain('| Date | Change |');
+    const history = result.sections[1]!;
+    expect(history.end).toBe(content.indexOf('# End'));
+    expect(content.slice(history.bodyStart, history.end)).toBe(historyBody.join(eol) + eol);
+    expect(history.lines.map((line) => line.probe)).toEqual([
+      '', '', '', '| Date | Change |', '|------|--------|', '| 2026-01-01 | original |',
+    ]);
+  });
+
+  it.each(['```', '~~~'])('reports unclosed %s without changing the reader fallback', async (fence) => {
+    const { locateSpecSections } = await import('../../../src/lib/spec-headings.js');
+    const content = `${fence}\n## Change History\n`;
+    expect(locateSpecSections(content).unclosedFence).toBe(true);
+    expect(hasChangeHistorySection(content)).toBe(true);
+  });
+
+  it('ignores mentions and near misses and permits an EOF heading', async () => {
+    const { locateSpecSections } = await import('../../../src/lib/spec-headings.js');
+    const content = 'See ## Edge Cases\n`## Deprecated Requirements`\n## Change History extra\n## Edge Cases';
+    const { sections } = locateSpecSections(content);
+    expect(sections).toHaveLength(1);
+    expect(sections[0]).toMatchObject({ name: 'Edge Cases', bodyStart: content.length, end: content.length, lines: [] });
+  });
+});
