@@ -2147,9 +2147,9 @@ dropped body
     expect(content).toContain('REQ-TYPES-077**: dropped');
   });
 
-  it('falls back to append when Change History has no header separator row (L799/L801)', async () => {
+  it('creates a table inside Change History when no header separator row exists', async () => {
     // "## Change History" heading present but no `| Date` + `|------|` rows, so
-    // the in-table insertion never fires and the row is appended at EOF.
+    // a new table is inserted at the beginning of the history section.
     vol.fromJSON({
       '/specs/features/sdd.md': `---
 feature: sdd

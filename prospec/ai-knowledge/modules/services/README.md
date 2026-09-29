@@ -61,7 +61,7 @@ Also: `quickstart` (init + agentSync), `agent-triggers` + `trigger-localization`
 
 ## Sub-Modules
 
-- [Spec Sync](./spec-sync.md) — archive → Feature Spec / `product.md` / `feature-map.yaml` synchronisation + `finalize`
+- [Spec Sync](./spec-sync.md) — archive → fence-aware Feature Spec sync, retirement preservation, `product.md` / `feature-map.yaml` + `finalize`
 - [Read-only Queries](./read-only-queries.md) — the MCP server, SDD status routing, and the REQ-scoped Feature Spec read
 
 <!-- prospec:auto-end -->

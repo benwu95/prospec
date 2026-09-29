@@ -537,8 +537,50 @@ export function parseSpecSlices(content: string): string[] {
  * `## Feature Map` anchors already guard against in `archive.service`.
  */
 export function hasChangeHistorySection(content: string): boolean {
-  for (const line of walkLines(content, 0)) {
-    if (/^## Change History[ \t]*$/.test(line.probe)) return true;
+  return locateSpecSections(content).sections.some((section) => section.name === 'Change History');
+}
+
+export interface SpecSection {
+  name: 'Edge Cases' | 'Deprecated Requirements' | 'Change History';
+  start: number;
+  bodyStart: number;
+  end: number;
+  /** Original offsets and fence-masked probes, bounded to this section's body. */
+  lines: { raw: string; probe: string; start: number }[];
+}
+
+/**
+ * Section anchors for readers and writers, from the same walk as the REQ index.
+ * Readers retain the walk's raw fallback; writers must refuse `unclosedFence`
+ * before using any of these offsets. Existing text is sliced, never re-rendered.
+ */
+export function locateSpecSections(content: string): {
+  sections: SpecSection[];
+  unclosedFence: boolean;
+} {
+  const lines = walkLines(content, 0);
+  const sections: SpecSection[] = [];
+  let current: SpecSection | undefined;
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i]!;
+    const heading = ATX_HEADING.exec(line.probe);
+    if (heading !== null && heading[1]!.length <= 2) {
+      if (current) current.end = line.start;
+      current = undefined;
+    }
+    const anchor = /^## (Edge Cases|Deprecated Requirements|Change History)[ \t]*$/.exec(line.probe);
+    if (anchor) {
+      current = {
+        name: anchor[1] as SpecSection['name'],
+        start: line.start,
+        bodyStart: lines[i + 1]?.start ?? content.length,
+        end: content.length,
+        lines: [],
+      };
+      sections.push(current);
+    } else {
+      current?.lines.push(line);
+    }
   }
-  return false;
+  return { sections, unclosedFence: hasUnclosedFence(lines.map((line) => line.raw)) };
 }

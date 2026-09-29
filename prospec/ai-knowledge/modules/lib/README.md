@@ -74,7 +74,7 @@ The drift engine's 6 files are listed in the sub-module below; the station engin
 ## Sub-Modules
 
 - [Drift Engine](./drift-engine.md) — the zero-LLM collectors + evaluators, the provenance fingerprints, and the check-authoring recipe
-- [Spec Reading](./spec-reading.md) — the REQ heading rule, the spec index, and the REQ-scoped read the CLI and MCP share
+- [Spec Reading](./spec-reading.md) — the REQ heading rule, fence-aware section locator, spec index, and shared REQ-scoped read
 - [Station Engines](./station-engines.md) — the table/evidence/merge/grade/ledger/validator engines the cli-first stations delegate to
 
 <!-- prospec:auto-end -->

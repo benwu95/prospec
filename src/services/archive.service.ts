@@ -8,11 +8,11 @@ import { isArchivedSpec, isSafeResourceName, loadModuleMap, loadFeatureSpecConte
 import { reqIdToPrefix } from '../lib/drift-sources.js';
 import { findUnsyncedModules } from '../lib/knowledge-sync.js';
 import { evaluateArchiveEntryGate } from '../lib/archive-gate.js';
-import { matchReqHeading, readSpecCounters, indexSpec, hasChangeHistorySection, type SpecContent, type SpecIndex } from '../lib/spec-headings.js';
+import { matchReqHeading, readSpecCounters, indexSpec, hasChangeHistorySection, locateSpecSections, type SpecContent, type SpecIndex } from '../lib/spec-headings.js';
 import { hasUnclosedFence, withoutFencedBlocks } from '../lib/markdown-fences.js';
 import { constitutionFallbackModuleMap } from '../lib/drift-checker.js';
 import { renderTemplate } from '../lib/template.js';
-import { escapeTableCell } from '../lib/markdown-table.js';
+import { escapeTableCell, findTable } from '../lib/markdown-table.js';
 import { stripTrailingCr } from '../lib/text-lines.js';
 import { isProvenBackfill, latestFreshPlanSignoff, normalizeIssueRef } from '../lib/change-metadata.js';
 import {
@@ -163,11 +163,13 @@ export interface FeatureRoute {
 }
 
 /**
- * A REQ the sync REFUSED to land, rather than corrupting the trust zone. Two
- * authoring errors in the delta-spec, each fixed in the delta-spec and never in the
- * feature spec, both left the feature spec byte-identical and drive the non-zero
+ * A REQ the sync REFUSED to land, rather than corrupting the trust zone.
+ * Invalid delta-spec entries and an unparseable target feature leave the
+ * feature spec byte-identical and drive the non-zero
  * exit (REQ-CLI-034):
  *
+ * - `unclosed-fence` — a mother file or registered slice has an unclosed code
+ *   fence. Close it in the named source file before retrying.
  * - `truncation` — the landing block was cut short by a label the template does not
  *   own (REQ-SERVICES-081): the block is incomplete, so no comparison against the
  *   current body would mean anything.
@@ -194,6 +196,13 @@ export type SpecRefusal =
       /** The interrupting line as written, so the author can find the spot. */
       firstSwallowedLine: string;
       swallowedCount: number;
+    }
+  | {
+      kind: 'unclosed-fence';
+      feature: string;
+      reqId: string;
+      /** Existing mother file or registered slice that cannot be safely edited. */
+      sourcePath: string;
     }
   | {
       kind: 'unresolved-feature';
@@ -531,7 +540,12 @@ async function readFeatureRoutes(artifactsDir: string): Promise<FeatureRoute[]> 
 function determineTargetSlice(route: FeatureRoute, specIndex: SpecIndex): string | null {
   let slice: string | null = null;
   if (route.status === 'MODIFIED' || route.status === 'REMOVED') {
-    const req = specIndex.requirements.find((r) => r.id === route.reqId);
+    const definitions = specIndex.requirements.filter((r) => r.id === route.reqId);
+    // Match the feature-wide active body the landing-fidelity collector reads.
+    // Only struck-only MODIFIED falls back to the retired definition's location.
+    const req = route.status === 'MODIFIED'
+      ? (definitions.find((r) => !r.struck) ?? definitions[0])
+      : definitions[0];
     slice = req?.slice ?? null;
   } else if (route.status === 'ADDED') {
     const story = specIndex.stories.find((s) => s.id === route.story);
@@ -624,6 +638,27 @@ export async function syncToFeatureSpecs(
       const loaded = loadFeatureSpecContent(featuresPath, feature);
       if (!loaded) continue;
       let specContent = loaded.specContent;
+      // A history host can live in a different slice from the REQ being merged.
+      // Validate the entire loaded feature before any merge or write, including
+      // the mother file's frontmatter update. The existing refusal gate in
+      // execute() also holds the change bundle before it can be archived.
+      const parts = typeof specContent === 'string'
+        ? [{ sourcePath: specFile, content: specContent }]
+        : [
+            { sourcePath: specFile, content: specContent.main },
+            ...Object.entries(specContent.slices).map(([name, content]) => ({
+              sourcePath: path.resolve(featuresPath, feature, `${name}.md`), content,
+            })),
+          ];
+      const malformed = parts.filter((part) => locateSpecSections(part.content).unclosedFence);
+      if (malformed.length > 0) {
+        for (const part of malformed) {
+          for (const route of featureRoutes) {
+            refusedRequirements.push({ kind: 'unclosed-fence', feature, reqId: route.reqId, sourcePath: part.sourcePath });
+          }
+        }
+        continue;
+      }
       const specIndex = indexSpec(specContent, { includeStruck: true });
       // Tracks whether ANY route actually reached this file. When every route is
       // refused, the frontmatter bump and the Change History row would be the only
@@ -1987,7 +2022,7 @@ function mergeRequirementInPlace(
     };
   }
   const body = landingBody(route);
-  const specIndex = indexSpec(content, { includeStruck: true });
+  const specIndex = indexSpec(content);
   const reqs = specIndex.requirements.filter((r) => r.id === route.reqId);
 
   if (route.status === 'MODIFIED' && reqs.length > 0) {
@@ -2040,31 +2075,19 @@ function mergeRequirementInPlace(
     };
   }
 
-  // ADDED (or a MODIFIED id this spec does not carry yet): append before Edge
-  // Cases or at the end. New REQs land at the format-mandated h4 even in a spec
-  // that uses another level — the shared matcher counts the mix correctly.
+  // New REQs must precede the first trailing section, including slice-local
+  // Deprecated sections without Edge Cases. The shared walk masks examples.
   const titleLine = `#### ${route.reqId}: ${route.description}`;
-  // Anchored to the HEADING, at line start — not to the bare string. A spec
-  // routinely quotes its own structure, so `## Edge Cases` also occurs inside
-  // prose and inline code spans; a first-substring match lands there instead
-  // and splices the new REQ into the middle of another requirement's bullet,
-  // truncating it. That corruption is silent — both worklists stay empty and
-  // the Change History row is still written — and it reaches the trust zone.
-  const insertBefore = /^## Edge Cases[ \t]*$/m;
+  const eol = content.match(/\r?\n/)?.[0] ?? '\n';
+  const insertAt = locateSpecSections(content).sections[0]?.start ?? content.length;
   const newReq = body === ''
-    ? `\n${titleLine}\n\n---\n`
-    : `\n${titleLine}\n${body}\n\n---\n`;
+    ? `${eol}${titleLine}${eol}${eol}---${eol}`
+    : `${eol}${titleLine}${eol}${body}${eol}${eol}---${eol}`;
   const pending = body === '' ? pendingFor(route) : undefined;
-
-  if (insertBefore.test(content)) {
-    // Function replacer: the title and body are untrusted text and may contain
-    // `$&`/`$1`/`$$` etc., which a string replacement would expand as special
-    // patterns and corrupt the spec. A function returns the literal verbatim.
-    return { content: content.replace(insertBefore, (heading) => newReq + '\n' + heading), pending };
-  }
-
-  // Fallback: append at end
-  return { content: content + newReq, pending };
+  return {
+    content: content.slice(0, insertAt) + newReq + eol + content.slice(insertAt),
+    pending,
+  };
 }
 
 /**
@@ -2072,28 +2095,20 @@ function mergeRequirementInPlace(
  */
 function moveReqToDeprecated(content: string, route: FeatureRoute): string {
   const today = new Date().toISOString().slice(0, 10);
-  const deprecatedEntry = `\n- **${route.reqId}**: ${route.description} _(removed ${today})_`;
-
-  // Both anchors below match the HEADING at line start, never the bare string:
-  // a spec that quotes its own structure carries `## Deprecated Requirements`
-  // in prose and inline code (drift-detection.md does, at :621), and a
-  // first-substring match splices the retired entry into that bullet instead —
-  // the same silent corruption the ADDED insertion path guards against.
-  // Function replacers keep the untrusted route.description literal — see
-  // mergeRequirementInPlace.
-  const emptySection = /^## Deprecated Requirements\r?\n\r?\n_\(None\)_/m;
-  if (emptySection.test(content)) {
-    return content.replace(emptySection, () => `## Deprecated Requirements\n${deprecatedEntry}`);
+  const eol = content.match(/\r?\n/)?.[0] ?? '\n';
+  const entry = `- **${route.reqId}**: ${route.description} _(removed ${today})_`;
+  const section = locateSpecSections(content).sections.find((s) => s.name === 'Deprecated Requirements');
+  if (section) {
+    // Masked fence lines are not leading whitespace: inspect raw for the gap,
+    // then the probe for the placeholder so a quoted scaffold stays untouched.
+    const first = section.lines.find((line) => line.raw.trim() !== '');
+    if (first?.probe.trim() === '_(None)_') {
+      return content.slice(0, first.start) + entry + content.slice(first.start + first.raw.length);
+    }
+    const gap = content.slice(0, section.bodyStart).endsWith('\n') ? '' : eol;
+    return content.slice(0, section.bodyStart) + gap + entry + eol + content.slice(section.bodyStart);
   }
-
-  // Append to existing Deprecated section
-  const deprecatedHeading = /^## Deprecated Requirements[ \t]*$/m;
-  if (deprecatedHeading.test(content)) {
-    return content.replace(deprecatedHeading, (heading) => `${heading}${deprecatedEntry}`);
-  }
-
-  // No Deprecated section — append at end
-  return content + `\n## Deprecated Requirements\n${deprecatedEntry}\n`;
+  return content + `${eol}## Deprecated Requirements${eol}${eol}${entry}${eol}`;
 }
 
 /**
@@ -2123,35 +2138,22 @@ function appendToChangeHistory(
   // Escaping goes through the pipe-table engine's own helper, never a local copy.
   const historyRow = `| ${today} | ${escapeTableCell(changeName)} | ${impact} | ${refsStr} |`;
 
-  // Insert before the last line of the Change History table (or at end of section)
-  if (content.includes('## Change History')) {
-    const lines = content.split('\n');
-    const result: string[] = [];
-    let inserted = false;
-
-    for (let i = 0; i < lines.length; i++) {
-      result.push(lines[i]!);
-      // Insert after the table header separator row (|------|...)
-      if (
-        !inserted
-        && lines[i]!.includes('|------')
-        && i > 0
-        && lines[i - 1]!.includes('| Date')
-      ) {
-        result.push(historyRow);
-        inserted = true;
-      }
-    }
-
-    if (!inserted) {
-      // Fallback: append after Change History heading
-      return content + '\n' + historyRow;
-    }
-
-    return result.join('\n');
-  }
-
-  return content;
+  const section = locateSpecSections(content).sections.find((s) => s.name === 'Change History');
+  if (!section) return content;
+  const eol = content.match(/\r?\n/)?.[0] ?? '\n';
+  const table = findTable(section.lines.map((line) => line.probe), {
+    isTarget: (headers) => headers[0] === 'date',
+  });
+  // Offset after the separator, including its original terminator. An EOF
+  // separator/heading needs a newline before the newly inserted content.
+  const insertAt = table
+    ? (section.lines[table.start + 2]?.start ?? section.end)
+    : section.bodyStart;
+  const gap = content.slice(0, insertAt).endsWith('\n') ? '' : eol;
+  const addition = table
+    ? historyRow + eol
+    : `| Date | Change | Impact | Stories/REQs |${eol}|------|--------|--------|-------------|${eol}${historyRow}${eol}${eol}`;
+  return content.slice(0, insertAt) + gap + addition + content.slice(insertAt);
 }
 
 /**

@@ -6,7 +6,7 @@
 
 | File | Purpose |
 |------|---------|
-| `spec-headings.ts` | `matchReqHeading` (the heading rule), `REQ_ID_SOURCE` (the id shape, exported as regex SOURCE), `readSpecCounters` (declared vs body counters), `indexSpec` (ordered REQ + story records with boundaries), `retiredReqIds` (ids retired as Deprecated bullets), `DEPRECATED_SECTION` |
+| `spec-headings.ts` | `matchReqHeading` (the heading rule), `REQ_ID_SOURCE` (the id shape, exported as regex SOURCE), `readSpecCounters` (declared vs body counters), `indexSpec` (ordered REQ + story records with boundaries), `retiredReqIds` (ids retired as Deprecated bullets), `locateSpecSections` (fence-aware section offsets and closure state), `DEPRECATED_SECTION` |
 | `spec-slices.ts` | `selectSpecSlices` (pure selection by REQ id / story id → slices + misses) and `renderSpecSlices` (slices back to spec source) |
 | `spec-read.ts` | `readSpecSlices` (resolve + contained read + selector expansion + selection → a `not-found`\|`no-selector`\|`sliced` result) and `assembleWholeSpec` — the ONE entry the CLI `spec show` and MCP `get_spec_requirements` share, so resolution and messaging cannot drift |
 
@@ -15,6 +15,7 @@
 - `matchReqHeading(line, {includeStruck})` → `{id, level}` at any ATX level; struck ids are opt-in and exist for the DEFINITION inventory alone
 - `readSpecCounters(content)` → what the frontmatter declares beside what the body holds
 - `indexSpec(content, {includeStruck})` → `{requirements, stories}`; each requirement carries id, level, owning story, deprecated flag and content boundaries
+- `locateSpecSections(content)` → ordered Edge Cases / Deprecated Requirements / Change History sections with raw offsets, masked body probes, and `unclosedFence`; writers refuse malformed fences before using offsets.
 - `retiredReqIds(content)` → ids a `## Deprecated Requirements` section lists as `- **REQ-X**` bullets (main + slices) — for reference resolution only, never a definition
 - `selectSpecSlices(content, index, {req, story})` → `{slices, misses}`; `renderSpecSlices(selection)` → markdown
 - `readSpecSlices(featuresDir, feature, {req, story})` → discriminated `not-found`\|`no-selector`\|`sliced`; each surface applies its own no-selector policy. `assembleWholeSpec(content)` → the whole spec text both whole-spec surfaces render
@@ -28,7 +29,8 @@
 
 1. **Change what a REQ heading IS** — edit `matchReqHeading` only; every reader derives from it.
 2. **Change what a REQ BODY is** — edit `indexSpec`'s boundary predicate; the archive merge reads that boundary instead of recomputing it, so there is no second site.
-3. **Add a narrow-read consumer** — call `readSpecSlices` (the shared entry); never resolve a feature name or parse the spec in the surface itself.
+3. **Change archive section anchors** — extend `locateSpecSections`, which reuses the same walker; the contract suite rejects local section probes in archive writers.
+4. **Add a narrow-read consumer** — call `readSpecSlices` (the shared entry); never resolve a feature name or parse the spec in the surface itself.
 
 ## Ripple Effects
 
@@ -38,9 +40,11 @@
 
 ## Pitfalls
 
-- ONE internal walk backs `readSpecCounters`, `indexSpec` and `retiredReqIds`. Three copies of the heading rule once disagreed and the narrowest (h4-only, in the only WRITER) held the pen: a spec whose REQs sat at h3 counted as zero and its MODIFIED REQs were appended as duplicates (issue #138). A contract test bans a second heading pattern, a second id shape, and a third body slicer — each detector proven to fire on the shape it bans.
+- ONE internal walk backs `readSpecCounters`, `indexSpec`, `retiredReqIds` and `locateSpecSections`. Three copies of the heading rule once disagreed and the narrowest (h4-only, in the only WRITER) held the pen: a spec whose REQs sat at h3 counted as zero and its MODIFIED REQs were appended as duplicates (issue #138). A contract test bans a second heading pattern, a second id shape, and a third body slicer — each detector proven to fire on the shape it bans.
 - Branch ORDER inside the walk is load-bearing: an active REQ heading is decided FIRST (a REQ id written at h2 is a REQ, not a story section), and a struck heading deliberately falls through to the section branches. A REQ heading at h1/h2 CLOSES the Deprecated section — membership follows heading level, not heading text.
 - A REQ body ends at the next ACTIVE REQ heading at any level, at a heading at or above its own level (h1/h2 always, or an h1-level REQ would swallow `## Edge Cases` and the Change History table), or at a `---` rule — every one read from the fence-masked probe. A STRUCK REQ heading DEEPER than the REQ is body text, not a boundary (cutting there stranded the remainder after an in-place replacement and reported nothing, because the shortened slice never saw the bullets it lost); one at or above the REQ's level still bounds, so a retired sibling keeps its `**Removed**` record. That boundary has exactly ONE owner — `archive.service`'s in-place merge takes each REQ's `start`/`end` from here — and the contract test pins the registry to this file alone.
 - Fences are masked before the rules read a line, so a fenced REQ heading is an EXAMPLE, not a definition. An UNCLOSED fence masks the whole tail, so the walk degrades to raw lines instead of trusting the mask — a reader that trusted it would call a plainly-present heading absent.
 - `\r?\n` throughout, and slices carry the file's own line endings: tolerating CRLF in the frontmatter while leaving it in the body once made five of ten specs miscount their stories, and the non-zero wrong values sailed past the zeroing refusal into the trust zone.
 - Story ownership ends where the story's own slice ends, so `## Deprecated Requirements` and `## Edge Cases` both close it — a retired requirement belongs to no story.
+
+- Replacement and landing-fidelity use default active-only `indexSpec`; struck headings remain inventory for uniqueness and fallback routing, never replacement bodies.

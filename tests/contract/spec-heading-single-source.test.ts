@@ -18,6 +18,7 @@
 import { describe, it, expect } from 'vitest';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
+import ts from 'typescript';
 
 const REPO_ROOT = path.resolve(import.meta.dirname, '../..');
 const SRC = path.join(REPO_ROOT, 'src');
@@ -278,7 +279,7 @@ describe('feature-spec REQ heading single source', () => {
     const consumers: Record<string, RegExp[]> = {
       'src/services/archive.service.ts': [
         // the merge, the REMOVED probe (via existingReqLevel), and the recount
-        /indexSpec\(content, \{ includeStruck: true \}\)/,
+        /indexSpec\(content\)/,
         /function existingReqLevel/,
         /readSpecCounters\((?:content|specContent)\)/,
       ],
@@ -337,5 +338,88 @@ describe('feature-spec REQ heading single source', () => {
         /indexSpec\(|selectSpecSlices\(/,
       );
     }
+  });
+});
+
+/** Inspect executable syntax, so emitted headings and explanatory comments stay legal. */
+function directSectionProbes(source: string): string[] {
+  const file = ts.createSourceFile('archive.ts', source, ts.ScriptTarget.Latest, true);
+  const bindings = new Map<string, ts.Expression>();
+  function bind(node: ts.Node): void {
+    if (ts.isVariableDeclaration(node) && ts.isIdentifier(node.name) && node.initializer) bindings.set(node.name.text, node.initializer);
+    ts.forEachChild(node, bind);
+  }
+  bind(file);
+  function literal(node: ts.Node | undefined, seen = new Set<string>()): string {
+    if (!node) return '';
+    if (ts.isStringLiteralLike(node) || ts.isRegularExpressionLiteral(node)) return node.text;
+    if (ts.isIdentifier(node) && !seen.has(node.text)) {
+      seen.add(node.text);
+      return literal(bindings.get(node.text), seen);
+    }
+    return '';
+  }
+  const hits: string[] = [];
+  function visit(node: ts.Node): void {
+    let probe = '';
+    if (ts.isRegularExpressionLiteral(node)) probe = node.text;
+    if (ts.isNewExpression(node) && node.expression.getText(file) === 'RegExp') probe = literal(node.arguments?.[0]);
+    if (ts.isCallExpression(node) && ts.isPropertyAccessExpression(node.expression) && node.expression.name.text === 'includes') probe = literal(node.arguments[0]);
+    if (/(?:Edge Cases|Deprecated Requirements|Change History)/.test(probe)) hits.push(node.getText(file));
+    ts.forEachChild(node, visit);
+  }
+  visit(file);
+  return hits;
+}
+
+function functionBody(source: string, name: string): string {
+  const file = ts.createSourceFile('source.ts', source, ts.ScriptTarget.Latest, true);
+  const node = file.statements.find((statement) => ts.isFunctionDeclaration(statement) && statement.name?.text === name);
+  expect(node, name).toBeDefined();
+  return (node as ts.FunctionDeclaration).body!.getText(file);
+}
+
+describe('archive section-anchor single source (#307/#308)', () => {
+  const archive = fs.readFileSync(path.join(SRC, 'services/archive.service.ts'), 'utf8');
+  it('rejects direct section regex/includes, including a probe held in a variable', () => {
+    expect(directSectionProbes(archive)).toEqual([]);
+    const shapes = [
+      String.raw`const anchor = /^## Edge Cases[ \t]*$/m; anchor.test(content);`,
+      String.raw`const empty = /^## Deprecated Requirements\r?\n\r?\n_\(None\)_/m;`,
+      String.raw`content.replace(/^## Deprecated Requirements[ \t]*$/m, entry);`,
+      "content.includes('## Change History');",
+      "const heading = '## Change History'; content.includes(heading);",
+      "const pattern = '^## Edge Cases'; new RegExp(pattern, 'm').test(content);",
+    ];
+    for (const shape of shapes) {
+      const mutated = archive + '\n' + shape;
+      expect(mutated).not.toBe(archive);
+      expect(directSectionProbes(mutated), shape).not.toEqual([]);
+    }
+    expect(directSectionProbes("const emitted = '## Change History'; // /^## Edge Cases/\n")).toEqual([]);
+  });
+
+  it('confines all writer anchors and the history reader to the shared locator', () => {
+    for (const name of ['mergeRequirementInPlace', 'moveReqToDeprecated', 'appendToChangeHistory']) {
+      const body = functionBody(archive, name);
+      expect(body, name).toMatch(/locateSpecSections\(content\)/);
+      const mutated = body.replace('locateSpecSections(content)', 'oldRawScan(content)');
+      expect(mutated).not.toBe(body);
+      expect(mutated).not.toMatch(/locateSpecSections\(content\)/);
+    }
+    const owner = fs.readFileSync(path.join(SRC, 'lib/spec-headings.ts'), 'utf8');
+    expect(functionBody(owner, 'hasChangeHistorySection')).toContain('locateSpecSections(content)');
+    expect(functionBody(owner, 'locateSpecSections')).toContain('walkLines(content, 0)');
+  });
+
+  it('keeps merge and landing-fidelity active-only, while inventory remains opt-in', () => {
+    const merge = functionBody(archive, 'mergeRequirementInPlace');
+    const drift = fs.readFileSync(path.join(SRC, 'lib/drift-sources.ts'), 'utf8');
+    const existing = functionBody(drift, 'resolveExistingReqBody');
+    expect(merge).toContain('indexSpec(content)');
+    expect(existing).toContain('indexSpec(specContent)');
+    expect(merge).not.toContain('includeStruck');
+    expect(existing).not.toContain('includeStruck');
+    expect(functionBody(drift, 'collectReqDefinitions')).toContain('includeStruck: true');
   });
 });

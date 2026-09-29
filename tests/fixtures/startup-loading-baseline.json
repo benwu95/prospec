@@ -8,7 +8,7 @@
         ".prospec/changes/"
       ],
       "mandatory": 0,
-      "mandatory_context_tokens": 7770
+      "mandatory_context_tokens": 7748
     },
     "prospec-backfill-spec": {
       "items": [
@@ -26,7 +26,7 @@
         "{{base_dir}}/specs/features/"
       ],
       "mandatory": 1,
-      "mandatory_context_tokens": 5962
+      "mandatory_context_tokens": 5972
     },
     "prospec-design": {
       "items": [
@@ -191,7 +191,7 @@
     "debug-recovery-format": 1307,
     "delegated-evidence-format": 3260,
     "delegation-protocol": 2448,
-    "delta-spec-format": 2025,
+    "delta-spec-format": 2035,
     "design-spec-format": 930,
     "drift-report-format": 2582,
     "feature-boundary-criteria": 963,
@@ -207,7 +207,7 @@
     "proposal-format": 1211,
     "review-format": 2568,
     "review-lenses-content": 3068,
-    "spec-graduation": 892,
+    "spec-graduation": 835,
     "tasks-format": 1549,
     "tasks-verifier-rubric": 1713,
     "verify-backfill": 1218

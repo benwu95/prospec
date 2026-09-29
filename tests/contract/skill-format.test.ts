@@ -3915,6 +3915,8 @@ describe('Dropped-behavior graduation gate (REQ-TEMPLATES-168)', () => {
     // the qualifier must travel with the claim, in the same sentence
     expect(phase).toMatch(/landed.{0,80}does not mean.{0,20}lost nothing/is);
     expect(phase).not.toMatch(/already landed its authored spec text\.\s*$/m);
+    expect(phase).toMatch(/Blocking worklists stop archive at preflight/);
+    expect(phase).not.toContain('Feature Spec Sync is non-fatal');
   });
 
   it('Phase 3.5 gate requires each dropped bullet to be confirmed or restored', () => {
@@ -3932,6 +3934,18 @@ describe('Dropped-behavior graduation gate (REQ-TEMPLATES-168)', () => {
     // the refusal is a DIFFERENT finding with a different fix, and the gate says so
     expect(gate).toMatch(/refused/i);
     expect(gate).toMatch(/does not release a refusal/i);
+    expect(gate).toContain('references/spec-graduation.md');
+    expect(gate).toMatch(/named cause/i);
+    expect(gate).not.toContain('A refusal means that block was cut short');
+    const ref = renderTemplate('skills/references/spec-graduation.hbs', TEMPLATE_CONTEXT);
+    const refusals = sectionOf(ref, '### 3. Refused Requirements');
+    for (const kind of ['unclosed-fence', 'unresolved-feature', 'truncation']) {
+      expect(refusals).toContain(`\`${kind}\``);
+    }
+    expect(refusals).toMatch(/unclosed-fence[^\n]*close[^\n]*source file/i);
+    expect(refusals).toMatch(/unresolved-feature[^\n]*Feature[^\n]*host/i);
+    expect(refusals).toMatch(/truncation[^\n]*named block/i);
+    expect(refusals).toMatch(/before[^\n]*change[^\n]*moved/i);
     // an empty report must not add ceremony — the item self-satisfies
     expect(gate).toMatch(/empty report satisfies/i);
   });
@@ -3941,6 +3955,10 @@ describe('Dropped-behavior graduation gate (REQ-TEMPLATES-168)', () => {
     const section = sectionOf(ref, '## The `**Spec:**` Block — What Lands in the Feature Spec');
     expect(section).toContain('not the delta');
     expect(section).toMatch(/replaces the\s+WHOLE body/i);
+    expect(section).toMatch(/WHOLE body of the active REQ/i);
+    expect(section).toMatch(/only a struck definition[^\n]*preserves[^\n]*byte-identical[^\n]*new active section/i);
+    expect(section).toMatch(/req-id-uniqueness[^\n]*human/i);
+    expect(section).toMatch(/no active body[^\n]*compare/i);
     // the machine backstop is named, so the two defences stay linked
     expect(section).toMatch(/archive CLI reports/i);
     // …and its limit is stated rather than left to be discovered (PB-003)
@@ -8136,6 +8154,15 @@ describe('split and trim references contract (REQ-TEMPLATES-215~220, REQ-AGNT-04
     // Negative assertions: must not contain weak optional routing words
     expect(archiveContent).not.toMatch(/optionally read `references\/spec-graduation\.md`/i);
     expect(archiveContent).not.toMatch(/can read `references\/spec-graduation\.md`/i);
+    const graduation = renderTemplate('skills/references/spec-graduation.hbs', TEMPLATE_CONTEXT);
+    const placement = sectionOf(graduation, '## Semantic Convergence Guidelines');
+    expect(placement).toMatch(/first real, unfenced[^\n]*Edge Cases[^\n]*Deprecated Requirements[^\n]*Change History/);
+    expect(placement).toMatch(/EOF when none exists/);
+    expect(placement).not.toContain('mechanical merge appends before `## Edge Cases`');
+    const replacement = sectionOf(graduation, '## Block-Replaces-Whole-Body Rule');
+    expect(replacement).toMatch(/active requirement body/);
+    expect(replacement).toMatch(/only a struck definition[^\n]*byte-identical[^\n]*new active section/i);
+    expect(replacement).toMatch(/req-id-uniqueness[^\n]*human/i);
   });
 
   it('renders verifier-rubric-base partial correctly in plan and tasks verifier rubrics', () => {

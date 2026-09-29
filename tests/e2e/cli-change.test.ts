@@ -523,6 +523,25 @@ describe('CLI E2E — change & spec', () => {
     const alphaSpec = (): string =>
       fs.readFileSync(path.join(tmpDir, 'prospec', 'specs', 'features', 'alpha.md'), 'utf-8');
 
+    it.each([true, false])('refuses an unclosed target before moving the change (dryRun=%s)', async (dryRun) => {
+      await writeVerifiedChange('feat-fence');
+      const specFile = path.join(tmpDir, 'prospec/specs/features/alpha.md');
+      const original = '---\nfeature: alpha\n---\n\n### US-1\n\n~~~md\n## Change History\n';
+      await fs.promises.mkdir(path.dirname(specFile), { recursive: true });
+      await fs.promises.writeFile(specFile, original);
+      await recordCliEvidence(tmpDir, 'feat-fence');
+      const metadataPath = path.join(tmpDir, '.prospec/changes/feat-fence/metadata.yaml');
+      const metadataBefore = await fs.promises.readFile(metadataPath, 'utf8');
+      const { exitCode, stderr } = await runCli(['archive', 'feat-fence', ...(dryRun ? ['--dry-run'] : [])]);
+      expect(exitCode).toBe(1);
+      expect(stderr).toContain('unclosed code fence');
+      expect(stderr).toContain('alpha.md');
+      expect(stderr).toContain('close the fence');
+      expect(await fs.promises.readFile(specFile, 'utf8')).toBe(original);
+      expect(await fs.promises.readFile(metadataPath, 'utf8')).toBe(metadataBefore);
+      expect(fs.existsSync(path.join(tmpDir, '.prospec/archive'))).toBe(false);
+    });
+
     it('exits 1 and leaves the feature spec untouched when a bullet would be dropped', async () => {
       await writeLossyChange('feat-loss', 'A new body that restates nothing.');
       const before = alphaSpec();
