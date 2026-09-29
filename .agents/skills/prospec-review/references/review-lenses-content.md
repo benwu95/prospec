@@ -104,6 +104,12 @@ test changed likely changed behavior — treat as suspect.
 
 Applies when the change adds or edits README/doc/spec prose that claims behavior.
 
+**Claim writing:**
+
+- State the component’s own guarantees; reference another component’s REQ instead of describing its decision boundary.
+- Derive set and condition wording from code predicates; quote registered canonical phrases verbatim.
+- Use quantifiers (every, only, whenever, always, one per) and causal clauses (because, would) only when valid throughout the stated scope; otherwise delete them or reference the owning REQ.
+
 | Criterion | Default severity |
 |-----------|------------------|
 | A documented claim ("X handles / measures / degrades / supports Y") has no code path that realizes it — **claim ⊆ implementation**: grep for the path before the claim ships | critical (spec contradiction) / major (overclaim) |

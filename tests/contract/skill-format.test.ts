@@ -1,3 +1,4 @@
+import { CANONICAL_CLAIMS } from '../../src/types/canonical-claims.js';
 /**
  * Contract tests for Skill file format.
  *
@@ -77,6 +78,7 @@ import { estimateTokens } from '../../src/lib/token-accounting.js';
 import { DECLARED_NON_SHIPPED, mandatoryCitations, referenceOf, startupLoadingSection as sharedStartupLoadingSection } from '../helpers/mandatory-loads.js';
 
 const TEMPLATE_CONTEXT = {
+  canonical_claims: CANONICAL_CLAIMS,
   playbook_entry_token_limit: PLAYBOOK_ENTRY_TOKEN_LIMIT,
   project_name: 'test-project',
   knowledge_base_path: 'prospec/ai-knowledge',
@@ -654,7 +656,7 @@ describe('Skill Format Contract', () => {
       expect(start, 'cascade-protocol commit prompt not found').toBeGreaterThan(-1);
       const section = content.slice(start, content.indexOf('## Reference Information', start));
       expect(section, 'commit prompt section sliced empty').not.toBe('');
-      expect(section).toContain('the modules `prospec knowledge update --change` reports ∪ `metadata.related_modules` ∪ working-tree diff modules');
+      expect(section).toContain(CANONICAL_CLAIMS.knowledge_sync_modules.en);
       expect(section).not.toContain('REQ-prefix modules');
       expect(section).toContain('working-tree diff');
       expect(section).toContain('generated artifacts included');
@@ -2802,15 +2804,15 @@ describe('Skill Format Contract', () => {
     // never "the Feature header's modules" (wrong when a slug collides or is claimed).
     it('describes the backfill Knowledge Sync as the set knowledge update reports ∪ related_modules', () => {
       const brownfield = htmlSectionById(website, 'brownfield');
-      expect(brownfield).toContain('sync the modules <code>prospec knowledge update</code> reports ∪ <code>related_modules</code>');
+      expect(brownfield).toContain('sync ' + CANONICAL_CLAIMS.backfill_sync_modules.en.replace(/`([^`]+)`/g, '<code>$1</code>'));
       expect(brownfield).not.toContain('the feature’s modules');
       expect(brownfield).not.toContain('sync only its declared modules');
-      expect(zhOverlay).toContain('同步 <code>prospec knowledge update</code> 回報的 modules ∪ <code>related_modules</code>');
+      expect(zhOverlay).toContain('同步 ' + CANONICAL_CLAIMS.backfill_sync_modules.zh.replace(/`([^`]+)`/g, '<code>$1</code>'));
       expect(zhOverlay).not.toContain('feature 的 modules）');
       expect(zhOverlay).not.toContain('只同步宣告的 modules');
       for (const [file, expected, banned] of [
-        ['README.md', 'Update the READMEs of the modules it reports ∪ `metadata.related_modules`', 'update only the module READMEs named in `metadata.related_modules`'],
-        ['README.zh-TW.md', '更新它回報的 modules ∪ `metadata.related_modules` 的 READMEs', '只更新 `metadata.related_modules` 指定的 module READMEs'],
+        ['README.md', 'Update the READMEs of ' + CANONICAL_CLAIMS.backfill_sync_modules.en, 'update only the module READMEs named in `metadata.related_modules`'],
+        ['README.zh-TW.md', '更新' + CANONICAL_CLAIMS.backfill_sync_modules.zh + ' 的 READMEs', '只更新 `metadata.related_modules` 指定的 module READMEs'],
       ] as const) {
         const readme = fs.readFileSync(path.resolve(file), 'utf-8');
         const step = readme.split('\n').find((l) => l.startsWith('5. **Knowledge Sync**'));
@@ -5072,7 +5074,7 @@ describe('backfill graduation — verify spec-fidelity contract (scale: backfill
     const item = section.split('\n').find((l) => l.startsWith('- **Knowledge Sync**:'));
     expect(item, 'Knowledge Sync item missing').toBeDefined();
     expect(item).toContain('Run `prospec knowledge update --change <name>`');
-    expect(item).toContain('Sync the READMEs of the modules it reports ∪ `metadata.related_modules`');
+    expect(item).toContain('Sync the READMEs of ' + CANONICAL_CLAIMS.backfill_sync_modules.en);
     expect(item).not.toContain('header names');
     expect(item).not.toContain('would mint phantom modules');
     expect(item).not.toContain('Sync only the module READMEs named in `metadata.related_modules`');
@@ -6067,7 +6069,7 @@ describe('Knowledge sync folded into the verify S/A commit prompt (REQ-TEMPLATES
     expect(status).toContain('prospec knowledge verify');
     expect(status).toContain('prospec knowledge verify <modules...>');
     expect(status).toContain('scale: backfill');
-    expect(status).toContain('(`scale: backfill`: the reported modules ∪ `metadata.related_modules`, minting nothing)');
+    expect(status).toContain('(`scale: backfill`: ' + CANONICAL_CLAIMS.backfill_sync_modules.en + ', minting nothing)');
     expect(status).not.toContain('the modules of the feature its `**Feature:**` header names');
     expect(status).not.toContain('sync only the READMEs named by `metadata.related_modules`');
   });

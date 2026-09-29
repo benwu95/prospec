@@ -4,7 +4,7 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg?style=flat-square)](LICENSE)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.9-blue?style=flat-square&logo=typescript)](https://www.typescriptlang.org/)
-[![Tests](https://img.shields.io/badge/tests-6716%20total-success?style=flat-square)](tests/)
+[![Tests](https://img.shields.io/badge/tests-6766%20total-success?style=flat-square)](tests/)
 [![Node](https://img.shields.io/badge/node-%3E%3D22.13-brightgreen?style=flat-square&logo=node.js)](https://nodejs.org/)
 [![pnpm](https://img.shields.io/badge/pnpm-%3E%3D11-orange?style=flat-square&logo=pnpm)](https://pnpm.io/)
 
@@ -650,7 +650,7 @@ flowchart TD
 2. **Review** — resolve every `[NEEDS CLARIFICATION]` (the *So that* value, target role, ambiguous AC) and confirm the candidate feature slug. This is the human gate.
 3. **Promote** — `prospec-promote-backfill` turns the reviewed draft into the change scaffold (proposal + delta-spec + metadata) marked `scale: backfill`, `status: implemented`. `backfill` is a **light scale** like `quick` — no hollow `plan.md`/`tasks.md`, because the code already exists.
 4. **Verify** — `prospec-verify` grades **spec-fidelity** (each REQ's `file:line` must resolve), records pre-existing code-quality gaps (e.g. untested brownfield code) as informational tech debt, and only applies that relaxation when a `backfill-draft.md` proves provenance — so a faithful draft reaches S/A instead of being blocked by debt it merely documents, and the marker can't bypass quality gates for new code. By contract, code review is optional for proven backfill.
-5. **Knowledge Sync** — run `prospec knowledge update --change <name>` (it mints no module for a feature-slug REQ ID). Update the READMEs of the modules it reports ∪ `metadata.related_modules`, then stamp them with `prospec knowledge verify`.
+5. **Knowledge Sync** — run `prospec knowledge update --change <name>` (it mints no module for a feature-slug REQ ID). Update the READMEs of the modules `prospec knowledge update --change` reports ∪ `metadata.related_modules`, then stamp them with `prospec knowledge verify`.
 6. **Archive** — `prospec-archive` graduates the requirements into `prospec/specs/features/{slug}.md`. That is the only step that writes the trust zone.
 
 ### Upgrading Prospec
@@ -704,7 +704,7 @@ templates alongside). The layer-by-layer breakdown and the tech-stack list are i
 ## Testing
 
 ```bash
-# Run all tests (6716 total; 4 skipped)
+# Run all tests (6766 total; 4 skipped)
 pnpm test
 
 # Watch mode
@@ -717,9 +717,9 @@ pnpm run typecheck
 pnpm run lint
 ```
 
-**Test Coverage**: 6716 total tests (6712 passed; 4 skipped) across 4 categories:
+**Test Coverage**: 6766 total tests (6762 passed; 4 skipped) across 4 categories:
 - Unit tests (types + lib + services + cli): 4932 tests
-- Contract tests (CLI output + Skill format): 1451 tests
+- Contract tests (CLI output + Skill format): 1501 tests
 - Integration tests: 133 tests
 - E2E tests: 200 tests
 

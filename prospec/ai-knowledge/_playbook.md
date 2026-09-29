@@ -43,9 +43,11 @@ Format (one entry per promoted lesson) — see `.claude/skills/prospec-learn/ref
 
 ### PB-003: Documented claims must match actually-observable implementation behavior — mark gaps with deliberate-exclusion wording
 - **Source**: add-token-measurement-harness, reorder-stable-prefix-loading, add-drift-checker, add-mcp-server · **Criteria**: freq=4, modules=4 (cli, templates, lib, services) · **Kind**: playbook · **Approved-by**: benwu95 · **Date**: 2026-06-13 (provenance appended; originally 2026-06-12)
-- **Stations**: implement, review, verify, knowledge-update, archive
+- **Stations**: plan, implement, review, verify, knowledge-update, archive
 - **TTL**: review by 2026-12-12
 - **Inlined into gate 2026-07-04**: Landing: `src/templates/skills/references/review-lenses-content.hbs` (Docs-Claims / Measurement-Attribution Lens).
+- **Guidance**: State the component’s own guarantees; reference another component’s REQ instead of describing its decision boundary. Derive set and condition wording from code predicates; quote registered canonical phrases verbatim. Use quantifiers (every, only, whenever, always, one per) and causal clauses (because, would) only when valid throughout the stated scope; otherwise delete them or reference the owning REQ.
+- **Authoring extension**: add-canonical-claims (#315); requested by benwu95, 2026-09-29.
 
 ### PB-006: Extract logic duplicated across parallel modules into a single-source helper — don't hand-copy
 - **Source**: src-review-round2-remediation, harden-feature-prefixed-req-sync, preserve-agent-config-edits · **Criteria**: freq=3, modules=2 (lib, services) · **Kind**: convention · **Approved-by**: benwu95 · **Date**: 2026-06-22

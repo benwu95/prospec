@@ -1,5 +1,6 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
+import { CANONICAL_CLAIMS } from '../types/canonical-claims.js';
 import { resolveBasePaths } from './config.js';
 import { isStale } from './drift-checker.js';
 import { collectGitTimestamps } from './drift-sources.js';
@@ -291,9 +292,9 @@ export async function findUnsyncedModules(
 /**
  * The one mapping from knowledge-sync gaps to `WorkflowReason`s, shared by
  * `prospec status` and `prospec archive`. Inputs no station repairs — an
- * unreadable module map, non-canonical ids, a `related_modules` name the map
- * does not register and no ADDED REQ introduces as a new module — come first
- * under `KNOWLEDGE_INPUT_INVALID`; what
+ * unreadable module map, non-canonical ids and the condition described by
+ * CANONICAL_CLAIMS.related_module_halt — come first under
+ * `KNOWLEDGE_INPUT_INVALID`; what
  * `prospec-knowledge-update` repairs follows under `KNOWLEDGE_UNSYNCED`.
  * Returns a reason exactly when `hasKnowledgeSyncGap` is true.
  */
@@ -312,7 +313,7 @@ export function knowledgeSyncReasons(gaps: KnowledgeSyncGaps, changeName: string
     invalid.remedies.push('rename each to REQ-{MODULE}-NNN');
   }
   if (relatedOnly.length > 0) {
-    invalid.causes.push(`related_modules name(s) not registered in module-map: ${relatedOnly.join(', ')}`);
+    invalid.causes.push(`${CANONICAL_CLAIMS.related_module_halt.en}: ${relatedOnly.join(', ')}`);
     invalid.remedies.push(
       `for ${relatedOnly.join(', ')}: register the module in module-map.yaml, or correct a mistyped name with \`prospec change related-modules <module...> --change ${changeName}\` (every registered module kept)`,
     );
