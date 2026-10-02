@@ -4,7 +4,7 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg?style=flat-square)](LICENSE)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.9-blue?style=flat-square&logo=typescript)](https://www.typescriptlang.org/)
-[![Tests](https://img.shields.io/badge/tests-6870%20total-success?style=flat-square)](tests/)
+[![Tests](https://img.shields.io/badge/tests-6888%20total-success?style=flat-square)](tests/)
 [![Node](https://img.shields.io/badge/node-%3E%3D22.13-brightgreen?style=flat-square&logo=node.js)](https://nodejs.org/)
 [![pnpm](https://img.shields.io/badge/pnpm-%3E%3D11-orange?style=flat-square&logo=pnpm)](https://pnpm.io/)
 
@@ -704,7 +704,7 @@ templates alongside). The layer-by-layer breakdown and the tech-stack list are i
 ## Testing
 
 ```bash
-# Run all tests (6870 total; 4 skipped)
+# Run all tests (6888 total; 4 skipped)
 pnpm test
 
 # Watch mode
@@ -717,8 +717,8 @@ pnpm run typecheck
 pnpm run lint
 ```
 
-**Test Coverage**: 6870 total tests (6866 passed; 4 skipped) across 4 categories:
-- Unit tests (types + lib + services + cli): 4939 tests
+**Test Coverage**: 6888 total tests (6884 passed; 4 skipped) across 4 categories:
+- Unit tests (types + lib + services + cli): 4957 tests
 - Contract tests (CLI output + Skill format): 1576 tests
 - Integration tests: 153 tests
 - E2E tests: 202 tests

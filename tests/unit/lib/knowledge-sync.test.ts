@@ -13,6 +13,7 @@ import {
   readKnownModules,
   type KnowledgeSyncGaps,
 } from '../../../src/lib/knowledge-sync.js';
+import { PrerequisiteError } from '../../../src/types/errors.js';
 
 vi.mock('node:fs', async () => {
   const memfs = await import('memfs');
@@ -160,9 +161,20 @@ describe('classifyDeltaSpec', () => {
 describe('module-map loading', () => {
   it('distinguishes an absent module map (empty) from an unparseable one (null)', () => {
     vol.fromJSON({ [`${KP}/.keep`]: '' });
-    expect(buildModulePathMap(`${KP}/module-map.yaml`)).toEqual(new Map());
+    expect(buildModulePathMap(KP)).toEqual(new Map());
     vol.fromJSON({ [`${KP}/module-map.yaml`]: 'modules: [\n  - : :\n' });
-    expect(buildModulePathMap(`${KP}/module-map.yaml`)).toBeNull();
+    expect(buildModulePathMap(KP)).toBeNull();
+  });
+
+  it('reads the module map of the knowledge root it is given', () => {
+    vol.fromJSON(knowledge(['lib']));
+    expect([...buildModulePathMap(KP)!]).toEqual([['lib', ['src/lib']]]);
+  });
+
+  it('returns null for a valid module map that resolves outside the knowledge root', () => {
+    vol.fromJSON({ '/outside/module-map.yaml': `modules:\n${moduleEntry('lib')}`, [`${KP}/.keep`]: '' });
+    vol.symlinkSync('/outside/module-map.yaml', `${KP}/module-map.yaml`);
+    expect(buildModulePathMap(KP)).toBeNull();
   });
 
   it('knows only the registered names when a module map exists, and the modules/ directories when it does not', () => {
@@ -444,5 +456,133 @@ describe('readKnownModules (REQ-LIB-097)', () => {
     const meta = { related_modules: [] } as Parameters<typeof findUnsyncedModules>[1];
     expect(hasKnowledgeSyncGap(await findUnsyncedModules(CHANGE, meta, CWD, null))).toBe(false);
     expect(readKnownModules(KP, CWD).unreadable).toBeDefined();
+  });
+});
+
+describe('maps that resolve outside the knowledge root', () => {
+  const meta = (related: string[]) => ({ related_modules: related }) as Parameters<typeof findUnsyncedModules>[1];
+  const VALID_MAP = `modules:\n${moduleEntry('lib')}`;
+  const BROKEN = 'modules: [\n  - : :\n';
+  const NO_GAP_FIELDS = { stale: [], unregistered: [], malformedIds: [] };
+
+  function linkOutside(name: 'module-map.yaml' | 'feature-map.yaml', content: string | null, files: Record<string, string> = {}) {
+    vol.fromJSON({ [`${KP}/.keep`]: '', ...(content === null ? {} : { [`/outside/${name}`]: content }), ...files });
+    vol.symlinkSync(`/outside/${name}`, `${KP}/${name}`);
+  }
+
+  it('reports a broken outside module map as outside the root when a delta-spec exists', async () => {
+    linkOutside('module-map.yaml', BROKEN, { [`${CHANGE}/delta-spec.md`]: delta({ MODIFIED: [req('REQ-LIB-001')] }) });
+    const gaps = await findUnsyncedModules(CHANGE, meta([]), CWD, null);
+    expect(gaps).toMatchObject({ moduleMapUnreadable: true, moduleMapOutsideRoot: true });
+  });
+
+  it('reports a valid outside module map unreadable for a change without a delta-spec', async () => {
+    linkOutside('module-map.yaml', VALID_MAP, { [`${KP}/modules/lib/README.md`]: '# lib\n' });
+    expect(await findUnsyncedModules(CHANGE, meta(['lib']), CWD, null)).toEqual({
+      ...NO_GAP_FIELDS, moduleMapUnreadable: true, moduleMapOutsideRoot: true,
+    });
+    expect(await checkKnowledgeSync(CHANGE, meta(['lib']), CWD, null)).toBe(false);
+  });
+
+  it('does not pass a related name an outside module map leaves unregistered', async () => {
+    vol.fromJSON(knowledge(['lib']));
+    expect((await findUnsyncedModules(CHANGE, meta(['ghost']), CWD, null)).unregistered).toEqual(['ghost']);
+    vol.reset();
+    linkOutside('module-map.yaml', VALID_MAP);
+    const gaps = await findUnsyncedModules(CHANGE, meta(['ghost']), CWD, null);
+    expect(gaps).toMatchObject({ moduleMapUnreadable: true, moduleMapOutsideRoot: true });
+    expect(await checkKnowledgeSync(CHANGE, meta(['ghost']), CWD, null)).toBe(false);
+  });
+
+  it('marks an outside module map even when the delta-spec yields no affected module', async () => {
+    linkOutside('module-map.yaml', VALID_MAP, { [`${CHANGE}/delta-spec.md`]: delta({ MODIFIED: [req('REQ-LIB-097')] }) });
+    expect(await findUnsyncedModules(CHANGE, meta([]), CWD, null)).toEqual({
+      ...NO_GAP_FIELDS, moduleMapUnreadable: true, moduleMapOutsideRoot: true,
+    });
+  });
+
+  it('names the outside-root cause and remedy readKnownModules reports, not the unreadable-map text', async () => {
+    linkOutside('module-map.yaml', VALID_MAP);
+    const [reason, ...rest] = knowledgeSyncReasons(await findUnsyncedModules(CHANGE, meta(['lib']), CWD, null), 'c');
+    const { unreadable } = readKnownModules(KP, CWD);
+    expect(rest).toEqual([]);
+    expect(reason!.code).toBe('KNOWLEDGE_INPUT_INVALID');
+    expect(reason!.message).toContain(unreadable!.cause);
+    expect(reason!.remediation).toContain(unreadable!.remedy);
+    expect(reason!.message).not.toContain(MODULE_MAP_UNREADABLE_CAUSE);
+    expect(reason!.remediation).not.toContain(MODULE_MAP_UNREADABLE_REMEDY);
+  });
+
+  it('keeps the unreadable-map text and adds no outside-root key for a broken map inside the root', async () => {
+    vol.fromJSON({ [`${KP}/module-map.yaml`]: BROKEN });
+    const gaps = await findUnsyncedModules(CHANGE, meta(['lib']), CWD, null);
+    expect(gaps).not.toHaveProperty('moduleMapOutsideRoot');
+    const [reason] = knowledgeSyncReasons(gaps, 'c');
+    expect(reason!.message).toContain(MODULE_MAP_UNREADABLE_CAUSE);
+    expect(reason!.remediation).toContain(MODULE_MAP_UNREADABLE_REMEDY);
+  });
+
+  it('adds no outside-root key on the delta-spec path for a map inside the root that is broken or a directory', async () => {
+    const cases: Record<string, string>[] = [
+      { [`${KP}/module-map.yaml`]: BROKEN },
+      { [`${KP}/module-map.yaml/nested`]: 'x' },
+    ];
+    for (const files of cases) {
+      vol.reset();
+      vol.fromJSON({ ...files, [`${CHANGE}/delta-spec.md`]: delta({ MODIFIED: [req('REQ-LIB-001')] }) });
+      const gaps = await findUnsyncedModules(CHANGE, meta([]), CWD, null);
+      expect(gaps, JSON.stringify(files)).toEqual({ ...NO_GAP_FIELDS, moduleMapUnreadable: true });
+      expect(knowledgeSyncReasons(gaps, 'c')[0]!.remediation).toContain(MODULE_MAP_UNREADABLE_REMEDY);
+    }
+  });
+
+  it('maps the outside-root marker to a reason only together with moduleMapUnreadable', () => {
+    const marked = { ...NO_GAP_FIELDS, moduleMapUnreadable: false, moduleMapOutsideRoot: true as const };
+    expect(hasKnowledgeSyncGap(marked)).toBe(false);
+    expect(knowledgeSyncReasons(marked, 'c')).toEqual([]);
+  });
+
+  it('raises on a broken outside feature map when a delta-spec exists', async () => {
+    linkOutside('feature-map.yaml', 'features: nope\n', {
+      ...knowledge(['lib']),
+      [`${CHANGE}/delta-spec.md`]: delta({ MODIFIED: [req('REQ-LIB-001')] }),
+    });
+    await expect(findUnsyncedModules(CHANGE, meta(['lib']), CWD, null)).rejects.toThrow(
+      /feature-map\.yaml resolves outside the knowledge root/,
+    );
+  });
+
+  it('raises on a valid outside feature map in the classifier context, naming the cause and remedy', () => {
+    linkOutside('feature-map.yaml', FEATURE_MAP, knowledge(['lib']));
+    let error: unknown;
+    try {
+      loadDeltaModuleContext(KP, [], false);
+    } catch (e) {
+      error = e;
+    }
+    expect(error).toBeInstanceOf(PrerequisiteError);
+    expect((error as PrerequisiteError).message).toContain('feature-map.yaml resolves outside the knowledge root');
+    expect((error as PrerequisiteError).message).toContain('inside the knowledge root instead of linking');
+    expect((error as PrerequisiteError).suggestion).toContain('inside the knowledge root instead of linking');
+  });
+
+  it('raises on the feature map when both maps resolve outside the knowledge root', async () => {
+    linkOutside('module-map.yaml', VALID_MAP, { [`${CHANGE}/delta-spec.md`]: delta({ ADDED: [req('REQ-LIB-001')] }) });
+    vol.writeFileSync('/outside/feature-map.yaml', FEATURE_MAP);
+    vol.symlinkSync('/outside/feature-map.yaml', `${KP}/feature-map.yaml`);
+    await expect(findUnsyncedModules(CHANGE, meta(['lib']), CWD, null)).rejects.toThrow(/feature-map\.yaml resolves outside/);
+  });
+
+  it('loads no feature map when feature-map.yaml is absent', () => {
+    vol.fromJSON(knowledge(['lib']));
+    expect(loadDeltaModuleContext(KP, [], false).featureMap).toBeNull();
+  });
+
+  it('reads a dangling module-map or feature-map symlink as an absent map', async () => {
+    linkOutside('module-map.yaml', null);
+    expect(await findUnsyncedModules(CHANGE, meta(['lib']), CWD, null)).toEqual({ ...NO_GAP_FIELDS, moduleMapUnreadable: false });
+    vol.reset();
+    linkOutside('feature-map.yaml', null, knowledge(['lib']));
+    expect(loadDeltaModuleContext(KP, [], false).featureMap).toBeNull();
   });
 });

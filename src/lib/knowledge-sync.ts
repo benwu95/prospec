@@ -5,10 +5,11 @@ import { resolveBasePaths } from './config.js';
 import { isStale } from './drift-checker.js';
 import { collectGitTimestamps } from './drift-sources.js';
 import { readFileIfExists } from './fs-utils.js';
-import { loadFeatureMap, loadModuleMap } from './knowledge-reader.js';
+import { loadFeatureMap, loadModuleMap, readContained } from './knowledge-reader.js';
 import { iterateDeltaEntries, type DeltaEntry } from './landing-fidelity.js';
 import { isProvenBackfill } from './change-metadata.js';
 import { parseYaml } from './yaml-utils.js';
+import { PrerequisiteError } from '../types/errors.js';
 import type { ProspecConfig } from '../types/config.js';
 import type { FeatureMap } from '../types/feature-map.js';
 import type { ModuleMap } from '../types/module-map.js';
@@ -17,17 +18,25 @@ import type { WorkflowReason } from '../types/status.js';
 /** The canonical `REQ-{MODULE}-NNN` id (a 3-digit sequence); capture 1 is the module prefix, hyphenated segments included. */
 const CANONICAL_REQ_ID = /^REQ-([\w-]+)-\d{3}$/;
 
+/** Whether `file` exists but resolves outside `root` — the contained read's own `escaped` verdict. */
+function resolvesOutsideRoot(file: string, root: string): boolean {
+  const read = readContained(file, root);
+  return !read.ok && read.reason === 'escaped';
+}
+
 /**
- * Module name (lowercased) → paths, read leniently from `module-map.yaml`.
- * An absent file is an empty map; a file that exists but cannot be read or
- * parsed is `null`, so a gate can tell "no modules" from "not measured".
+ * Module name (lowercased) → paths, read leniently from the knowledge root's
+ * `module-map.yaml`. An absent file is an empty map; a file that cannot be read
+ * or parsed, or that resolves outside the knowledge root, is `null`, so a gate
+ * can tell "no modules" from "not measured".
  */
-export function buildModulePathMap(moduleMapPath: string): Map<string, string[]> | null {
+export function buildModulePathMap(knowledgePath: string): Map<string, string[]> | null {
+  const moduleMapPath = path.join(knowledgePath, 'module-map.yaml');
   const pathMap = new Map<string, string[]>();
-  if (!fs.existsSync(moduleMapPath)) return pathMap;
+  const read = readContained(moduleMapPath, knowledgePath);
+  if (!read.ok) return read.reason === 'absent' ? pathMap : null;
   try {
-    const content = fs.readFileSync(moduleMapPath, 'utf-8');
-    const moduleMap = parseYaml<ModuleMap>(content, moduleMapPath);
+    const moduleMap = parseYaml<ModuleMap>(read.text, moduleMapPath);
     for (const entry of moduleMap.modules) {
       pathMap.set(entry.name.toLowerCase(), entry.paths);
     }
@@ -71,6 +80,10 @@ const MODULE_MAP_OUTSIDE_ROOT = {
   cause: 'module-map.yaml resolves outside the knowledge root',
   remedy: 'keep module-map.yaml itself inside the knowledge root instead of linking to one outside it',
 } as const;
+const FEATURE_MAP_OUTSIDE_ROOT = {
+  cause: 'feature-map.yaml resolves outside the knowledge root',
+  remedy: 'keep feature-map.yaml itself inside the knowledge root instead of linking to one outside it',
+} as const;
 
 export interface KnownModules {
   /** Lowercased name → the module's own spelling (module-map name, else directory name). */
@@ -94,7 +107,7 @@ export function readKnownModules(knowledgePath: string, cwd: string): KnownModul
   if (moduleMap === null) {
     // loadModuleMap reads a map outside the knowledge root as absent; falling back
     // to modules/ past a map that is there would judge names against the wrong set
-    if (fs.existsSync(path.join(knowledgePath, 'module-map.yaml'))) {
+    if (resolvesOutsideRoot(path.join(knowledgePath, 'module-map.yaml'), knowledgePath)) {
       return { known: new Map(), unreadable: { ...MODULE_MAP_OUTSIDE_ROOT } };
     }
     return { known: new Map(listModuleDirectories(knowledgePath).map((n) => [n.toLowerCase(), n])) };
@@ -128,22 +141,34 @@ export interface DeltaModuleContext {
   featureMap: FeatureMap | null;
   related: string[];
   backfill: boolean;
-  /** `module-map.yaml` is present but could not be read or parsed. */
+  /** `module-map.yaml` is present but could not be read or parsed, or resolves outside the knowledge root. */
   moduleMapUnreadable: boolean;
 }
 
-/** Load the classifier context. A feature-map read failure propagates — it never reads as "no feature prefixes". */
+/**
+ * Load the classifier context. A feature map that cannot be read, parsed or
+ * validated, or that resolves outside the knowledge root, raises — it never
+ * reads as "no feature prefixes".
+ */
 export function loadDeltaModuleContext(
   knowledgePath: string,
   relatedModules: readonly string[],
   backfill: boolean,
 ): DeltaModuleContext {
-  const parsed = buildModulePathMap(path.join(knowledgePath, 'module-map.yaml'));
+  const parsed = buildModulePathMap(knowledgePath);
   const modulePaths = parsed ?? new Map<string, string[]>();
+  const featureMap = loadFeatureMap(knowledgePath);
+  if (featureMap === null && resolvesOutsideRoot(path.join(knowledgePath, 'feature-map.yaml'), knowledgePath)) {
+    // status and archive keep only the message, so the remedy rides in it too
+    throw new PrerequisiteError(
+      `${FEATURE_MAP_OUTSIDE_ROOT.cause} — ${FEATURE_MAP_OUTSIDE_ROOT.remedy}`,
+      FEATURE_MAP_OUTSIDE_ROOT.remedy,
+    );
+  }
   return {
     modulePaths,
     known: collectKnownModules(modulePaths, knowledgePath),
-    featureMap: loadFeatureMap(knowledgePath),
+    featureMap,
     related: relatedModules.map((m) => m.toLowerCase()),
     backfill,
     moduleMapUnreadable: parsed === null,
@@ -215,8 +240,11 @@ export interface KnowledgeSyncGaps {
   relatedUnregistered?: string[];
   /** Non-canonical REQ ids — archive would still graduate them, so they cannot be skipped. */
   malformedIds: string[];
-  /** Set when the gate's read of an existing `module-map.yaml` fails — it cannot be read, parsed or validated. */
+  /** Set when the gate's read of an existing `module-map.yaml` fails — it cannot be read, parsed or
+   *  validated, or it resolves outside the knowledge root. */
   moduleMapUnreadable: boolean;
+  /** Present only when that map resolves outside the knowledge root. */
+  moduleMapOutsideRoot?: true;
 }
 
 export function hasKnowledgeSyncGap(gaps: KnowledgeSyncGaps): boolean {
@@ -245,10 +273,16 @@ export async function findUnsyncedModules(
   const affected = new Set(related);
   const deltaSourced = new Set<string>();
 
+  const mapOutsideRoot = (): boolean => resolvesOutsideRoot(path.join(knowledgePath, 'module-map.yaml'), knowledgePath);
+  const markModuleMapUnreadable = (outsideRoot: boolean): void => {
+    gaps.moduleMapUnreadable = true;
+    if (outsideRoot) gaps.moduleMapOutsideRoot = true;
+  };
+
   const deltaSpecText = await readFileIfExists(path.join(changeDir, 'delta-spec.md'));
   if (deltaSpecText) {
     const ctx = loadDeltaModuleContext(knowledgePath, related, isProvenBackfill(changeDir, metadata.scale));
-    gaps.moduleMapUnreadable = ctx.moduleMapUnreadable;
+    if (ctx.moduleMapUnreadable) markModuleMapUnreadable(mapOutsideRoot());
     for (const entry of classifyDeltaSpec(deltaSpecText, ctx)) {
       if (entry.kind === 'malformed') gaps.malformedIds.push(entry.id);
       for (const m of entry.modules) {
@@ -265,7 +299,11 @@ export async function findUnsyncedModules(
   } catch {
     return { ...gaps, moduleMapUnreadable: true };
   }
-  if (moduleMap === null) return gaps;
+  if (moduleMap === null) {
+    // loadModuleMap reads a map outside the knowledge root as absent
+    if (mapOutsideRoot()) markModuleMapUnreadable(true);
+    return gaps;
+  }
 
   const generatedArtifacts = config?.knowledge?.generated_artifacts ?? [];
   // Only this change's affected modules need timestamps, and collectGitTimestamps
@@ -304,7 +342,10 @@ export function knowledgeSyncReasons(gaps: KnowledgeSyncGaps, changeName: string
   const reasons: WorkflowReason[] = [];
 
   const invalid = { causes: [] as string[], remedies: [] as string[] };
-  if (gaps.moduleMapUnreadable) {
+  if (gaps.moduleMapUnreadable && gaps.moduleMapOutsideRoot) {
+    invalid.causes.push(MODULE_MAP_OUTSIDE_ROOT.cause);
+    invalid.remedies.push(MODULE_MAP_OUTSIDE_ROOT.remedy);
+  } else if (gaps.moduleMapUnreadable) {
     invalid.causes.push(MODULE_MAP_UNREADABLE_CAUSE);
     invalid.remedies.push(MODULE_MAP_UNREADABLE_REMEDY);
   }
