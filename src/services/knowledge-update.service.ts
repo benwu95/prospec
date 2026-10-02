@@ -514,7 +514,7 @@ export async function execute(
         'A module name must match [A-Za-z0-9][A-Za-z0-9._-]* with no path separators or ".." — use the names declared in module-map.yaml',
       );
     }
-    const modulePathMap = buildModulePathMap(moduleMapPath) ?? new Map<string, string[]>();
+    const modulePathMap = buildModulePathMap(knowledgePath) ?? new Map<string, string[]>();
 
     for (const moduleName of options.manualModules) {
       const paths = modulePathMap.get(moduleName.toLowerCase()) ?? [`src/${moduleName}/**`];

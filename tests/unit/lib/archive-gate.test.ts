@@ -121,6 +121,15 @@ describe('evaluateArchiveEntryGate', () => {
     expect(map!.remediation).not.toContain('knowledge verify');
   });
 
+  it('remedies a module map outside the knowledge root by keeping the map inside it, not by repairing it', () => {
+    const gaps = { ...NO_GAPS, moduleMapUnreadable: true, moduleMapOutsideRoot: true as const };
+    const [map] = evaluateArchiveEntryGate(report(), inputs({ knowledgeGaps: gaps })).reasons;
+    expect(map!.code).toBe('KNOWLEDGE_INPUT_INVALID');
+    expect(map!.message).toContain('module-map.yaml resolves outside the knowledge root');
+    expect(map!.remediation).toContain('keep module-map.yaml itself inside the knowledge root');
+    expect(map!.remediation).not.toContain('repair module-map.yaml');
+  });
+
   it('lists a related-only unregistered name apart from a delta-spec-sourced one, each with its own remedy', () => {
     const v = evaluateArchiveEntryGate(
       report(),

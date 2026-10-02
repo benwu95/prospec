@@ -1089,6 +1089,18 @@ describe('execute', () => {
     expect(result.generatedFiles.some((f) => f.path.includes('ghost'))).toBe(false);
   });
 
+  it('scans the module-map paths of a module in manual mode', async () => {
+    const { scanDir } = await import('../../../src/lib/scanner.js');
+    vol.fromJSON({
+      '/test/prospec/ai-knowledge/module-map.yaml':
+        'modules:\n  - name: billing\n    paths: ["pkg/billing/**"]\n    keywords: ["billing"]\n',
+      '/project/prospec/index.md': '# AI Knowledge Index\n\n<!-- prospec:auto-start -->\n## Modules\n<!-- prospec:auto-end -->\n',
+    });
+    await execute({ manualModules: ['billing'], cwd: '/project' });
+    const scanned = vi.mocked(scanDir).mock.calls.some((c) => Array.isArray(c[0]) && (c[0] as string[]).some((p) => p.startsWith('pkg/billing')));
+    expect(scanned).toBe(true);
+  });
+
   it('reports an existing module README as updated in manual mode (L472 else, L473)', async () => {
     vol.fromJSON({
       '/test/prospec/ai-knowledge/modules/services/README.md':
@@ -1254,6 +1266,22 @@ describe('execute', () => {
       expect(error).toBeInstanceOf(PrerequisiteError);
       expect((error as PrerequisiteError).message).toContain('resolves outside the knowledge root');
       expect((error as PrerequisiteError).message).not.toContain('cannot be read');
+      expect(vol.toJSON()).toEqual(before);
+    });
+
+    it('fails before any write when only the feature map resolves outside the knowledge root', async () => {
+      vol.fromJSON({
+        [`${KP}/module-map.yaml`]: 'modules:\n  - name: lib\n    paths: [src/lib]\n    keywords: [lib]\n',
+        [`${KP}/modules/lib/README.md`]: '# lib\n',
+        '/outside/feature-map.yaml': 'features:\n  - feature: payments\n    modules: [lib]\n    req_prefixes: [PAY]\n    status: active\n',
+        '/project/delta-spec.md': DELTA,
+      });
+      vol.symlinkSync('/outside/feature-map.yaml', `${KP}/feature-map.yaml`);
+      const before = vol.toJSON();
+      const error = await execute({ deltaSpecPath: '/project/delta-spec.md', cwd: '/project' }).catch((e: unknown) => e);
+      expect(error).toBeInstanceOf(PrerequisiteError);
+      expect((error as PrerequisiteError).message).toContain('feature-map.yaml');
+      expect((error as PrerequisiteError).message).toContain('outside the knowledge root');
       expect(vol.toJSON()).toEqual(before);
     });
 
