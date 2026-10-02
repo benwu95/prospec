@@ -28,7 +28,7 @@ Also: `auto-draft.ts` (drift-drafting options/result, incl. the `created | skipp
 
 - `COMMAND_HELP_SPECS['learn playbook']` (`cli-help.ts`) defines the public station/module/id choices and advisory diagnostics; `SDD_STATIONS` and `normalizeStationName` (`status.ts`) are the shared vocabulary for the CLI option and Playbook declarations.
 - `ChangeMetadataSchema` / `NewChangeMetadataSchema` / `isStatusBefore` — metadata read (loose) + build (strict) views; lifecycle ordering
-- `CircuitBreakerConfigSchema` / `CircuitBreakerStateSchema` / `OscillationRecordSchema` / `EscalationReportSchema` / `TastemakerPresentationSchema` — review-loop circuit breakers and Tastemaker delivery contracts (no station list: `SDD_STATIONS` is the only station vocabulary)
+- `CircuitBreakerConfigSchema` / `CircuitBreakerStateSchema` / `OscillationRecordSchema` / `EscalationReportSchema` / `TastemakerPresentationSchema` — review-loop circuit breakers and Tastemaker delivery contracts
 - `ProspecConfigSchema` / `DEFAULT_KNOWLEDGE_TOKEN_BUDGET` — `.prospec.yaml` validation + size thresholds
 - `DriftReportSchema` / `MeasurementReportSchema` / `ProjectionReportSchema` — drift report, offline measurement, and context projection schemas
 - `InvocationProfile` / `mergeGroupInvocationGuidance` / `SKILL_DEFINITIONS` / `AGENT_CONFIGS` — closed host invocation metadata and stable, deduplicated guidance for generated entry configs; `prospec-<name>` remains host-neutral
@@ -38,7 +38,7 @@ Also: `auto-draft.ts` (drift-drafting options/result, incl. the `created | skipp
 
 ## Dependencies
 
-**Depends on:** `zod` only — leaf module, zero internal deps
+**Depends on:** `zod`, `node:` built-ins — leaf, zero internal deps
 **Used by:** `lib`, `services`, `cli`, `tests` — imported everywhere
 
 ## Modification Guide

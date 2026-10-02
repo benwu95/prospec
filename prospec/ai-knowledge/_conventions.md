@@ -38,7 +38,7 @@ tests/
 | Types/Interfaces | PascalCase | `ProspecConfig`, `ChangeMetadata` |
 | Functions | camelCase | `readConfig`, `detectModules` |
 | Constants | UPPER_SNAKE_CASE | `SKILL_DEFINITIONS`, `CHANGE_STATUSES` |
-| Error classes | PascalCase + Error | `ConfigNotFound`, `WriteError` |
+| Error classes | PascalCase | `ConfigNotFound`, `WriteError` |
 
 ## Architecture Patterns
 
@@ -49,13 +49,13 @@ cli → services → lib → types
 Never import upward. `types` is the leaf module with zero internal dependencies.
 
 ### Service Pattern
-Every service exports:
+Service entry point:
 ```typescript
 export async function execute(options: XxxOptions): Promise<XxxResult>
 ```
 
 ### Command Pattern
-Every command exports:
+Command entry point:
 ```typescript
 export function registerXxxCommand(program: Command): void
 ```
@@ -66,7 +66,7 @@ All custom errors extend `ProspecError` with:
 - `suggestion`: Actionable fix for the user
 
 ### File Write Pattern
-Always use `atomicWrite()` from `lib/fs-utils.ts` — never `fs.writeFileSync()` directly.
+Use `atomicWrite()` from `lib/fs-utils.ts`, not `fs.writeFileSync()` — except a no-clobber create (`createTicketExclusive`, `lib/delegation.ts`).
 
 ### Content Regeneration Pattern
 Use `mergeContent()` from `lib/content-merger.ts` when updating files that may have user edits:
@@ -89,7 +89,6 @@ Use `mergeContent()` from `lib/content-merger.ts` when updating files that may h
 - Avoid `any` type — use `unknown` or proper generics
 - Avoid nested callbacks — use async/await
 - Avoid magic numbers — use named constants
-- Avoid direct `fs.writeFileSync()` — use `atomicWrite()`
 - Avoid importing upward in the dependency chain
 
 ## Error Handling
@@ -126,5 +125,5 @@ Use `mergeContent()` from `lib/content-merger.ts` when updating files that may h
 
 ## Skill Registration
 
-- `excludeFromEntryConfig` (in `SkillConfig`) is reserved for **self-terminating one-shot flows** (onboarding, migration, repair) whose value does not recur per session. Such a skill is still deployed as a `SKILL.md` (invocable on demand) but is omitted from the always-loaded entry config (`CLAUDE.md`/`AGENTS.md`), so it costs no recurring Layer-0 tokens. Do NOT use it to hide routinely-used skills from discovery — that degrades trigger routing. A contract test asserts only the intended skill is entry-excluded yet still emits a `SKILL.md`.
+- `excludeFromEntryConfig` (in `SkillConfig`) is reserved for **self-terminating one-shot flows** (onboarding, migration, repair) whose value does not recur per session. Such a skill is still deployed as a `SKILL.md` (invocable on demand) but is omitted from the always-loaded entry config (`CLAUDE.md`/`AGENTS.md`), so it costs no recurring Layer-0 tokens. Do NOT use it to hide routinely-used skills from discovery — that degrades trigger routing. A contract test pins the entry-excluded set; a unit test asserts each still emits a `SKILL.md`.
 <!-- prospec:user-end -->

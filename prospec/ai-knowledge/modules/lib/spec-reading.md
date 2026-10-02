@@ -12,7 +12,7 @@
 
 ## Public API
 
-- `matchReqHeading(line, {includeStruck})` → `{id, level}` at any ATX level; struck ids are opt-in and exist for the DEFINITION inventory alone
+- `matchReqHeading(line, {includeStruck})` → `{id, level}` at any ATX level; struck ids are opt-in
 - `readSpecCounters(content)` → what the frontmatter declares beside what the body holds
 - `indexSpec(content, {includeStruck})` → `{requirements, stories}`; each requirement carries id, level, owning story, deprecated flag and content boundaries
 - `locateSpecSections(content)` → ordered Edge Cases / Deprecated Requirements / Change History sections with raw offsets, masked body probes, and `unclosedFence`; writers refuse malformed fences before using offsets.
@@ -22,8 +22,8 @@
 
 ## Dependencies
 
-**Depends on:** `markdown-fences` (the other leaf); `spec-read` additionally composes `knowledge-reader` (the contained read + available list) — a one-way lib import, so `lib/drift-sources` and `services/archive` still take this without a lib→lib cycle
-**Used by:** `lib/drift-sources` (`collectReqDefinitions`, `collectSpecCounters`), `services/archive` (the merge, the REMOVED probe, `finalize`'s recount); the narrow read the CLI `spec show` and MCP `get_spec_requirements` serve now flows through `spec-read` here, rather than each surface resolving and selecting on its own
+**Depends on:** `markdown-fences`, `text-lines`; `spec-read` additionally composes `knowledge-reader` (the contained read + available list) — a one-way lib import, so `lib/drift-sources` and `services/archive` still take this without a lib→lib cycle
+**Used by:** `lib/drift-sources` (`collectReqDefinitions`, `collectSpecCounters`), `lib/knowledge-reader`, `services/archive` (the merge, the REMOVED probe, `finalize`'s recount); the narrow read the CLI `spec show` and MCP `get_spec_requirements` serve now flows through `spec-read` here
 
 ## Modification Guide
 

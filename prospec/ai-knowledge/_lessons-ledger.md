@@ -12,7 +12,7 @@
 > the promotion evidence.
 > Format + harvest + sweep rules: `.claude/skills/prospec-learn/references/promotion-format.md`.
 > Durable across worktrees/clones (replaces the retired gitignored `.prospec/lessons.md`).
-> Evidence pointer: each `source_changes` name archived since that convention existed resolves to its
+> Evidence pointer: a `source_changes` name archived since that convention existed may resolve to its
 > committed record at `prospec/specs/_archived-history/{date}-{name}.md` — cite that file's
 > `## Review & Verify` section (grade, criticals/majors, quality_log digest) as the durable evidence,
 > not the gitignored `.prospec/archive/` bundle. Names predating it (e.g. `add-review-fix-loop`,

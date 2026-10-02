@@ -1,6 +1,6 @@
 # Contract Guards
 
-> Sub-module of [Verification Suite](./README.md) — the 29 `tests/contract/` files that pin generated output, the frozen registries and the trust zone against the code, plus the assertion discipline that keeps those pins falsifiable.
+> Sub-module of [Verification Suite](./README.md) — the `tests/contract/` files that pin generated output, the frozen registries and the trust zone against the code, plus the assertion discipline that keeps those pins falsifiable.
 
 ## Key Files
 
@@ -19,7 +19,7 @@
 ## Public API
 
 - `playbook-station.test.ts` anchors this repository's active IDs and station declarations, 8 approved compact entries, the complete per-station catalog and output smaller than the full Playbook. `skill-format.test.ts` pins generated Startup/learn rules, UTF-8 baselines with unchanged ceilings, and bilingual station docs; unit and E2E tests exercise parser, selector, warnings and legacy paths, with fixed full stdout bytes for fallback. Compact-entry guards allow only Guidance not covered by the named Landing.
-- No exports — `pnpm vitest run tests/contract/` (29 files).
+- No exports — `pnpm vitest run tests/contract/`.
 
 ## Dependencies
 
