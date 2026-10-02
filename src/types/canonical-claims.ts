@@ -57,6 +57,7 @@ export const CANONICAL_CLAIMS = {
       { id: 'website-zh', path: 'docs/i18n.js', kind: 'authored', language: 'zh', start: "    'brownfield.c1.li3':", end: '\n', markup: 'html' },
       { id: 'spec-backfill-sync', path: 'prospec/specs/features/sdd-workflow/us-37.md', kind: 'authored', language: 'en', start: "- WHEN `scale: backfill`, THEN sync the READMEs", end: '\n' },
       { id: 'spec-backfill-docs', path: 'prospec/specs/features/sdd-workflow/us-37.md', kind: 'authored', language: 'en', start: "- WHEN the backfill Knowledge Sync step is read", end: '\n' },
+      { id: 'spec-backfill-scenario', path: 'prospec/specs/features/sdd-workflow/us-23.md', kind: 'authored', language: 'en', start: '- WHEN archive processes a proven backfill', end: '\n' },
       { id: 'lifecycle-template-backfill', path: 'src/templates/init/status-lifecycle.md.hbs', kind: 'template', language: 'en', start: '- **`prospec-promote-backfill`**', end: '\n' },
       { id: 'lifecycle-local-backfill', path: 'prospec/ai-knowledge/_status-lifecycle.md', kind: 'authored', language: 'en', start: '- **`prospec-promote-backfill`**', end: '\n' },
     ],

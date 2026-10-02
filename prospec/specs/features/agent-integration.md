@@ -1,7 +1,7 @@
 ---
 feature: agent-integration
 status: active
-last_updated: 2026-09-29
+last_updated: 2026-10-02
 story_count: 26
 req_count: 119
 ---
@@ -181,6 +181,7 @@ The repository's English and Traditional Chinese root READMEs provide equivalent
 
 | Date | Change | Impact | Stories/REQs |
 |------|--------|--------|-------------|
+| 2026-10-02 | audit-knowledge-spec-claims | MODIFIED REQ-TYPES-109 | REQ-TYPES-109 |
 | 2026-09-29 | audit-shipped-skill-claims | MODIFIED REQ-TEMPLATES-221; MODIFIED REQ-TEMPLATES-143; MODIFIED REQ-TYPES-109; MODIFIED REQ-TESTS-129 | REQ-TEMPLATES-221, REQ-TEMPLATES-143, REQ-TYPES-109, REQ-TESTS-129 |
 | 2026-09-29 | add-canonical-claims | ADDED REQ-TYPES-109; ADDED REQ-SERVICES-125; ADDED REQ-TEMPLATES-241; ADDED REQ-TESTS-129; MODIFIED REQ-TEMPLATES-084 | REQ-TYPES-109, REQ-SERVICES-125, REQ-TEMPLATES-241, REQ-TESTS-129, REQ-TEMPLATES-084 |
 | 2026-09-27 | isolate-detect-preserve-delegates | ADDED REQ-AGNT-044; MODIFIED REQ-TEMPLATES-232; MODIFIED REQ-TESTS-119; MODIFIED REQ-AGNT-030; MODIFIED REQ-TEMPLATES-147; MODIFIED REQ-AGNT-022 | REQ-AGNT-044, REQ-TEMPLATES-232, REQ-TESTS-119, REQ-AGNT-030, REQ-TEMPLATES-147, REQ-AGNT-022 |
