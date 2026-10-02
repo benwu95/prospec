@@ -1466,3 +1466,134 @@ describe('knowledge update and the knowledge-sync gate share one classifier', ()
     expect(result.created).toEqual([]);
   });
 });
+
+// #328: manual mode and the no-option call read and rewrote module-map.yaml straight
+// through a symlink while buildModulePathMap already treated the same map as absent.
+describe('every knowledge-update mode judges the module map before writing (REQ-SERVICES-023)', () => {
+  const KP = '/test/prospec/ai-knowledge';
+  const MAP = `${KP}/module-map.yaml`;
+  const INDEX = '/test/prospec/index.md';
+  const VALID_MAP = 'modules:\n  - name: lib\n    paths: [src/lib]\n    keywords: [lib]\n';
+  const OUTSIDE_MAP = 'modules:\n  - name: lib\n    paths: [src/lib]\n    keywords: [outside-secret]\n';
+  const EXISTING_INDEX =
+    '# AI Knowledge Index\n\n<!-- prospec:auto-start -->\n## Modules\n<!-- prospec:auto-end -->\n\n<!-- prospec:user-start -->\n<!-- prospec:user-end -->\n';
+
+  const refusal = async (options: Parameters<typeof execute>[0]): Promise<PrerequisiteError> => {
+    const error = await execute(options).catch((e: unknown) => e);
+    expect(error).toBeInstanceOf(PrerequisiteError);
+    return error as PrerequisiteError;
+  };
+
+  // generatedFiles paths are relative to cwd
+  const REL_INDEX = '../test/prospec/index.md';
+  const REL_README = '../test/prospec/ai-knowledge/modules/lib/README.md';
+
+  const linkMap = (target: string): void => {
+    vol.mkdirSync(KP, { recursive: true });
+    vol.symlinkSync(target, MAP);
+  };
+  const linkMapOutside = (): void => {
+    vol.fromJSON({ '/outside/module-map.yaml': OUTSIDE_MAP, [INDEX]: EXISTING_INDEX });
+    linkMap('/outside/module-map.yaml');
+  };
+
+  describe('manual mode', () => {
+    it('refuses a map that resolves outside the knowledge root, writing nothing', async () => {
+      linkMapOutside();
+      const before = vol.toJSON();
+      const error = await refusal({ manualModules: ['lib'], cwd: '/project' });
+      expect(error.message).toContain('resolves outside the knowledge root');
+      expect(error.message).toMatch(/— nothing was written$/);
+      expect(error.suggestion).toContain('inside the knowledge root');
+      expect(vol.toJSON()).toEqual(before);
+      expect(vol.lstatSync(MAP).isSymbolicLink()).toBe(true);
+    });
+
+    it.each([
+      ['cannot be parsed', (): void => void vol.fromJSON({ [MAP]: 'modules: [\n  - : :\n' })],
+      ['fails its schema', (): void => void vol.fromJSON({ [MAP]: 'modules:\n  - name: lib\n    paths: [src/lib]\n' })],
+      ['is a directory', (): void => void vol.mkdirSync(MAP, { recursive: true })],
+    ])('refuses a map that %s with the cause readKnownModules reports, writing nothing', async (_label, arrange) => {
+      vol.fromJSON({ [INDEX]: EXISTING_INDEX });
+      arrange();
+      const before = vol.toJSON();
+      const error = await refusal({ manualModules: ['lib'], cwd: '/project' });
+      expect(error.message).toContain('module-map.yaml cannot be read, parsed or validated');
+      expect(error.suggestion).toContain('repair module-map.yaml');
+      expect(vol.toJSON()).toEqual(before);
+    });
+
+    it('reports the untrusted map before judging an unsafe module name', async () => {
+      linkMapOutside();
+      const error = await refusal({ manualModules: ['../escape'], cwd: '/project' });
+      expect(error.message).toContain('resolves outside the knowledge root');
+    });
+
+    it.each([
+      ['absent', (): void => undefined],
+      ['a symlink whose target does not exist', (): void => linkMap('/outside/missing.yaml')],
+    ])('still creates the README skeleton and refreshes the index when the map is %s', async (_label, arrange) => {
+      vol.fromJSON({ [INDEX]: EXISTING_INDEX });
+      arrange();
+      const result = await execute({ manualModules: ['lib'], cwd: '/project' });
+      expect(result.created).toEqual(['lib']);
+      expect(vol.existsSync(`${KP}/modules/lib/README.md`)).toBe(true);
+      expect(result.generatedFiles.some((f) => f.path === REL_INDEX)).toBe(true);
+    });
+
+    it('accepts a map symlinked to another file inside the knowledge root', async () => {
+      vol.fromJSON({ [`${KP}/real/map.yaml`]: VALID_MAP, [INDEX]: EXISTING_INDEX });
+      linkMap(`${KP}/real/map.yaml`);
+      const result = await execute({ manualModules: ['lib'], cwd: '/project' });
+      expect(result.created).toEqual(['lib']);
+      expect(vol.readFileSync(INDEX, 'utf-8')).toMatch(/\| \*\*lib\*\* \| lib \|/);
+    });
+
+    it('keeps its output unchanged for a readable map inside the knowledge root', async () => {
+      vol.fromJSON({ [MAP]: VALID_MAP, [INDEX]: EXISTING_INDEX });
+      const result = await execute({ manualModules: ['lib'], cwd: '/project' });
+      expect(result.created).toEqual(['lib']);
+      expect(result.updated).toEqual([]);
+      expect(result.readmePending).toEqual([]);
+      expect(result.warnings).toEqual([]);
+      expect(result.generatedFiles.map((f) => f.path)).toEqual([REL_README, REL_INDEX]);
+      expect(vol.readFileSync(INDEX, 'utf-8')).toMatch(/\| \*\*lib\*\* \| lib \|/);
+      expect(vol.readFileSync(MAP, 'utf-8')).toBe(VALID_MAP);
+    });
+  });
+
+  it('refuses a map outside the knowledge root when neither a delta-spec nor modules are given', async () => {
+    linkMapOutside();
+    const before = vol.toJSON();
+    const error = await refusal({ cwd: '/project' });
+    expect(error.message).toContain('resolves outside the knowledge root');
+    expect(error.message).toMatch(/— nothing was written$/);
+    expect(vol.toJSON()).toEqual(before);
+  });
+
+  it('keeps the delta-spec refusal message ending in its own suffix', async () => {
+    vol.fromJSON({ [MAP]: 'modules: [\n  - : :\n', '/project/delta-spec.md': '## MODIFIED\n\n### REQ-LIB-001: tweak\n' });
+    const error = await refusal({ deltaSpecPath: '/project/delta-spec.md', cwd: '/project' });
+    expect(error.message).toMatch(/— no delta-spec REQ was classified$/);
+  });
+
+  describe('exported map readers stay inside the knowledge root', () => {
+    it('collectAllModules does not render a map that resolves outside the knowledge root', () => {
+      linkMapOutside();
+      const modules = collectAllModules(
+        { created: ['lib'], updated: [], deprecated: [], readmePending: [], generatedFiles: [], warnings: [], sweptFiles: [] },
+        MAP,
+      );
+      expect(modules.map((m) => m.name)).toEqual(['lib']);
+      expect(modules.flatMap((m) => m.keywords)).not.toContain('outside-secret');
+    });
+
+    it('updateModuleMap skips a map that resolves outside the knowledge root and keeps the link', async () => {
+      linkMapOutside();
+      const result = await updateModuleMap({ added: ['newmod'], removed: [] }, MAP);
+      expect(result).toBeNull();
+      expect(vol.lstatSync(MAP).isSymbolicLink()).toBe(true);
+      expect(vol.readFileSync('/outside/module-map.yaml', 'utf-8')).toBe(OUTSIDE_MAP);
+    });
+  });
+});

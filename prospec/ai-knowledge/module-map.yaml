@@ -183,7 +183,7 @@ modules:
       - 漂移檢查
       - 真相層
     rationale: Isolates business logic from I/O layer, enables testability
-    last_verified: 2026-10-02T14:50:46.369Z
+    last_verified: 2026-10-02T17:08:30.966Z
   - name: cli
     description: Thin CLI entry — 19 top-level Commander commands + 32 formatters
       that parse → call one service → format output; the cli-first station
@@ -271,7 +271,7 @@ modules:
     rationale: Pure resources — no logic, consumed by lib/template.ts
     last_verified: 2026-10-02T09:19:56.652Z
   - name: tests
-    description: 4-layer test suite — 267 files, 6,888 tests (unit 4957 + contract
+    description: 4-layer test suite — 267 files, 6,909 tests (unit 4978 + contract
       1576 + integration 153 + e2e 202). Validates every module — format and
       public-document contracts, the cli-first probe + station-command
       contracts, the drift engine, token corpus, and the MCP protocol over
@@ -312,4 +312,4 @@ modules:
       - 驗證
       - vitest
     rationale: Quality gate — validates all layers with pyramid coverage
-    last_verified: 2026-10-02T14:50:46.369Z
+    last_verified: 2026-10-02T17:08:30.966Z
