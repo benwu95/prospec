@@ -93,7 +93,7 @@ of trimming it away.
      Pitfalls, and independent enough to be understood on its own.
 - **Layout**: `modules/{module}/{sub-module}.md` — a sibling of the module's `README.md`, kebab-case
   name after the sub-area (e.g. `modules/services/spec-sync.md`). Same Recipe-First structure and
-  same budget as a README — `prospec check knowledge-size` measures every `{sub-module}.md` as L2
+  same budget as a README — `prospec check` measures every `{sub-module}.md` as L2
   against the same `l2_per_module` / `readme_max_lines`, so extraction moves knowledge without
   moving it out of the budget's sight. If a sub-module would itself overflow, split it
   again the same way.
@@ -116,7 +116,7 @@ of trimming it away.
 ## Principles
 
 - **Modification Guide > API Reference** — tell agents HOW to change, not just WHAT exists.
-- **No api-surface.md, dependencies.md, or patterns.md** — everything consolidates into the README (or its sub-module files); these are the only knowledge docs per module.
+- **No api-surface.md, dependencies.md, or patterns.md** — everything consolidates into the README (or its sub-module files).
 - **README is a map, not a copy** — point to source files; never duplicate source code or full signatures.
 - **Prefer extraction over lossy trimming** — when a README outgrows its budget and has an independent sub-area, extract a sub-module rather than deleting useful detail.
 
@@ -132,7 +132,7 @@ Register project-specific sections here. This Markdown registry is the sole exte
 
 ### Registry Specification
 
-- **ID**: Unique safe resource name — `[A-Za-z0-9][A-Za-z0-9._-]*` (`kebab-case` recommended, e.g. `team-ownership`, `security-rules`).
+- **ID**: Unique safe resource name (`kebab-case` recommended, e.g. `team-ownership`, `security-rules`).
 - **Heading**: H2 heading text without leading hashes (e.g. `Team Ownership`, `Security Rules`).
 - **Content**: One-line description of the section's purpose — what it is for and what belongs in it, so an agent reading the registry knows how to fill the instance (mirrors the base section template's `Content` column).
 - **Applies To**: `all` or a comma-separated list of safe module names (e.g. `auth,services`).

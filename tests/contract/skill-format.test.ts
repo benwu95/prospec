@@ -5292,9 +5292,21 @@ describe('backfill graduation — lifecycle + format docs (scale: backfill)', ()
       '**backfill path**: metadata `scale: backfill`',
       'the **backfill entry point**',
       'it enters at `implemented` under metadata `scale: backfill`',
+      '`prospec-archive` syncs the modules `prospec knowledge update --change` reports ∪ `metadata.related_modules`',
+      'a test refusal exits non-zero with the remediation, and the third distinct failed attempt',
     ]) {
       expect(tmpl).toContain(marker);
       expect(copy).toContain(marker);
+    }
+    // Claims a counterexample refuted: archive's own classification, an exclusive
+    // exit from CHECK_UNPROVABLE, and a refusal's write set (which an exemption WARN widens).
+    for (const refuted of [
+      'derives affected modules from `metadata.related_modules`/`**Feature:**`→feature-map',
+      'can leave `CHECK_UNPROVABLE` only by',
+      'may write only the bounded test-failure metrics',
+    ]) {
+      expect(tmpl).not.toContain(refuted);
+      expect(copy).not.toContain(refuted);
     }
   });
 

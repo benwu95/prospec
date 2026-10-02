@@ -20,7 +20,7 @@ import { executePlaybook } from '../../src/services/learn.service.js';
 const INVENTORY = {
   related_module_halt: ['gap-message', 'router-gate', 'lifecycle-template', 'lifecycle-local', 'cli-en', 'cli-zh', 'spec-halt'],
   knowledge_sync_modules: ['knowledge-update', 'cascade-general', 'templates-readme', 'spec-prevention-description', 'spec-prevention-scenario', 'spec-update-description', 'spec-update-scenario'],
-  backfill_sync_modules: ['archive-entry-backfill', 'archive-recheck-backfill', 'cascade-backfill', 'verify-backfill', 'readme-en', 'readme-zh', 'website-en', 'website-zh', 'spec-backfill-sync', 'spec-backfill-docs'],
+  backfill_sync_modules: ['archive-entry-backfill', 'archive-recheck-backfill', 'cascade-backfill', 'verify-backfill', 'readme-en', 'readme-zh', 'website-en', 'website-zh', 'spec-backfill-sync', 'spec-backfill-docs', 'lifecycle-template-backfill', 'lifecycle-local-backfill', 'spec-backfill-scenario'],
 };
 
 describe('canonical claim registry', () => {
@@ -152,7 +152,7 @@ afterAll(() => { for (const dir of created) rmSync(dir, { recursive: true, force
 
 describe('real generation supplies canonical text', () => {
   it.each(Object.keys(AGENT_CONFIGS) as (keyof typeof AGENT_CONFIGS)[])('%s deployed sites have their phrases', (host) => {
-    for (const { claim, site } of sites.filter(({ site }) => site.kind === 'template' && site.id !== 'lifecycle-template')) {
+    for (const { claim, site } of sites.filter(({ site }) => site.kind === 'template' && !site.path.startsWith('src/templates/init/'))) {
       const template = site.path.replace('src/templates/skills/', '');
       const outputs = template.startsWith('references/')
         ? SKILL_DEFINITIONS.flatMap((skill) => getSkillReferences(skill.name)
@@ -163,17 +163,22 @@ describe('real generation supplies canonical text', () => {
       for (const output of outputs) assertSite(readFileSync(join(syncRoot, AGENT_CONFIGS[host].skillPath, output), 'utf8'), claim, site);
     }
   });
-  it('init and upgrade use the same lifecycle phrase', async () => {
+  it('init and upgrade use the same lifecycle phrases', async () => {
     const cwd = mkdtempSync(join(tmpdir(), 'prospec-claim-init-'));
     created.push(cwd);
     await init({ cwd, name: 'claims', agents: ['codex'], language: 'English', trustZoneLanguage: 'English' });
     const file = join(cwd, 'prospec/ai-knowledge/_status-lifecycle.md');
-    const claim = CLAIMS.related_module_halt!;
-    const site = claim.sites.find((site) => site.id === 'lifecycle-template')!;
-    assertSite(readFileSync(file, 'utf8'), claim, site);
+    const lifecycleSites = [
+      { claim: CLAIMS.related_module_halt!, id: 'lifecycle-template' },
+      { claim: CLAIMS.backfill_sync_modules!, id: 'lifecycle-template-backfill' },
+    ].map(({ claim, id }) => ({ claim, site: claim.sites.find((site) => site.id === id)! }));
+    for (const { claim, site } of lifecycleSites) {
+      expect(site).toBeDefined();
+      assertSite(readFileSync(file, 'utf8'), claim, site);
+    }
     rmSync(file);
     await upgrade({ cwd, interactive: false });
-    assertSite(readFileSync(file, 'utf8'), claim, site);
+    for (const { claim, site } of lifecycleSites) assertSite(readFileSync(file, 'utf8'), claim, site);
   });
 });
 

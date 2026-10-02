@@ -7,7 +7,7 @@
 | File | Purpose |
 |------|---------|
 | `mcp.service.ts` | `buildMcpServer(ctx)` — resources + tools over the SDK; `execute()` wires stdio |
-| `status.service.ts` | `execute()` — scan `.prospec/changes/`, collect per-change facts (incl. knowledge sync status), route via `lib/status-router`, then attach the next station's canonical `nextSkill` identity (present on every non-terminal route, including one whose config is unreadable or names no agent) and its `nextReferenceMap` from the registry projection — filtered by the change's KNOWN scale/UI scope, resolved against the same host `resolveSkillRoot` gave `nextSkillPath`, absent (never invented) with no agent or a terminal route. With NOTHING in flight it also reads `prospec-report.json` and reports that report's STATE (`DriftSignal`): the draftable finding count when the file parses through `DriftReportSchema` and recognized snapshot version/scope, content digest and deterministic workflow payload match a live assessment, or `unusable` naming `stale` / `unprovable` / `unreadable`. It compares structured health facts instead of their timestamp-interpolating finding prose, ignores generated timestamps and pure Git trace, shares the assessment owner, and still writes nothing |
+| `status.service.ts` | `execute()` — scan `.prospec/changes/`, collect per-change facts (incl. knowledge sync status), route via `lib/status-router`, then attach the next station's canonical `nextSkill` identity (present whenever `next` is non-null, including one whose config is unreadable or names no agent) and its `nextReferenceMap` from the registry projection — filtered by the change's KNOWN scale/UI scope, resolved against the same host `resolveSkillRoot` gave `nextSkillPath`, absent (never invented) with no agent or a null `next`. With NOTHING in flight it also reads `prospec-report.json` and reports that report's STATE (`DriftSignal`): the draftable finding count when the file parses through `DriftReportSchema` and recognized snapshot version/scope, content digest and deterministic workflow payload match a live assessment, or `unusable` naming `stale` / `unprovable` / `unreadable`. It compares structured health facts instead of their timestamp-interpolating finding prose, ignores generated timestamps and pure Git trace, shares the assessment owner, and still writes nothing |
 | `spec-show.service.ts` | `execute({cwd, feature, req, story})` — route through the shared `lib/spec-read` entry, then apply only this surface's no-selector policy (whole spec vs refuse) |
 
 ## Public API
@@ -17,7 +17,7 @@
 
 ## Dependencies
 
-**Depends on:** `lib` (`knowledge-reader` contained reads, `spec-headings` + `spec-slices`, `status-router`, `drift-checker`/`drift-sources` for health and the working-tree digest), `types` (MCP + status contracts), and — within `services` — `auto-draft.service`'s `isDraftableFinding`, so the count `status` nudges with and the set `--auto-draft` acts on can never diverge
+**Depends on:** `lib` (`knowledge-reader` contained reads, `spec-headings` + `spec-slices`, `status-router`, `drift-checker`/`drift-sources` for health and the working-tree digest), `types` (MCP + status contracts), and `lib/draftable-findings`' `isDraftableFinding`, so the count `status` nudges with and the set `--auto-draft` acts on can never diverge
 **Used by:** `cli` (`mcp serve`, `status`, `spec show`)
 
 ## Modification Guide

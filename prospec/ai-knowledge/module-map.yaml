@@ -56,7 +56,7 @@ modules:
       - MCP 契約
       - 模組分類
     rationale: Leaf module with zero internal deps — all others import from here
-    last_verified: 2026-09-29T19:05:14.320Z
+    last_verified: 2026-10-02T09:59:16.969Z
   - name: lib
     description: Shared stateless utilities — config, file I/O, Handlebars
       rendering, scanning, token accounting, the zero-LLM drift engine
@@ -127,7 +127,7 @@ modules:
       - 知識讀取
     rationale: Foundational infrastructure shared across services, CLI, and
       benchmark scripts
-    last_verified: 2026-09-29T18:00:12.489Z
+    last_verified: 2026-10-02T08:50:27.903Z
   - name: services
     description: Business logic — one `execute()` service per command — including
       shared-output agent invocation-guidance rendering — init / quickstart /
@@ -185,7 +185,7 @@ modules:
       - 漂移檢查
       - 真相層
     rationale: Isolates business logic from I/O layer, enables testability
-    last_verified: 2026-09-29T15:49:32.865Z
+    last_verified: 2026-10-02T08:50:27.903Z
   - name: cli
     description: Thin CLI entry — 19 top-level Commander commands + 32 formatters
       that parse → call one service → format output; the cli-first station
@@ -224,7 +224,7 @@ modules:
       - 終端
       - entry point
     rationale: "Thin I/O layer: no business logic, delegates to services"
-    last_verified: 2026-09-29T15:49:32.865Z
+    last_verified: 2026-10-02T08:39:43.868Z
   - name: templates
     description: Handlebars template library — 17 skills + host-labelled invocation
       entry guidance, 8 shared partials, 31 references, 1 agent-config, 5
@@ -272,10 +272,10 @@ modules:
       - 複雜度適配
       - CI 閘門
     rationale: Pure resources — no logic, consumed by lib/template.ts
-    last_verified: 2026-09-29T18:00:12.489Z
+    last_verified: 2026-10-02T09:19:56.652Z
   - name: tests
-    description: 4-layer test suite — 267 files, 6,864 tests (unit 4939 + contract
-      1570 + integration 153 + e2e 202). Validates every module — format and
+    description: 4-layer test suite — 267 files, 6,870 tests (unit 4939 + contract
+      1576 + integration 153 + e2e 202). Validates every module — format and
       public-document contracts, the cli-first probe + station-command
       contracts, the drift engine, token corpus, and the MCP protocol over
       in-memory transport.
@@ -315,4 +315,4 @@ modules:
       - 驗證
       - vitest
     rationale: Quality gate — validates all layers with pyramid coverage
-    last_verified: 2026-09-29T19:05:14.320Z
+    last_verified: 2026-10-02T09:59:16.969Z

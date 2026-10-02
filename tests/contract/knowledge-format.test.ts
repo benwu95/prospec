@@ -457,6 +457,14 @@ describe('Knowledge Format Contract', () => {
       expect(template.indexOf(userEnd)).toBeGreaterThan(template.indexOf(userStart));
       expect(canonicalCore).toBe(templateCore);
       expect(skeleton).toContain('<!-- prospec:module-readme-format 2026-09-01 -->');
+      for (const doc of [template, canonical]) {
+        expect(doc).toContain('`prospec check` measures every `{sub-module}.md` as L2');
+        // `check` takes no positional argument; flow docs are module knowledge too;
+        // `isSafeResourceName` also rejects `..`, which the bare regex admits.
+        expect(doc).not.toContain('prospec check knowledge-size');
+        expect(doc).not.toContain('these are the only knowledge docs per module');
+        expect(doc).not.toContain('`[A-Za-z0-9][A-Za-z0-9._-]*`');
+      }
 
       // Structure, not just order: `lib/module-readme-format` allows ONLY blank
       // lines between the summary and the marker, and the generator template is
