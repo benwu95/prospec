@@ -1,8 +1,9 @@
-import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { PrerequisiteError } from '../types/errors.js';
 import { readConfig, resolveBasePaths } from '../lib/config.js';
 import { atomicWrite } from '../lib/fs-utils.js';
+import { readModuleMapRaw } from '../lib/knowledge-reader.js';
+import { readKnownModules } from '../lib/knowledge-sync.js';
 import {
   parseYaml,
   parseYamlDocument,
@@ -52,10 +53,15 @@ export async function execute(options: KnowledgeVerifyOptions): Promise<Knowledg
   const { knowledgePath } = resolveBasePaths(config, cwd);
   const moduleMapPath = path.join(knowledgePath, 'module-map.yaml');
 
-  let content: string;
-  try {
-    content = await fs.promises.readFile(moduleMapPath, 'utf-8');
-  } catch {
+  const { unreadable } = readKnownModules(knowledgePath, cwd);
+  if (unreadable) {
+    throw new PrerequisiteError(
+      `${unreadable.cause} — no last_verified was written`,
+      `${unreadable.remedy}, then re-run \`prospec knowledge verify\``,
+    );
+  }
+  const content = readModuleMapRaw(knowledgePath);
+  if (content === null) {
     throw new PrerequisiteError(
       `module-map.yaml not found at ${moduleMapPath}`,
       'Run `prospec knowledge init` (and `prospec-knowledge-generate`) first.',

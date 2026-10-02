@@ -309,14 +309,10 @@ export async function updateModuleMap(
   changes: { added: string[]; removed: string[] },
   moduleMapPath: string,
 ): Promise<GeneratedFile | null> {
-  // Graceful skip if module-map.yaml doesn't exist
-  try {
-    await fs.promises.access(moduleMapPath);
-  } catch {
-    return null;
-  }
+  // Graceful skip if module-map.yaml doesn't exist (or cannot be read inside its own directory)
+  const content = readContainedText(moduleMapPath, path.dirname(moduleMapPath));
+  if (content === null) return null;
 
-  const content = await fs.promises.readFile(moduleMapPath, 'utf-8');
   const moduleMap = parseYaml<ModuleMap>(content, moduleMapPath);
   const before = JSON.stringify(moduleMap.modules);
 
@@ -396,18 +392,19 @@ export async function execute(
 
   const baseOpts = { cwd, knowledgeBasePath, excludePatterns, warnings: result.warnings };
 
+  // Every mode reads or rewrites the map below, and without a trustworthy one every
+  // delta-spec REQ would classify as "not a module"; refuse before anything is written.
+  const { unreadable } = readKnownModules(knowledgePath, cwd);
+  if (unreadable) {
+    throw new PrerequisiteError(
+      `${unreadable.cause} — ${options.deltaSpecPath ? 'no delta-spec REQ was classified' : 'nothing was written'}`,
+      `${unreadable.remedy}, then re-run \`prospec knowledge update\``,
+    );
+  }
+
   if (options.deltaSpecPath) {
     // --- Delta Spec Mode ---
     const deltaContent = await fs.promises.readFile(options.deltaSpecPath, 'utf-8');
-    // With no trustworthy map every module REQ would classify as "not a module"; refuse
-    // before classifying or writing anything.
-    const { unreadable } = readKnownModules(knowledgePath, cwd);
-    if (unreadable) {
-      throw new PrerequisiteError(
-        `${unreadable.cause} — no delta-spec REQ was classified`,
-        `${unreadable.remedy}, then re-run \`prospec knowledge update\``,
-      );
-    }
     // The knowledge-sync gate classifies the same entries through the same context,
     // so the modules acknowledged here are the modules the gate checks.
     const ctx = loadDeltaModuleContext(knowledgePath, options.relatedModules ?? [], options.backfill ?? false);
@@ -535,12 +532,13 @@ export async function execute(
   // overwrites a non-empty module-map value) and idempotent — so the rebuilt
   // index preserves them instead of blanking to `—`.
   const existingIndex = await readFileIfExists(path.join(cwd, baseDirPath, 'index.md'));
-  if (existingIndex && fs.existsSync(moduleMapPath)) {
+  const mapContent = existingIndex ? readContainedText(moduleMapPath, knowledgePath) : null;
+  if (existingIndex && mapContent !== null) {
     try {
-      const moduleMap = parseYaml<ModuleMap>(fs.readFileSync(moduleMapPath, 'utf-8'), moduleMapPath);
+      const moduleMap = parseYaml<ModuleMap>(mapContent, moduleMapPath);
       const { moduleMap: migrated, changed } = backfillCuratedFromIndex(existingIndex, moduleMap);
       if (changed) {
-        const doc = parseYamlDocument(fs.readFileSync(moduleMapPath, 'utf-8'), moduleMapPath);
+        const doc = parseYamlDocument(mapContent, moduleMapPath);
         mergeIntoDocument(doc, migrated as unknown as Record<string, unknown>);
         await atomicWrite(moduleMapPath, stringifyYamlDocument(doc));
       }
@@ -686,8 +684,10 @@ export function collectAllModules(
   // single source for the curated columns (keywords/aliases/rationale, and
   // Depends On via relationships.depends_on) — carry them through so updateIndex
   // renders them instead of blanking to `—`.
+  // A map that is absent, unreadable or outside its own directory renders as the fallback.
+  const content = readContainedText(moduleMapPath, path.dirname(moduleMapPath));
+  if (content === null) return appendResultRows(modules, result);
   try {
-    const content = fs.readFileSync(moduleMapPath, 'utf-8');
     const moduleMap = parseYaml<ModuleMap>(content, moduleMapPath);
     for (const entry of moduleMap.modules) {
       const isDeprecated = deprecatedSet.has(entry.name.toLowerCase());
@@ -703,15 +703,20 @@ export function collectAllModules(
       });
     }
   } catch {
-    // Fallback: use result data only (curated columns unknown → left empty).
-    for (const name of [...result.created, ...result.updated]) {
-      modules.push({ name, description: `${name} module`, status: 'Active', keywords: [], aliases: [], rationale: '', dependsOn: [], category: [] });
-    }
-    for (const name of result.deprecated) {
-      modules.push({ name, description: `${name} module`, status: 'Deprecated', keywords: [], aliases: [], rationale: '', dependsOn: [], category: [] });
-    }
+    return appendResultRows(modules, result);
   }
 
+  return modules;
+}
+
+/** Fallback rows from result data only (curated columns unknown → left empty). */
+function appendResultRows(modules: IndexRowModule[], result: KnowledgeUpdateResult): IndexRowModule[] {
+  for (const name of [...result.created, ...result.updated]) {
+    modules.push({ name, description: `${name} module`, status: 'Active', keywords: [], aliases: [], rationale: '', dependsOn: [], category: [] });
+  }
+  for (const name of result.deprecated) {
+    modules.push({ name, description: `${name} module`, status: 'Deprecated', keywords: [], aliases: [], rationale: '', dependsOn: [], category: [] });
+  }
   return modules;
 }
 

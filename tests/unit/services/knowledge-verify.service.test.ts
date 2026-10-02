@@ -101,4 +101,75 @@ describe('knowledge-verify.service (REQ-SERVICES-090)', () => {
       PrerequisiteError,
     );
   });
+
+  // #328: the stamp used to be written through a symlink, replacing the link with a
+  // copy of the outside content.
+  describe('judges the map before writing any last_verified', () => {
+    const KP = '/test/prospec/ai-knowledge';
+    const VALID_MAP = 'modules:\n  - name: lib\n    paths: ["src/lib"]\n    keywords: ["lib"]\n';
+
+    const refusal = async (): Promise<PrerequisiteError> => {
+      const error = await execute({ modules: ['lib'], cwd: '/test', now: NOW }).catch((e: unknown) => e);
+      expect(error).toBeInstanceOf(PrerequisiteError);
+      return error as PrerequisiteError;
+    };
+    const linkMap = (target: string): void => {
+      vol.mkdirSync(KP, { recursive: true });
+      vol.symlinkSync(target, MAP_PATH);
+    };
+
+    it('refuses a map that resolves outside the knowledge root, writing nothing', async () => {
+      vol.fromJSON({ '/outside/module-map.yaml': VALID_MAP });
+      linkMap('/outside/module-map.yaml');
+      const before = vol.toJSON();
+      const error = await refusal();
+      expect(error.message).toContain('resolves outside the knowledge root');
+      expect(error.message).toContain('no last_verified was written');
+      expect(error.suggestion).toContain('inside the knowledge root');
+      expect(vol.toJSON()).toEqual(before);
+      expect(vol.lstatSync(MAP_PATH).isSymbolicLink()).toBe(true);
+      expect(vol.readFileSync('/outside/module-map.yaml', 'utf-8')).toBe(VALID_MAP);
+    });
+
+    it.each([
+      ['cannot be parsed', (): void => void vol.fromJSON({ [MAP_PATH]: 'modules: [\n  - : :\n' })],
+      ['fails its schema', (): void => void vol.fromJSON({ [MAP_PATH]: 'modules:\n  - name: lib\n    paths: ["src/lib"]\n' })],
+      ['is a directory', (): void => void vol.mkdirSync(MAP_PATH, { recursive: true })],
+    ])('refuses a map that %s with the cause readKnownModules reports, writing nothing', async (_label, arrange) => {
+      arrange();
+      const before = vol.toJSON();
+      const error = await refusal();
+      expect(error.message).toContain('module-map.yaml cannot be read, parsed or validated');
+      expect(error.suggestion).toContain('repair module-map.yaml');
+      expect(vol.toJSON()).toEqual(before);
+    });
+
+    it.each([
+      ['absent', (): void => undefined],
+      ['a symlink whose target does not exist', (): void => linkMap('/outside/missing.yaml')],
+    ])('keeps the not-found refusal when the map is %s', async (_label, arrange) => {
+      arrange();
+      const error = await refusal();
+      expect(error.message).toContain('module-map.yaml not found');
+    });
+
+    // atomicWrite renames over the link: the stamp lands in a regular file that
+    // replaces it and the link target keeps its old content (#335)
+    it('stamps a map symlinked to another file inside the knowledge root by replacing the link', async () => {
+      vol.fromJSON({ [`${KP}/real/map.yaml`]: VALID_MAP });
+      linkMap(`${KP}/real/map.yaml`);
+      await execute({ modules: ['lib'], cwd: '/test', now: NOW });
+      expect(vol.lstatSync(MAP_PATH).isSymbolicLink()).toBe(false);
+      expect(vol.readFileSync(MAP_PATH, 'utf-8')).toContain(`last_verified: ${NOW}`);
+      expect(vol.readFileSync(`${KP}/real/map.yaml`, 'utf-8')).toBe(VALID_MAP);
+    });
+
+    it('changes only the named module stamp of a readable map inside the knowledge root', async () => {
+      // block style: the Document write reflows flow sequences, which predates the judgment
+      const blockMap = 'modules:\n  - name: lib\n    paths:\n      - src/lib\n    keywords:\n      - lib\n';
+      vol.fromJSON({ [MAP_PATH]: blockMap });
+      await execute({ modules: ['lib'], cwd: '/test', now: NOW });
+      expect(vol.readFileSync(MAP_PATH, 'utf-8')).toBe(`${blockMap}    last_verified: ${NOW}\n`);
+    });
+  });
 });
