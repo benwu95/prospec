@@ -1,7 +1,7 @@
 ---
 feature: ai-knowledge
 status: active
-last_updated: 2026-09-29
+last_updated: 2026-10-02
 story_count: 15
 req_count: 73
 ---
@@ -131,6 +131,7 @@ The test suite proves the Module README format contract at every boundary using 
 
 | Date | Change | Impact | Stories/REQs |
 |------|--------|--------|-------------|
+| 2026-10-02 | contain-knowledge-sync-map-reads | MODIFIED REQ-SERVICES-032 | REQ-SERVICES-032 |
 | 2026-09-29 | audit-shipped-skill-claims | MODIFIED REQ-TEMPLATES-162 | REQ-TEMPLATES-162 |
 | 2026-09-29 | add-canonical-claims | MODIFIED REQ-TEMPLATES-162 | REQ-TEMPLATES-162 |
 | 2026-09-29 | align-knowledge-sync-gap-guidance | MODIFIED REQ-SERVICES-032; MODIFIED REQ-TEMPLATES-162 | REQ-SERVICES-032, REQ-TEMPLATES-162 |
