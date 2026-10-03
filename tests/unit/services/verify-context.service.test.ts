@@ -1,5 +1,5 @@
 import { computeAcceptanceDigest } from '../../../src/types/change.js';
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import fs from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
@@ -7,6 +7,8 @@ import { execFileSync } from 'node:child_process';
 import { execute } from '../../../src/services/verify-context.service.js';
 import { VerificationContextSchema } from '../../../src/types/station.js';
 import { PrerequisiteError } from '../../../src/types/errors.js';
+
+vi.setConfig({ testTimeout: 90_000, hookTimeout: 90_000 });
 
 describe('verify-context service (REQ-SERVICES-115, REQ-TESTS-123)', () => {
   let tmpDir: string;

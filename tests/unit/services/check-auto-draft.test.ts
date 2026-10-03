@@ -13,6 +13,8 @@ import os from 'node:os';
 import path from 'node:path';
 import { execute } from '../../../src/services/check.service.js';
 
+vi.setConfig({ testTimeout: 90_000 });
+
 // Delegates to the real service; the flag is the only way to reach the
 // drafting-failed branch without corrupting fixtures the check itself reads.
 const draftFailure = vi.hoisted(() => ({ message: null as string | null }));

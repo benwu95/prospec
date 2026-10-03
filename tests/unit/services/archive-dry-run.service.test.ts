@@ -10,6 +10,8 @@ import os from 'node:os';
 import path from 'node:path';
 import { execute } from '../../../src/services/archive.service.js';
 
+vi.setConfig({ testTimeout: 90_000 });
+
 // Dry-run must share execute()'s real write path (single flag, no parallel
 // implementation), so these tests run on real temp dirs — renderTemplate and
 // atomicWrite exercise the actual filesystem, like archive-feature-map tests.

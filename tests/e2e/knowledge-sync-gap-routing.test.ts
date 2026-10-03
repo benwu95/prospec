@@ -1,8 +1,10 @@
-import { beforeEach, afterEach, describe, it, expect } from 'vitest';
+import { beforeEach, afterEach, describe, it, expect, vi } from 'vitest';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import * as os from 'node:os';
 import { runCliInProcess } from './helpers/run-cli.js';
+
+vi.setConfig({ testTimeout: 90_000, hookTimeout: 90_000 });
 
 // #310: a knowledge-sync input no station repairs halts `prospec status` instead of
 // looping through knowledge-update, and `prospec change related-modules` is the

@@ -274,7 +274,7 @@ describe('loadModuleMap (moved from check.service, REQ-MCP-006)', () => {
     expect(readFeatureMapRaw(kp())).toBeNull();
   });
 
-  it('treats a module-map symlinked outside the root as missing on every surface', () => {
+  it('treats a module-map symlinked outside the root as missing in both the raw and the loaded read', () => {
     write(
       'outside-map.yaml',
       'modules:\n  - name: evil\n    paths: [src/evil]\n    keywords: []\n',

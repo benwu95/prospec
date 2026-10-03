@@ -7,6 +7,8 @@ vi.mock('node:fs', async () => {
   const memfs = await import('memfs');
   return { ...memfs.fs, default: memfs.fs };
 });
+vi.mock('node:child_process', async (importOriginal) =>
+  (await import('../../helpers/no-child-process.js')).withoutSpawns(await importOriginal<typeof import('node:child_process')>()));
 
 const live = vi.hoisted(() => ({ report: {} as unknown, recheck: true, unavailable: false, mutateConfig: false }));
 vi.mock('../../../src/lib/drift-assessment.js', () => ({

@@ -1,9 +1,8 @@
 /**
- * The git adapter of the delegation path (REQ-LIB-090) and its only
- * `node:child_process` user. Reads of the main repository go through a closed set
- * of reading subcommands, run with optional locks disabled and with the
- * repository-selecting environment removed, so "the CLI only reads git" is checked
- * at run time instead of only stated. The snapshot builder's other git calls go
+ * The git adapter of the delegation path (REQ-LIB-090). Reads of the main
+ * repository go through a closed set of reading subcommands, run with optional
+ * locks disabled and with the repository-selecting environment removed, so "the
+ * CLI only reads git" is checked at run time instead of only stated. The snapshot builder's other git calls go
  * through `gitSnapshot`, which only acts on a snapshot under the temporary directory.
  *
  * It does not reuse `drift-sources`' git calls: those are private to their engine
