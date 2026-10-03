@@ -7,6 +7,7 @@ import {
   updateModuleMap,
   updateIndex,
   collectAllModules,
+  applyReadmeSweep,
   execute,
 } from '../../../src/services/knowledge-update.service.js';
 import { PrerequisiteError } from '../../../src/types/errors.js';
@@ -1594,6 +1595,280 @@ describe('every knowledge-update mode judges the module map before writing (REQ-
       expect(result).toBeNull();
       expect(vol.lstatSync(MAP).isSymbolicLink()).toBe(true);
       expect(vol.readFileSync('/outside/module-map.yaml', 'utf-8')).toBe(OUTSIDE_MAP);
+    });
+  });
+});
+
+// #335: index.md and module READMEs were read and rewritten straight through symlinks —
+// outside-root content flowed into module-map.yaml, a skeleton landed outside the root,
+// and an in-root link was replaced by a copy its target never saw.
+describe('every knowledge-update write target resolves inside its root (REQ-SERVICES-023)', () => {
+  const BASE = '/test/prospec';
+  const KP = `${BASE}/ai-knowledge`;
+  const MAP = `${KP}/module-map.yaml`;
+  const INDEX = `${BASE}/index.md`;
+  const MAP_LIB = 'modules:\n  - name: lib\n    paths: [src/lib]\n    keywords: [lib]\n';
+  const INDEX_DOC =
+    '# AI Knowledge Index\n\n<!-- prospec:auto-start -->\n## Modules\n<!-- prospec:auto-end -->\n\n<!-- prospec:user-start -->\n<!-- prospec:user-end -->\n';
+  const OUTSIDE_INDEX =
+    '# Index\n\n<!-- prospec:auto-start -->\n## Modules\n\n| Module | Keywords | Aliases | Status | Description | Rationale | Depends On |\n| --- | --- | --- | --- | --- | --- | --- |\n| **lib** | lib | outside-alias | Active | lib module | outside-rationale | — |\n<!-- prospec:auto-end -->\n';
+  const DELTA_MODIFIED = '/project/delta-modified.md';
+  const DELTA_ADDED = '/project/delta-added.md';
+  const deltas = {
+    [DELTA_MODIFIED]: '## MODIFIED\n\n### REQ-LIB-001: tweak\n',
+    [DELTA_ADDED]: '## ADDED\n\n### REQ-AUTH-001: add auth\n',
+  };
+
+  const refusal = async (options: Parameters<typeof execute>[0]): Promise<PrerequisiteError> => {
+    const error = await execute(options).catch((e: unknown) => e);
+    expect(error).toBeInstanceOf(PrerequisiteError);
+    return error as PrerequisiteError;
+  };
+  const link = (target: string, at: string): void => {
+    vol.mkdirSync(at.slice(0, at.lastIndexOf('/')), { recursive: true });
+    vol.symlinkSync(target, at);
+  };
+
+  describe('index.md outside the base directory (US-1)', () => {
+    const arrange = (): void => {
+      vol.fromJSON({ [MAP]: MAP_LIB, '/outside/index.md': OUTSIDE_INDEX, ...deltas });
+      link('/outside/index.md', INDEX);
+    };
+
+    it.each([
+      ['manual mode', { manualModules: ['lib'] }],
+      ['delta-spec mode', { deltaSpecPath: DELTA_MODIFIED }],
+      ['the no-option call', {}],
+    ])('refuses in %s, writing nothing and merging nothing into the map', async (_label, mode) => {
+      arrange();
+      const before = vol.toJSON();
+      const error = await refusal({ ...mode, cwd: '/project' });
+      expect(error.message).toContain('index.md');
+      expect(error.message).toContain('resolves outside');
+      expect(error.message).toMatch(/— nothing was written$/);
+      expect(vol.toJSON()).toEqual(before);
+      expect(vol.readFileSync(MAP, 'utf-8')).not.toContain('outside-alias');
+    });
+
+    it('refuses before any write when index.md is not a regular file', async () => {
+      vol.fromJSON({ [MAP]: MAP_LIB });
+      vol.mkdirSync(INDEX, { recursive: true });
+      const before = vol.toJSON();
+      const error = await refusal({ manualModules: ['lib'], cwd: '/project' });
+      expect(error.message).toContain('index.md is not a regular file');
+      expect(error.suggestion).toContain('replace index.md with a regular file');
+      expect(vol.toJSON()).toEqual(before);
+    });
+
+    it('reports an untrusted module map before an escaped index.md', async () => {
+      vol.fromJSON({ [MAP]: 'modules: [\n  - : :\n', '/outside/index.md': OUTSIDE_INDEX });
+      link('/outside/index.md', INDEX);
+      const error = await refusal({ manualModules: ['lib'], cwd: '/project' });
+      expect(error.message).toContain('module-map.yaml cannot be read, parsed or validated');
+    });
+  });
+
+  describe('module README targets outside the knowledge root (US-2)', () => {
+    it('refuses manual mode when modules/ links outside, creating nothing there', async () => {
+      vol.fromJSON({ [MAP]: MAP_LIB, [INDEX]: INDEX_DOC });
+      vol.mkdirSync('/outside/mods', { recursive: true });
+      link('/outside/mods', `${KP}/modules`);
+      const before = vol.toJSON();
+      const error = await refusal({ manualModules: ['lib'], cwd: '/project' });
+      expect(error.message).toContain('modules/lib/README.md');
+      expect(error.message).toContain('resolves outside the knowledge root');
+      expect(vol.existsSync('/outside/mods/lib')).toBe(false);
+      expect(vol.toJSON()).toEqual(before);
+    });
+
+    it('refuses a delta-spec ADDED module whose modules/<name>/ links outside', async () => {
+      vol.fromJSON({ [MAP]: MAP_LIB, [INDEX]: INDEX_DOC, ...deltas });
+      vol.mkdirSync('/outside/auth', { recursive: true });
+      link('/outside/auth', `${KP}/modules/auth`);
+      const before = vol.toJSON();
+      const error = await refusal({ deltaSpecPath: DELTA_ADDED, cwd: '/project' });
+      expect(error.message).toContain('modules/auth/README.md');
+      expect(vol.readdirSync('/outside/auth')).toEqual([]);
+      expect(vol.toJSON()).toEqual(before);
+    });
+
+    it('refuses delta-spec mode when an affected README links outside, writing nothing', async () => {
+      vol.fromJSON({
+        [MAP]: MAP_LIB,
+        [INDEX]: INDEX_DOC,
+        '/outside/README.md': '# lib\n<!-- sweep: replaced -->old<!-- /sweep -->\n',
+        ...deltas,
+      });
+      link('/outside/README.md', `${KP}/modules/lib/README.md`);
+      const before = vol.toJSON();
+      const error = await refusal({ deltaSpecPath: DELTA_MODIFIED, cwd: '/project' });
+      expect(error.message).toContain('modules/lib/README.md');
+      expect(vol.toJSON()).toEqual(before);
+    });
+
+    it('creates no README for an earlier module when a later one escapes', async () => {
+      vol.fromJSON({ [MAP]: MAP_LIB, [INDEX]: INDEX_DOC });
+      vol.mkdirSync('/outside/auth', { recursive: true });
+      link('/outside/auth', `${KP}/modules/auth`);
+      const before = vol.toJSON();
+      await refusal({ manualModules: ['lib', 'auth'], cwd: '/project' });
+      expect(vol.existsSync(`${KP}/modules/lib/README.md`)).toBe(false);
+      expect(vol.toJSON()).toEqual(before);
+    });
+
+    it('creates no ADDED README in delta-spec mode when a MODIFIED module README escapes', async () => {
+      vol.fromJSON({
+        [MAP]: MAP_LIB,
+        [INDEX]: INDEX_DOC,
+        '/outside/README.md': '# lib\n<!-- sweep: replaced -->old<!-- /sweep -->\n',
+        '/project/delta-both.md': '## ADDED\n\n### REQ-AUTH-001: add auth\n\n## MODIFIED\n\n### REQ-LIB-001: tweak\n',
+      });
+      link('/outside/README.md', `${KP}/modules/lib/README.md`);
+      const before = vol.toJSON();
+      const error = await refusal({ deltaSpecPath: '/project/delta-both.md', cwd: '/project' });
+      expect(error.message).toContain('modules/lib/README.md');
+      expect(vol.existsSync(`${KP}/modules/auth/README.md`)).toBe(false);
+      expect(vol.toJSON()).toEqual(before);
+    });
+
+    // memfs enforces permission bits for accessSync and reads
+    it('refuses delta-spec mode before any write when a swept README cannot be read', async () => {
+      vol.fromJSON({
+        [MAP]: MAP_LIB,
+        [INDEX]: INDEX_DOC,
+        [`${KP}/modules/lib/README.md`]: '# lib\n',
+        '/project/delta-both.md': '## ADDED\n\n### REQ-AUTH-001: add auth\n\n## MODIFIED\n\n### REQ-LIB-001: tweak\n',
+      });
+      vol.chmodSync(`${KP}/modules/lib/README.md`, 0o000);
+      const error = await refusal({ deltaSpecPath: '/project/delta-both.md', cwd: '/project' });
+      expect(error.message).toContain('modules/lib/README.md cannot be read');
+      expect(error.suggestion).toContain('grant read permission');
+      expect(vol.existsSync(`${KP}/modules/auth/README.md`)).toBe(false);
+      expect(vol.readFileSync(MAP, 'utf-8')).toBe(MAP_LIB);
+    });
+
+    it('has the README readers refuse a README they cannot read instead of throwing EACCES', async () => {
+      vol.fromJSON({ [`${KP}/modules/lib/README.md`]: '# lib\n' });
+      vol.chmodSync(`${KP}/modules/lib/README.md`, 0o000);
+      const opts = { cwd: '/project', knowledgeBasePath: '../test/prospec/ai-knowledge' };
+      for (const attempt of [applyReadmeSweep('lib', opts), markModuleDeprecated('lib', 'gone', opts)]) {
+        const error = await attempt.catch((e: unknown) => e);
+        expect(error).toBeInstanceOf(PrerequisiteError);
+        expect((error as PrerequisiteError).message).toContain('cannot be read');
+      }
+    });
+
+    it('refuses a README target that is not a regular file instead of reporting it pending', async () => {
+      vol.fromJSON({ [MAP]: MAP_LIB, [INDEX]: INDEX_DOC });
+      vol.mkdirSync(`${KP}/modules/lib/README.md`, { recursive: true });
+      const before = vol.toJSON();
+      const error = await refusal({ manualModules: ['lib'], cwd: '/project' });
+      expect(error.message).toContain('modules/lib/README.md');
+      expect(vol.toJSON()).toEqual(before);
+      const direct = await updateModuleReadme('lib', ['src/lib/**'], { cwd: '/project', knowledgeBasePath: '../test/prospec/ai-knowledge' }).catch((e: unknown) => e);
+      expect(direct).toBeInstanceOf(PrerequisiteError);
+    });
+
+    it('names a knowledge root that is a dangling symlink instead of blaming module-map.yaml', async () => {
+      vol.fromJSON({ [INDEX]: INDEX_DOC });
+      link(`${BASE}/gone`, KP);
+      const before = vol.toJSON();
+      const error = await refusal({ manualModules: ['lib'], cwd: '/project' });
+      expect(error.message).toContain('ai-knowledge is a symlink whose target does not exist');
+      expect(error.message).not.toContain('module-map.yaml');
+      expect(error.suggestion).toContain('ai-knowledge');
+      expect(vol.toJSON()).toEqual(before);
+    });
+
+    it('refuses a directly called writer whose module name escapes the knowledge root lexically', async () => {
+      vol.mkdirSync(`${KP}/modules`, { recursive: true });
+      const before = vol.toJSON();
+      const error = await updateModuleReadme('../../outside', ['src/x/**'], { cwd: '/project', knowledgeBasePath: '../test/prospec/ai-knowledge' }).catch((e: unknown) => e);
+      expect(error).toBeInstanceOf(PrerequisiteError);
+      expect((error as PrerequisiteError).message).toContain('resolves outside the knowledge root');
+      expect(vol.existsSync(`${BASE}/outside/README.md`)).toBe(false);
+      expect(vol.toJSON()).toEqual(before);
+    });
+
+    it('has every exported README and index writer refuse an escaped target', async () => {
+      vol.fromJSON({ '/outside/README.md': '# x\n<!-- sweep: replaced -->old<!-- /sweep -->\n', '/outside/index.md': INDEX_DOC });
+      link('/outside/README.md', `${KP}/modules/lib/README.md`);
+      link('/outside/index.md', INDEX);
+      vol.mkdirSync('/outside/mods', { recursive: true });
+      link('/outside/mods', `${KP}/modules/auth`);
+      const opts = { cwd: '/project', knowledgeBasePath: '../test/prospec/ai-knowledge' };
+      const before = vol.toJSON();
+      const attempts = [
+        updateModuleReadme('auth', ['src/auth/**'], opts),
+        applyReadmeSweep('lib', opts),
+        markModuleDeprecated('lib', 'gone', opts),
+        updateIndex([], { cwd: '/project', baseDir: '../test/prospec', knowledgeBasePath: '../test/prospec/ai-knowledge', projectName: 'p', tokenBudget: DEFAULT_KNOWLEDGE_TOKEN_BUDGET }),
+      ];
+      for (const attempt of attempts) {
+        expect(await attempt.catch((e: unknown) => e)).toBeInstanceOf(PrerequisiteError);
+      }
+      expect(vol.toJSON()).toEqual(before);
+    });
+  });
+
+  describe('in-root symlinks and regular files (US-3, US-4)', () => {
+    it('rewrites the target of an index.md symlinked inside the base directory', async () => {
+      vol.fromJSON({ [MAP]: MAP_LIB, [`${BASE}/real/index.md`]: INDEX_DOC });
+      link(`${BASE}/real/index.md`, INDEX);
+      const result = await execute({ manualModules: ['lib'], cwd: '/project' });
+      expect(vol.lstatSync(INDEX).isSymbolicLink()).toBe(true);
+      expect(vol.readFileSync(`${BASE}/real/index.md`, 'utf-8')).toMatch(/\| \*\*lib\*\* \| lib \|/);
+      expect(result.generatedFiles.map((f) => f.path)).toContain('../test/prospec/index.md');
+    });
+
+    it('sweeps the target of a module README symlinked inside the knowledge root', async () => {
+      const readme = '# lib\n<!-- sweep: replaced -->old<!-- /sweep -->\nkeep\n';
+      vol.fromJSON({ [MAP]: MAP_LIB, [INDEX]: INDEX_DOC, [`${KP}/real/lib.md`]: readme, ...deltas });
+      link(`${KP}/real/lib.md`, `${KP}/modules/lib/README.md`);
+      await execute({ deltaSpecPath: DELTA_MODIFIED, cwd: '/project' });
+      expect(vol.lstatSync(`${KP}/modules/lib/README.md`).isSymbolicLink()).toBe(true);
+      expect(vol.readFileSync(`${KP}/real/lib.md`, 'utf-8')).toBe('# lib\nkeep\n');
+    });
+
+    it('adds a delta-spec ADDED module to the target of a module map symlinked inside the root', async () => {
+      vol.fromJSON({ [`${KP}/real/map.yaml`]: MAP_LIB, [INDEX]: INDEX_DOC, ...deltas });
+      link(`${KP}/real/map.yaml`, MAP);
+      const result = await execute({ deltaSpecPath: DELTA_ADDED, cwd: '/project' });
+      expect(vol.lstatSync(MAP).isSymbolicLink()).toBe(true);
+      expect(vol.readFileSync(`${KP}/real/map.yaml`, 'utf-8')).toContain('name: auth');
+      expect(result.generatedFiles.map((f) => f.path)).toContain(MAP);
+    });
+
+    it('backfills curated index columns into the target of a module map symlinked inside the root', async () => {
+      const curatedIndex = OUTSIDE_INDEX.replace('outside-alias', 'curated-alias').replace('outside-rationale', 'curated-rationale');
+      vol.fromJSON({ [`${KP}/real/map.yaml`]: MAP_LIB, [INDEX]: curatedIndex });
+      link(`${KP}/real/map.yaml`, MAP);
+      await execute({ manualModules: ['lib'], cwd: '/project' });
+      expect(vol.lstatSync(MAP).isSymbolicLink()).toBe(true);
+      expect(vol.readFileSync(`${KP}/real/map.yaml`, 'utf-8')).toContain('curated-alias');
+    });
+
+    it('creates index.md at the location of a dangling symlink', async () => {
+      vol.fromJSON({ [MAP]: MAP_LIB });
+      link('/outside/gone.md', INDEX);
+      await execute({ manualModules: ['lib'], cwd: '/project' });
+      expect(vol.lstatSync(INDEX).isSymbolicLink()).toBe(false);
+      expect(vol.readFileSync(INDEX, 'utf-8')).toMatch(/\| \*\*lib\*\* \| lib \|/);
+      expect(vol.existsSync('/outside/gone.md')).toBe(false);
+    });
+
+    it('keeps output and written bytes unchanged for regular files', async () => {
+      vol.fromJSON({ [MAP]: MAP_LIB, [INDEX]: INDEX_DOC });
+      const result = await execute({ manualModules: ['lib'], cwd: '/project' });
+      expect(result.created).toEqual(['lib']);
+      expect(result.readmePending).toEqual([]);
+      expect(result.warnings).toEqual([]);
+      expect(result.generatedFiles.map((f) => f.path)).toEqual([
+        '../test/prospec/ai-knowledge/modules/lib/README.md',
+        '../test/prospec/index.md',
+      ]);
+      expect(vol.readFileSync(MAP, 'utf-8')).toBe(MAP_LIB);
+      expect(vol.lstatSync(INDEX).isSymbolicLink()).toBe(false);
     });
   });
 });

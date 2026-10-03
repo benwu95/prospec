@@ -1,4 +1,4 @@
-import { existsSync, readFileSync, readdirSync, realpathSync } from 'node:fs';
+import { accessSync, constants, existsSync, lstatSync, readFileSync, readdirSync, realpathSync, statSync } from 'node:fs';
 import path from 'node:path';
 import { parseYaml } from './yaml-utils.js';
 import { ModuleDetectionError } from '../types/errors.js';
@@ -469,6 +469,84 @@ export function readContained(filePath: string, root: string): ContainedRead {
     return { ok: true, text: readFileSync(real, 'utf-8') };
   } catch {
     return { ok: false, reason: 'unreadable' };
+  }
+}
+
+/** A write target resolved against its root: the real path to read and write, or why not. */
+export type ContainedTarget =
+  | { ok: true; path: string }
+  /**
+   * `unreadable`: not a regular file, or under a dangling symlink (`danglingLink` names it);
+   * `no-read-access`: a regular file the caller asked to read but may not.
+   */
+  | { ok: false; reason: 'escaped' | 'unreadable' | 'no-read-access'; danglingLink?: string };
+
+/**
+ * Resolve a knowledge file a writer is about to read and write: the real path
+ * `readContained` would read, so the write lands in the same file and an
+ * in-root symlink keeps its link. An existing target resolves through its
+ * realpath; a missing one (a dangling symlink included, as `readContained`
+ * treats it) through the realpath of its nearest existing ancestor inside the
+ * root — `readContained` alone says `absent` there, which would let a
+ * symlinked parent directory carry the write outside. A dangling directory
+ * symlink on the way — the root, or a directory above a missing root,
+ * included — is `unreadable` and named (the later `ensureDir` would fail after
+ * other writes); a root that does not exist yet leaves the configured path.
+ */
+export function resolveContainedTarget(
+  filePath: string,
+  root: string,
+  options: { read?: boolean } = {},
+): ContainedTarget {
+  const target = path.resolve(filePath);
+  if (existsSync(target)) {
+    const real = realpathSync(target);
+    if (!isContainedPath(real, root)) return { ok: false, reason: 'escaped' };
+    if (!statSync(real).isFile()) return { ok: false, reason: 'unreadable' };
+    // only a target the caller reads needs read access — a create-only writer just probes it
+    if (options.read && !isReadable(real)) return { ok: false, reason: 'no-read-access' };
+    return { ok: true, path: real };
+  }
+  const rootAbs = path.resolve(root);
+  for (let dir = path.dirname(target); ; dir = path.dirname(dir)) {
+    const insideRoot = isLexicallyWithin(dir, rootAbs);
+    if (existsSync(dir)) {
+      // an existing directory above a missing root: the root is simply not created yet —
+      // provided the target lies under it at all
+      if (!insideRoot) {
+        return target !== rootAbs && isLexicallyWithin(target, rootAbs)
+          ? { ok: true, path: target }
+          : { ok: false, reason: 'escaped' };
+      }
+      const realDir = realpathSync(dir);
+      if (!isContainedPath(realDir, root)) return { ok: false, reason: 'escaped' };
+      return { ok: true, path: path.join(realDir, path.relative(dir, target)) };
+    }
+    if (isSymbolicLink(dir)) return { ok: false, reason: 'unreadable', danglingLink: dir };
+    if (path.dirname(dir) === dir) return { ok: true, path: target };
+  }
+}
+
+/** `isContainedPath`'s test on unresolved paths — for directories that do not exist yet. */
+function isLexicallyWithin(target: string, root: string): boolean {
+  const rel = path.relative(root, target);
+  return rel === '' || (!rel.startsWith('..') && !path.isAbsolute(rel));
+}
+
+function isReadable(p: string): boolean {
+  try {
+    accessSync(p, constants.R_OK);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function isSymbolicLink(p: string): boolean {
+  try {
+    return lstatSync(p).isSymbolicLink();
+  } catch {
+    return false;
   }
 }
 
