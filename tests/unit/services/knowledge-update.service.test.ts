@@ -1830,6 +1830,14 @@ describe('every knowledge-update write target resolves inside its root (REQ-SERV
       expect(vol.readFileSync(`${KP}/real/lib.md`, 'utf-8')).toBe('# lib\nkeep\n');
     });
 
+    it('marks the target of a module README symlinked inside the knowledge root as deprecated', async () => {
+      vol.fromJSON({ [`${KP}/real/lib.md`]: '# lib\n' });
+      link(`${KP}/real/lib.md`, `${KP}/modules/lib/README.md`);
+      await markModuleDeprecated('lib', 'gone', { cwd: '/project', knowledgeBasePath: '../test/prospec/ai-knowledge' });
+      expect(vol.lstatSync(`${KP}/modules/lib/README.md`).isSymbolicLink()).toBe(true);
+      expect(vol.readFileSync(`${KP}/real/lib.md`, 'utf-8')).toMatch(/^> \*\*DEPRECATED\*\*: This module was removed\. Reason: gone\n\n# lib\n$/);
+    });
+
     it('adds a delta-spec ADDED module to the target of a module map symlinked inside the root', async () => {
       vol.fromJSON({ [`${KP}/real/map.yaml`]: MAP_LIB, [INDEX]: INDEX_DOC, ...deltas });
       link(`${KP}/real/map.yaml`, MAP);
