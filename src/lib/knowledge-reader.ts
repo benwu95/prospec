@@ -479,7 +479,13 @@ export type ContainedTarget =
    * `unreadable`: not a regular file, or under a dangling symlink (`danglingLink` names it);
    * `no-read-access`: a regular file the caller asked to read but may not.
    */
-  | { ok: false; reason: 'escaped' | 'unreadable' | 'no-read-access'; danglingLink?: string };
+  | { ok: false; reason: 'escaped' | 'unreadable' | 'no-read-access'; danglingLink?: string }
+  /**
+   * The path cannot resolve for a reason other than an absent entry — e.g. a directory
+   * on it denies search, a component is not a directory, a symlink loops, or a name is
+   * longer than 255 bytes. `code` is the error, `blockedAt` the entry resolution stopped at.
+   */
+  | { ok: false; reason: 'unobservable'; code: string; blockedAt: string };
 
 /**
  * Resolve a knowledge file a writer is about to read and write: the real path
@@ -492,6 +498,9 @@ export type ContainedTarget =
  * symlink on the way — the root, or a directory above a missing root,
  * included — is `unreadable` and named (the later `ensureDir` would fail after
  * other writes); a root that does not exist yet leaves the configured path.
+ * A target whose path cannot resolve for any reason but an absent entry is
+ * refused, never absent: reading it as absent would let the write fail only
+ * after other writes.
  */
 export function resolveContainedTarget(
   filePath: string,
@@ -499,7 +508,15 @@ export function resolveContainedTarget(
   options: { read?: boolean } = {},
 ): ContainedTarget {
   const target = path.resolve(filePath);
-  if (existsSync(target)) {
+  const lookup = statErrorCode(target);
+  // the walk judges the path up to the target's own entry, never where a link there points
+  if (lookup !== null && lookup !== 'ENOENT' && isSymbolicLink(target)) {
+    return { ok: false, reason: 'unobservable', code: lookup, blockedAt: target };
+  }
+  if (lookup !== null && !WALKED_CODES.has(lookup)) {
+    return { ok: false, reason: 'unobservable', code: lookup, blockedAt: nearestObservable(target) };
+  }
+  if (lookup === null) {
     const real = realpathSync(target);
     if (!isContainedPath(real, root)) return { ok: false, reason: 'escaped' };
     if (!statSync(real).isFile()) return { ok: false, reason: 'unreadable' };
@@ -511,6 +528,8 @@ export function resolveContainedTarget(
   for (let dir = path.dirname(target); ; dir = path.dirname(dir)) {
     const insideRoot = isLexicallyWithin(dir, rootAbs);
     if (existsSync(dir)) {
+      const blocked = unreachableBelow(dir, target, lookup);
+      if (blocked) return { ok: false, reason: 'unobservable', ...blocked };
       // an existing directory above a missing root: the root is simply not created yet —
       // provided the target lies under it at all
       if (!insideRoot) {
@@ -539,6 +558,53 @@ function isReadable(p: string): boolean {
     return true;
   } catch {
     return false;
+  }
+}
+
+/**
+ * Codes the ancestor walk settles itself, the same way on every platform: Windows
+ * reports a path through a regular file as ENOENT where POSIX says ENOTDIR, and a
+ * name too long to exist only fails once its parent directory does.
+ */
+const WALKED_CODES = new Set(['ENOENT', 'ENOTDIR', 'ENAMETOOLONG']);
+
+/** The longest file name (in bytes) the supported platforms' file systems accept. */
+const NAME_MAX_BYTES = 255;
+
+/** Why nothing can be created at `target` below its nearest existing ancestor `dir`. */
+function unreachableBelow(
+  dir: string,
+  target: string,
+  lookup: string | null,
+): { code: string; blockedAt: string } | null {
+  if (!statSync(dir).isDirectory()) return { code: 'ENOTDIR', blockedAt: dir };
+  let entry = dir;
+  for (const name of path.relative(dir, target).split(path.sep)) {
+    entry = path.join(entry, name);
+    if (Buffer.byteLength(name) > NAME_MAX_BYTES) return { code: 'ENAMETOOLONG', blockedAt: entry };
+  }
+  return lookup === 'ENAMETOOLONG' ? { code: lookup, blockedAt: target } : null;
+}
+
+/** `statSync`'s error code for `p`, or `null` when it resolves. */
+function statErrorCode(p: string): string | null {
+  try {
+    statSync(p);
+    return null;
+  } catch (err) {
+    return (err as NodeJS.ErrnoException).code ?? 'UNKNOWN';
+  }
+}
+
+/** The first entry, from `p` up, whose own entry can be looked up (`lstat`). */
+function nearestObservable(p: string): string {
+  for (let entry = p; ; entry = path.dirname(entry)) {
+    try {
+      lstatSync(entry);
+      return entry;
+    } catch {
+      if (path.dirname(entry) === entry) return entry;
+    }
   }
 }
 

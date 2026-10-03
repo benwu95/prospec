@@ -93,6 +93,13 @@ function containedTarget(
 ): string {
   const target = resolveContainedTarget(filePath, root, options);
   if (target.ok) return target.path;
+  if (target.reason === 'unobservable') {
+    const { code, blockedAt } = target;
+    throw new PrerequisiteError(
+      `${blockedAt} cannot be looked up for ${label} (${code}) — nothing was written`,
+      `fix ${blockedAt} so ${label} resolves, then re-run \`prospec knowledge update\``,
+    );
+  }
   if (target.danglingLink) {
     const link = target.danglingLink;
     throw new PrerequisiteError(

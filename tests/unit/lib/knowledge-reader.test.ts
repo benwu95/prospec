@@ -855,4 +855,150 @@ describe('resolveContainedTarget (write targets)', () => {
       path: real(path.join(tmpDir, 'real-knowledge', 'index.md')),
     });
   });
+
+  it('reports a target that is a symlink loop as unobservable, naming the link', () => {
+    mkdirSync(kp(), { recursive: true });
+    const loop = path.join(kp(), 'index.md');
+    symlinkSync(loop, loop);
+    expect(resolveContainedTarget(loop, kp())).toEqual({ ok: false, reason: 'unobservable', code: 'ELOOP', blockedAt: loop });
+  });
+
+  it('reports a target under a symlink loop as unobservable, naming the link', () => {
+    mkdirSync(kp(), { recursive: true });
+    const loop = path.join(kp(), 'modules');
+    symlinkSync(loop, loop);
+    expect(resolveContainedTarget(path.join(loop, 'lib', 'README.md'), kp())).toEqual({
+      ok: false,
+      reason: 'unobservable', code: 'ELOOP',
+      blockedAt: loop,
+    });
+  });
+
+  it('reports a target under a path component that is not a directory as unobservable, naming that file', () => {
+    write('knowledge/modules/lib', 'not a directory\n');
+    expect(resolveContainedTarget(path.join(kp(), 'modules', 'lib', 'README.md'), kp())).toEqual({
+      ok: false,
+      reason: 'unobservable', code: 'ENOTDIR',
+      blockedAt: path.join(kp(), 'modules', 'lib'),
+    });
+  });
+
+  it('reports a symlink whose target runs through a regular file as unobservable, naming the link', () => {
+    write('knowledge/blocker', 'not a directory\n');
+    const link = path.join(kp(), 'index.md');
+    symlinkSync(path.join(kp(), 'blocker', 'index.md'), link);
+    expect(resolveContainedTarget(link, kp(), { read: true })).toEqual({
+      ok: false,
+      reason: 'unobservable',
+      code: 'ENOTDIR',
+      blockedAt: link,
+    });
+  });
+
+  it('counts the name limit in bytes, not characters', () => {
+    mkdirSync(kp(), { recursive: true });
+    const long = path.join(kp(), 'modules', '字'.repeat(100));
+    expect(resolveContainedTarget(path.join(long, 'README.md'), kp())).toEqual({
+      ok: false,
+      reason: 'unobservable',
+      code: 'ENAMETOOLONG',
+      blockedAt: long,
+    });
+  });
+
+  it('reports a missing root under a regular file as unobservable, naming that file', () => {
+    write('blocker', 'not a directory\n');
+    const root = path.join(tmpDir, 'blocker', 'knowledge');
+    expect(resolveContainedTarget(path.join(root, 'modules', 'lib', 'README.md'), root)).toEqual({
+      ok: false,
+      reason: 'unobservable',
+      code: 'ENOTDIR',
+      blockedAt: path.join(tmpDir, 'blocker'),
+    });
+  });
+
+  it.each([
+    ['an existing', true],
+    ['a missing', false],
+  ])('reports a name longer than 255 bytes under %s modules directory as unobservable, naming it', (_label, withModules) => {
+    mkdirSync(withModules ? path.join(kp(), 'modules') : kp(), { recursive: true });
+    const long = path.join(kp(), 'modules', 'a'.repeat(256));
+    expect(resolveContainedTarget(path.join(long, 'README.md'), kp())).toEqual({
+      ok: false,
+      reason: 'unobservable',
+      code: 'ENAMETOOLONG',
+      blockedAt: long,
+    });
+  });
+
+  // PATH_MAX is 1024 on macOS and 4096 on Linux; Windows long paths behave differently
+  it.skipIf(process.platform === 'win32')('reports a path too long to resolve as unobservable, naming the target', () => {
+    mkdirSync(path.join(kp(), 'modules'), { recursive: true });
+    const target = path.join(kp(), 'modules', ...Array.from({ length: 20 }, () => 'b'.repeat(250)), 'README.md');
+    expect(resolveContainedTarget(target, kp())).toEqual({
+      ok: false,
+      reason: 'unobservable',
+      code: 'ENAMETOOLONG',
+      blockedAt: target,
+    });
+  });
+
+  it('accepts a missing name of exactly 255 bytes', () => {
+    mkdirSync(path.join(kp(), 'modules'), { recursive: true });
+    const target = path.join(kp(), 'modules', 'a'.repeat(255), 'README.md');
+    expect(resolveContainedTarget(target, kp())).toEqual({
+      ok: true,
+      path: path.join(real(path.join(kp(), 'modules')), 'a'.repeat(255), 'README.md'),
+    });
+  });
+
+  // chmod has no effect on Windows, and root searches through mode 0600
+  describe.skipIf(process.platform === 'win32' || process.getuid?.() === 0)('without search permission', () => {
+    const withMode = (dir: string, mode: number, body: () => void): void => {
+      chmodSync(dir, mode);
+      try {
+        body();
+      } finally {
+        chmodSync(dir, 0o755);
+      }
+    };
+
+    it('reports a target under a directory that denies search as unobservable, naming that directory', () => {
+      write('knowledge/modules/lib/README.md', '# lib\n');
+      const dir = path.join(kp(), 'modules', 'lib');
+      withMode(dir, 0o600, () => {
+        expect(resolveContainedTarget(path.join(dir, 'README.md'), kp(), { read: true })).toEqual({
+          ok: false,
+          reason: 'unobservable', code: 'EACCES',
+          blockedAt: dir,
+        });
+      });
+    });
+
+    it('reports a target whose root sits under a directory that denies search as unobservable', () => {
+      const up = path.join(tmpDir, 'up');
+      const root = path.join(up, 'knowledge');
+      mkdirSync(root, { recursive: true });
+      withMode(up, 0o600, () => {
+        expect(resolveContainedTarget(path.join(root, 'modules', 'lib', 'README.md'), root)).toEqual({
+          ok: false,
+          reason: 'unobservable', code: 'EACCES',
+          blockedAt: up,
+        });
+      });
+    });
+
+    it('reports a symlink whose target sits under a directory that denies search as unobservable, naming the link', () => {
+      write('knowledge/hidden/index.md', '# i\n');
+      const link = path.join(kp(), 'index.md');
+      symlinkSync(path.join(kp(), 'hidden', 'index.md'), link);
+      withMode(path.join(kp(), 'hidden'), 0o600, () => {
+        expect(resolveContainedTarget(link, kp(), { read: true })).toEqual({
+          ok: false,
+          reason: 'unobservable', code: 'EACCES',
+          blockedAt: link,
+        });
+      });
+    });
+  });
 });
