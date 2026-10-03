@@ -2,7 +2,7 @@ import * as path from 'node:path';
 import { PrerequisiteError } from '../types/errors.js';
 import { readConfig, resolveBasePaths } from '../lib/config.js';
 import { atomicWrite } from '../lib/fs-utils.js';
-import { readModuleMapRaw } from '../lib/knowledge-reader.js';
+import { readModuleMapRaw, resolveContainedTarget } from '../lib/knowledge-reader.js';
 import { readKnownModules } from '../lib/knowledge-sync.js';
 import {
   parseYaml,
@@ -88,7 +88,15 @@ export async function execute(options: KnowledgeVerifyOptions): Promise<Knowledg
   // untouched module's fields byte-stable.
   const doc = parseYamlDocument(content, moduleMapPath);
   mergeIntoDocument(doc, moduleMap as unknown as Record<string, unknown>);
-  await atomicWrite(moduleMapPath, stringifyYamlDocument(doc));
+  // the same real file the reader above read, so an in-root symlink keeps its link
+  const target = resolveContainedTarget(moduleMapPath, knowledgePath);
+  if (!target.ok) {
+    throw new PrerequisiteError(
+      'module-map.yaml cannot be resolved inside the knowledge root — no last_verified was written',
+      'keep module-map.yaml itself inside the knowledge root as a regular file, then re-run `prospec knowledge verify`',
+    );
+  }
+  await atomicWrite(target.path, stringifyYamlDocument(doc));
 
   return { moduleMapPath, verified: requested, timestamp: now };
 }

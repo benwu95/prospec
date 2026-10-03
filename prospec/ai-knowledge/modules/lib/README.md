@@ -64,7 +64,7 @@ The drift engine's 6 files are listed in the sub-module below; the station engin
 - `mergeContent()` relies on exact markers (typos fail silently); `scanDir()` excludes ADD to security defaults; YAML templates MUST run user text through `escapeYamlScalar()`; compose paths with `path.posix.join`.
 - `module-detector.ts` admission is a pure 2-source-file gate; `isSourceFile` is the single classifier.
 - `markdown-fences.ts` owns markdown parsing and `toInlineCodeSpan` (which collapses line breaks to prevent raw newline header forging).
-- `knowledge-reader.ts` owns `readContained` path-traversal safety (`isContainedPath`). Drift-sources imports from it, never the reverse.
+- `knowledge-reader.ts` owns `readContained` path-traversal safety (`isContainedPath`) and its write-side twin `resolveContainedTarget` (a missing target is judged through its nearest existing ancestor). Drift-sources imports from it, never the reverse.
 - `text-lines.ts` owns line-ending strip for per-line matching (`stripTrailingCr`).
 - `landing-fidelity.ts` is the ONE landing-block comparison — `assessDrops` plus the delta-spec block/bullet parsers (`extractDeltaBlock`/`whenThenBullets`/`declaredDrops`/`iterateDeltaEntries`) — and the ONE routing-header verdict, `classifyRoutingResolution` (over the `buildReqHomeIndex` map from `spec-read`). `archive.service`'s fail-closed write and the `delta-spec-landing-fidelity` check both call both; never re-implement the drop diff or the routing verdict (that divergence is the drift the check guards).
 - The pause fails closed: never resolve an unknowable pause setting to "no pause" — a set `PROSPEC_PAUSE_AT` decides alone, an unreadable config pauses.

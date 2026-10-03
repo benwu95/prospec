@@ -100,6 +100,50 @@ describe('CLI E2E — knowledge, agent & measure', () => {
       expect(await fs.promises.readFile(mapPath, 'utf-8')).toContain('last_verified:');
     });
 
+    // chmod has no effect on Windows, and root reads through mode 000
+    it.skipIf(process.platform === 'win32' || process.getuid?.() === 0)(
+      'knowledge update refuses an unreadable index.md before writing any README',
+      async () => {
+        await initProject();
+        const indexPath = path.join(tmpDir, 'prospec', 'index.md');
+        if (!fs.existsSync(indexPath)) await fs.promises.writeFile(indexPath, '# Index\n');
+        await fs.promises.chmod(indexPath, 0o000);
+        try {
+          const { exitCode, stdout, stderr } = await runCli(['knowledge', 'update', '--module', 'newmod']);
+          expect(exitCode).not.toBe(0);
+          expect(`${stdout}${stderr}`).toContain('index.md cannot be read');
+          expect(`${stdout}${stderr}`).toContain('read permission');
+          expect(
+            fs.existsSync(path.join(tmpDir, 'prospec', 'ai-knowledge', 'modules', 'newmod', 'README.md')),
+          ).toBe(false);
+        } finally {
+          await fs.promises.chmod(indexPath, 0o644);
+        }
+      },
+    );
+
+    // chmod has no effect on Windows, and root reads through mode 000
+    it.skipIf(process.platform === 'win32' || process.getuid?.() === 0)(
+      'knowledge update --module leaves an existing README it never reads pending, even without read access',
+      async () => {
+        await initProject();
+        const readme = path.join(tmpDir, 'prospec', 'ai-knowledge', 'modules', 'lib', 'README.md');
+        await fs.promises.mkdir(path.dirname(readme), { recursive: true });
+        await fs.promises.writeFile(readme, '# lib curated\n');
+        await fs.promises.chmod(readme, 0o000);
+        let stdout = '';
+        try {
+          const run = await runCli(['knowledge', 'update', '--module', 'lib']);
+          expect(run.exitCode).toBe(0);
+          stdout = run.stdout;
+        } finally {
+          await fs.promises.chmod(readme, 0o644);
+        }
+        expect(stdout).toMatch(/README content pending[\s\S]*- lib/);
+        expect(await fs.promises.readFile(readme, 'utf-8')).toBe('# lib curated\n');
+      },
+    );
+
     it('fails on an unknown module without writing', async () => {
       const mapPath = await initProject();
       const before = await fs.promises.readFile(mapPath, 'utf-8');

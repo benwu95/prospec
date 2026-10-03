@@ -153,15 +153,13 @@ describe('knowledge-verify.service (REQ-SERVICES-090)', () => {
       expect(error.message).toContain('module-map.yaml not found');
     });
 
-    // atomicWrite renames over the link: the stamp lands in a regular file that
-    // replaces it and the link target keeps its old content (#335)
-    it('stamps a map symlinked to another file inside the knowledge root by replacing the link', async () => {
+    it('stamps the target of a map symlinked to another file inside the knowledge root, keeping the link', async () => {
       vol.fromJSON({ [`${KP}/real/map.yaml`]: VALID_MAP });
       linkMap(`${KP}/real/map.yaml`);
-      await execute({ modules: ['lib'], cwd: '/test', now: NOW });
-      expect(vol.lstatSync(MAP_PATH).isSymbolicLink()).toBe(false);
-      expect(vol.readFileSync(MAP_PATH, 'utf-8')).toContain(`last_verified: ${NOW}`);
-      expect(vol.readFileSync(`${KP}/real/map.yaml`, 'utf-8')).toBe(VALID_MAP);
+      const result = await execute({ modules: ['lib'], cwd: '/test', now: NOW });
+      expect(vol.lstatSync(MAP_PATH).isSymbolicLink()).toBe(true);
+      expect(vol.readFileSync(`${KP}/real/map.yaml`, 'utf-8')).toContain(`last_verified: ${NOW}`);
+      expect(result.moduleMapPath).toBe(MAP_PATH);
     });
 
     it('changes only the named module stamp of a readable map inside the knowledge root', async () => {

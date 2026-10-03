@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { mkdtempSync, mkdirSync, rmSync, writeFileSync, symlinkSync, readFileSync } from 'node:fs';
+import { chmodSync, mkdtempSync, mkdirSync, rmSync, writeFileSync, symlinkSync, readFileSync, realpathSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import {
@@ -25,6 +25,7 @@ import {
   attachModuleCategories,
   normalizeSearchText,
   sweepModuleReadme,
+  resolveContainedTarget,
 } from '../../../src/lib/knowledge-reader.js';
 import { ModuleDetectionError } from '../../../src/types/errors.js';
 import { BareModuleNameSchema } from '../../../src/types/change.js';
@@ -698,5 +699,160 @@ describe('loadModuleKnowledge (REQ-MCP-002 module read)', () => {
     expect(result).toContain('# Shared Kernel');
     expect(result).toContain('# Present\nhere');
     expect(result?.endsWith('# Present\nhere')).toBe(true);
+  });
+});
+
+// Real fs on purpose: memfs resolves dangling symlinks and recursive mkdir differently.
+describe('resolveContainedTarget (write targets)', () => {
+  const real = (p: string): string => realpathSync(p);
+
+  it('resolves an existing regular file to its realpath', () => {
+    write('knowledge/index.md', '# i\n');
+    expect(resolveContainedTarget(path.join(kp(), 'index.md'), kp())).toEqual({
+      ok: true,
+      path: real(path.join(kp(), 'index.md')),
+    });
+  });
+
+  it('resolves a symlink to another file inside the root to that file', () => {
+    write('knowledge/real/map.yaml', 'modules: []\n');
+    symlinkSync(path.join(kp(), 'real', 'map.yaml'), path.join(kp(), 'module-map.yaml'));
+    expect(resolveContainedTarget(path.join(kp(), 'module-map.yaml'), kp())).toEqual({
+      ok: true,
+      path: real(path.join(kp(), 'real', 'map.yaml')),
+    });
+  });
+
+  it('reports a file symlinked outside the root as escaped', () => {
+    write('outside/index.md', '# o\n');
+    mkdirSync(kp(), { recursive: true });
+    symlinkSync(path.join(tmpDir, 'outside', 'index.md'), path.join(kp(), 'index.md'));
+    expect(resolveContainedTarget(path.join(kp(), 'index.md'), kp())).toEqual({ ok: false, reason: 'escaped' });
+  });
+
+  it('reports an existing target that is not a regular file as unreadable', () => {
+    mkdirSync(path.join(kp(), 'index.md'), { recursive: true });
+    expect(resolveContainedTarget(path.join(kp(), 'index.md'), kp())).toEqual({ ok: false, reason: 'unreadable' });
+  });
+
+  it('resolves a missing file through its nearest existing ancestor', () => {
+    mkdirSync(kp(), { recursive: true });
+    expect(resolveContainedTarget(path.join(kp(), 'modules', 'lib', 'README.md'), kp())).toEqual({
+      ok: true,
+      path: path.join(real(kp()), 'modules', 'lib', 'README.md'),
+    });
+  });
+
+  it('reports a missing file under a directory symlinked outside the root as escaped', () => {
+    mkdirSync(path.join(tmpDir, 'outside', 'mods'), { recursive: true });
+    mkdirSync(kp(), { recursive: true });
+    symlinkSync(path.join(tmpDir, 'outside', 'mods'), path.join(kp(), 'modules'));
+    expect(resolveContainedTarget(path.join(kp(), 'modules', 'lib', 'README.md'), kp())).toEqual({
+      ok: false,
+      reason: 'escaped',
+    });
+  });
+
+  it('resolves a missing file under a directory symlinked inside the root to the real directory', () => {
+    mkdirSync(path.join(kp(), 'real-mods'), { recursive: true });
+    symlinkSync(path.join(kp(), 'real-mods'), path.join(kp(), 'modules'));
+    expect(resolveContainedTarget(path.join(kp(), 'modules', 'lib', 'README.md'), kp())).toEqual({
+      ok: true,
+      path: path.join(real(path.join(kp(), 'real-mods')), 'lib', 'README.md'),
+    });
+  });
+
+  it('reports a missing file under a dangling directory symlink as unreadable, naming the link', () => {
+    mkdirSync(kp(), { recursive: true });
+    symlinkSync(path.join(kp(), 'missing'), path.join(kp(), 'modules'));
+    expect(resolveContainedTarget(path.join(kp(), 'modules', 'lib', 'README.md'), kp())).toEqual({
+      ok: false,
+      reason: 'unreadable',
+      danglingLink: path.join(kp(), 'modules'),
+    });
+  });
+
+  it('reports a root that is itself a dangling symlink as unreadable, naming the root', () => {
+    symlinkSync(path.join(tmpDir, 'gone'), kp());
+    expect(resolveContainedTarget(path.join(kp(), 'modules', 'lib', 'README.md'), kp())).toEqual({
+      ok: false,
+      reason: 'unreadable',
+      danglingLink: kp(),
+    });
+  });
+
+  it('reports a dangling symlink above a missing root as unreadable, naming that link', () => {
+    symlinkSync(path.join(tmpDir, 'gone'), path.join(tmpDir, 'kb'));
+    const root = path.join(tmpDir, 'kb', 'ai-knowledge');
+    expect(resolveContainedTarget(path.join(root, 'index.md'), root)).toEqual({
+      ok: false,
+      reason: 'unreadable',
+      danglingLink: path.join(tmpDir, 'kb'),
+    });
+  });
+
+  it('treats a dangling symlink target as absent and resolves its own location', () => {
+    mkdirSync(kp(), { recursive: true });
+    symlinkSync(path.join(tmpDir, 'outside', 'gone.md'), path.join(kp(), 'index.md'));
+    expect(resolveContainedTarget(path.join(kp(), 'index.md'), kp())).toEqual({
+      ok: true,
+      path: path.join(real(kp()), 'index.md'),
+    });
+  });
+
+  it('reports a missing target that lexically escapes an existing root as escaped', () => {
+    mkdirSync(path.join(kp(), 'modules'), { recursive: true });
+    expect(resolveContainedTarget(path.join(kp(), 'modules', '..', '..', 'outside', 'README.md'), kp())).toEqual({
+      ok: false,
+      reason: 'escaped',
+    });
+  });
+
+  it('reports a missing target in a sibling directory sharing the root name prefix as escaped', () => {
+    mkdirSync(kp(), { recursive: true });
+    mkdirSync(`${kp()}-old`, { recursive: true });
+    expect(resolveContainedTarget(path.join(`${kp()}-old`, 'x', 'README.md'), kp())).toEqual({
+      ok: false,
+      reason: 'escaped',
+    });
+  });
+
+  // chmod has no effect on Windows, and root reads through mode 000
+  it.skipIf(process.platform === 'win32' || process.getuid?.() === 0)(
+    'judges read access only for a target the caller will read',
+    () => {
+      write('knowledge/index.md', '# i\n');
+      const target = path.join(kp(), 'index.md');
+      chmodSync(target, 0o000);
+      try {
+        expect(resolveContainedTarget(target, kp(), { read: true })).toEqual({ ok: false, reason: 'no-read-access' });
+        expect(resolveContainedTarget(target, kp())).toEqual({ ok: true, path: real(target) });
+      } finally {
+        chmodSync(target, 0o644);
+      }
+    },
+  );
+
+  it('resolves a missing file under an existing directory when the root is the filesystem root', () => {
+    const fsRoot = path.parse(tmpDir).root;
+    const target = path.join(tmpDir, 'missing', 'README.md');
+    expect(resolveContainedTarget(target, fsRoot)).toEqual({
+      ok: true,
+      path: path.join(real(tmpDir), 'missing', 'README.md'),
+    });
+  });
+
+  it('returns the configured path when the root does not exist yet', () => {
+    const target = path.join(kp(), 'modules', 'lib', 'README.md');
+    expect(resolveContainedTarget(target, kp())).toEqual({ ok: true, path: target });
+  });
+
+  it('judges containment against the realpath of a symlinked root', () => {
+    write('real-knowledge/index.md', '# i\n');
+    symlinkSync(path.join(tmpDir, 'real-knowledge'), kp());
+    expect(resolveContainedTarget(path.join(kp(), 'index.md'), kp())).toEqual({
+      ok: true,
+      path: real(path.join(tmpDir, 'real-knowledge', 'index.md')),
+    });
   });
 });

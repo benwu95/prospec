@@ -12,7 +12,13 @@ import { hasAutoBlock, replaceAutoBlock } from '../lib/content-merger.js';
 import { deriveKeyExports } from '../lib/key-exports.js';
 import { atomicWrite, ensureDir, readFileIfExists } from '../lib/fs-utils.js';
 import { parseYaml, parseYamlDocument, stringifyYamlDocument, mergeIntoDocument } from '../lib/yaml-utils.js';
-import { isSafeResourceName, loadModuleMap, readContainedText, sweepModuleReadme } from '../lib/knowledge-reader.js';
+import {
+  isSafeResourceName,
+  loadModuleMap,
+  readContainedText,
+  resolveContainedTarget,
+  sweepModuleReadme,
+} from '../lib/knowledge-reader.js';
 import { applicableModuleReadmeExtensions, parseModuleReadmeExtensions } from '../lib/module-readme-format.js';
 import { changedPathsFromWorkTree, partitionDiffAttributedModules } from '../lib/drift-sources.js';
 import type { ModuleMap } from '../types/module-map.js';
@@ -72,6 +78,69 @@ export interface KnowledgeUpdateResult {
   sweptFiles: Array<{ module: string; savings: number }>;
 }
 
+// --- Write targets (REQ-SERVICES-023) ---
+
+/**
+ * The real path a knowledge file is read and written at, or a refusal: the same
+ * file the contained readers see, so an in-root symlink keeps its link.
+ */
+function containedTarget(
+  filePath: string,
+  root: string,
+  label: string,
+  rootLabel: string,
+  options: { read?: boolean } = {},
+): string {
+  const target = resolveContainedTarget(filePath, root, options);
+  if (target.ok) return target.path;
+  if (target.danglingLink) {
+    const link = target.danglingLink;
+    throw new PrerequisiteError(
+      `${link} is a symlink whose target does not exist — nothing was written`,
+      `restore the target of ${link} or remove the link, then re-run \`prospec knowledge update\``,
+    );
+  }
+  if (target.reason === 'escaped') {
+    throw new PrerequisiteError(
+      `${label} resolves outside the ${rootLabel} — nothing was written`,
+      `keep ${label} inside the ${rootLabel} instead of linking outside it, then re-run \`prospec knowledge update\``,
+    );
+  }
+  if (target.reason === 'no-read-access') {
+    throw new PrerequisiteError(
+      `${label} cannot be read — nothing was written`,
+      `grant read permission on ${label}, then re-run \`prospec knowledge update\``,
+    );
+  }
+  throw new PrerequisiteError(
+    `${label} is not a regular file — nothing was written`,
+    `replace ${label} with a regular file, then re-run \`prospec knowledge update\``,
+  );
+}
+
+function readmeTarget(
+  moduleName: string,
+  options: { cwd: string; knowledgeBasePath: string },
+  read: boolean,
+): string {
+  const knowledgePath = path.resolve(options.cwd, options.knowledgeBasePath);
+  return containedTarget(
+    path.join(knowledgePath, 'modules', moduleName, 'README.md'),
+    knowledgePath,
+    `modules/${moduleName}/README.md`,
+    'knowledge root',
+    { read },
+  );
+}
+
+/** `index.md` is always read before it is rewritten (curated backfill, auto-block splice). */
+function indexTarget(cwd: string, baseDir: string): string {
+  const baseDirAbs = path.resolve(cwd, baseDir);
+  return containedTarget(path.join(baseDirAbs, 'index.md'), baseDirAbs, 'index.md', 'base directory', {
+    read: true,
+  });
+}
+
 // --- Module README Update (Task 8: REQ-SERVICES-021) ---
 
 /**
@@ -90,13 +159,7 @@ export async function updateModuleReadme(
   modulePaths: string[],
   options: { cwd: string; knowledgeBasePath: string; excludePatterns?: string[]; warnings?: string[] },
 ): Promise<GeneratedFile | null> {
-  const readmePath = path.join(
-    options.cwd,
-    options.knowledgeBasePath,
-    'modules',
-    moduleName,
-    'README.md',
-  );
+  const readmePath = readmeTarget(moduleName, options, false);
 
   if (fs.existsSync(readmePath)) return null;
 
@@ -167,13 +230,7 @@ export async function applyReadmeSweep(
   moduleName: string,
   options: { cwd: string; knowledgeBasePath: string },
 ): Promise<{ savings: number } | null> {
-  const readmePath = path.join(
-    options.cwd,
-    options.knowledgeBasePath,
-    'modules',
-    moduleName,
-    'README.md',
-  );
+  const readmePath = readmeTarget(moduleName, options, true);
   const existingContent = await readFileIfExists(readmePath);
   if (!existingContent) return null;
   const { swept, savings } = sweepModuleReadme(existingContent);
@@ -194,13 +251,7 @@ export async function markModuleDeprecated(
   reason: string,
   options: { cwd: string; knowledgeBasePath: string },
 ): Promise<GeneratedFile | null> {
-  const readmePath = path.join(
-    options.cwd,
-    options.knowledgeBasePath,
-    'modules',
-    moduleName,
-    'README.md',
-  );
+  const readmePath = readmeTarget(moduleName, options, true);
 
   // If README doesn't exist, nothing to deprecate
   try {
@@ -246,7 +297,7 @@ export async function updateIndex(
     tokenBudget: KnowledgeSizeBudget;
   },
 ): Promise<GeneratedFile> {
-  const indexPath = path.join(options.cwd, options.baseDir, 'index.md');
+  const indexPath = indexTarget(options.cwd, options.baseDir);
   await ensureDir(path.dirname(indexPath));
 
   const conventionScan = await scanDir('_*.md', { cwd: path.join(options.cwd, options.knowledgeBasePath) });
@@ -311,7 +362,8 @@ export async function updateModuleMap(
 ): Promise<GeneratedFile | null> {
   // Graceful skip if module-map.yaml doesn't exist (or cannot be read inside its own directory)
   const content = readContainedText(moduleMapPath, path.dirname(moduleMapPath));
-  if (content === null) return null;
+  const target = resolveContainedTarget(moduleMapPath, path.dirname(moduleMapPath));
+  if (content === null || !target.ok) return null;
 
   const moduleMap = parseYaml<ModuleMap>(content, moduleMapPath);
   const before = JSON.stringify(moduleMap.modules);
@@ -349,7 +401,7 @@ export async function updateModuleMap(
   // merge goes through the yaml Document (same path writeConfig uses).
   const doc = parseYamlDocument(content, moduleMapPath);
   mergeIntoDocument(doc, moduleMap as unknown as Record<string, unknown>);
-  await atomicWrite(moduleMapPath, stringifyYamlDocument(doc));
+  await atomicWrite(target.path, stringifyYamlDocument(doc));
 
   return {
     path: moduleMapPath,
@@ -402,6 +454,26 @@ export async function execute(
     );
   }
 
+  // Manual names come straight from --module and drive ensureDir/atomicWrite
+  // under modules/<name>/ — unlike delta-spec mode they are not regex-constrained,
+  // so a traversal-shaped name must be refused before anything is written.
+  const manualModules = options.deltaSpecPath ? [] : options.manualModules ?? [];
+  const unsafeModules = manualModules.filter((m) => !isSafeResourceName(m));
+  if (unsafeModules.length > 0) {
+    throw new PrerequisiteError(
+      `Invalid module name(s): ${unsafeModules.join(', ')}`,
+      'A module name must match [A-Za-z0-9][A-Za-z0-9._-]* with no path separators or ".." — use the names declared in module-map.yaml',
+    );
+  }
+
+  // Judge every target before the first write, so a refusal leaves nothing half-written.
+  const indexPath = indexTarget(cwd, baseDirPath);
+  const mapPath = containedTarget(moduleMapPath, knowledgePath, 'module-map.yaml', 'knowledge root');
+  // delta mode sweeps every existing README it touches; manual mode only creates missing ones
+  const preflightReadmes = (modules: Iterable<string>, read: boolean): void => {
+    for (const mod of modules) readmeTarget(mod, baseOpts, read);
+  };
+
   if (options.deltaSpecPath) {
     // --- Delta Spec Mode ---
     const deltaContent = await fs.promises.readFile(options.deltaSpecPath, 'utf-8');
@@ -410,6 +482,7 @@ export async function execute(
     const ctx = loadDeltaModuleContext(knowledgePath, options.relatedModules ?? [], options.backfill ?? false);
     const modulePathMap = ctx.modulePaths;
     const entries = classifyDeltaSpec(deltaContent, ctx);
+    preflightReadmes(entries.flatMap((e) => e.modules), true);
     const malformed = entries.filter((e) => e.kind === 'malformed').map((e) => e.id);
     if (malformed.length > 0) {
       result.warnings.push(
@@ -499,21 +572,12 @@ export async function execute(
         result.generatedFiles.push(mapFile);
       }
     }
-  } else if (options.manualModules && options.manualModules.length > 0) {
+  } else if (manualModules.length > 0) {
     // --- Manual Mode --- (create-only: an existing README is judgment work)
-    // Manual names come straight from --module and drive ensureDir/atomicWrite
-    // under modules/<name>/ — unlike delta-spec mode they are not regex-constrained,
-    // so a traversal-shaped name must be refused before anything is written.
-    const unsafeModules = options.manualModules.filter((m) => !isSafeResourceName(m));
-    if (unsafeModules.length > 0) {
-      throw new PrerequisiteError(
-        `Invalid module name(s): ${unsafeModules.join(', ')}`,
-        'A module name must match [A-Za-z0-9][A-Za-z0-9._-]* with no path separators or ".." — use the names declared in module-map.yaml',
-      );
-    }
+    preflightReadmes(manualModules, false);
     const modulePathMap = buildModulePathMap(knowledgePath) ?? new Map<string, string[]>();
 
-    for (const moduleName of options.manualModules) {
+    for (const moduleName of manualModules) {
       const paths = modulePathMap.get(moduleName.toLowerCase()) ?? [`src/${moduleName}/**`];
       const file = await updateModuleReadme(moduleName, paths, baseOpts);
       if (file) {
@@ -531,7 +595,7 @@ export async function execute(
   // index.md gets them seeded into module-map on the fly — no-clobber (never
   // overwrites a non-empty module-map value) and idempotent — so the rebuilt
   // index preserves them instead of blanking to `—`.
-  const existingIndex = await readFileIfExists(path.join(cwd, baseDirPath, 'index.md'));
+  const existingIndex = await readFileIfExists(indexPath);
   const mapContent = existingIndex ? readContainedText(moduleMapPath, knowledgePath) : null;
   if (existingIndex && mapContent !== null) {
     try {
@@ -540,7 +604,7 @@ export async function execute(
       if (changed) {
         const doc = parseYamlDocument(mapContent, moduleMapPath);
         mergeIntoDocument(doc, migrated as unknown as Record<string, unknown>);
-        await atomicWrite(moduleMapPath, stringifyYamlDocument(doc));
+        await atomicWrite(mapPath, stringifyYamlDocument(doc));
       }
     } catch {
       // Backfill is a non-fatal migration convenience — a malformed module-map
