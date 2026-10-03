@@ -21,6 +21,8 @@ vi.mock('node:fs', async () => {
   const memfs = await import('memfs');
   return { ...memfs.fs, default: memfs.fs };
 });
+vi.mock('node:child_process', async (importOriginal) =>
+  (await import('../helpers/no-child-process.js')).withoutSpawns(await importOriginal<typeof import('node:child_process')>()));
 
 vi.mock('node:os', () => ({
   homedir: () => '/home/testuser',

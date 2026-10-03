@@ -183,9 +183,8 @@ export function readProduct(specsPath: string): string | null {
 // --- module-map load + clamp (moved verbatim from check.service.ts) ---
 
 export function loadModuleMap(knowledgePath: string, cwd: string): ModuleMap | null {
-  // same containment as readModuleMapRaw — a map symlinked outside the root
-  // degrades to "missing" on EVERY surface (raw read, listing, health,
-  // dependency answers); split paths here once served contradicting truths
+  // same containment as readModuleMapRaw — a map that resolves outside the
+  // knowledge root reads as absent (null) here, as it does there
   const read = readContained(path.join(knowledgePath, 'module-map.yaml'), knowledgePath);
   // A map that is THERE but unreadable must not read as "no map": the fallback
   // ruleset would silently take over and dependency-direction would be judged

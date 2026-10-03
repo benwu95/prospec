@@ -4,7 +4,7 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg?style=flat-square)](LICENSE)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.9-blue?style=flat-square&logo=typescript)](https://www.typescriptlang.org/)
-[![測試](https://img.shields.io/badge/測試-6975%20總計-success?style=flat-square)](tests/)
+[![測試](https://img.shields.io/badge/測試-6981%20總計-success?style=flat-square)](tests/)
 [![Node](https://img.shields.io/badge/node-%3E%3D22.13-brightgreen?style=flat-square&logo=node.js)](https://nodejs.org/)
 [![pnpm](https://img.shields.io/badge/pnpm-%3E%3D11-orange?style=flat-square&logo=pnpm)](https://pnpm.io/)
 
@@ -669,7 +669,7 @@ Prospec 採用 **Pragmatic Layered Architecture**（`cli → services → lib �
 ## 測試
 
 ```bash
-# 執行所有測試（共 6975 個；4 個略過）
+# 執行所有測試（共 6981 個；4 個略過）
 pnpm test
 
 # Watch 模式
@@ -682,8 +682,8 @@ pnpm run typecheck
 pnpm run lint
 ```
 
-**測試覆蓋率**：共 6975 個測試（6971 個通過；4 個略過），橫跨 4 大類：
-- Unit tests（types + lib + services + cli）：5042 tests
+**測試覆蓋率**：共 6981 個測試（6977 個通過；4 個略過），橫跨 4 大類：
+- Unit tests（types + lib + services + cli）：5048 tests
 - Contract tests（CLI 輸出 + Skill 格式）：1576 tests
 - Integration tests：153 tests
 - E2E tests：204 tests

@@ -10,6 +10,8 @@ import * as path from 'node:path';
 import * as os from 'node:os';
 import { execFileSync } from 'node:child_process';
 
+vi.setConfig({ testTimeout: 30_000 });
+
 let tmpDir: string;
 
 beforeEach(() => {

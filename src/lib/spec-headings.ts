@@ -20,9 +20,9 @@ import { stripTrailingCr } from './text-lines.js';
  * owning story, and deriving those from a second walk would put the
  * Deprecated-section rule and the heading-level rule in two places.
  *
- * Its only import is the other leaf that owns CommonMark fences, so
- * `lib/drift-sources` and `services/archive` still depend on this module without
- * a lib→lib cycle.
+ * It imports only `markdown-fences` and `text-lines`, neither of which imports
+ * it back, so `lib/drift-sources` and `services/archive` still depend on this
+ * module without a lib→lib cycle.
  */
 
 /** A matched REQ heading: its id and the ATX level it was written at. */
@@ -36,8 +36,8 @@ export interface ReqHeading {
 export interface MatchReqHeadingOptions {
   /**
    * Also match a struck-through id (`#### ~~REQ-X-001~~: retired`). Opt-in
-   * because striking a REQ is how a spec marks it dead: only an inventory of
-   * DEFINED ids wants those, never a count of active ones.
+   * because striking a REQ is how a spec marks it dead, so by default only
+   * active REQs match.
    */
   includeStruck?: boolean;
 }

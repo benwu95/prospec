@@ -6245,7 +6245,7 @@ describe('detect-inlined-gate-desync — Inlined/Mechanized annotation anchors (
 
   it('every Inlined/Mechanized annotation carries a non-empty Landing: anchor', () => {
     // Non-empty guard (PB-001 vacuous-pass shape): the filter must actually match
-    // the six live annotations (PB-001/003/006/007/008/016), never an empty set.
+    // the live annotations, never an empty set.
     expect(annotationLines.length).toBeGreaterThanOrEqual(6);
     for (const line of annotationLines) {
       expect(line, `annotation missing Landing: clause → ${line.slice(0, 70)}`).toContain('Landing:');
