@@ -49,6 +49,7 @@
 - **Quality Log**: plan 首輪 FAIL：原契約與 station 模式衝突、遺漏既有解析保證，修正後 PASS。兩輪 review WARN 均為上述兩項 advisory major。首輪 verify C：Sweep 治理條款漏載、compact body 留有已覆蓋 Guidance、fallback 缺獨立 literal stdout oracle；修正、mutation 驗證及重新獨立審查後為 S。
 - **Limitations**: prospec check --strict 無 FAIL，knowledge-size 保留 advisory WARN；review 的兩項測試品質建議不影響 verify grade，亦未宣稱已修正。
 - **Post-commit gate**: 功能提交後（最終為 3f6f9c2，補上條列式 commit body）已執行 knowledge:check，六個來源模組全部通過；先前空 commit range 的 skip 已由此實際檢查取代。
+- **Source**: 2026-10-04 由既有封存摘要、review.md、verify.md 與 archive metadata 的 quality_log 整理；原始報告可由 Git `8e13d6c8c851` 的同名 history 資料夾追溯。
 
 ## Knowledge Update
 
@@ -56,4 +57,4 @@
 
 ## Harvest
 
-本次 quality_log 的 plan FAIL、verify C 與 review WARN 經 keyed upsert 累積至 ledger；不自動晉升共享規則。永久證據：[review.md](./2026-09-27-route-playbook-by-station/review.md)、[verify.md](./2026-09-27-route-playbook-by-station/verify.md)。新增 regression pins 中，Sweep 治理保全已於兩份 reference 的既有 contract 守衛；fallback literal oracle 保留於 E2E，compact 條款保留於 repo 專屬 contract，無待晉升的跨家族新 invariant。
+本次 quality_log 的 plan FAIL、verify C 與 review WARN 經 keyed upsert 累積至 ledger；不自動晉升共享規則。永久證據整合於本檔的 Review & Verify。新增 regression pins 中，Sweep 治理保全已於兩份 reference 的既有 contract 守衛；fallback literal oracle 保留於 E2E，compact 條款保留於 repo 專屬 contract，無待晉升的跨家族新 invariant。

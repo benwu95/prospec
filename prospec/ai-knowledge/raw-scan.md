@@ -68,10 +68,6 @@ prospec/
       types/
   specs/
     _archived-history/
-      2026-09-27-route-playbook-by-station/
-      2026-09-29-audit-shipped-skill-claims/
-      2026-10-04-align-knowledge-verdict/
-      2026-10-04-align-skill-guidance/
     features/
       agent-integration/
       ai-knowledge/
@@ -231,7 +227,7 @@ tests/
 > alphabetically first.
 
 - `tests/fixtures/` — 634 files: `.md`, `.yaml`, `.json`, `.txt`
-- `prospec/` — 333 files: `.md`, `.json`, `.yaml`
+- `prospec/` — 317 files: `.md`, `.yaml`
 - `planning/` — 10 files: `.md`
 - `reference/` — 2 files: `.md`
 
@@ -239,5 +235,5 @@ tests/
 
 | Metric | Value |
 |--------|-------|
-| Total files | 1591 |
+| Total files | 1575 |
 | Scan depth | 10 |

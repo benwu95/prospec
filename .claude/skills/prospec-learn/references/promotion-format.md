@@ -32,7 +32,9 @@ tier:
 
 ## Harvest (archive-time auto-extraction)
 
-At archive, harvest `.prospec/archive/{date}-{name}/`; cite evidence in committed `prospec/specs/_archived-history/{date}-{name}/verify.md` and `review.md`. Auto-harvest is idempotent: include `[M]` tasks and `kind: playbook` / `_conventions.md` corrections. Auto-harvest ≠ auto-promote: no shared-tier auto-write. A `retired` row is never raised by harvest (`prospec learn upsert`); it stays untouched.
+At archive, harvest `.prospec/archive/{date}-{name}/`; cite the committed summary at `prospec/specs/_archived-history/{date}-{name}.md`, specifically its `## Review & Verify` section, as the durable evidence. For a source change predating the summary convention, consult the ledger's own `git log -p`; a missing summary is not evidence that nothing happened.
+
+Auto-harvest is idempotent: include `[M]` tasks and `kind: playbook` / `_conventions.md` corrections. Auto-harvest ≠ auto-promote: no shared-tier auto-write. A `retired` row is never raised by harvest (`prospec learn upsert`); it stays untouched.
 
 ## Generalizability Heuristic
 

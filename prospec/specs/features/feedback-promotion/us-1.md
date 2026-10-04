@@ -25,10 +25,11 @@ archive Phase 4.5 crosses `tasks.md` completion status × kind: `[M]` manual tas
 - WHEN manual tasks are all complete or have no kind marker, THEN do not generate / safely skip
 
 #### REQ-TEMPLATES-128: Canonical _archived-history Evidence Pointer
-The promotion-format Harvest and the `_lessons-ledger.md` header both state where a lesson's committed review/verify evidence lives, and both state it conditionally: a `source_changes` name archived since the `specs/_archived-history/{date}-{name}.md` convention existed resolves to that file (cite its `## Review & Verify` section), a name predating it has none, and a missing record is never evidence that nothing happened — the ledger's own `git log -p` is the path that always resolves. Neither relies on the gitignored `.prospec/archive/` bundle, which the worktree workflow can discard.
+The promotion-format Harvest and the `_lessons-ledger.md` header identify a lesson's committed review/verify evidence in the per-change summary's `## Review & Verify` section. A `source_changes` name archived under the summary convention resolves to `specs/_archived-history/{date}-{name}.md` beneath the project's configured base directory. For a name predating the convention, the ledger's own `git log -p` provides the historical evidence; a missing summary is not evidence that nothing happened. Harvest reads the current change bundle for extraction and cites the committed summary for durable evidence.
 - WHEN auditing the lesson evidence of a source_change archived under the convention, THEN point to the committed `_archived-history/{date}-{name}.md`, not the gitignored bundle
 - WHEN the name predates the convention and no record exists, THEN read the ledger's own git history and never treat the absence as evidence that the lesson was unfounded
 - WHEN promotion-format renders, THEN both the prospec-learn and prospec-archive copies of `promotion-format.md` carry this pointer in its conditional form
+- WHEN a project configures a different base directory, THEN the Harvest summary pointer resolves beneath that configured directory
 
 #### REQ-TEMPLATES-198: Generalizability Heuristic in promotion-format
 `references/promotion-format.md` defines a Generalizability Heuristic — the single definition of which conversational corrections are worth capturing — followed by Collect's session-correction folding and the L0 Checkpoint Correction Capture protocol.
