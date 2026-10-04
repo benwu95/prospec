@@ -30,7 +30,7 @@
 1. **Add a contract test** — `tests/contract/{name}.test.ts`; real `renderTemplate()`, no mocks, every assertion section-scoped.
 2. **Pin a doc against a registry** — SET EQUALITY keyed exhaustively over the registry's OWN domain (every scale; every status), both directions.
 3. **Pin a `--dry-run`** — snapshot the tree before and after and assert it is unchanged.
-4. **Audit shipped prose** — keep each corrected claim in its governing section, assert required operations and reference structure independently alongside CLI counterexamples, and apply source-template mutations before rebuilding the bundle and running the targeted contract. The reference-heading check ignores fenced examples.
+4. **Audit shipped prose** — keep each corrected claim in its governing section, assert table verdict cells and Mermaid node order alongside CLI counterexamples (repository Knowledge grading, pre-validation sync and post-commit freshness), and apply source-template mutations before rebuilding the bundle and running the targeted contract. Cover both README languages and website overlays; the reference-heading check ignores fenced examples.
 5. **Rebaseline a frozen fixture** — `tests/fixtures/startup-loading-baseline.json` is version-controlled; a new loading item fails until it is updated deliberately, and its ceilings are shrink-only.
 6. **Change public website behavior** — update the English HTML and the Traditional Chinese overlay together (a social-preview change moves `docs/og.png` and both alt-text tags as one unit); parse JSON-LD, compare translation-key sets exactly, and derive lifecycle/MCP expectations from the frozen registries.
 

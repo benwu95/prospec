@@ -4,7 +4,7 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg?style=flat-square)](LICENSE)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.9-blue?style=flat-square&logo=typescript)](https://www.typescriptlang.org/)
-[![測試](https://img.shields.io/badge/測試-6996%20總計-success?style=flat-square)](tests/)
+[![測試](https://img.shields.io/badge/測試-7000%20總計-success?style=flat-square)](tests/)
 [![Node](https://img.shields.io/badge/node-%3E%3D22.13-brightgreen?style=flat-square&logo=node.js)](https://nodejs.org/)
 [![pnpm](https://img.shields.io/badge/pnpm-%3E%3D11-orange?style=flat-square&logo=pnpm)](https://pnpm.io/)
 
@@ -90,7 +90,7 @@ Prospec 讓開發者與 AI coding agent **依據專案內的檔案，共用同�
 | AI 工作流不一致 | 結構化 Skills 強制執行 `story → plan → design → tasks → implement → review → verify → knowledge-update → archive`，條件分支也明確可見 |
 | 供應商鎖定 | 支援 4+ AI CLI，知識儲存在通用 Markdown 格式 |
 | 設計到程式碼斷裂 | `prospec-design` 生成視覺 + 互動規格，整合 MCP 工具 |
-| Knowledge 容易過時 | verify S/A commit prompt 把 Knowledge Update 折入 feature commit；archive Entry Gate 為 backstop 複核 |
+| Knowledge 容易過時 | 在最終 review/tests/verify 前同步 Knowledge；verify 採 repository-wide Knowledge health，S/A prompt 確認已驗證輸入，archive 複核同步 |
 | verify 過了仍出細微 bug | `prospec-review` —— implement 與 verify 間的獨立對抗式審查 |
 | 教訓無法跨 session 留存 | `prospec-learn` —— 反覆出現的修正經人工核可晉升為版控的團隊規則 |
 
@@ -606,7 +606,7 @@ Brownfield 專案累積了大量「沒有 Feature Spec 描述」的行為。**Ba
 
 ```mermaid
 flowchart TD
-    CODE[("既有<br/>brownfield code")] --> BF([萃取<br/>Backfill]) -- "草稿 + 人工審閱" --> PR([晉升<br/>Promote]) -- "scale: backfill<br/>(無 plan/tasks)" --> V([驗證<br/>Verify]) -- "spec-fidelity → S/A" --> K([知識同步<br/>Knowledge Sync]) --> A([歸檔<br/>Archive])
+    CODE[("既有<br/>brownfield code")] --> BF([萃取<br/>Backfill]) -- "草稿 + 人工審閱" --> PR([晉升<br/>Promote]) -- "scale: backfill<br/>(無 plan/tasks)" --> K([知識同步<br/>Knowledge Sync]) --> V([驗證<br/>Verify]) -- "spec-fidelity → S/A" --> A([歸檔<br/>Archive])
 
     A -- Spec Sync --> FS[("Feature Specs<br/>graduate 進信任區")]
 
@@ -617,8 +617,8 @@ flowchart TD
 1. **萃取** —— `prospec-backfill-spec` 讀程式碼（與 tests、git history、docs）、stage 一份 route-compatible 的 `backfill-draft.md`；無法從程式碼推得的 intent 標 `[NEEDS CLARIFICATION]`，絕不捏造。
 2. **審閱** —— 解決每個 `[NEEDS CLARIFICATION]`（*So that* 價值、目標角色、模糊 AC），確認候選 feature slug。這是人工關卡。
 3. **晉升** —— `prospec-promote-backfill` 把審閱過的草稿展開為 change scaffold（proposal + delta-spec + metadata），標記 `scale: backfill`、`status: implemented`。`backfill` 是像 `quick` 的**輕量 scale** —— 不產空殼 `plan.md`/`tasks.md`，因為程式碼已存在。
-4. **驗證** —— `prospec-verify` 改評 **spec-fidelity**（每條 REQ 的 `file:line` 須成立），把既有程式碼品質落差（如未測的 brownfield code）記為 informational 技術債，且此降級僅在 `backfill-draft.md` 證明 provenance 時套用 —— 因此忠實的草稿能達 S/A、不被它只是「記錄」的技術債擋住，而 marker 也無法替新程式碼 bypass 品質 gate。依 contract，proven backfill 的 code review 是 optional。
-5. **Knowledge Sync** —— 執行 `prospec knowledge update --change <name>`（不會為 feature-slug REQ ID mint 任何 module）。更新`prospec knowledge update --change` 回報的 modules ∪ `metadata.related_modules` 的 READMEs，再用 `prospec knowledge verify` stamp。
+4. **Knowledge Sync** —— 執行 `prospec knowledge update --change <name>`（不會為 feature-slug REQ ID mint 任何 module）。更新`prospec knowledge update --change` 回報的 modules ∪ `metadata.related_modules` 的 READMEs，再用 `prospec knowledge verify` stamp。 這些準備須在最終驗證前完成。
+5. **最終驗證** —— `prospec-verify` 改評 **spec-fidelity**（每條 REQ 的 `file:line` 須成立），把既有程式碼品質落差（如未測的 brownfield code）記為 informational 技術債，且此降級僅在 `backfill-draft.md` 證明 provenance 時套用 —— 因此忠實的草稿能達 S/A、不被它只是「記錄」的技術債擋住，而 marker 也無法替新程式碼 bypass 品質 gate。依 contract，proven backfill 的 code review 是 optional。 S/A 確認已準備的輸入；之後若有效輸入改動，須重新驗證。
 6. **歸檔** —— `prospec-archive` 把需求 graduate 進 `prospec/specs/features/{slug}.md`。這是唯一會寫信任區的環節。
 
 ### 升級 Prospec
@@ -671,7 +671,7 @@ Prospec 採用 **Pragmatic Layered Architecture**（`cli → services → lib �
 ## 測試
 
 ```bash
-# 執行所有測試（共 6996 個；4 個略過）
+# 執行所有測試（共 7000 個；4 個略過）
 pnpm test
 
 # Watch 模式
@@ -684,9 +684,9 @@ pnpm run typecheck
 pnpm run lint
 ```
 
-**測試覆蓋率**：共 6996 個測試（6992 個通過；4 個略過），橫跨 4 大類：
-- Unit tests（types + lib + services + cli）：5059 tests
-- Contract tests（CLI 輸出 + Skill 格式）：1580 tests
+**測試覆蓋率**：共 7000 個測試（6996 個通過；4 個略過），橫跨 4 大類：
+- Unit tests（types + lib + services + cli）：5062 tests
+- Contract tests（CLI 輸出 + Skill 格式）：1581 tests
 - Integration tests：153 tests
 - E2E tests：204 tests
 

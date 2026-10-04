@@ -650,7 +650,7 @@ describe('Skill Format Contract', () => {
     // feature-prefix REQ has no "REQ-prefix module", so the old wording under-stamped.
     it('cascade-protocol commit prompt scopes affected modules to the reported set ∪ related_modules ∪ diff-path (generated included)', () => {
       const content = render('skills/references/cascade-protocol.hbs');
-      const start = content.indexOf('Commit Boundary & Preparation');
+      const start = content.indexOf('Commit Boundary & Confirmation');
       expect(start, 'cascade-protocol commit prompt not found').toBeGreaterThan(-1);
       const section = sectionOf(content, '## Tastemaker Presentation & Human Gate');
       expect(section, 'commit prompt section sliced empty').not.toBe('');
@@ -2267,16 +2267,14 @@ describe('Skill Format Contract', () => {
       }
     });
 
-    it('verify dimension 4/5 grades pre-existing drift only, not Feature Spec freshness', () => {
-      const content = renderTemplate('skills/prospec-verify.hbs', TEMPLATE_CONTEXT);
-      expect(content).toContain('Knowledge ↔ Implementation Consistency');
-      expect(content).toContain('grades only pre-existing Knowledge drift');
-      expect(content).toContain('not drift');
-      expect(content).toContain('informational');
-      // the old feature-spec-freshness gate must be gone
-      expect(content).not.toContain(
-        'Requirement exists in Feature Spec but has no corresponding description',
-      );
+    it('verify V4 separates repository Knowledge grading from Feature Spec graduation', () => {
+      const v4 = sectionOf(renderTemplate('skills/prospec-verify.hbs', TEMPLATE_CONTEXT), '### Verification 4/5');
+      expect(v4.trim().length).toBeGreaterThan(0);
+      const feature = v4.slice(v4.indexOf('**Feature Spec'));
+      expect(feature).toContain('informational only');
+      expect(feature).toContain('graduates at `prospec-archive`');
+      expect(v4).toContain('repository-wide');
+      expect(v4).not.toMatch(/grades only pre-existing|This change.s Knowledge lag.*informational/i);
     });
 
     it('status-lifecycle documents Feature Spec graduation at archive', () => {
@@ -2288,13 +2286,15 @@ describe('Skill Format Contract', () => {
       expect(content).toContain('does NOT gate on Feature Spec freshness');
     });
 
-    it('status-lifecycle syncs knowledge at the verify S/A commit prompt with the archive Entry Gate as backstop', () => {
+    it('status-lifecycle prepares Knowledge before final validation with archive as backstop', () => {
       const content = renderTemplate(
         'init/status-lifecycle.md.hbs',
         TEMPLATE_CONTEXT,
       );
-      // part b: prevention moved to the verify S/A commit prompt; Entry Gate demoted to backstop
-      expect(content).toContain('prevention point is the `prospec-verify` S/A commit prompt');
+      const gates = sectionOf(content, '## What each gate checks');
+      expect(gates.trim().length).toBeGreaterThan(0);
+      expect(gates).toContain('repository-wide');
+      expect(gates).toContain('before final review/tests/verify');
       expect(content).toContain('backstop');
       // the absolute single-checkpoint claim is gone
       expect(content).not.toContain('single mandatory knowledge-sync checkpoint');
@@ -2634,7 +2634,7 @@ describe('Skill Format Contract', () => {
       );
     });
 
-    it('keeps proven backfill on its direct Promote-to-Verify exception', () => {
+    it('keeps proven backfill free of plan/tasks and prepares Knowledge before Verify', () => {
       const englishRoute = sectionOf(
         english,
         '### Backfill: Bringing Brownfield Code into the Trust Zone',
@@ -2644,10 +2644,10 @@ describe('Skill Format Contract', () => {
         '### Backfill：把既有程式碼納進信任區',
       );
       expect(englishRoute).toContain(
-        'PR([Promote]) -- "scale: backfill<br/>(no plan/tasks)" --> V([Verify])',
+        'PR([Promote]) -- "scale: backfill<br/>(no plan/tasks)" --> K([Knowledge Sync]) --> V([Verify])',
       );
       expect(chineseRoute).toContain(
-        'PR([晉升<br/>Promote]) -- "scale: backfill<br/>(無 plan/tasks)" --> V([驗證<br/>Verify])',
+        'PR([晉升<br/>Promote]) -- "scale: backfill<br/>(無 plan/tasks)" --> K([知識同步<br/>Knowledge Sync]) --> V([驗證<br/>Verify])',
       );
       expect(englishRoute).toContain('code review is optional for proven backfill');
       expect(chineseRoute).toContain('proven backfill 的 code review 是 optional');
@@ -2784,15 +2784,19 @@ describe('Skill Format Contract', () => {
       expect(diagram).not.toContain('x1="996" y1="63" x2="1006"');
     });
 
-    it('keeps every visible backfill summary on its direct Promote → Verify exception', () => {
+    it('prepares Knowledge before final Verify in every visible backfill summary', () => {
       const lifecycle = htmlSectionById(website, 'how');
       const brownfield = htmlSectionById(website, 'brownfield');
-      expect(lifecycle).toContain('backfill → Promote → verify → knowledge verify → archive');
-      expect(brownfield).toContain('Promote → Verify → Knowledge Sync → Archive');
+      expect(lifecycle).toContain('backfill → Promote → Knowledge Sync → final Verify → archive');
+      expect(brownfield).toContain('Promote → Knowledge Sync → final Verify → Archive');
       expect(lifecycle).toContain('code review is optional for proven backfill');
-      expect(zhOverlay).toContain('backfill → Promote → verify → knowledge verify → archive');
-      expect(zhOverlay).toContain('Promote → Verify → Knowledge Sync → Archive');
-      expect(zhOverlay).toContain('proven backfill 的 code review 是 optional');
+      const chineseLifecycle = zhTranslations.get('how.compound');
+      const chineseBrownfield = zhTranslations.get('brownfield.c1.li3');
+      expect(chineseLifecycle).toBeDefined();
+      expect(chineseBrownfield).toBeDefined();
+      expect(chineseLifecycle).toContain('backfill → Promote → Knowledge Sync → final Verify → archive');
+      expect(chineseBrownfield).toContain('Promote → Knowledge Sync → final Verify → Archive');
+      expect(chineseLifecycle).toContain('proven backfill 的 code review 是 optional');
     });
 
     // #311 R3-2: the backfill sync set is what knowledge update reports ∪ related_modules,
@@ -2802,15 +2806,21 @@ describe('Skill Format Contract', () => {
       expect(brownfield).toContain('sync the modules <code>prospec knowledge update --change</code> reports ∪ <code>metadata.related_modules</code>');
       expect(brownfield).not.toContain('the feature’s modules');
       expect(brownfield).not.toContain('sync only its declared modules');
-      expect(zhOverlay).toContain('同步 <code>prospec knowledge update --change</code> 回報的 modules ∪ <code>metadata.related_modules</code>');
-      expect(zhOverlay).not.toContain('feature 的 modules）');
-      expect(zhOverlay).not.toContain('只同步宣告的 modules');
-      for (const [file, expected, banned] of [
-        ['README.md', 'Update the READMEs of the modules `prospec knowledge update --change` reports ∪ `metadata.related_modules`', 'update only the module READMEs named in `metadata.related_modules`'],
-        ['README.zh-TW.md', '更新`prospec knowledge update --change` 回報的 modules ∪ `metadata.related_modules` 的 READMEs', '只更新 `metadata.related_modules` 指定的 module READMEs'],
+      const chineseBrownfield = zhTranslations.get('brownfield.c1.li3');
+      expect(chineseBrownfield).toBeDefined();
+      expect(chineseBrownfield).toContain('同步 <code>prospec knowledge update --change</code> 回報的 modules ∪ <code>metadata.related_modules</code>');
+      expect(chineseBrownfield).not.toContain('feature 的 modules）');
+      expect(chineseBrownfield).not.toContain('只同步宣告的 modules');
+      for (const [file, expected, banned, heading] of [
+        ['README.md', 'Update the READMEs of the modules `prospec knowledge update --change` reports ∪ `metadata.related_modules`', 'update only the module READMEs named in `metadata.related_modules`', '### Backfill: Bringing Brownfield Code into the Trust Zone'],
+        ['README.zh-TW.md', '更新`prospec knowledge update --change` 回報的 modules ∪ `metadata.related_modules` 的 READMEs', '只更新 `metadata.related_modules` 指定的 module READMEs', '### Backfill：把既有程式碼納進信任區'],
       ] as const) {
         const readme = fs.readFileSync(path.resolve(file), 'utf-8');
-        const step = readme.split('\n').find((l) => l.startsWith('5. **Knowledge Sync**'));
+        const section = sectionOf(readme, heading);
+        expect(section.trim().length, `${file} backfill section missing`).toBeGreaterThan(0);
+        const stages = [...section.matchAll(/--> (PR|K|V|A)\(/g)].map((match) => match[1]);
+        expect(stages).toEqual(['PR', 'K', 'V', 'A']);
+        const step = section.split('\n').find((l) => l.startsWith('4. **Knowledge Sync**'));
         expect(step, `${file} Knowledge Sync step missing`).toBeDefined();
         expect(step).toContain(expected);
         expect(step).not.toContain('`**Feature:**`');
@@ -3118,27 +3128,40 @@ describe('Skill Format Contract', () => {
       expect(never).toContain('Entry Gate');
     });
 
-    it('prospec-verify V4 reports this-change knowledge lag as informational with an archive-gate pointer', () => {
+    it('Knowledge V4 adopts repository scope including the verified change', () => {
       const v4 = sectionOf(renderVerify(), '### Verification 4/5');
-      expect(v4).toContain("This change's Knowledge lag — informational only");
-      expect(v4).toContain('Entry Gate');
+      expect(v4.trim().length).toBeGreaterThan(0);
+      expect(v4).toContain('repository-wide');
+      expect(v4).toContain("including this change's own lag");
+      expect(v4).toContain('structural.knowledge_health');
+      expect(v4).toContain('not-adjudicated');
+      expect(v4).not.toMatch(/pre-existing|\*\*FAIL\*\*|PASS\/WARN\/FAIL/);
+      const facts = v4.slice(v4.indexOf('**Freshness and coverage'));
+      expect(facts).toMatch(/UTC calendar day/);
+      expect(facts).toMatch(/missing README|no README/);
+      expect(facts).toMatch(/missing.*last_verified|no.*last_verified/);
     });
 
-    it('prospec-verify V4 graded checks cover only pre-existing drift', () => {
+    it('Knowledge V4 prepares final inputs before grading without a lag exemption', () => {
       const v4 = sectionOf(renderVerify(), '### Verification 4/5');
-      const marker = "This change's Knowledge lag";
-      const graded = v4.slice(0, v4.indexOf(marker));
-      expect(graded.trim().length).toBeGreaterThan(0);
-      expect(graded).toContain('pre-existing');
-      expect(graded).not.toContain('delta-spec ADDED/MODIFIED');
-      expect(graded).not.toMatch(/not updated → WARN/);
+      expect(v4).toContain('before final review/tests/verify');
+      expect(v4).toContain('effective inputs');
+      expect(v4).toContain('backstop');
+      expect(v4).not.toMatch(/This change.s Knowledge lag.*informational|must NOT lower the grade/);
     });
 
-    it('prospec-verify syncs knowledge at the commit prompt (part b), not by grading it', () => {
-      const content = renderVerify();
-      // part b: sync is folded into the S/A commit prompt (prevention); archive is the backstop
-      expect(content).toContain('backstop');
-      expect(content).not.toContain('Knowledge staleness (graded WARN)');
+    it('Knowledge Quality Gate retains the engine verdict and validated sync summary', () => {
+      const gate = sectionOf(renderVerify(), '## Knowledge Quality Gate');
+      expect(gate.trim().length).toBeGreaterThan(0);
+      const rows = gate.split('\n').filter((line) => /^\|/.test(line));
+      expect(rows.filter((line) => /Repository Knowledge verdict/.test(line))).toHaveLength(1);
+      const verdict = splitTableRow(rows.find((line) => /Repository Knowledge verdict/.test(line))!);
+      expect(verdict).toHaveLength(3);
+      expect(verdict[1]).toBe('`knowledge-health` PASS');
+      expect(verdict[2]).toContain('Adopt its WARN or not-adjudicated result');
+      expect(rows.join('\n')).toContain('knowledge-health');
+      expect(rows.join('\n')).toContain('before final review/tests/verify');
+      expect(gate).not.toMatch(/pre-existing|This change.s Knowledge sync.*Informational/);
     });
   });
 
@@ -5092,7 +5115,8 @@ describe('backfill graduation — verify spec-fidelity contract (scale: backfill
   // #311 R3-2: a slug colliding with a module, or declared by another feature, makes
   // "the Feature header's modules" wrong — the gate checks the reported set ∪ related.
   it('Knowledge Sync syncs the set knowledge update reports ∪ related_modules', () => {
-    const section = sectionOf(renderVerifyBackfill(), '## 4. Post-Verify Commit & Knowledge Sync');
+    const section = sectionOf(renderVerifyBackfill(), '## 4. Final Knowledge Preparation & Commit Confirmation');
+    expect(section).not.toBe('');
     const item = section.split('\n').find((l) => l.startsWith('- **Knowledge Sync**:'));
     expect(item, 'Knowledge Sync item missing').toBeDefined();
     expect(item).toContain('Run `prospec knowledge update --change <name>`');
@@ -5100,10 +5124,17 @@ describe('backfill graduation — verify spec-fidelity contract (scale: backfill
     expect(item).not.toContain('header names');
     expect(item).not.toContain('would mint phantom modules');
     expect(item).not.toContain('Sync only the module READMEs named in `metadata.related_modules`');
+    expect(item).toContain('before final review/tests/verify');
+    const confirmation = section.split('\n').find((l) => l.startsWith('- **Commit Confirmation (S/A only)**:'));
+    expect(confirmation, 'Commit Confirmation item missing').toBeDefined();
+    expect(confirmation).toContain('already belong to the validated inputs');
+    expect(confirmation).toContain('effective-input edits require final review/tests/verify again');
+    expect(confirmation).not.toMatch(/Run `prospec knowledge|stamp freshness via/);
+    expect(section.indexOf('- **Knowledge Sync**:')).toBeLessThan(section.indexOf('- **Commit Confirmation (S/A only)**:'));
   });
 
   it('Record & Status Update notes backfill S/A means fidelity, not code quality', () => {
-    const status = sectionOf(renderVerifyBackfill(), '## 4. Post-Verify Commit & Knowledge Sync');
+    const status = sectionOf(renderVerifyBackfill(), '## 4. Final Knowledge Preparation & Commit Confirmation');
     expect(status).toContain('fidelity judgments and limitations');
     expect(status).not.toContain('100% faithful');
   });
@@ -5551,8 +5582,8 @@ describe('Verify drift-engine integration (REQ-TEMPLATES-092)', () => {
   it('Verification 4/5 bases freshness on the knowledge_health report section', () => {
     const v4 = sectionOf(render(), '### Verification 4/5');
     expect(v4).toContain('`structural.knowledge_health`');
-    expect(flat(v4)).toContain('git-timestamp staleness');
-    expect(v4).toContain('never PASS');
+    expect(flat(v4)).toContain('UTC calendar day');
+    expect(flat(v4)).toMatch(/skipped.*not-adjudicated/);
     // semantic observations stay LLM work, layered on — but never overturning — the verdict
     expect(flat(v4)).toContain('**add** semantic observations');
     expect(v4).toContain('never overturn');
@@ -6085,6 +6116,24 @@ describe('Knowledge sync folded into the verify S/A commit prompt (REQ-TEMPLATES
   const cascade = () => renderTemplate('skills/references/cascade-protocol.hbs', TEMPLATE_CONTEXT);
   const archive = () => renderTemplate('skills/prospec-archive.hbs', TEMPLATE_CONTEXT);
 
+  it('Knowledge final evidence order distinguishes content provenance from post-commit freshness', () => {
+    const status = sectionOf(cascade(), '## Tastemaker Presentation & Human Gate');
+    expect(status.trim().length).toBeGreaterThan(0);
+    const boundary = status.slice(status.indexOf('1. **Commit Boundary'), status.indexOf('2. **Tastemaker Presentation Payload'));
+    expect(boundary.trim().length).toBeGreaterThan(0);
+    expect(boundary).toContain('already belong to the validated inputs');
+    expect(boundary).not.toMatch(/(?:Run|Stamp freshness via).*`prospec/);
+    const preparation = status.indexOf('Prepare final inputs before reaching this boundary');
+    expect(preparation).toBeGreaterThanOrEqual(0);
+    expect(preparation).toBeLessThan(status.indexOf('When the pipeline completes'));
+    expect(status).toContain('sync → final review → tests → verify → equivalent commit');
+    expect(status).toContain('effective inputs');
+    expect(status).toMatch(/before re-verifying.*knowledge-health/i);
+    expect(status).toMatch(/stamp.*validate.*changed inputs/i);
+    expect(status).toContain('knowledge-sync mechanical gate');
+    expect(status).not.toMatch(/source-only commit.*(?:no longer|doesn.t).*stale/);
+  });
+
   it('cascade-protocol commit prompt folds knowledge-update + count re-derivation into the feature commit', () => {
     const status = sectionOf(cascade(), '## Tastemaker Presentation & Human Gate');
     expect(status).toMatch(/Sync affected-module Knowledge/);
@@ -6135,7 +6184,8 @@ describe('Knowledge sync folded into the verify S/A commit prompt (REQ-TEMPLATES
     const canonicalSection = gateSection(canonical);
     expect(gateSection(template)).toBe(canonicalSection);
     // the new framing is present in both copies
-    expect(canonicalSection).toContain('prevention point is the `prospec-verify` S/A commit prompt');
+    expect(canonicalSection).toContain('repository-wide');
+    expect(canonicalSection).toContain('before final review/tests/verify');
     expect(canonicalSection).toContain('backstop');
   });
 });
@@ -10159,7 +10209,7 @@ describe('shipped claim audit', () => {
     expect(handoff).toContain('the CLI determines the grade');
     expect(handoff).toContain('archive gates');
     expect(handoff).not.toContain('a faithful draft reaches grade S/A');
-    const sync = sectionOf(render('skills/references/verify-backfill.hbs'), '## 4. Post-Verify Commit & Knowledge Sync');
+    const sync = sectionOf(render('skills/references/verify-backfill.hbs'), '## 4. Final Knowledge Preparation & Commit Confirmation');
     expect(sync).toContain('the modules `prospec knowledge update --change` reports ∪ `metadata.related_modules`');
     expect(sync).toContain('fidelity judgments and limitations');
     expect(sync).not.toMatch(/100% faithful|it mints no module/);

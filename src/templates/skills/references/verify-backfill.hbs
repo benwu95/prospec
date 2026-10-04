@@ -54,7 +54,8 @@ Proven backfill requires both `metadata.scale: backfill` and `.prospec/changes/[
 
 ---
 
-## 4. Post-Verify Commit & Knowledge Sync
+## 4. Final Knowledge Preparation & Commit Confirmation
 
-- **Knowledge Sync**: Run `prospec knowledge update --change <name>`. Sync the READMEs of the modules `prospec knowledge update --change` reports ∪ `metadata.related_modules`, then stamp freshness via `prospec knowledge verify <modules...>`.
+- **Knowledge Sync**: Run `prospec knowledge update --change <name>` before final review/tests/verify. Sync the READMEs of the modules `prospec knowledge update --change` reports ∪ `metadata.related_modules`, then stamp freshness via `prospec knowledge verify <modules...>`. Follow the final preparation order in [`cascade-protocol.md`](cascade-protocol.md).
+- **Commit Confirmation (S/A only)**: Confirm Knowledge and stamps already belong to the validated inputs. Incomplete preparation returns to the step above; effective-input edits require final review/tests/verify again before the human commit boundary.
 - **Grade S/A Meaning**: Report the recorded fidelity judgments and limitations; the CLI determines the overall grade.

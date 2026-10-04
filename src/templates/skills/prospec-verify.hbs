@@ -191,23 +191,11 @@ semantic observations (a README describing behavior the code does not have) as W
 never overturn the check's verdict, and you never grade freshness yourself. A `skipped` check →
 `not-adjudicated`.
 
-This dimension **grades only pre-existing Knowledge drift** — NOT whether Knowledge or the permanent Feature Spec already reflects this (still-unarchived) change. Feature Specs graduate at `prospec-archive` Phase 3.5; module-README Knowledge is synced at the `prospec-verify` S/A commit prompt (the archive Entry Gate re-confirms it as a **backstop**). Lag behind this change during grading is normal — it is synced at the S/A commit prompt that follows — **not drift**, and must NOT lower the grade.
+**Repository Knowledge verdict**: adopt the repository-wide check, including this change's own lag. `structural.knowledge_health` supplies module staleness and README coverage (shape: [`references/drift-report-format.md`](references/drift-report-format.md)); cite its facts without re-grading them.
 
-**The verdict comes from the drift engine**: `structural.knowledge_health` carries git-timestamp
-staleness per module (each entry in `structural.knowledge_health.modules[]` has a `stale` flag) plus
-README `coverage` (shape: [`references/drift-report-format.md`](references/drift-report-format.md)).
-Cite it; never re-derive freshness by hand. A `skipped` knowledge-health check is `not-adjudicated`,
-never PASS.
+**Freshness and coverage** (`{{knowledge_base_path}}/modules/`): the engine compares each registered module's last committed source date with `last_verified` by **UTC calendar day**. A later UTC source date, missing README or missing `last_verified` yields WARN; the current check does not emit FAIL. An uncommitted source edit does not advance that date. Confirm README content alongside these mechanical facts; semantic observations remain supplemental WARN detail.
 
-**Graded — pre-existing Knowledge vs current code** (`{{knowledge_base_path}}/modules/`):
-- **PASS**: each affected module's README.md accurately describes the code this change did not touch (no stale APIs, no wrong descriptions)
-- **WARN**: README exists but is vague or outdated vs code outside this change's scope
-- **FAIL**: README describes behavior the codebase does not have, beyond this change's lag — or a module that existed before this change has no README at all (remediate: `prospec-knowledge-update`, or `prospec-knowledge-generate` for the missing README)
-
-**This change's Knowledge lag — informational only (does NOT affect the grade):**
-- A delta-spec ADDED/MODIFIED REQ not yet described — or a REMOVED REQ's behavior still described — in the affected module's README → informational note listing the affected modules; synced at the S/A commit prompt below (run `prospec-knowledge-update`, folded into the feature commit) — the archive Entry Gate re-confirms as backstop
-- Implementation changed but the module README not yet updated → same informational note; expected pre-archive state
-- A module introduced by this change has no README yet → same informational note; its README is created at the S/A commit prompt below via `prospec-knowledge-update` (or `prospec-knowledge-generate`), folded into the feature commit; the archive Entry Gate re-confirms as backstop
+**Prepare final Knowledge inputs**: name modules needing updates or confirmation and run `prospec-knowledge-update` plus `prospec knowledge verify <modules...>` before final review/tests/verify. A newly registered module has the same coverage and freshness rules. Changed effective inputs require renewed validation. The archive Entry Gate remains the **backstop** for affected-module synchronization.
 
 **Feature Spec — informational only (does NOT affect the grade):**
 - A permanent Feature Spec lagging an un-archived change → informational note ("graduates at `prospec-archive`"); expected, not drift
@@ -217,12 +205,12 @@ never PASS.
 Output format:
 
 ```
-| Module | REQ | Knowledge Says | Status |
-|--------|-----|----------------|--------|
-| {module} | REQ-XXX-NNN | [README description] | PASS/WARN/FAIL |
+| Module | Engine facts | Narrative observation |
+|--------|--------------|-----------------------|
+| {module} | [stale / coverage from report] | [README review and required synchronization] |
 ```
 
-If AI Knowledge has no modules yet, skip this dimension with a note.
+With no registered modules, cite the engine result and empty module set; a skipped check remains not-adjudicated.
 
 ### Verification 5/5: Test Verification — `[machine]`
 
@@ -357,9 +345,9 @@ budget-counted WARN. The CLI:
 
 The `metadata-completeness` drift check reads only `grade` (`hasVerifyGrade` accepts `grade` ∈ {S,A}); `dimensions` and the review counts are not read by any check — together with `grade` they make quality trends aggregatable across archives.
 
-**Commit prompt (S/A only)**: reaching S/A is the single commit point — the last gate that can require code changes. Follow the canonical **Tastemaker Presentation & Human Gate** protocol defined in [`references/cascade-protocol.md §Tastemaker Presentation & Human Gate`](references/cascade-protocol.md) (sync affected-module Knowledge updating descriptions only without citing not-yet-graduated REQ ids, then repeat final review/tests/verify if that sync changed inputs). Prompt the user to commit the change as a single atomic-by-feature commit that folds the implement, review, and verify fixes plus Knowledge sync together. Do not commit automatically.
+**Commit prompt (S/A only)**: reaching S/A is the single commit point — the last gate that can require code changes. Follow the canonical **Tastemaker Presentation & Human Gate** protocol defined in [`references/cascade-protocol.md §Tastemaker Presentation & Human Gate`](references/cascade-protocol.md) (confirm affected-module Knowledge and counts were synchronized before final review/tests/verify, updating descriptions without citing not-yet-graduated REQ ids; any later effective-input edit requires renewed validation). Prompt the user to commit the change as a single atomic-by-feature commit that folds the implement, review, and verify fixes plus Knowledge sync together. Do not commit automatically.
 
-Because the sync lands in the same commit and no code changes follow S/A, the feature commit already carries synced Knowledge — a source-only commit no longer flips `knowledge-health` stale. The `prospec-archive` Entry Gate re-confirms this as a **backstop**.
+Content-equivalent commits preserve provenance evidence. Before re-verifying after a commit, inspect `knowledge-health`; if accurate Knowledge needs reconfirmation, stamp the modules and validate the changed inputs again. The `prospec-archive` Entry Gate remains the synchronization **backstop**.
 
 ## Knowledge Quality Gate
 
@@ -367,9 +355,9 @@ Final Knowledge consistency summary:
 
 | Check Item | PASS | WARN |
 |------------|------|------|
-| No pre-existing Knowledge drift | Module READMEs accurate for code outside this change's scope | Drift identified in Verification 4/5 — suggest `prospec-knowledge-update` |
+| Repository Knowledge verdict | `knowledge-health` PASS | Adopt its WARN or not-adjudicated result; name required module confirmation |
 | No undocumented features | Knowledge entries trace to a delta-spec REQ or shipped behavior | Features in Knowledge without any requirement |
-| This change's Knowledge sync | Informational — synced at the verify S/A commit prompt (archive Entry Gate re-confirms as backstop); not gated here | — |
+| Final Knowledge inputs | Synced and stamped before final review/tests/verify; S/A prompt confirms validated content | Effective inputs changed — renew final validation; archive remains the backstop |
 | Feature Spec graduation | Informational — Feature Specs update at `prospec-archive`; not gated here | — |
 
 WARN items are deployment risks — recommend resolving before `prospec-archive`.

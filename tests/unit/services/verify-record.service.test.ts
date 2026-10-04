@@ -244,6 +244,13 @@ describe('verify-record service', () => {
     expect(vol.readFileSync(META, 'utf-8')).toContain('status: implemented');
   });
 
+  it('counts repository Knowledge WARN toward the grade even for the verified change', async () => {
+    seed({ scale: 'quick', reportJson: report({ kh: 'warn' }) });
+    const result = await execute({ cwd: CWD, judgmentDimensions: judgment(), warnings: [] });
+    expect(result.dimensions.find((dimension) => dimension.name === 'knowledge')).toMatchObject({ result: 'WARN', adjudicator: 'machine' });
+    expect(result.grade).toBe('A');
+  });
+
   it('a skipped machine check lands as not-adjudicated and consumes the WARN budget (no exemption class)', async () => {
     seed({ reportJson: report({ kh: 'skipped' }) });
     const result = await execute({ cwd: CWD, judgmentDimensions: judgment(), warnings: ['w1', 'w2'] });
@@ -262,7 +269,7 @@ describe('verify-record service', () => {
     ).resolves.toMatchObject({ grade: 'A' });
   });
 
-  it('refuses a judgment set that is missing a dimension or relays a machine one', async () => {
+  it.each(['tests', 'knowledge'] as const)('refuses a missing judgment dimension or relayed %s verdict', async (name) => {
     seed();
     await expect(
       execute({ cwd: CWD, judgmentDimensions: judgment().slice(0, 2), warnings: [] }),
@@ -271,7 +278,7 @@ describe('verify-record service', () => {
     try {
       await execute({
         cwd: CWD,
-        judgmentDimensions: [...judgment(), { name: 'tests', result: 'PASS' }],
+        judgmentDimensions: [...judgment(), { name, result: 'PASS' }],
         warnings: [],
       });
     } catch (err) {

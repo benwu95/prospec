@@ -159,7 +159,7 @@
     </div>
 
     <div class="hero__facts">
-      <span data-i18n="hero.facts.tests"><b>6,996</b> total · <b>6,992</b> passed · <b>4</b> skipped</span><span class="sep" aria-hidden="true">·</span>
+      <span data-i18n="hero.facts.tests"><b>7,000</b> total · <b>6,996</b> passed · <b>4</b> skipped</span><span class="sep" aria-hidden="true">·</span>
       <span data-i18n="hero.facts.skills"><b>17</b> skills</span><span class="sep" aria-hidden="true">·</span>
       <span data-i18n="hero.facts.principles"><b>8</b> enforced principles</span><span class="sep" aria-hidden="true">·</span>
       <span data-i18n="hero.facts.mcp">read-only <b>MCP</b> server</span><span class="sep" aria-hidden="true">·</span>
@@ -346,7 +346,7 @@
     <p class="flow__hint" data-i18n="how.hint">The gold stages — <b>Review · Verify · Knowledge Update · Archive · Learn</b> — turn evidence into project memory. The gold arrows are the loop: each change's results feed into the next. <span class="aside">Scroll the diagram sideways on a narrow screen.</span></p>
 
     <div class="compound__note reveal">
-      <p data-i18n="how.compound"><b>Scale-aware:</b> Design is optional for UI work; a user-confirmed <code>quick</code> change skips Plan (<code>story → tasks</code>). Proven backfill follows <code>backfill → Promote → verify → knowledge verify → archive</code>; code review is optional for proven backfill. Forward-change scales keep TDD, adversarial review, and Constitution audits.</p>
+      <p data-i18n="how.compound"><b>Scale-aware:</b> Design is optional for UI work; a user-confirmed <code>quick</code> change skips Plan (<code>story → tasks</code>). Proven backfill follows <code>backfill → Promote → Knowledge Sync → final Verify → archive</code>; code review is optional for proven backfill. Forward-change scales keep TDD, adversarial review, and Constitution audits.</p>
     </div>
 
     <div class="principles reveal" aria-label="Six core principles" data-i18n-aria-label="how.principlesAria">
@@ -538,7 +538,7 @@
         <ol>
           <li data-i18n="brownfield.c1.li1"><b>Extract</b> — <code>prospec-backfill-spec</code> reads code, tests, and history; intent it can't infer is marked <code>[NEEDS CLARIFICATION]</code>, never fabricated.</li>
           <li data-i18n="brownfield.c1.li2"><b>Review</b> — you resolve every clarification. The human gate.</li>
-          <li data-i18n="brownfield.c1.li3"><b>Promote → Verify → Knowledge Sync → Archive</b> — proven backfill skips review provenance; sync the modules <code>prospec knowledge update --change</code> reports ∪ <code>metadata.related_modules</code>, then Archive writes the trust zone.</li>
+          <li data-i18n="brownfield.c1.li3"><b>Promote → Knowledge Sync → final Verify → Archive</b> — proven backfill skips review provenance; sync the modules <code>prospec knowledge update --change</code> reports ∪ <code>metadata.related_modules</code> and stamp them before final validation. S/A confirms the prepared inputs; later input edits require renewed validation before Archive writes the trust zone.</li>
         </ol>
       </div>
       <div class="card reveal">
