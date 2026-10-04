@@ -6,7 +6,6 @@
 
 | File | Purpose |
 |------|---------|
-| `canonical-claims.test.ts` | Independent site inventory, bounded bilingual phrases, deletion/paraphrase/relocation mutations, source placeholders, authoring rules, four-host sync and init/upgrade rendering. |
 | `test-gate-docs.test.ts` | The fresh-test gate's public-doc pins: each CLI reference's `change status` / `review merge` entry carries the same refusal, remediation, exemption and observed-attempt tokens (compared across both languages), and both READMEs' workflow row names the requirement. Its template half lives in `skill-format`. |
 | `skill-format.test.ts` | All 17 skills' format/gate/flywheel/Startup-Loading contract and the 31 shipped references, plus bare Skill identity, host matrices, README parity, deployed artifacts, status hand-offs, and the public website's lifecycle/runtime/MCP/version/social-preview/i18n contract; assertions stay section-scoped and mutation-verified. Baseline-backed pins: per-skill mandatory Startup-Loading context and the references' total may only shrink, every JSON example parses against its schema owner, relocated README sections resolve in BOTH `reference/cli-reference.md(.zh-TW)`, and each guarantee is attributed to CLI, skill or model. |
 | `knowledge-format.test.ts`, `cli-output.test.ts`, `change-artifact-format.test.ts` | Output-format pins through the real `renderTemplate()`, never mocks. `change-artifact-format` renders `change/proposal.md.hbs` and pins that a module name is bolded exactly once, with a `****` negative; `knowledge-format` also pins raw-scan's disclosure block — item-set, caps, empty placeholder, fallback-exception sentence, and order-independence. |
@@ -18,7 +17,7 @@
 
 ## Public API
 
-- `playbook-station.test.ts` anchors this repository's active IDs and station declarations, 8 approved compact entries, the complete per-station catalog and output smaller than the full Playbook. `skill-format.test.ts` pins generated Startup/learn rules, UTF-8 baselines with unchanged ceilings, and bilingual station docs; unit and E2E tests exercise parser, selector, warnings and legacy paths, with fixed full stdout bytes for fallback. Compact-entry guards allow only Guidance not covered by the named Landing.
+- `playbook-station.test.ts` anchors this repository's active IDs and station declarations, 7 approved compact entries, the complete per-station catalog and output smaller than the full Playbook. `skill-format.test.ts` pins generated Startup/learn rules, UTF-8 baselines with unchanged ceilings, and bilingual station docs; unit and E2E tests exercise parser, selector, warnings and legacy paths, with fixed full stdout bytes for fallback. Compact-entry guards allow only Guidance not covered by the named Landing.
 - No exports — `pnpm vitest run tests/contract/`.
 
 ## Dependencies

@@ -1,4 +1,3 @@
-import { CANONICAL_CLAIMS } from '../types/canonical-claims.js';
 import type {
   ChangeRoute,
   ChangeRouteFacts,
@@ -7,6 +6,7 @@ import type {
 import { BREAK_GLASS_PREFIX, formatWorkflowReason, PLAN_SIGNOFF_REMEDIES, STATION_SKILLS } from '../types/status.js';
 import { forbiddenArtifacts, isStatusBefore } from '../types/change.js';
 import { AGENT_CONFIGS } from '../types/skill.js';
+import { RELATED_MODULE_HALT_CONDITION } from './knowledge-sync.js';
 import type { ValidAgent } from '../types/config.js';
 
 /**
@@ -368,7 +368,7 @@ export function routeChange(facts: ChangeRouteFacts): ChangeRoute {
           next: null,
           code: 'KNOWLEDGE_INPUT_INVALID',
           blockingGates: [
-            `knowledge-sync inputs repaired — every delta-spec REQ id canonical, module-map.yaml readable; resolve ${CANONICAL_CLAIMS.related_module_halt.en}`,
+            `knowledge-sync inputs repaired — every delta-spec REQ id canonical, module-map.yaml readable; resolve ${RELATED_MODULE_HALT_CONDITION}`,
           ],
           reasons: [
             'status `verified` — a knowledge-sync input no station repairs blocks archive; prospec-knowledge-update cannot fix it, so repair it and re-run prospec status',

@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { routeChange, resolveNextSkill, resolveNextSkillPath } from '../../../src/lib/status-router.js';
+import { RELATED_MODULE_HALT_CONDITION } from '../../../src/lib/knowledge-sync.js';
 import {
   SDD_STATIONS,
   STATION_SKILLS,
@@ -169,6 +170,7 @@ describe('status-router — lifecycle edges', () => {
       expect(route.blockingGates.join(' ')).toMatch(/REQ id/);
       expect(route.blockingGates.join(' ')).toContain('module-map.yaml');
       expect(route.blockingGates.join(' ')).toContain('related_modules');
+      expect(route.blockingGates.join(' ')).toContain(RELATED_MODULE_HALT_CONDITION);
       for (const reason of knowledgeSyncReasons) {
         // each reason keeps its own code — the formatter prefixes every line with the route's
         expect(route.reasons).toContain(`${reason.code}: ${reason.message} — ${reason.remediation}`);

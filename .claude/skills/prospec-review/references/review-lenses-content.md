@@ -107,18 +107,22 @@ Applies when the change adds or edits README/doc/spec prose that claims behavior
 **Claim writing:**
 
 - State the component’s own guarantees; reference another component’s REQ instead of describing its decision boundary.
-- Derive set and condition wording from code predicates; quote registered canonical phrases verbatim.
+- Derive set and condition wording from code predicates.
 - Use quantifiers (every, only, whenever, always, one per) and causal clauses (because, would) only when valid throughout the stated scope; otherwise delete them or reference the owning REQ.
+- Delete a wrong claim by default.
+- Write rules as general positive statements; use a general negative only when one line replaces several positive ones.
+- Point tests at behavior and structure; a negative string assertion guards only the phrasing it names.
+
+Rate a claim by what an agent would do with it: major or higher only when following it makes an agent act wrongly; wording that misleads no one is at most minor.
 
 | Criterion | Default severity |
 |-----------|------------------|
-| A documented claim ("X handles / measures / degrades / supports Y") has no code path that realizes it — **claim ⊆ implementation**: grep for the path before the claim ships | critical (spec contradiction) / major (overclaim) |
-| A gap or non-goal left silent — what is not done / not measurable must carry explicit **deliberate-exclusion** wording ("not measured here", "left to …") so review/verify can diff claims against behavior | major |
-| A count/attribution stated in prose that the code does not back (the deterministic `mcp-readme-counts` check covers only MCP-registration counts, so general count/attribution prose still needs this lens) | major |
-| **Enforcement face** — a claim that a property is *guaranteed / enforced / cannot happen* names the mechanism but not **who runs it and when**; a checker with no executor is not a gate. A passive-voice assertion with no subject ("is enforced", "cannot happen", "is refused") is the tell — supply the subject, then confirm that subject actually runs | critical (mechanism with no executor) / major |
-| **Universal claims without executor** — a module README or convention declares a universal rule ("EVERY X must Y", "all sinks must call Z") but no contract/structural test enforces it across the family; an ungrounded universal claim must be paired with an automated executor test | critical (ungrounded universal rule) / major |
-| **Qualifier face** — a scope, precondition, ownership subject or ordinal the reader does not need to act is one more falsifiable claim: leave it out, or verify it against the code path like any other claim | major |
-| **No-enforcer face** — a doc states a **shape** nothing enforces (a commit-subject form, a naming pattern, a message template); it is dated the moment it is written. Name the enforcer, or state only what the artifact *carries* (the stable part) and send the reader to the live source (`git log`, the registry, the schema). A repeatedly-refuted claim converges by **deletion**, not by weakening | major |
+| A documented claim ("X handles / measures / degrades / supports Y") has no code path that realizes it — **claim ⊆ implementation**: grep for the path before the claim ships | major when it makes an agent act wrongly / minor otherwise |
+| A gap or non-goal left silent — what is not done / not measurable must carry explicit **deliberate-exclusion** wording ("not measured here", "left to …") so review/verify can diff claims against behavior | major when an agent would act on it wrongly / minor otherwise |
+| A count/attribution stated in prose that the code does not back (the deterministic `mcp-readme-counts` check covers only MCP-registration counts, so general count/attribution prose still needs this lens) | major when an agent would act on it wrongly / minor otherwise |
+| **Enforcement face** — a claim that a property is *guaranteed / enforced / cannot happen* names the mechanism but not **who runs it and when**; a checker with no executor is not a gate. A passive-voice assertion with no subject ("is enforced", "cannot happen", "is refused") is the tell — supply the subject, then confirm that subject actually runs | major when an agent would rely on the missing executor / minor otherwise |
+| **Qualifier face** — a scope, precondition, ownership subject or ordinal the reader does not need to act is one more falsifiable claim: leave it out, or verify it against the code path like any other claim | minor |
+| **No-enforcer face** — a doc states a **shape** nothing enforces (a commit-subject form, a naming pattern, a message template); it is dated the moment it is written. Name the enforcer, or state only what the artifact *carries* (the stable part) and send the reader to the live source (`git log`, the registry, the schema). A repeatedly-refuted claim converges by **deletion**, not by weakening | minor |
 
 ---
 

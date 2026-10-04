@@ -6,7 +6,6 @@
 
 | File | Purpose |
 |------|---------|
-| `canonical-claims.ts` | `CANONICAL_CLAIMS`, `CanonicalClaim`, `CanonicalClaimSite`: bilingual wording and runtime/template/authored site descriptors, independent of decision logic |
 | `change.ts` (registry half) | `CHANGE_STATUSES` / `CHANGE_SCALES`; `SCALE_FORBIDDEN_ARTIFACTS` and `PROVENANCE_AUDITED_STATUSES`/`isProvenanceAudited` — the lifecycle doc's artifact matrix and audit scope, executable; `GATE`/`DIMENSION_RESULTS`, `VERIFY_GRADES`, `DIMENSION_GRADED_BY` (judgment grading context: `fresh-subagent`/`in-session`); `CANDIDATE_IDS` / `PLAN_DECISION_OPTIONS` (the candidates plus `hybrid`) |
 | `drift-report.ts` | `DRIFT_CHECK_IDS` (22, frozen) + the Constitution rule inventory; `knowledge_health.modules[]` carries two additive optional keys — `last_sub_module_commit` and `last_verified`, the confirmation time `stale` is now computed against (omitted, never null-filled) |
 | `mcp.ts` | `MCP_RESOURCE_URIS` (8) + `MCP_TOOL_NAMES` (3), frozen append-only |
@@ -41,7 +40,6 @@
 6. **Add a verify dimension** — extend `VERIFY_DIMENSIONS` with its `adjudicator`; `MACHINE_/JUDGMENT_DIMENSION_NAMES` derive from it, so never hand-list either set.
 7. **Add a group render flag** — add it to `AgentRenderFlags`, its reducer to `GROUP_RENDER_FLAG_REDUCERS` (mapped per key, so a non-boolean flag reduces over its own domain), its key to `RENDER_FLAG_KEYS` (the `AssertNever` twin forces it) and its rendered name to `RENDER_FLAG_CONTEXT_KEYS` — a group-shared entry config renders the MERGED value, never a single member's; a non-boolean flag also needs an explicit branch boolean (Handlebars reads every non-empty string as true).
 
-8. **Change a repeated claim** — derive wording from the owning predicate, edit `CANONICAL_CLAIMS`, then update authored sites verbatim and template placeholders through their existing contexts. Extend the independent inventory and bounded mutation checks in `canonical-claims.test.ts`; register graduated Feature Spec sites in the same archive commit.
 
 ## Ripple Effects
 

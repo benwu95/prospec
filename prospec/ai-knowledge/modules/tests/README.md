@@ -1,6 +1,6 @@
 # Verification Suite
 
-> 4-layer Vitest suite (fast-glob/git bypass memfs — 269 test files, 6,981 tests (unit 5048, contract 1576, integration 153, e2e 204)).
+> 4-layer Vitest suite (fast-glob/git bypass memfs — 268 test files, 6,973 tests (unit 5049, contract 1567, integration 153, e2e 204)).
 <!-- prospec:module-readme-format 2026-09-01 -->
 
 <!-- prospec:auto-start -->
@@ -21,7 +21,7 @@
 
 ## Public API
 
-- `tests/contract/playbook-station.test.ts` checks all 21 active declarations, the 8 approved compact entries, and service-plus-formatter output for every `SDD_STATIONS` value against the full-file token cost. `skill-format.test.ts` pins Startup loads, caps, cleanup rules, baseline ceilings and both languages' public docs; unit and CLI E2E tests cover parser, service and formatter behavior.
+- `tests/contract/playbook-station.test.ts` checks all 20 active declarations, the 7 approved compact entries, and service-plus-formatter output for every `SDD_STATIONS` value against the full-file token cost. `skill-format.test.ts` pins Startup loads, caps, cleanup rules, baseline ceilings and both languages' public docs; unit and CLI E2E tests cover parser, service and formatter behavior.
 - No exports — test files run by `vitest run`. Entry: `pnpm test`.
 
 ## Dependencies
@@ -32,7 +32,7 @@
 ## Modification Guide
 
 1. **Add a unit test** — `tests/unit/{layer}/{name}.test.ts`; mock `node:fs` with memfs, `vol.reset()` in `beforeEach`.
-2. **Add a contract test** — see [Contract Guards](./contract-guards.md). `canonical-claims.test.ts` checks each registered phrase site, independent inventory, authoring rules and real generation paths; it does not depend on active change artifacts. `skill-format` also pins audited claims, reference-heading removal and retained operational guidance.
+2. **Add a contract test** — see [Contract Guards](./contract-guards.md). `skill-format` also pins audited claims, reference-heading removal and retained operational guidance.
 3. **Add an integration test** — `tests/integration/{flow}.test.ts`; drive multiple services over memfs.
 4. **Add an E2E case** — most cases run in-process: add to the matching `tests/e2e/cli-*.test.ts` using the shared `runCli` helper (no build needed, runs against `src`). Only genuinely subprocess-bound behavior goes in `cli-subprocess-smoke.test.ts` (spawns `dist/cli/index.js` — run `pnpm build` first).
 5. **Run one layer** — `pnpm vitest run tests/{unit|contract|integration|e2e}/`.

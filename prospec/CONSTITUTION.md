@@ -97,7 +97,7 @@ The drift engine does **not** check count accuracy — a correct aggregate can m
 
 **Rationale**: Factual counts drift silently and compound: 23 occurrences over 6 modules before machine ownership was established (PB-004 provenance), and every new drift check missed the README prose enumeration until adversarial review caught it (PB-009 provenance, 5 occurrences across 3 modules). Splitting counts into three explicit tiers eliminates the assumption that `pnpm counts` covers everything — it does not.
 
-**Verify**: stations: verify; check: spec-counters; covers: Feature spec frontmatter counter alignment. `pnpm counts:check` passes in CI for machine-owned counts. Hand-maintained counts are verified by review — the docs-claims lens (PB-003) surfaces mis-counts as fixable majors. Every check id **annotated with its severity** in either CLI Reference file is a real `DRIFT_CHECK_IDS` member, and both files name the same real ids (both contract-guarded). An id mentioned without a severity, and whether the enumeration still COVERS a newly added check, are verified by review — not by a machine.
+**Verify**: stations: verify; check: spec-counters; covers: Feature spec frontmatter counter alignment. `pnpm counts:check` passes in CI for machine-owned counts. Hand-maintained counts are audited by `prospec-verify`'s Constitution check. Every check id **annotated with its severity** in either CLI Reference file is a real `DRIFT_CHECK_IDS` member, and both files name the same real ids (both contract-guarded). An id mentioned without a severity, and whether the enumeration still COVERS a newly added check, are audited by `prospec-verify`'s Constitution check — not by a machine.
 
 ---
 ### [MUST] Pre-Merge CI Checks

@@ -1,7 +1,7 @@
 ---
 feature: feedback-promotion
 status: active
-last_updated: 2026-09-29
+last_updated: 2026-10-04
 story_count: 5
 req_count: 25
 ---
@@ -35,9 +35,9 @@ req_count: 25
 ---
 
 
-#### REQ-TESTS-106: Template Assertions for Universal Claims and Promotion Pipeline
-`tests/contract/skill-format.test.ts` asserts that skill templates and references carry universal claim executor and regression pin promotion pipeline prose.
-- WHEN `skill-format.test.ts` runs, THEN it asserts the presence of the executor requirement and regression pin promotion pipeline in template sources
+#### REQ-TESTS-106: Template Assertions for the Regression Pin Promotion Pipeline
+`tests/contract/skill-format.test.ts` asserts that skill templates and references carry regression pin promotion pipeline prose.
+- WHEN `skill-format.test.ts` runs, THEN it asserts the presence of the regression pin promotion pipeline in template sources
 - WHEN any of these clauses is removed from templates, THEN the test fails (mutation-verified)
 
 ---
@@ -71,6 +71,7 @@ _(None)_
 
 | Date | Change | Impact | Stories/REQs |
 |------|--------|--------|--------------|
+| 2026-10-04 | reassess-canonical-claims | MODIFIED REQ-TESTS-106; MODIFIED REQ-TESTS-024 | REQ-TESTS-106, REQ-TESTS-024 |
 | 2026-09-29 | audit-shipped-skill-claims | MODIFIED REQ-TEMPLATES-071 | REQ-TEMPLATES-071 |
 | 2026-09-27 | route-playbook-by-station | MODIFIED REQ-LIB-094; MODIFIED REQ-SERVICES-123; MODIFIED REQ-CLI-059; MODIFIED REQ-TEMPLATES-071; MODIFIED REQ-TEMPLATES-072; MODIFIED REQ-TEMPLATES-174; MODIFIED REQ-TESTS-024 | REQ-LIB-094, REQ-SERVICES-123, REQ-CLI-059, REQ-TEMPLATES-071, REQ-TEMPLATES-072, REQ-TEMPLATES-174, REQ-TESTS-024 |
 | 2026-09-27 | slice-constitution-and-playbook | ADDED REQ-LIB-094; ADDED REQ-SERVICES-123; ADDED REQ-CLI-059; MODIFIED REQ-TEMPLATES-071; MODIFIED REQ-TEMPLATES-072 | REQ-LIB-094, REQ-SERVICES-123, REQ-CLI-059, REQ-TEMPLATES-071, REQ-TEMPLATES-072 |

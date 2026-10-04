@@ -126,4 +126,12 @@ Use `mergeContent()` from `lib/content-merger.ts` when updating files that may h
 ## Skill Registration
 
 - `excludeFromEntryConfig` (in `SkillConfig`) is reserved for **self-terminating one-shot flows** (onboarding, migration, repair) whose value does not recur per session. Such a skill is still deployed as a `SKILL.md` (invocable on demand) but is omitted from the always-loaded entry config (`CLAUDE.md`/`AGENTS.md`), so it costs no recurring Layer-0 tokens. Do NOT use it to hide routinely-used skills from discovery — that degrades trigger routing. A contract test pins the entry-excluded set; a unit test asserts each still emits a `SKILL.md`.
+
+## Skill and Documentation Authoring
+
+- Write rules as general positive statements of a component's own guarantee or the outcome to reach; use a general negative only when one line replaces several positive ones, and never cite a retired phrasing.
+- Derive set and condition wording from code predicates; reference another component's REQ instead of describing its decision boundary.
+- Use quantifiers and causal clauses only when they hold throughout the stated scope.
+- Delete a wrong claim by default.
+- Point contract tests at behavior and structure — what a template must contain and how it is ordered.
 <!-- prospec:user-end -->

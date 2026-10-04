@@ -9,14 +9,13 @@ import { normalizeStationName, SDD_STATIONS } from '../../src/types/status.js';
 
 const PLAYBOOK = resolve('prospec/ai-knowledge/_playbook.md');
 const ACTIVE_IDS = [
-  'PB-001', 'PB-002', 'PB-003', 'PB-006', 'PB-007', 'PB-008', 'PB-010',
+  'PB-001', 'PB-002', 'PB-006', 'PB-007', 'PB-008', 'PB-010',
   'PB-011', 'PB-012', 'PB-013', 'PB-014', 'PB-015', 'PB-016', 'PB-017',
   'PB-018', 'PB-019', 'PB-020', 'PB-021', 'PB-022', 'PB-023', 'PB-024',
 ];
-const COMPACT_IDS = ['PB-001', 'PB-003', 'PB-006', 'PB-007', 'PB-008', 'PB-014', 'PB-016', 'PB-018'];
+const COMPACT_IDS = ['PB-001', 'PB-006', 'PB-007', 'PB-008', 'PB-014', 'PB-016', 'PB-018'];
 // Only clauses not covered by each entry's Landing remain in live Guidance.
 const RETAINED_GUIDANCE: Record<string, string> = {
-  'PB-003': 'State the component’s own guarantees; reference another component’s REQ instead of describing its decision boundary. Derive set and condition wording from code predicates; quote registered canonical phrases verbatim. Use quantifiers (every, only, whenever, always, one per) and causal clauses (because, would) only when valid throughout the stated scope; otherwise delete them or reference the owning REQ.',
   'PB-008': 'On symbol or artifact moves, review prose and knowledge references; typechecking imports and adding a re-export do not finish that review.',
   'PB-014': "For CLI-produced artifacts, put per-field language assignments in the producing skill's format reference; identify artifact-language fields and English identifiers.",
   'PB-016': 'Finish source, test, knowledge and generated-count edits before recording tests or review; when an input changes, re-run the affected gates before recording provenance.',
@@ -24,7 +23,7 @@ const RETAINED_GUIDANCE: Record<string, string> = {
 };
 
 describe('repository playbook station migration', () => {
-  it('declares valid stations for exactly the 21 active entries', () => {
+  it('declares valid stations for exactly the 20 active entries', () => {
     const entries = parsePlaybookEntries(readFileSync(PLAYBOOK, 'utf8')).filter((entry) => !entry.retired);
     expect(entries.map((entry) => entry.id)).toEqual(ACTIVE_IDS);
     for (const entry of entries) {
