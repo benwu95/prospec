@@ -62,12 +62,16 @@ An autonomous transition to the next station occurs **only** when all preconditi
 
 ## Tastemaker Presentation & Human Gate
 
-When the pipeline completes Verification with Grade S/A (and subsequent Knowledge Update), reaching this boundary marks the **single commit point** for the change:
+Prepare final inputs before reaching this boundary:
 
-1. **Commit Boundary & Preparation (S/A only)**:
-   - **Sync affected-module Knowledge**: Run `prospec-knowledge-update` into the feature commit for the modules `prospec knowledge update --change` reports as created or README-pending ∪ `metadata.related_modules` ∪ the modules a working-tree diff attributes through the module map (generated artifacts included) (`scale: backfill`: the modules `prospec knowledge update --change` reports ∪ `metadata.related_modules`, minting nothing). Update descriptions only without citing ungraduated REQs. Stamp freshness via `prospec knowledge verify <modules...>`.
-   - **Re-derive factual counts**: If the project has a factual count generator, run it to synchronize documentation counts; otherwise re-derive from source.
-   - **Final evidence order**: sync → final review → tests → verify → equivalent commit. If synchronization changed repository inputs, return to review and verify after sync; present only the resulting S/A. Existing current records need no rerun merely because staging, commit, amend or equivalent history changed.
+- **Sync affected-module Knowledge**: Run `prospec-knowledge-update` into the feature commit for the modules `prospec knowledge update --change` reports as created or README-pending ∪ `metadata.related_modules` ∪ the modules a working-tree diff attributes through the module map (generated artifacts included) (`scale: backfill`: the modules `prospec knowledge update --change` reports ∪ `metadata.related_modules`, minting nothing). Update descriptions only without citing ungraduated REQs. Stamp freshness via `prospec knowledge verify <modules...>`.
+- **Re-derive factual counts**: If the project has a factual count generator, run it to synchronize documentation counts; otherwise re-derive from source.
+
+When the pipeline completes final Verification with Grade S/A, reaching this boundary marks the **single commit point** for the change:
+
+1. **Commit Boundary & Confirmation (S/A only)**:
+   - **Confirm validated inputs**: Confirm Knowledge sync, freshness stamps and factual counts already belong to the validated inputs. If preparation is incomplete, return to the preparation above, then obtain final review/tests/verify again before presenting S/A.
+   - **Final evidence order**: sync → final review → tests → verify → equivalent commit. If synchronization changed effective inputs, return to final review/tests/verify after sync; present only the resulting S/A. Existing current records need no rerun merely because staging, commit, amend or equivalent history changed.
 2. **Tastemaker Presentation Payload**: Present a structured delivery summary for the human Tastemaker:
    - **Verify Grade & Status**: S/A rating with verified timestamp.
    - **Delta-Spec Summary**: Overview of added/modified/removed requirements.
@@ -77,7 +81,7 @@ When the pipeline completes Verification with Grade S/A (and subsequent Knowledg
 3. **Strict Invariant — Human Commit Prompt**:
    - The Agent **NEVER** automatically commits, pushes, or archives without explicit human approval.
    - Prompt the user to commit the change as a single atomic-by-feature commit folding implement, review, and verify fixes plus knowledge sync together (`feat: <description>`).
-   - After the commit lands and before pushing, re-run the project's knowledge-sync mechanical gate if declared.
+   - After the commit lands and before pushing, re-run the project's knowledge-sync mechanical gate if declared. Before re-verifying, inspect `knowledge-health`; if accurate Knowledge needs reconfirmation, stamp the modules and validate the changed inputs again. Commit equivalence preserves content evidence, while Knowledge freshness is assessed separately.
 4. **Sign-off Options for Developer** (the final delivery sign-off; the opt-in plan sign-off is a separate Step 5 loop-exit):
    - **Approve**: Run the git commit command and advance to `prospec-archive`.
    - **Steer / Adjust**: Request additional changes, refinements, or re-verification.

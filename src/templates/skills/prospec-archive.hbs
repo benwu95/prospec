@@ -11,7 +11,7 @@ description: "{{skill_description}} Triggers: {{trigger_words}}"
 When triggered, briefly describe:
 - That you'll scan `.prospec/changes/` for completed changes
 - The deterministic mutations are executed by `prospec archive <name>` (previewed with `--dry-run`); this skill keeps the judgment work — the Entry Gate, the Review & Verify summary, and REQ semantic graduation
-- Knowledge sync for affected modules is folded into the verify S/A commit prompt; the Entry Gate re-confirms it (backstop) before archiving
+- Sync affected-module Knowledge before final review/tests/verify; the S/A commit prompt confirms validated content and the Entry Gate re-confirms synchronization (backstop) before archiving
 
 {{> language-policy}}
 
@@ -27,7 +27,7 @@ Evidence uses `snapshot-v2` / `repository-inputs-v2`: repository input content, 
 
 ## Entry Gate
 
-> Blocking precondition check per archive target. If any item FAILs, stop and tell the user what is missing — do not archive that change. This gate is the **backstop** that re-confirms the knowledge sync folded into the verify S/A commit prompt (the prevention point); it still **FAILs and refuses to archive** when affected-module Knowledge is not synced (defense in depth — the sync is moved earlier, not removed).
+> Blocking precondition check per archive target. If any item FAILs, stop and tell the user what is missing — do not archive that change. This gate is the **backstop** that re-confirms the Knowledge synchronization completed before final review/tests/verify and confirmed at the S/A commit prompt; it still **FAILs and refuses to archive** when affected-module Knowledge is not synced (defense in depth — the sync is moved earlier, not removed).
 
 - Archive target is `status: verified` — only `prospec-verify` at grade S/A produces `verified` (lifecycle: `{{knowledge_base_path}}/_status-lifecycle.md`).
 - **Metadata completeness (machine-checked)**: `prospec archive` refuses when the `metadata-completeness` check is FAIL — **do not archive**; the metadata is missing a required field (`name`/`created_at`/`status`/`scale`) or, being `verified`, records no `prospec-verify` S/A grade. Fix it (re-run `prospec-verify` if the grade is genuinely absent), then re-archive. `--allow-incomplete` exempts this check only, for a pre-schema record. (The CLI is required — the probe STOPs before this gate when the engine is missing.)
