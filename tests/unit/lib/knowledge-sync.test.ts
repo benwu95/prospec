@@ -11,6 +11,7 @@ import {
   MODULE_MAP_UNREADABLE_CAUSE,
   MODULE_MAP_UNREADABLE_REMEDY,
   readKnownModules,
+  RELATED_MODULE_HALT_CONDITION,
   type KnowledgeSyncGaps,
 } from '../../../src/lib/knowledge-sync.js';
 import { PrerequisiteError } from '../../../src/types/errors.js';
@@ -328,6 +329,12 @@ describe('knowledgeSyncReasons (REQ-LIB-097, REQ-LIB-071)', () => {
 
   it('returns no reason when there is no gap', () => {
     expect(knowledgeSyncReasons(NONE, 'c')).toEqual([]);
+  });
+
+  it('describes a related-only unregistered name with the exported halt condition', () => {
+    const [reason] = knowledgeSyncReasons(gaps({ unregistered: ['ghost'], relatedUnregistered: ['ghost'] }), 'c');
+    expect(reason?.code).toBe('KNOWLEDGE_INPUT_INVALID');
+    expect(reason?.message).toContain(`${RELATED_MODULE_HALT_CONDITION}: ghost`);
   });
 
   it('maps stale modules to a KNOWLEDGE_UNSYNCED reason that stamps them', () => {

@@ -184,9 +184,11 @@ a project whose two zones differ still lands spec bodies in the Feature Specs' l
 **Claim writing:**
 
 - State the component’s own guarantees; reference another component’s REQ instead of describing its decision boundary.
-- Derive set and condition wording from code predicates; quote registered canonical phrases verbatim.
+- Derive set and condition wording from code predicates.
 - Use quantifiers (every, only, whenever, always, one per) and causal clauses (because, would) only when valid throughout the stated scope; otherwise delete them or reference the owning REQ.
-- When a rule is restated at three or more surfaces, register its canonical phrase and all consumption sites.
+- Delete a wrong claim by default.
+- Write rules as general positive statements; use a general negative only when one line replaces several positive ones.
+- Point tests at behavior and structure; a negative string assertion guards only the phrasing it names.
 
 **Write the resulting requirement, not the delta.** A MODIFIED `**Spec:**` block replaces the WHOLE body of the active REQ. Restore omitted behavior or declare its bullets under `**Dropped:**`; undeclared omissions block sync. The archive CLI reports omitted bullets on the MODIFIED path only; ADDED replacing an existing body is reported by neither worklist.
 

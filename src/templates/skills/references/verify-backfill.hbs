@@ -56,5 +56,5 @@ Under `scale: backfill`, the existing code is the **ground truth**. The goal of 
 
 ## 4. Post-Verify Commit & Knowledge Sync
 
-- **Knowledge Sync**: Run `prospec knowledge update --change <name>`. Sync the READMEs of {{canonical_claims.backfill_sync_modules.en}}, then stamp freshness via `prospec knowledge verify <modules...>`.
+- **Knowledge Sync**: Run `prospec knowledge update --change <name>`. Sync the READMEs of the modules `prospec knowledge update --change` reports ∪ `metadata.related_modules`, then stamp freshness via `prospec knowledge verify <modules...>`.
 - **Grade S/A Meaning**: Report the recorded fidelity judgments and limitations; the CLI determines the overall grade.

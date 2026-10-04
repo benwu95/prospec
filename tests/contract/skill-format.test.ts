@@ -1,4 +1,3 @@
-import { CANONICAL_CLAIMS } from '../../src/types/canonical-claims.js';
 /**
  * Contract tests for Skill file format.
  *
@@ -78,7 +77,6 @@ import { estimateTokens } from '../../src/lib/token-accounting.js';
 import { DECLARED_NON_SHIPPED, mandatoryCitations, referenceOf, startupLoadingSection as sharedStartupLoadingSection } from '../helpers/mandatory-loads.js';
 
 const TEMPLATE_CONTEXT = {
-  canonical_claims: CANONICAL_CLAIMS,
   playbook_entry_token_limit: PLAYBOOK_ENTRY_TOKEN_LIMIT,
   project_name: 'test-project',
   knowledge_base_path: 'prospec/ai-knowledge',
@@ -656,7 +654,7 @@ describe('Skill Format Contract', () => {
       expect(start, 'cascade-protocol commit prompt not found').toBeGreaterThan(-1);
       const section = sectionOf(content, '## Tastemaker Presentation & Human Gate');
       expect(section, 'commit prompt section sliced empty').not.toBe('');
-      expect(section).toContain(CANONICAL_CLAIMS.knowledge_sync_modules.en);
+      expect(section).toContain('the modules `prospec knowledge update --change` reports as created or README-pending ∪ `metadata.related_modules` ∪ the modules a working-tree diff attributes through the module map (generated artifacts included)');
       expect(section).not.toContain('REQ-prefix modules');
       expect(section).toContain('working-tree diff');
       expect(section).toContain('generated artifacts included');
@@ -2801,15 +2799,15 @@ describe('Skill Format Contract', () => {
     // never "the Feature header's modules" (wrong when a slug collides or is claimed).
     it('describes the backfill Knowledge Sync as the set knowledge update reports ∪ related_modules', () => {
       const brownfield = htmlSectionById(website, 'brownfield');
-      expect(brownfield).toContain('sync ' + CANONICAL_CLAIMS.backfill_sync_modules.en.replace(/`([^`]+)`/g, '<code>$1</code>'));
+      expect(brownfield).toContain('sync the modules <code>prospec knowledge update --change</code> reports ∪ <code>metadata.related_modules</code>');
       expect(brownfield).not.toContain('the feature’s modules');
       expect(brownfield).not.toContain('sync only its declared modules');
-      expect(zhOverlay).toContain('同步 ' + CANONICAL_CLAIMS.backfill_sync_modules.zh.replace(/`([^`]+)`/g, '<code>$1</code>'));
+      expect(zhOverlay).toContain('同步 <code>prospec knowledge update --change</code> 回報的 modules ∪ <code>metadata.related_modules</code>');
       expect(zhOverlay).not.toContain('feature 的 modules）');
       expect(zhOverlay).not.toContain('只同步宣告的 modules');
       for (const [file, expected, banned] of [
-        ['README.md', 'Update the READMEs of ' + CANONICAL_CLAIMS.backfill_sync_modules.en, 'update only the module READMEs named in `metadata.related_modules`'],
-        ['README.zh-TW.md', '更新' + CANONICAL_CLAIMS.backfill_sync_modules.zh + ' 的 READMEs', '只更新 `metadata.related_modules` 指定的 module READMEs'],
+        ['README.md', 'Update the READMEs of the modules `prospec knowledge update --change` reports ∪ `metadata.related_modules`', 'update only the module READMEs named in `metadata.related_modules`'],
+        ['README.zh-TW.md', '更新`prospec knowledge update --change` 回報的 modules ∪ `metadata.related_modules` 的 READMEs', '只更新 `metadata.related_modules` 指定的 module READMEs'],
       ] as const) {
         const readme = fs.readFileSync(path.resolve(file), 'utf-8');
         const step = readme.split('\n').find((l) => l.startsWith('5. **Knowledge Sync**'));
@@ -5095,7 +5093,7 @@ describe('backfill graduation — verify spec-fidelity contract (scale: backfill
     const item = section.split('\n').find((l) => l.startsWith('- **Knowledge Sync**:'));
     expect(item, 'Knowledge Sync item missing').toBeDefined();
     expect(item).toContain('Run `prospec knowledge update --change <name>`');
-    expect(item).toContain('Sync the READMEs of ' + CANONICAL_CLAIMS.backfill_sync_modules.en);
+    expect(item).toContain('Sync the READMEs of the modules `prospec knowledge update --change` reports ∪ `metadata.related_modules`');
     expect(item).not.toContain('header names');
     expect(item).not.toContain('would mint phantom modules');
     expect(item).not.toContain('Sync only the module READMEs named in `metadata.related_modules`');
@@ -5133,7 +5131,7 @@ describe('backfill graduation — archive acceptance + module derivation (scale:
     const gate = sectionOf(renderArchive(), '## Entry Gate');
     const p4 = sectionOf(renderArchive(), '### Phase 4: Knowledge Sync Re-check');
     for (const section of [gate, p4]) {
-      expect(section).toContain(CANONICAL_CLAIMS.backfill_sync_modules.en);
+      expect(section).toContain('the modules `prospec knowledge update --change` reports ∪ `metadata.related_modules`');
       expect(section).not.toContain('REQ-prefix extraction does **not** map to modules');
       expect(section).not.toContain('feature-map.yaml');
     }
@@ -6093,7 +6091,7 @@ describe('Knowledge sync folded into the verify S/A commit prompt (REQ-TEMPLATES
     expect(status).toContain('prospec knowledge verify');
     expect(status).toContain('prospec knowledge verify <modules...>');
     expect(status).toContain('scale: backfill');
-    expect(status).toContain('(`scale: backfill`: ' + CANONICAL_CLAIMS.backfill_sync_modules.en + ', minting nothing)');
+    expect(status).toContain('(`scale: backfill`: the modules `prospec knowledge update --change` reports ∪ `metadata.related_modules`, minting nothing)');
     expect(status).not.toContain('the modules of the feature its `**Feature:**` header names');
     expect(status).not.toContain('sync only the READMEs named by `metadata.related_modules`');
   });
@@ -6282,12 +6280,8 @@ describe('detect-inlined-gate-desync — Inlined/Mechanized annotation anchors (
     }
   });
 
-  it('the docs-claims, parallel-site and test-quality lenses carry PB-001/PB-003/PB-007 CURRENT strengthened clauses', () => {
+  it('the parallel-site and test-quality lenses carry PB-001/PB-007 CURRENT strengthened clauses', () => {
     const lenses = renderLenses();
-    const docs = sectionOf(lenses, '## Docs-Claims / Measurement-Attribution Lens');
-    expect(docs).toContain('who runs it and when'); // PB-003 2026-08-03 enforcement face
-    expect(docs).toContain('nothing enforces'); // PB-003 2026-08-06 no-enforcer face
-    expect(docs).toContain('**Qualifier face**'); // PB-003 2026-09-03 qualifier face
     const tq = sectionOf(lenses, '## Test-Quality Lens');
     expect(tq).toContain('never a keyword'); // PB-001 2026-09-03 set-or-structure face
     const implementNever = sectionOf(renderTemplate('skills/prospec-implement.hbs', TEMPLATE_CONTEXT), '## NEVER');
@@ -8303,22 +8297,7 @@ describe('split and trim references contract (REQ-TEMPLATES-215~220, REQ-AGNT-04
     });
   });
 
-  describe('Universal Claims & Regression Pin Promotion Contracts (REQ-TEMPLATES-222, REQ-TEMPLATES-223, REQ-TESTS-106)', () => {
-    it('knowledge-update Phase 3a requires pairing universal prose conventions with executors', () => {
-      const content = renderTemplate('skills/prospec-knowledge-update.hbs', TEMPLATE_CONTEXT);
-      const section = sectionOf(content, '### Phase 3: Update README Content');
-      expect(section).toContain('Pair universal conventions with executors');
-      expect(section).toContain('a checker with no executor is not a gate');
-    });
-
-
-    it('review-lenses-content docs-claims lens flags universal claims without executor as critical/major', () => {
-      const content = renderTemplate('skills/references/review-lenses-content.hbs', TEMPLATE_CONTEXT);
-      const section = sectionOf(content, '## Docs-Claims / Measurement-Attribution Lens');
-      expect(section).toContain('Universal claims without executor');
-      expect(section).toContain('EVERY X must Y');
-    });
-
+  describe('Regression Pin Promotion Contracts (REQ-TEMPLATES-223, REQ-TESTS-106)', () => {
     it('archive Phase 4.5 includes Regression Pin Adjudication for promotion to contract tests', () => {
       const content = renderTemplate('skills/prospec-archive.hbs', TEMPLATE_CONTEXT);
       const section = sectionOf(content, '### Phase 4.5: Auto-Harvest Recurring Lessons');
@@ -8341,20 +8320,6 @@ describe('split and trim references contract (REQ-TEMPLATES-215~220, REQ-AGNT-04
     });
 
     describe('Mutation Verification (PB-001/PB-019)', () => {
-      it('fails if universal convention executor clause is removed from rendered knowledge-update template', () => {
-        const real = renderTemplate('skills/prospec-knowledge-update.hbs', TEMPLATE_CONTEXT);
-        const mutated = real.replace('Pair universal conventions with executors', 'Removed clause');
-        const section = sectionOf(mutated, '### Phase 3: Update README Content');
-        expect(section).not.toContain('Pair universal conventions with executors');
-      });
-
-      it('fails if universal claims check is removed from rendered review-lenses-content template', () => {
-        const real = renderTemplate('skills/references/review-lenses-content.hbs', TEMPLATE_CONTEXT);
-        const mutated = real.replace('Universal claims without executor', 'Removed check');
-        const section = sectionOf(mutated, '## Docs-Claims / Measurement-Attribution Lens');
-        expect(section).not.toContain('Universal claims without executor');
-      });
-
       it('fails if regression pin promotion is removed from rendered archive template', () => {
         const real = renderTemplate('skills/prospec-archive.hbs', TEMPLATE_CONTEXT);
         const mutated = real.replace('Regression Pin Adjudication', 'Removed step');
@@ -10177,7 +10142,7 @@ describe('shipped claim audit', () => {
     expect(handoff).toContain('archive gates');
     expect(handoff).not.toContain('a faithful draft reaches grade S/A');
     const sync = sectionOf(render('skills/references/verify-backfill.hbs'), '## 4. Post-Verify Commit & Knowledge Sync');
-    expect(sync).toContain(CANONICAL_CLAIMS.backfill_sync_modules.en);
+    expect(sync).toContain('the modules `prospec knowledge update --change` reports ∪ `metadata.related_modules`');
     expect(sync).toContain('fidelity judgments and limitations');
     expect(sync).not.toMatch(/100% faithful|it mints no module/);
   });
@@ -10272,5 +10237,64 @@ describe('shipped claim audit', () => {
     const health = sectionOf(render('skills/references/drift-report-format.hbs'), '### Key Check Interpretations');
     expect(health).toContain('knowledge-health');
     expect(health).not.toContain('README git timestamp staleness');
+  });
+});
+
+describe('claim-authoring guidance and Docs-Claims severity (REQ-TEMPLATES-241, REQ-TEMPLATES-084, REQ-TEMPLATES-166)', () => {
+  const CLAIM_WRITING = [
+    '- State the component’s own guarantees; reference another component’s REQ instead of describing its decision boundary.',
+    '- Derive set and condition wording from code predicates.',
+    '- Use quantifiers (every, only, whenever, always, one per) and causal clauses (because, would) only when valid throughout the stated scope; otherwise delete them or reference the owning REQ.',
+    '- Delete a wrong claim by default.',
+    '- Write rules as general positive statements; use a general negative only when one line replaces several positive ones.',
+    '- Point tests at behavior and structure; a negative string assertion guards only the phrasing it names.',
+  ];
+  /** The bullet block that directly follows a `**Claim writing:**` label. */
+  const claimWritingBullets = (doc: string): string[] => {
+    const lines = doc.split('\n');
+    const start = lines.findIndex((l) => l.trim() === '**Claim writing:**');
+    expect(start, 'Claim writing label').toBeGreaterThanOrEqual(0);
+    const bullets: string[] = [];
+    for (const line of lines.slice(start + 1)) {
+      if (line.startsWith('- ')) bullets.push(line);
+      else if (line.trim() !== '' || bullets.length > 0) break;
+    }
+    return bullets;
+  };
+  const specSection = () => sectionOf(renderTemplate('skills/references/delta-spec-format.hbs', TEMPLATE_CONTEXT), '## The `**Spec:**` Block');
+  const docsLens = () => sectionOf(renderTemplate('skills/references/review-lenses-content.hbs', TEMPLATE_CONTEXT), '## Docs-Claims / Measurement-Attribution Lens');
+
+  it.each([['delta-spec-format Spec section', specSection], ['Docs-Claims lens', docsLens]])('%s carries exactly the shared claim-writing rules', (_name, section) => {
+    expect(claimWritingBullets(section())).toEqual(CLAIM_WRITING);
+  });
+
+  it('Docs-Claims lens rates a claim by what an agent would do with it', () => {
+    const lens = docsLens();
+    expect(lens).toContain('major or higher only when following it makes an agent act wrongly');
+    const severities = lens
+      .split('\n')
+      .filter((l) => l.startsWith('| ') && !l.startsWith('| Criterion') && !l.startsWith('|---'))
+      .map((l) => l.split('|').filter((c) => c.trim() !== '').at(-1)!.trim());
+    expect(severities).toEqual([
+      'major when it makes an agent act wrongly / minor otherwise',
+      'major when an agent would act on it wrongly / minor otherwise',
+      'major when an agent would act on it wrongly / minor otherwise',
+      'major when an agent would rely on the missing executor / minor otherwise',
+      'minor',
+      'minor',
+    ]);
+  });
+});
+
+// Templates compile non-strict, so a missing key renders empty; this guards literal mustache leaks only.
+describe('shipped templates render no literal Handlebars braces', () => {
+  const dir = path.resolve(__dirname, '../../src/templates');
+  const list = (sub: string) => fs.readdirSync(path.join(dir, sub)).filter((f) => f.endsWith('.hbs')).map((f) => `${sub}/${f}`);
+  const templates = [...list('skills'), ...list('skills/references'), ...list('init')];
+  it('covers every skill, partial, reference and init template', () => {
+    expect(templates.length).toBeGreaterThanOrEqual(60);
+  });
+  it.each(templates)('%s', (template) => {
+    expect(renderTemplate(template, TEMPLATE_CONTEXT)).not.toMatch(/\{\{[^}]*\}\}/);
   });
 });

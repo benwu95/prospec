@@ -26,7 +26,7 @@
         "{{base_dir}}/specs/features/"
       ],
       "mandatory": 1,
-      "mandatory_context_tokens": 5792
+      "mandatory_context_tokens": 5818
     },
     "prospec-design": {
       "items": [
@@ -88,7 +88,7 @@
         "{{knowledge_base_path}}/module-map.yaml"
       ],
       "mandatory": 1,
-      "mandatory_context_tokens": 4346
+      "mandatory_context_tokens": 4264
     },
     "prospec-learn": {
       "items": [
@@ -191,7 +191,7 @@
     "debug-recovery-format": 1255,
     "delegated-evidence-format": 3202,
     "delegation-protocol": 2409,
-    "delta-spec-format": 1968,
+    "delta-spec-format": 1994,
     "design-spec-format": 847,
     "drift-report-format": 2530,
     "feature-boundary-criteria": 917,
@@ -206,7 +206,7 @@
     "promotion-format": 1594,
     "proposal-format": 1106,
     "review-format": 2445,
-    "review-lenses-content": 2998,
+    "review-lenses-content": 3047,
     "spec-graduation": 835,
     "tasks-format": 1467,
     "tasks-verifier-rubric": 1480,

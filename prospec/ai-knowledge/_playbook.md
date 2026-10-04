@@ -34,14 +34,6 @@ Entry format: `.claude/skills/prospec-learn/references/promotion-format.md`.
   Plan-stage Call Chains for such designs must show one chain per station, not only the stations the source document names (the bundle doc predated review/implement interactions and was incomplete three times over).
 - **#66 gate-fallback evaluation (2026-07-04)**: kept in the playbook, **not** inlined into a per-station gate — freq=1 and it is a narrow design-time authoring rule for the rare artifact-existence-changing design; a standing gate at every station would not pay for itself. Revisit if it recurs (freq≥3).
 
-### PB-003: Documented claims must match actually-observable implementation behavior — mark gaps with deliberate-exclusion wording
-- **Source**: add-token-measurement-harness, reorder-stable-prefix-loading, add-drift-checker, add-mcp-server · **Criteria**: freq=4, modules=4 (cli, templates, lib, services) · **Kind**: playbook · **Approved-by**: benwu95 · **Date**: 2026-06-13 (provenance appended; originally 2026-06-12)
-- **Stations**: plan, implement, review, verify, knowledge-update, archive
-- **TTL**: review by 2026-12-12
-- **Inlined into gate 2026-07-04**: Landing: `src/templates/skills/references/review-lenses-content.hbs` (Docs-Claims / Measurement-Attribution Lens).
-- **Guidance**: State the component’s own guarantees; reference another component’s REQ instead of describing its decision boundary. Derive set and condition wording from code predicates; quote registered canonical phrases verbatim. Use quantifiers (every, only, whenever, always, one per) and causal clauses (because, would) only when valid throughout the stated scope; otherwise delete them or reference the owning REQ.
-- **Authoring extension**: add-canonical-claims (#315); requested by benwu95, 2026-09-29.
-
 ### PB-006: Extract logic duplicated across parallel modules into a single-source helper — don't hand-copy
 - **Source**: src-review-round2-remediation, harden-feature-prefixed-req-sync, preserve-agent-config-edits · **Criteria**: freq=3, modules=2 (lib, services) · **Kind**: convention · **Approved-by**: benwu95 · **Date**: 2026-06-22
 - **Stations**: plan, implement, review
@@ -161,7 +153,7 @@ Entry format: `.claude/skills/prospec-learn/references/promotion-format.md`.
 
 ## Retired Entries
 
-> Retired by the `/prospec-learn` **Sweep** with human approval — the failure mode can no longer occur. The id is kept and never reused; the TTL and Guidance body are gone so no reader mistakes a dead rule for a live instruction, and `prospec learn upsert`'s TTL report skips these entries.
+> Retired with human approval. The id is kept and never reused; the TTL and Guidance body are gone so no reader mistakes a dead rule for a live instruction, and `prospec learn upsert`'s TTL report skips these entries.
 
 ### PB-004: The factual counts `pnpm counts` does NOT own still drift — re-derive them by hand at the sync point
 - **Source**: readme-onboarding-restructure, enhance-skill-instructions, fix-archive-sibling-reference, vendor-engineering-heuristics, enforce-metadata-schema · **Criteria**: freq=3, modules=2 (lib, types) · **Kind**: convention · **Approved-by**: benwu95 · **Date**: 2026-07-28 (un-retired + narrowed; originally 2026-06-14)
@@ -175,3 +167,7 @@ Entry format: `.claude/skills/prospec-learn/references/promotion-format.md`.
 - **Source**: centralize-index-column-schema, fix-archive-sibling-reference, vendor-engineering-heuristics · **Criteria**: freq=3, modules=4 (types, templates, services, tests) · **Kind**: playbook · **Approved-by**: benwu95 · **Date**: 2026-06-14
 - **RETIRED 2026-07-04** (issue #66): root cause eliminated by #65 — the verify S/A commit-prompt now syncs every source-touched module README **into the feature commit** (prevention), with the `/prospec-archive` Entry Gate as backstop. A source-only commit no longer reaches archive stale; no longer active.
 - **Sweep correction 2026-08-03** (add-learn-staleness-sweep · **Adjudicated-by**: benwu95): the retirement over-stated the prevention. It is an *instruction* in the verify commit prompt, not a mechanism, and it failed on this very change — the feature commit synced `lib`'s README and missed `templates`, so `knowledge-health` reported `templates` stale (pre-amend commit `71db32c` touched `src/templates/**` twice with no `modules/templates/**`); the `/prospec-archive` Entry Gate backstop caught it and an amend fixed it. The conclusion still holds *because of* that backstop, so this entry stays retired by explicit adjudication and is deliberately NOT returned to `## Entries`. The rule itself remains correct and its ledger key `archive/knowledge-sync-touched-module-readme` was un-retired the same day (freq 17→18) to keep accumulating — a future sweep should read this pair as adjudicated, not as a contradiction.
+
+### PB-003: Documented claims must match actually-observable implementation behavior — mark gaps with deliberate-exclusion wording
+- **Source**: add-token-measurement-harness, reorder-stable-prefix-loading, add-drift-checker, add-mcp-server · **Criteria**: freq=4, modules=4 (cli, templates, lib, services) · **Kind**: playbook · **Approved-by**: benwu95 · **Date**: 2026-06-13 (provenance appended; originally 2026-06-12)
+- **RETIRED 2026-10-04** (issue #341, approved by benwu95): the claim-writing rules now live in `_conventions.md` § Skill and Documentation Authoring, and in the shipped Docs-Claims lens; the canonical-phrase registry this entry extended was removed.

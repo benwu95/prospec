@@ -30,7 +30,7 @@ For Playbook loads, keep plan and implement Startup item 6 on `learn playbook --
 
 5. **Audit reference prose** — omit top-level `Purpose` and `Reference Information` sections; keep operational guidance in the governing body section (adaptation, measurement sources, delegation paths and full license attribution). `skill-format` guards the rendered headings and retained rules.
 
-6. **State a behavioral claim** — follow the three authoring rules in `delta-spec-format`’s Spec section and the Docs-Claims lens. Repeated CLI wording lives in `types/canonical-claims.ts`; render its `canonical_claims` context, register bounded sites and extend `canonical-claims.test.ts`. Keep authored copies verbatim, rebuild the bundle, sync agents and rebaseline exact UTF-8 weights within the existing ceilings.
+6. **State a behavioral claim** — follow `_conventions.md` § Skill and Documentation Authoring.
 
 ## Ripple Effects
 
