@@ -57,15 +57,16 @@
 - **Tasks**: 13/13 code tasks；3/3 verification reminders。
 - **Acceptance Criteria**: 6/6 scenarios；29/29 REQ。
 - reference tokens：50,854 → 48,170（減少 2,684）；mandatory startup：88,515 → 87,408（減少 1,107）；ceilings 51,089／88,535 不變。
-- [61 檔盤點與處置](./2026-09-29-audit-shipped-skill-claims/audit.md)、[逐檔 Skills](./2026-09-29-audit-shipped-skill-claims/audit-skills.md)、[逐檔 References](./2026-09-29-audit-shipped-skill-claims/audit-references.md)。
+- **Audit**: 逐檔盤點 17 skills、8 partials、31 references、5 change templates，共 61 檔；修正 classifier／grade／gate 的錯誤宣稱、補拒收修復操作，刪除冗餘 h2，保留必要 adapter／DSL／delegation 正文及兩份 MIT license。
 
 ## Review & Verify
 
-- **Review**: 2 輪；0 critical、2 major 均 fixed。修正 archive 平行唯一紀錄宣稱，以及刪除 route owner 仍通過的測試；[完整紀錄](./2026-09-29-audit-shipped-skill-claims/review.md)。
-- **Verify**: 最終 S；task／delta-spec／constitution／knowledge／tests 全部 PASS，design not-applicable；29/29 REQ、8/8 Constitution；[逐項證據](./2026-09-29-audit-shipped-skill-claims/verify.md)。
+- **Review**: 2 輪；0 critical、2 major 均 fixed。R1-ARCHIVE-EXCLUSIVE-RECORD 修正三個平行唯一紀錄宣稱；R1-ROUTE-OWNER-FALSE-GREEN 改為 bounded owner 檢查，刪除 route／entry owner 的實際變異均轉紅。
+- **Verify**: 最終 S；task／delta-spec／constitution／knowledge／tests 全部 PASS，design not-applicable；29/29 REQ、8/8 Constitution。
 - **Tests**: 267 files；6,860 passed／4 skipped；statement 96.49%、branch 90.82%、function 98.67%、line 97.59%；35 個 source→bundle mutations 全數 killed。
 - **CI parity**: build、typecheck、lint、coverage、counts:check、agents:check、提交後 knowledge:check、strict check 通過；strict 22 checks、0 FAIL、1 WARN（既有 Knowledge 大小壓力）。
 - **Quality Log**: plan 兩次 FLAWS（漏列 governing REQ、Spec foreign-label／矛盾舊正文）已修正後 PASS；review R1 兩個 majors 於 R2 修正；verify 首次 A 的兩個 WARN 均為尚待提交後 Knowledge gate，補齊有效結果後獨立複驗為 S。中途錯寫的 review warning 說明已另筆 quality_log 澄清。
+- **Source**: 2026-10-04 由既有封存摘要、review.md、verify.md、61 檔 audit、35 筆 mutation 及 token comparison 整理，並核對 archive metadata 的 quality_log；原始檔可由 Git `8e13d6c8c851` 的同名 history 資料夾追溯。
 
 ## Knowledge 與限制
 

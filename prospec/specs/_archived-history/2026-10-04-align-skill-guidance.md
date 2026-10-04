@@ -64,6 +64,7 @@
 - **Tests**: 268 files，6,992 PASS／4 skipped；lines 97.62%。lint、typecheck、counts:check、agents:check 通過；提交後 knowledge:check 實際範圍檢查 PASS（4 個 source-touched modules）。
 - **Quality Log**: plan 的 clean-sentence FLAWS 已修正；tasks 的 bundle-before-contract 與 handoff 註記已補；20→21 摘要計數 WARN 已修正；小型文案 task sizing 為已說明的 advisory。review 的兩個 major 已 fixed，最終 verify 無 WARN／FAIL。
 - **Limits**: strict 22/22 checks，0 FAIL／1 knowledge-size WARN／0 skipped；42 個既有預算壓力 findings 保留，budgets／ceilings 未提高。遠端 CI 結果由 PR 檢查回報。
+- **Source**: 2026-10-04 由既有封存摘要、review.md、verify.md、metadata.yaml 的 quality_log、audit-sites 與 15 筆 mutation receipts 整理；原始檔可由 Git `8e13d6c8c851` 的同名 history 資料夾追溯。
 
 ## Knowledge Update
 
@@ -75,5 +76,4 @@
 
 - 已由 `learn upsert` 累計 3 項既有教訓，新增 manual-handoff 站點 ownership 教訓；retired 的 duplicated-count key 拒收並保持原計數。沒有 recurring critical 或系統性跳過 [M] 的模式。
 - docs/shipped-prose-asserts-engine-behavior 達晉升建議門檻（frequency=3、5 modules），未自動寫入 playbook／Constitution；後續可由 prospec-learn 裁決。
-- 新增 template guards 已在既有 permanent contract owners 守完整 shipped renderer 結構；15 個 applied／killed／restored mutation 收據保存在 committed evidence。metadata 並行修改／counts I/O 的 failure pins 留在 service unit owner，沒有另需晉升的 family invariant。
-- Review、verify、quality_log、audit-sites 與 mutation receipts 已原樣保存至 `prospec/specs/_archived-history/2026-10-04-align-skill-guidance/`。
+- 新增 template guards 已由 permanent contract owners 守完整 shipped renderer 結構；15 個 applied／killed／restored mutations 的結果及 findings 已整合至本檔的 Review & Verify。metadata 並行修改／counts I/O 的 failure pins 留在 service unit owner，沒有另需晉升的 family invariant。

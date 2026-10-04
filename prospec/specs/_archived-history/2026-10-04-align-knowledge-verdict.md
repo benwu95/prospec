@@ -49,6 +49,7 @@ US-14 依 delta-spec 的完整 English Manual Convergence 替換 Story prose；0
 - **Strict Check**: 0 FAIL／1 WARN／0 skip；既有 Knowledge-size 壓力保留，預算／ceiling 不變。
 - **Input Evidence**: digest `79e42d7df615e197fb23df1bc09078802e95449c79eff0b9288ac39beb2a4280`；context `3b23602749746641f92b879582d067b6e5048506d61ebf2823576f64a7262854`。Content-equivalent commit 後 provenance 仍有效。
 - **Knowledge Gate**: pre-commit empty range 為 skipped；feature commit 後重跑 PASS，3 source-touched modules 全 confirmed。未宣稱遠端 PR CI 已執行。
+- **Source**: 2026-10-04 由既有封存摘要、review.md、verify.md 與 archive metadata 的 quality_log 整理；原始報告可由 Git `8e13d6c8c851` 的同名 history 資料夾追溯。
 
 ## Knowledge Update
 
