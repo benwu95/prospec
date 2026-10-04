@@ -1,6 +1,6 @@
 # Verification Suite
 
-> 4-layer Vitest suite (fast-glob/git bypass memfs — 268 test files, 7,000 tests (unit 5062, contract 1581, integration 153, e2e 204)).
+> 4-layer Vitest suite (fast-glob/git bypass memfs — 268 test files, 7,041 tests (unit 5062, contract 1622, integration 153, e2e 204)).
 <!-- prospec:module-readme-format 2026-09-01 -->
 
 <!-- prospec:auto-start -->
@@ -32,7 +32,7 @@
 ## Modification Guide
 
 1. **Add a unit test** — `tests/unit/{layer}/{name}.test.ts`; mock `node:fs` with memfs, `vol.reset()` in `beforeEach`.
-2. **Add a contract test** — see [Contract Guards](./contract-guards.md). `skill-format` also pins audited claims, reference-heading removal and retained operational guidance.
+2. **Add a contract test** — see [Contract Guards](./contract-guards.md). `skill-format` also pins quantitative target baselines, audited claims, reference-heading removal and retained operational guidance.
 3. **Add an integration test** — `tests/integration/{flow}.test.ts`; drive multiple services over memfs.
 4. **Add an E2E case** — most cases run in-process: add to the matching `tests/e2e/cli-*.test.ts` using the shared `runCli` helper (no build needed, runs against `src`). Only genuinely subprocess-bound behavior goes in `cli-subprocess-smoke.test.ts` (spawns `dist/cli/index.js` — run `pnpm build` first).
 5. **Run one layer** — `pnpm vitest run tests/{unit|contract|integration|e2e}/`.

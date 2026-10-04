@@ -34,6 +34,8 @@ The Verifier audits the planning artifacts across five orthogonal dimensions:
   - **Bidirectional Mapping**: Is every User Story and acceptance scenario in `proposal.md` mapped to at least one REQ in `delta-spec.md`?
   - **Delta Clarity**: For MODIFIED requirements, are Before, After, Reason, and `**Spec:**` blocks clearly articulated and testable?
   - **No Orphaned Scope**: Does `delta-spec.md` contain ungrounded requirements outside the proposal's scope?
+  - **Quantitative Target Baseline**: For each quantitative acceptance target in proposal Success Criteria or delta-spec requirements, does the plan record the measured HEAD/version, baseline value, target project's measurement command, target and gap? For an unmet gap, does it name a closing mechanism and estimated improvement distinct from measured evidence, so feasibility can be assessed against the target?
+  - If the baseline already meets the target, record the value and gap; no closing mechanism is required. With no quantitative acceptance target, no baseline is required. Identifiers, versions and non-acceptance examples do not alone trigger this check. If measurement is unavailable, disclose the reason; never invent a value or use unmeasured zero — a missing measured baseline remains FLAWS.
 
 ### 5. Reuse & Single-Source
 - **Rule Source**: The target project's own knowledge base — each module README's Modification Guide, `{{knowledge_base_path}}/_conventions.md`, and its module map — plus a grep of the codebase.
@@ -51,7 +53,7 @@ The Verifier audits the planning artifacts across five orthogonal dimensions:
 |---------|-----------|--------|
 | **PASS** | All 5 dimensions satisfied; no critical flaws. | Advance to `prospec-tasks` or manual review. |
 | **WARN** | Advisory concerns (e.g. missing edge-case mitigation, non-critical performance note). | Append to `plan.md` Risk Assessment and log to `metadata.yaml` `quality_log` (`result: WARN`). Does not block progression. |
-| **FLAWS** (FAIL) | Structural violation (broken layering, unhandled high-risk blast radius, missing rollback on critical mutation, untraced User Story, an existing owner bypassed without a stated rationale, or a `standard` plan missing its Simpler Alternative). | Revise `plan.md`/`delta-spec.md` to resolve flaws, or exercise Break-Glass Override. |
+| **FLAWS** (FAIL) | Structural violation (broken layering, unhandled high-risk blast radius, missing rollback on critical mutation, untraced User Story, an existing owner bypassed without a stated rationale, a `standard` plan missing its Simpler Alternative, a quantitative acceptance target missing its measured baseline, or an unmet gap without a closing mechanism). | Revise `plan.md`/`delta-spec.md` to resolve flaws, or exercise Break-Glass Override. |
 
 {{!-- Single Source of Truth: The two-condition single-source bypass critical definition is owned by review-format.hbs §Severity Criteria. Referenced semantically here without pointing to review-format.md. --}}
 > The Reuse & Single-Source trigger above is self-contained: any unargued bypass is FLAWS here, whatever path the new surface sits on — a plan page is cheap to widen. Its review-stage counterpart, the single-source bypass criterion during adversarial code review, is deliberately narrower and is only named here, not restated.

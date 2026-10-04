@@ -32,6 +32,8 @@ For Playbook loads, keep plan and implement Startup item 6 on `learn playbook --
 
 6. **State a behavioral claim** — follow `_conventions.md` § Skill and Documentation Authoring.
 
+7. **Change quantitative target checks** — keep `plan-verifier-rubric.hbs` dimension 4 and its FLAWS row aligned with `plan-format.hbs`'s unnumbered baseline subsection inside §7. Require measured version/value/project command/target/gap; unmet gaps need a mechanism and a separate estimate. Preserve the five-dimension schema, met-target/non-target/unavailable boundaries, placeholder-only measurement examples, numbered sections, shared plan/ff deployment and quick skip. Re-measure the two reference fixture rows without raising ceiling anchors.
+
 ## Ripple Effects
 
 - Any `skills/**.hbs` edit needs `prospec agent sync` to regenerate `.claude/skills/` (and the other agent dirs); references render `.hbs`→`.md`, never verbatim. `_cli-probe.hbs` ripples into all 17 skills at once.

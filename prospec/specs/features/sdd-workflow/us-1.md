@@ -157,6 +157,18 @@ A structured architecture verification rubric template (`plan-verifier-rubric.md
 - WHEN the Architecture Verifier writes its report, THEN the reference owns a JSON schema with `verdict`, the exact five dimensions, evidence, and warnings; for the receipt it points at its station's own `delegation-protocol.md` — a readable non-empty schema-valid file, a bounded wait, disclosed terminal degradation — instead of restating it, and NEVER synthesizes PASS
 - WHEN the payload schema section renders its `verdict` and `dimensions` rows, THEN their vocabulary is projected from `PLANNING_VERDICTS` and `PLAN_VERIFIER_DIMENSIONS` through the render context, the section states that `rationale` and each `warnings[]` item are single-line and bounded by the injected relayed `summary` ceiling (detail belongs in `evidence`), and the receipt is recorded with `prospec change log --skill prospec-plan --verifier-report <file>`
 - WHEN the architecture rubric describes its audit, THEN it defines checks without claiming to eliminate confirmation bias
+- WHEN proposal Success Criteria or delta-spec requirements contain quantitative acceptance targets, THEN dimension 4 requires a measured baseline for each target with HEAD/version, value, the target project's measurement command, target and gap; an unmet gap requires a closing mechanism and estimated improvement distinct from measured evidence
+- WHEN a quantitative acceptance target lacks a measured baseline, or an unmet gap lacks a corresponding closing mechanism, THEN the Verdict table grades it FLAWS; met-target, non-target and unavailable-measurement treatment follows REQ-TEMPLATES-243, without extending the five-dimension report schema
+
+#### REQ-TEMPLATES-243: Quantitative target baseline authoring
+The plan-format reference guides authors to record a measured baseline for quantitative acceptance targets in proposal Success Criteria or delta-spec requirements, using the target project's own measurement method.
+- WHEN a quantitative acceptance target is present, THEN its plan records the measured HEAD/version, baseline value, measurement command, target and gap; an unmet gap includes the closing mechanism and estimated improvement distinguished from measured evidence
+- WHEN recording this evidence, THEN the reference explains the fields and provides a placeholder example near Risk Assessment while preserving existing numbered sections and their order
+- WHEN the baseline already meets the target, THEN it still records the value and gap and does not invent a closing mechanism; when no quantitative acceptance target exists, no baseline is required
+- WHEN a number is an identifier, version or non-acceptance example, THEN it does not alone trigger the quantitative target check; unavailable measurement is disclosed rather than invented or represented as unmeasured zero
+- WHEN the new baseline guidance or example is rendered, THEN measurement commands, paths and thresholds remain target-project placeholders rather than this repository's constants, and no host/model is prescribed; existing workflow commands and format numbers retain their own contracts
+- WHEN plan or fast-forward runs at standard/full scale, THEN its deployed shared references provide this guidance; quick retains its existing plan skip
+
 
 #### REQ-TEMPLATES-183: Shift-Left Architecture Verifier in prospec-plan
 Phase 6 of `/prospec-plan` performs independent architecture verification against plan.md and delta-spec.md using orthogonal criteria decomposition.
@@ -173,6 +185,8 @@ Contract test suite asserts the invariants of the Plan Architecture Verifier and
 - WHEN contract tests execute, THEN they assert `plan-verifier-rubric.md` is cited on-demand in Phase 6 and excluded from Startup Loading
 - WHEN measuring reference size, THEN `plan-verifier-rubric.md` satisfies the `reference_per_file` budget
 - WHEN verifying reference deployment, THEN `getSkillReferences` contains `plan-verifier-rubric.md` for both `prospec-plan` and `prospec-ff`
+- WHEN baseline contracts execute, THEN section-scoped assertions cover dimension 4, the FLAWS condition, the authoring fields and placeholder example, and met-target/non-target/unavailable-measurement boundaries
+- WHEN new baseline guidance is mutated by removing a required clause/field, weakening a FLAWS condition or inserting project/host-specific measurement constants, THEN its corresponding contract fails; the contracts preserve numbered-section order, the five-dimension schema, shared plan/ff deployment and existing scale behavior
 
 ---
 
