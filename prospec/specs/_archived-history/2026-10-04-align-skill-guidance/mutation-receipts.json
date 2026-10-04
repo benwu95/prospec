@@ -1,0 +1,125 @@
+[
+  {
+    "mutation": "help-warning",
+    "source": "src/types/cli-help.ts",
+    "test": "tests/contract/cli-output.test.ts",
+    "pattern": "persisted warning",
+    "applied": true,
+    "killed": true
+  },
+  {
+    "mutation": "check-command",
+    "source": "src/templates/skills/prospec-knowledge-generate.hbs",
+    "test": "tests/contract/skill-format.test.ts",
+    "pattern": "knowledge budget instructions",
+    "applied": true,
+    "killed": true
+  },
+  {
+    "mutation": "provenance-draft",
+    "source": "src/templates/skills/references/verify-backfill.hbs",
+    "test": "tests/contract/skill-format.test.ts",
+    "pattern": "binds the provenance grant",
+    "applied": true,
+    "killed": true
+  },
+  {
+    "mutation": "dimension-reference",
+    "source": "src/templates/skills/prospec-verify.hbs",
+    "test": "tests/contract/skill-format.test.ts",
+    "pattern": "Verification 5/5 delegates backfill",
+    "applied": true,
+    "killed": true
+  },
+  {
+    "mutation": "traced-modules",
+    "source": "src/templates/skills/prospec-promote-backfill.hbs",
+    "test": "tests/contract/skill-format.test.ts",
+    "pattern": "omits traced modules",
+    "applied": true,
+    "killed": true
+  },
+  {
+    "mutation": "artifact-owner",
+    "source": "src/templates/skills/prospec-review.hbs",
+    "test": "tests/contract/skill-format.test.ts",
+    "pattern": "one-line CLI pointer",
+    "applied": true,
+    "killed": true
+  },
+  {
+    "mutation": "supplementary-docs",
+    "source": "src/templates/skills/prospec-knowledge-generate.hbs",
+    "test": "tests/contract/knowledge-format.test.ts",
+    "pattern": "skills/prospec-knowledge-generate.hbs links",
+    "applied": true,
+    "killed": true
+  },
+  {
+    "mutation": "cumulative-table",
+    "source": "src/services/review-merge.service.ts",
+    "test": "tests/unit/services/review-merge.service.test.ts",
+    "pattern": "empty input over a carried",
+    "applied": true,
+    "killed": true
+  },
+  {
+    "mutation": "review-nonpass",
+    "source": "src/services/verify-record.service.ts",
+    "test": "tests/unit/services/verify-record.service.test.ts",
+    "pattern": "refuses skipped review",
+    "applied": true,
+    "killed": true
+  },
+  {
+    "mutation": "round-lower-bound",
+    "source": "src/types/cascade.ts",
+    "test": "tests/unit/types/cascade.test.ts",
+    "pattern": "accepts both boundaries",
+    "applied": true,
+    "killed": true
+  },
+  {
+    "mutation": "review-format-refusal-owner",
+    "source": "src/templates/skills/references/review-format.hbs",
+    "test": "tests/contract/skill-format.test.ts",
+    "pattern": "review-format names the bounded",
+    "applied": true,
+    "killed": true
+  },
+  {
+    "mutation": "backfill-relaxation-scope",
+    "source": "src/templates/skills/references/verify-backfill.hbs",
+    "test": "tests/contract/skill-format.test.ts",
+    "pattern": "binds the provenance grant",
+    "applied": true,
+    "killed": true
+  },
+  {
+    "mutation": "optional-notes-owner",
+    "source": "src/templates/skills/references/review-format.hbs",
+    "test": "tests/contract/skill-format.test.ts",
+    "pattern": "optional author notes",
+    "applied": true,
+    "killed": true,
+    "execution_root": "/private/tmp/prospec326-review-fixes"
+  },
+  {
+    "mutation": "retained-writes-disclosure",
+    "source": "src/types/cli-help.ts",
+    "test": "tests/contract/cli-output.test.ts",
+    "pattern": "persisted warning",
+    "applied": true,
+    "killed": true,
+    "execution_root": "/private/tmp/prospec326-review-fixes"
+  },
+  {
+    "mutation": "retained-artifact",
+    "source": "src/services/review-merge.service.ts",
+    "test": "tests/unit/services/review-merge.service.test.ts",
+    "pattern": "post-WARN .* after review write",
+    "applied": true,
+    "killed": true,
+    "execution_root": "/private/tmp/prospec326-review-fixes"
+  }
+]

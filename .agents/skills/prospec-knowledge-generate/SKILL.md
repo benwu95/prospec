@@ -54,7 +54,7 @@ from the full init, never `--raw-scan-only`, so a first-ever run needs it.
 |-------|-------|-------------|-------------|
 | **L0** | `AGENTS.md` / `CLAUDE.md` | Every conversation (auto-injected via agent config) | Agent-injected — out of `knowledge-size` scope |
 | **L1** | `prospec/index.md` + Core Conventions + Context-specific artifacts | At startup (acts as entry point and current task context) | ≤ 2500 tokens per file |
-| **L2** | `prospec/ai-knowledge/modules/{name}/README.md` (+ each linked `{sub-module}.md`) | When Skill identifies related modules from L1 keywords | ≤ 2000 tokens per module file — README and each linked sub-module alike; also ≤ 100 lines |
+| **L2** | `prospec/ai-knowledge/modules/{name}/README.md` (plus linked sub-module and supplementary docs) | When Skill identifies related modules from L1 keywords | ≤ 2000 tokens per module file — module Markdown files, including linked documents; also ≤ 100 lines |
 | **Spec** | `prospec/specs/features/**/*.md` + `prospec/specs/product.md` | When Skill identifies related features | ≤ 5000 tokens per spec file — a slice under `features/{feature}/` is measured alike |
 | **Demand** | Demand Conventions (lessons ledger, playbook, …) | When their topic is relevant — read in slices, never whole | ≤ 20000 tokens per file |
 | **L3** | Source code files | When Agent needs implementation details | No limit (read on demand) |
@@ -64,10 +64,10 @@ from the full init, never `--raw-scan-only`, so a first-ever run needs it.
 **Principles:**
 1. L0 answers "how to use skills" — L1 answers "where to look" and "what to do" — L2 answers "what it does" (Feature Spec) and "how to modify" (Module README) — L3 answers "how to write"
 2. Each layer must NOT duplicate information available in a lower layer
-3. The README (plus any linked `{sub-module}.md`) is the only knowledge per module — no api-surface.md, dependencies.md, or patterns.md
+3. Use README.md as the module knowledge entry point, linking sub-module and supplementary docs.
 4. Sub-modules are an L2 sub-layer reached via the README's `## Sub-Modules` links — never listed in `prospec/index.md`
 
-`index.md`'s budget note must declare **all seven** — `knowledge-size` grades all seven — citing `.prospec.yaml` `knowledge.token_budget` as the source and `prospec check knowledge-size` as the enforcement, never an internal constant name.
+`index.md`'s budget note must declare **all seven** — `knowledge-size` grades all seven — citing `.prospec.yaml` `knowledge.token_budget` as the source and `prospec check` and its `knowledge-size` result as the enforcement, never an internal constant name.
 
 ## Core Workflow
 
@@ -134,13 +134,13 @@ regenerated from it in Step 5, never hand-edited. Same propose → confirm → w
 
 ### Step 4: Create Module README.md (Recipe-First Format)
 
-For each module, generate **exactly one file**: `prospec/ai-knowledge/modules/{module}/README.md`, following the **canonical Recipe-First structure** defined in `prospec/ai-knowledge/_module-readme-conventions.md` (loaded at Startup Loading — the single source for section order, the `# {ProperName}` title, each section's template, and the `prospec:auto`/`prospec:user` marker contract). Keep each section concise; total ≤100 lines.
+For each module, generate its README: `prospec/ai-knowledge/modules/{module}/README.md`, following the **canonical Recipe-First structure** defined in `prospec/ai-knowledge/_module-readme-conventions.md` (loaded at Startup Loading — the single source for section order, the `# {ProperName}` title, each section's template, and the `prospec:auto`/`prospec:user` marker contract). Keep each section concise; total ≤100 lines.
 
 **Key principles:**
 - **Canonical template**: generate against `prospec/ai-knowledge/_module-readme-conventions.md` — it is the sole authority for README structure; do not restate the skeleton here.
 - **Project Section Extensions**: the convention's preserved registry is the only authority for registered extension IDs, headings, purpose (the `Content` column — what the section is for), applicability, requiredness, visibility, and content format — not `.prospec.yaml` and not an inlined skill template. Emit a registered extension only with its section markers inside the README user block; preserve both marked extensions and freeform user notes when revising an existing README.
 - **Format release**: follow the convention's dated format marker — the first non-blank line after the summary — and its fixed Core grammar; optional registered extensions do not change that format date.
-- **No api-surface.md, dependencies.md, or patterns.md** — all information consolidated into README.md (or its sub-module files, see Step 4.5)
+- **Knowledge entry point**: README.md links sub-module and supplementary docs; follow the diagram conventions for linked flow diagrams.
 - **Modification Guide > API Reference** — tell agents HOW to change, not just WHAT exists
 - **Ripple Effects** — prevent agents from making isolated changes that break other modules
 - **Pitfalls** — capture tribal knowledge that prevents repeated mistakes
@@ -225,7 +225,7 @@ it is **substantively empty** — there are no project-authored principles to au
 
 ### Failure Conditions
 - ran without raw-scan.md
-- produced api-surface.md / dependencies.md / patterns.md
+- generated module knowledge docs lack README navigation links
 
 ### Output Summary
 Emit one line: `Met N/M | Unmet: <items> | Overall: PASS|WARN|FAIL | Next: <one-line>`
@@ -238,7 +238,6 @@ Emit one line: `Met N/M | Unmet: <items> | Overall: PASS|WARN|FAIL | Next: <one-
 - **NEVER** put all files in a single module — even small projects need 2-3 responsibility modules minimum
 - **NEVER** ignore Tech Stack info from raw-scan.md — it affects module splitting strategy
 - **NEVER** write outdated file paths in READMEs — all paths must come from raw-scan.md real data
-- **NEVER** generate api-surface.md, dependencies.md, or patterns.md — all info goes in README.md only
 - **NEVER** exceed 100 lines per module README or sub-module — when it overflows, extract an independent sub-area to `{module}/{sub-module}.md` (Step 4.5) before resorting to lossy trimming; agent uses L2 (source) for details
 - **NEVER** list sub-modules in `prospec/index.md` or `module-map.yaml` — they are an L2 sub-layer reached only via the parent README's `## Sub-Modules` links
 - **NEVER** duplicate source code in README — use function signatures and 1-line descriptions; the README is a map, not a copy

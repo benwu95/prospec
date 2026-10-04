@@ -54,7 +54,7 @@ nondeterministic serialization this contract exists to remove.
 
 ### Phase 1: Validate and route the draft
 
-Confirm the Entry Gate held. Cluster the draft's stories under the confirmed feature slug; align to an existing `prospec/specs/features/{slug}.md` when one fits. Map each story's traced `file:line` to module names via `prospec/ai-knowledge/module-map.yaml` — this set becomes `related_modules` (archive's backfill module-derivation source; it must be non-empty).
+Confirm the Entry Gate held. Cluster the draft's stories under the confirmed feature slug; align to an existing `prospec/specs/features/{slug}.md` when one fits. Map each story's traced `file:line` to module names via `prospec/ai-knowledge/module-map.yaml` — this set becomes `related_modules` (record every traced module).
 
 > **Phase 1 Gate** — proceed when:
 > - [ ] Entry Gate satisfied; feature slug confirmed + `prospec validate slug` PASSes
@@ -114,7 +114,7 @@ Emit one line: `Met N/M | Unmet: <items> | Overall: PASS|WARN|FAIL | Next: <one-
 - **NEVER** write under `prospec/specs/features/` — promotion only stages the change scaffold under `.prospec/changes/[name]/`; `prospec archive` (the CLI) stays the sole writer of the trust zone
 - **NEVER** carry an unresolved `[NEEDS CLARIFICATION]` into the scaffold — a backfill change records *confirmed* behavior; send the user back to the draft's review gate instead
 - **NEVER** add a behavior, count, or cross-module flow the draft did not already ground in `file:line` — promotion reshapes the fidelity-checked draft, it does not re-extract or fabricate
-- **NEVER** leave `related_modules` empty — archive's backfill knowledge-sync derives affected modules from it; an empty set would silently pass the gate
+- **NEVER** omit a traced module from `related_modules` — record the draft’s module evidence and follow the CLI-reported knowledge-sync scope
 - **NEVER** strip a REQ's `file:line` citation — `prospec-verify` needs it to re-confirm spec-fidelity
 - **NEVER** set `scale` to anything but `backfill`, or `status` to anything but `implemented` — promotion is the backfill lifecycle entry; other values misroute verify/archive
 

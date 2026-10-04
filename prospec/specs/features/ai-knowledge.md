@@ -131,6 +131,7 @@ The test suite proves the Module README format contract at every boundary using 
 
 | Date | Change | Impact | Stories/REQs |
 |------|--------|--------|-------------|
+| 2026-10-04 | align-skill-guidance | MODIFIED REQ-KNOW-004; MODIFIED REQ-KNOW-013; MODIFIED REQ-KNOW-016 | REQ-KNOW-004, REQ-KNOW-013, REQ-KNOW-016 |
 | 2026-10-04 | reassess-canonical-claims | MODIFIED REQ-TEMPLATES-162 | REQ-TEMPLATES-162 |
 | 2026-10-03 | refuse-unsearchable-write-targets | MODIFIED REQ-SERVICES-023 | REQ-SERVICES-023 |
 | 2026-10-03 | contain-knowledge-writes | MODIFIED REQ-SERVICES-023 | REQ-SERVICES-023 |

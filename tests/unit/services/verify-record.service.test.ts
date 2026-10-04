@@ -628,6 +628,14 @@ describe('report freshness guard', () => {
 });
 
 describe('verify-record Gate A — review-provenance', () => {
+  it.each(['full', 'backfill'] as const)('refuses skipped review on unproven %s before any write', async (scale) => {
+    seed({ scale, draft: false, reportJson: report({ rp: 'skipped' }) });
+    const before = vol.readFileSync(META, 'utf-8');
+    await expect(execute({ cwd: CWD, judgmentDimensions: judgment(), warnings: [] }))
+      .rejects.toThrow(/review-provenance is skipped/);
+    expect(vol.readFileSync(META, 'utf-8')).toBe(before);
+  });
+
   it('refuses to record when review-provenance FAILs, before any write', async () => {
     seed({ reportJson: report({ rp: 'fail' }) });
     const err = await execute({

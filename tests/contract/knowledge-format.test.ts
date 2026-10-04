@@ -806,3 +806,45 @@ describe('Knowledge Format Contract', () => {
     });
   });
 });
+
+// Knowledge stays navigable through README, including supplementary diagrams.
+// Guard each actual authoring/load surface, not an inventory of retired names.
+describe('module knowledge entry and linked documents', () => {
+  const context = {
+    ...DEFAULT_KNOWLEDGE_TOKEN_BUDGET,
+    base_dir: 'prospec', knowledge_base_path: 'prospec/ai-knowledge',
+  };
+  const section = (doc: string, heading: string): string => {
+    const start = doc.indexOf(heading);
+    expect(start, heading).toBeGreaterThanOrEqual(0);
+    const rest = doc.slice(start + heading.length);
+    const end = rest.search(/\n#{2,4} /);
+    const body = end < 0 ? rest : rest.slice(0, end);
+    expect(body.trim().length).toBeGreaterThan(0);
+    return body;
+  };
+  const assertEntry = (body: string) => {
+    const rule = body.split('\n').find((line) => /README/.test(line) && /entry point/.test(line))!;
+    expect(rule, 'README entry rule missing').toBeDefined();
+    expect(rule).toMatch(/link/);
+    expect(rule).toMatch(/sub-module/);
+    expect(rule).toMatch(/supplementary/);
+  };
+  const sites = [
+    ['init/module-readme-conventions.md.hbs', '## Principles'],
+    ['skills/prospec-knowledge-generate.hbs', '### Step 4:'],
+    ['skills/prospec-knowledge-update.hbs', '#### 3a:'],
+    ['skills/_knowledge-loading-rules.hbs', '## Progressive Knowledge Loading Strategy'],
+  ] as const;
+  for (const [template, heading] of sites) {
+    it(`${template} links both document kinds through its README entry point`, () => {
+      const body = section(renderTemplate(template, context), heading);
+      assertEntry(body);
+      for (const required of ['entry point', 'sub-module', 'supplementary']) {
+        const mutated = body.replaceAll(required, 'missing-document-rule');
+        expect(mutated, `mutation must remove ${required}`).not.toBe(body);
+        expect(() => assertEntry(mutated)).toThrow();
+      }
+    });
+  }
+});

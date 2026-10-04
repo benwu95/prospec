@@ -8,6 +8,19 @@ import {
   TestFailureStreakSchema,
 } from '../../../src/types/cascade.js';
 
+describe('CircuitBreakerConfigSchema.maxReviewRounds', () => {
+  it('accepts both boundaries and defaults to three', () => {
+    for (const maxReviewRounds of [1, 5]) {
+      expect(CircuitBreakerConfigSchema.parse({ maxReviewRounds }).maxReviewRounds).toBe(maxReviewRounds);
+    }
+    expect(CircuitBreakerConfigSchema.parse({}).maxReviewRounds).toBe(3);
+  });
+
+  it.each([0, 6, 1.5])('refuses %s outside the integral 1–5 range', (maxReviewRounds) => {
+    expect(CircuitBreakerConfigSchema.safeParse({ maxReviewRounds }).success).toBe(false);
+  });
+});
+
 describe('CircuitBreakerConfigSchema.maxConsecutiveTestFailures (REQ-TYPES-086)', () => {
   it('defaults to three independently of the other thresholds', () => {
     const parsed = CircuitBreakerConfigSchema.parse({});
@@ -72,4 +85,3 @@ describe('persistent_test_failure diagnostics (REQ-TYPES-086, REQ-LIB-057)', () 
     expect(report.type).toBe('station_retry_limit_exceeded');
   });
 });
-

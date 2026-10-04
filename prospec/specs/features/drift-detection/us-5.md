@@ -27,15 +27,15 @@ so that factual-count drift is intercepted by a machine in CI, no longer relying
 ## US-6: review-provenance gate check [P1]
 
 As a maintainer who guards the verify gate,
-I want a deterministic `review-provenance` check that determines whether an audited non-backfill change has a recorded review that still reflects the current code,
+I want a deterministic `review-provenance` check that determines whether an audited change that is not a proven backfill has a recorded review that still reflects the current code,
 so that "review must precede verify" turns from process prose into a machine-checkable, testable gate.
 
 **Acceptance Scenarios:**
-- WHEN an audited non-backfill change has no recorded review baseline, THEN report FAIL "no review recorded" (points to `/prospec-review`)
+- WHEN an audited change that is not a proven backfill has no recorded review baseline, THEN report FAIL "no review recorded" (points to `/prospec-review`)
 - WHEN recognized review evidence does not match the current effective-input snapshot, THEN report FAIL "stale review" and require real review even on a clean tree
 - WHEN recognized fingerprint version/scope and the provable snapshot match, THEN PASS; staging and content-equivalent commit/amend operations preserve that evidence
 - WHEN evidence is legacy or its version/scope is unknown, THEN require one normal review; an unprovable capture is never current PASS
-- WHEN the change is `scale: backfill`, or its status is outside `PROVENANCE_AUDITED_STATUSES` (`story`/`plan`/`tasks`), THEN do not flag (exempt); `archived` is not exempt but unreachable — the bundle has left `.prospec/changes/`
+- WHEN the change is a proven backfill (`scale: backfill` and `backfill-draft.md` exists), or its status is outside `PROVENANCE_AUDITED_STATUSES` (`story`/`plan`/`tasks`), THEN do not flag (exempt); `archived` is not exempt but unreachable — the bundle has left `.prospec/changes/`
 - WHEN not a git repo / `.prospec/changes/` is absent / the digest cannot be computed, THEN the check is `skipped` + reason (never a fake PASS)
 
 #### REQ-TYPES-052: Drift Report review-provenance Check Id

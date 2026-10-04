@@ -12,7 +12,7 @@ Under `scale: backfill`, the existing code is the **ground truth**. The goal of 
 
 ## 1. Provenance Gate (`backfill-draft.md`)
 
-`scale: backfill` is metadata. To prevent `scale: backfill` from becoming an unearned bypass for new code:
+Proven backfill requires both `metadata.scale: backfill` and `.prospec/changes/[name]/backfill-draft.md` exists. Apply the quality relaxations below only when that provenance holds:
 - Verify checks whether `.prospec/changes/[name]/backfill-draft.md` exists.
 - **`backfill-draft.md` present**: The change is a proven backfill. Apply the quality relaxations below.
 - **`backfill-draft.md` absent**: Grade the change under the **standard** contract (missing tests → graded normally, Constitution `[MUST]` code-quality violations → FAIL) and log a WARN: "`scale: backfill` claimed but no `backfill-draft.md` — graded as standard".

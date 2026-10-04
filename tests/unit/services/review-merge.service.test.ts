@@ -899,6 +899,26 @@ describe('review-merge exemption WARN-first path — failure injection (REQ-SERV
     expect(vol.existsSync(REVIEW)).toBe(false);
   });
 
+  it.each(['metadata mutation', 'counts write failure'] as const)('post-WARN %s after review write retains findings without round counts', async (failure) => {
+    seedExempt();
+    onMetadataWrite(() => {
+      writes.afterWrite = (filePath) => {
+        if (!filePath.endsWith('review.md')) return;
+        if (failure === 'metadata mutation') vol.writeFileSync(METADATA, readMeta() + '# concurrent edit\n');
+        else writes.failOn = (target) => target.endsWith('metadata.yaml');
+      };
+    });
+    const err = await execute({ cwd: CWD, findingsPath: FINDINGS }).catch((e: unknown) => e);
+    expect(err).toBeInstanceOf(TestGateError);
+    expect((err as TestGateError).warningRecorded).toBe(true);
+    expect((err as TestGateError).reason).toMatch(failure === 'metadata mutation' ? /changed before the write/ : /disk full/);
+    expect(warnCount()).toBe(1);
+    expect(vol.readFileSync(REVIEW, 'utf-8')).toContain('| F-1 |');
+    const { metadata } = readChangeMetadata(METADATA, 'add-widget');
+    expect(metadata.quality_log?.filter((entry) => entry.skill === 'prospec-review')).toEqual([]);
+    if (failure === 'metadata mutation') expect(readMeta()).toContain('# concurrent edit');
+  });
+
   it('a metadata write failure BEFORE the WARN lands propagates as itself and records nothing', async () => {
     seedExempt();
     writes.failOn = (p) => p.endsWith('metadata.yaml');
@@ -987,6 +1007,19 @@ describe('review-merge exemption WARN-first path — failure injection (REQ-SERV
       const { metadata } = readChangeMetadata(METADATA, 'add-widget');
       expect(metadata.quality_log).toHaveLength(1);
       expect(metadata.quality_log?.[0]?.round).toBe(1);
+    });
+
+    it.each(['fixed', 'accepted'] as const)('empty input over a carried %s row keeps the table without a clean sentence', async (status) => {
+      seed([{ id: 'carried', location: 'src/a.ts:1', severity: 'major', lens: 'correctness', status, summary: 'resolved earlier' }]);
+      await execute({ cwd: CWD, findingsPath: FINDINGS });
+      vol.writeFileSync(FINDINGS, '[]');
+      await execute({ cwd: CWD, findingsPath: FINDINGS });
+      const review = vol.readFileSync(REVIEW, 'utf-8') as string;
+      expect(review).toContain('carried');
+      expect(review).toContain('resolved earlier');
+      expect(review).not.toContain('<!-- prospec:review-clean -->');
+      const { metadata } = readChangeMetadata(METADATA, 'add-widget');
+      expect(metadata.quality_log?.[0]).toMatchObject({ round: 1, criticals_found: 0, majors: 0 });
     });
 
     it('writes artifact-language clean sentence when 0 findings rows (both zh-TW and English)', async () => {

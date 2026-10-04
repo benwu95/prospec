@@ -305,7 +305,7 @@ export function routeChange(facts: ChangeRouteFacts): ChangeRoute {
             next: null,
             code: 'ESCALATE_TO_HUMAN',
             blockingGates: [
-              'grade S or A required (no FAIL, ≤ 2 WARN); `prospec verify record` adjudicates machine dimensions from `prospec check` and refuses a non-backfill verdict when review-provenance FAILs',
+              'grade S or A required (no FAIL, ≤ 2 WARN); `prospec verify record` adjudicates machine dimensions from `prospec check` — follow its current assessment, refusal and remediation',
             ],
             reasons,
           };
@@ -321,7 +321,7 @@ export function routeChange(facts: ChangeRouteFacts): ChangeRoute {
         next: 'verify',
         code: belowBar ? 'VERIFY_GRADE_BELOW_BAR' : 'VERIFY_PENDING',
         blockingGates: [
-          'grade S or A required (no FAIL, ≤ 2 WARN); `prospec verify record` adjudicates machine dimensions from `prospec check` and refuses a non-backfill verdict when review-provenance FAILs',
+          'grade S or A required (no FAIL, ≤ 2 WARN); `prospec verify record` adjudicates machine dimensions from `prospec check` — follow its current assessment, refusal and remediation',
         ],
         reasons,
       };

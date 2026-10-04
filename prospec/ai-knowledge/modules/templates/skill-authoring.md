@@ -28,7 +28,7 @@ For Playbook loads, keep plan and implement Startup item 6 on `learn playbook --
 3. **Change a Startup Loading item** — classify `[STABLE]`/`[DYNAMIC]` (STABLE first), then rebaseline via tests.
 4. **Change a delegated receipt contract** — change `delegation-protocol.hbs`, the single definition (readable regular file, `size > 0`, target schema, a bounded wait and re-spawn, disclosed degradation, zero-mock, the ticket flow and the human hand-off of a mutation); consuming skills and references only link their station's copy and name their own schema and sink. Re-run the single-definition, same-on-every-host, pointer, user-facing-claim and mutation checks.
 
-5. **Audit reference prose** — omit top-level `Purpose` and `Reference Information` sections; keep operational guidance in the governing body section (adaptation, measurement sources, delegation paths and full license attribution). `skill-format` guards the rendered headings and retained rules.
+5. **Audit reference prose** — omit top-level `Purpose` and `Reference Information` sections; keep operational guidance in the governing body section (adaptation, measurement sources, delegation paths and full license attribution). Keep gate/refusal and artifact-generation decisions with their CLI owners; `skill-format` guards required handoffs and references.
 
 6. **State a behavioral claim** — follow `_conventions.md` § Skill and Documentation Authoring.
 

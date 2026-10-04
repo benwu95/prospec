@@ -116,7 +116,7 @@ of trimming it away.
 ## Principles
 
 - **Modification Guide > API Reference** — tell agents HOW to change, not just WHAT exists.
-- **No api-surface.md, dependencies.md, or patterns.md** — everything consolidates into the README (or its sub-module files).
+- **Knowledge entry point** — README.md links sub-module and supplementary docs; follow the diagram conventions for linked flow diagrams.
 - **README is a map, not a copy** — point to source files; never duplicate source code or full signatures.
 - **Prefer extraction over lossy trimming** — when a README outgrows its budget and has an independent sub-area, extract a sub-module rather than deleting useful detail.
 

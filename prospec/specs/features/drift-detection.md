@@ -1,7 +1,7 @@
 ---
 feature: drift-detection
 status: active
-last_updated: 2026-09-28
+last_updated: 2026-10-04
 story_count: 21
 req_count: 88
 ---
@@ -62,6 +62,7 @@ _(None)_
 
 | Date | Change | Impact | Stories/REQs |
 |------|--------|--------|--------------|
+| 2026-10-04 | align-skill-guidance | Clarify proven-backfill applicability in review-provenance story context | US-6 |
 | 2026-09-28 | resolve-retired-bullet-refs | ADDED REQ-LIB-096; MODIFIED REQ-LIB-014; MODIFIED REQ-LIB-041 | REQ-LIB-096, REQ-LIB-014, REQ-LIB-041 |
 | 2026-09-28 | remove-self-reported-signals | MODIFIED REQ-SERVICES-094; MODIFIED REQ-CLI-022; MODIFIED REQ-TESTS-056; REMOVED REQ-TYPES-067; REMOVED REQ-LIB-034; REMOVED REQ-SERVICES-069 | REQ-SERVICES-094, REQ-CLI-022, REQ-TESTS-056, REQ-TYPES-067, REQ-LIB-034, REQ-SERVICES-069 |
 | 2026-09-27 | slice-constitution-and-playbook | MODIFIED REQ-LIB-032; MODIFIED REQ-TYPES-065 | REQ-LIB-032, REQ-TYPES-065 |
