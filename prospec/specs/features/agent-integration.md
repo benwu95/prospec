@@ -1,9 +1,9 @@
 ---
 feature: agent-integration
 status: active
-last_updated: 2026-10-02
+last_updated: 2026-10-04
 story_count: 26
-req_count: 119
+req_count: 116
 ---
 
 # Agent Integration
@@ -181,6 +181,7 @@ The repository's English and Traditional Chinese root READMEs provide equivalent
 
 | Date | Change | Impact | Stories/REQs |
 |------|--------|--------|-------------|
+| 2026-10-04 | reassess-canonical-claims | MODIFIED REQ-TEMPLATES-241; MODIFIED REQ-TEMPLATES-084; MODIFIED REQ-TEMPLATES-221; REMOVED REQ-TYPES-109; REMOVED REQ-SERVICES-125; REMOVED REQ-TESTS-129 | REQ-TEMPLATES-241, REQ-TEMPLATES-084, REQ-TEMPLATES-221, REQ-TYPES-109, REQ-SERVICES-125, REQ-TESTS-129 |
 | 2026-10-02 | audit-knowledge-spec-claims | MODIFIED REQ-TYPES-109 | REQ-TYPES-109 |
 | 2026-09-29 | audit-shipped-skill-claims | MODIFIED REQ-TEMPLATES-221; MODIFIED REQ-TEMPLATES-143; MODIFIED REQ-TYPES-109; MODIFIED REQ-TESTS-129 | REQ-TEMPLATES-221, REQ-TEMPLATES-143, REQ-TYPES-109, REQ-TESTS-129 |
 | 2026-09-29 | add-canonical-claims | ADDED REQ-TYPES-109; ADDED REQ-SERVICES-125; ADDED REQ-TEMPLATES-241; ADDED REQ-TESTS-129; MODIFIED REQ-TEMPLATES-084 | REQ-TYPES-109, REQ-SERVICES-125, REQ-TEMPLATES-241, REQ-TESTS-129, REQ-TEMPLATES-084 |

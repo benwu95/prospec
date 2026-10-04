@@ -56,7 +56,7 @@ modules:
       - MCP 契約
       - 模組分類
     rationale: Leaf module with zero internal deps — all others import from here
-    last_verified: 2026-10-03T23:56:00.476Z
+    last_verified: 2026-10-04T01:25:12.375Z
   - name: lib
     description: Shared stateless utilities — config, file I/O, Handlebars
       rendering, scanning, token accounting, the zero-LLM drift engine
@@ -125,7 +125,7 @@ modules:
       - 漂移檢查
       - 知識讀取
     rationale: Foundational infrastructure shared across services and benchmark scripts
-    last_verified: 2026-10-03T23:56:00.476Z
+    last_verified: 2026-10-04T01:25:12.375Z
   - name: services
     description: Business logic — one `execute()` service per command — including
       shared-output agent invocation-guidance rendering — init / quickstart /
@@ -183,7 +183,7 @@ modules:
       - 漂移檢查
       - 真相層
     rationale: Isolates business logic from I/O layer, enables testability
-    last_verified: 2026-10-03T23:56:00.476Z
+    last_verified: 2026-10-04T01:25:12.375Z
   - name: cli
     description: Thin CLI entry — 19 top-level Commander commands + 32 formatters
       that parse → call one service → format output; the cli-first station
@@ -269,7 +269,7 @@ modules:
       - 複雜度適配
       - CI 閘門
     rationale: Pure resources — no logic, consumed by lib/template.ts
-    last_verified: 2026-10-04T00:49:08.530Z
+    last_verified: 2026-10-04T01:25:12.375Z
   - name: tests
     description: 4-layer test suite — 268 files, 6,973 tests (unit 5049 + contract
       1567 + integration 153 + e2e 204). Validates every module — format and
@@ -312,4 +312,4 @@ modules:
       - 驗證
       - vitest
     rationale: Quality gate — validates all layers with pyramid coverage
-    last_verified: 2026-10-03T23:56:00.476Z
+    last_verified: 2026-10-04T01:25:12.375Z
