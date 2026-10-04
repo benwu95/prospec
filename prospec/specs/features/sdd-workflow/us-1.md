@@ -362,7 +362,7 @@ Contract tests verify that generated skill templates conform to the Draft-First 
 #### REQ-TYPES-086: Cascade and Circuit Breaker Types
 The types module exports type definitions and Zod schemas for pipeline cascading orchestration, oscillation detection, and circuit breaker states.
 - WHEN cascade types are imported, THEN `CascadeScale`, `CircuitBreakerState`, `OscillationRecord`, and `EscalationReport` are available
-- WHEN validating cascading configuration or state, THEN Zod schemas enforce type constraints and default thresholds (3-5 max rounds)
+- WHEN validating cascading configuration or state, THEN Zod schemas enforce type constraints; `maxReviewRounds` accepts the inclusive range 1–5 and defaults to 3
 - WHEN CircuitBreakerConfigSchema parses configuration without maxConsecutiveTestFailures, THEN default it to three independently of maxReviewRounds and maxOscillationFlips; explicit values must be positive integers.
 - WHEN a test gate refusal carries escalation, THEN its typed error includes the actual reason and CircuitBreakerState without changing the successful ReviewMergeResult contract into a fake success.
 - WHEN a station-to-station recovery loop reaches its retry limit, THEN `EscalationReportSchema.type` accepts `station_retry_limit_exceeded` alongside the existing kinds (append-only, matched by value)

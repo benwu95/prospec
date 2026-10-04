@@ -1,0 +1,275 @@
+name: align-skill-guidance
+created_at: 2026-10-04T01:50:00.785Z
+status: archived
+scale: full
+related_modules:
+  - templates
+  - lib
+  - types
+  - services
+  - tests
+description: 修正 shipped skill 與平行文件中會導致錯誤操作的宣稱，依現有 CLI 行為收斂指引與規格
+quality_log:
+  - skill: prospec-new-story
+    date: 2026-10-04
+    result: PASS
+    warnings: []
+    baseline_revision: 1
+  - skill: prospec-new-story
+    date: 2026-10-04
+    result: PASS
+    warnings: []
+  - skill: prospec-plan
+    date: 2026-10-04
+    result: FAIL
+    warnings:
+      - "delta_spec: 13 個情境皆有 REQ 映射且 20 個 MODIFIED 路由/完整 bodies/Dropped 對齊，但
+        REQ-CLI-028 的 Spec 正文仍宣稱 0-findings round 必產 clean sentence，違反 US-3.1 及
+        owner 的 merged.length === 0 判準。"
+    verifier_verdict: FLAWS
+    audited_option: option-a
+  - skill: prospec-plan
+    date: 2026-10-04
+    result: PASS
+    warnings: []
+    verifier_verdict: PASS
+    audited_option: option-a
+  - skill: prospec-tasks
+    date: 2026-10-04
+    result: WARN
+    warnings:
+      - TDD 註記宜明列：每次 template source edit／killing mutation 後先重生 bundle 再跑對應
+        contract；renderTemplate 優先讀 BUNDLED_TEMPLATES，T17 不能被誤讀為唯一重生時點。
+      - T1/T2 為不同 layer 的局部呈現字串修改，低於理想 20–100 行但 scope
+        可驗證；保留既有小型修改說明即可，不為湊行數擴大實作。
+      - T20 宜明示為 knowledge-update/archive station handoff；Phase 3.5 的 repo prose
+        編輯交由 archive 執行，避免將實際 docs 改動混入 [M] manual completion。
+      - "tdd_module_closure: 五個 affected modules 都有 Tests 區任務，且既有 owner 使用
+        Vitest；TDD 註記已要求 RED→修改→GREEN，但應明示 template GREEN 與 killing mutation
+        前需先重生 bundle，避免將 T17 誤讀為唯一重生時點。"
+      - "task_sizing_schema: 20 tasks／46 行且 Summary 相符，16 code、3 [V]、1 [M]；可省略
+        estimates／[P]。T1、T2 僅局部呈現字串，低於理想 20–100 行，屬已說明的小型修改粒度例外；T20 宜明示為後續
+        station handoff。"
+    verifier_verdict: WARN
+  - skill: prospec-review
+    date: 2026-10-04
+    result: WARN
+    warnings: []
+    criticals_found: 0
+    criticals_fixed: 0
+    majors: 2
+    round: 1
+  - skill: prospec-review
+    date: 2026-10-04
+    result: WARN
+    warnings:
+      - "F-326-1: review-format 保留 clean round 手動補句義務，建議刪除該義務。"
+      - "F-326-2: WARN 後拒收可能已寫 review.md，建議改為部分寫入的明確說明並補失敗注入案例。"
+  - skill: prospec-plan
+    date: 2026-10-04
+    result: WARN
+    warnings:
+      - delta-spec.md:3 仍稱「20 個既有 REQ」，實際有 21 個 MODIFIED（新增既有 owner
+        REQ-SERVICES-086），請同步摘要計數；plan、audit-sites、21 個完整 body 與 traceability
+        已閉合。
+      - "delta_spec: 21 個既有 MODIFIED REQ 的 feature/story 路由、完整 body 與精確 Dropped
+        均對齊，13 個凍結情境與 digest 保持；delta 開頭仍稱 20 個 REQ，為非阻擋的摘要計數落差。"
+    verifier_verdict: WARN
+    audited_option: option-a
+  - skill: prospec-tasks
+    date: 2026-10-04
+    result: WARN
+    warnings:
+      - T1/T2 及同族局部文案更動低於理想 20–100 行；tasks 已以可核對語義單位說明例外，保留既有完成狀態即可，不需為行數擴大實作。
+      - "task_sizing_schema: 24 tasks／59 行且 Summary 相符；20 code、3 [V]、1 [M] 均符合
+        kind schema。T1/T2 及同族文案是已說明的小型呈現更動，低於理想 20–100 行，僅為 sizing 建議。"
+    verifier_verdict: WARN
+  - skill: prospec-review
+    date: 2026-10-04
+    result: PASS
+    warnings: []
+    criticals_found: 0
+    criticals_fixed: 0
+    majors: 2
+    round: 2
+  - skill: prospec-review
+    date: 2026-10-04
+    result: PASS
+    warnings: []
+  - skill: prospec-verify
+    date: 2026-10-04
+    result: PASS
+    warnings: []
+    grade: S
+    dimensions:
+      - name: task-completion
+        result: PASS
+        adjudicator: machine
+      - name: knowledge
+        result: PASS
+        adjudicator: machine
+      - name: tests
+        result: PASS
+        adjudicator: machine
+      - name: delta-spec-compliance
+        result: PASS
+        adjudicator: judgment
+        graded_by: fresh-subagent
+        context_id: 67efdd8a9b80c505c6a8d7e53c12c48cc7bbde1477ed4d6395dec0e4d1f3e311
+        baseline_revision: 1
+      - name: constitution
+        result: PASS
+        adjudicator: judgment
+        graded_by: fresh-subagent
+      - name: design
+        result: not-applicable
+        adjudicator: judgment
+        graded_by: fresh-subagent
+    context_id: 67efdd8a9b80c505c6a8d7e53c12c48cc7bbde1477ed4d6395dec0e4d1f3e311
+    baseline_revision: 1
+    coverage_summary: 21/21
+  - skill: prospec-review
+    date: 2026-10-04
+    result: PASS
+    warnings: []
+    criticals_found: 0
+    criticals_fixed: 0
+    majors: 0
+    round: 3
+  - skill: prospec-review
+    date: 2026-10-04
+    result: PASS
+    warnings: []
+  - skill: prospec-verify
+    date: 2026-10-04
+    result: PASS
+    warnings: []
+    grade: S
+    dimensions:
+      - name: task-completion
+        result: PASS
+        adjudicator: machine
+      - name: knowledge
+        result: PASS
+        adjudicator: machine
+      - name: tests
+        result: PASS
+        adjudicator: machine
+      - name: delta-spec-compliance
+        result: PASS
+        adjudicator: judgment
+        graded_by: fresh-subagent
+        executor: Codex independent delegated grader
+        context_id: 5ca6b268517294f395ca56e1d4bb0902b1d554591607e850f1937b40c7c68ebc
+        baseline_revision: 1
+      - name: constitution
+        result: PASS
+        adjudicator: judgment
+        graded_by: fresh-subagent
+        executor: Codex independent delegated grader
+      - name: design
+        result: not-applicable
+        adjudicator: judgment
+        graded_by: fresh-subagent
+        executor: Codex independent delegated grader
+    context_id: 5ca6b268517294f395ca56e1d4bb0902b1d554591607e850f1937b40c7c68ebc
+    baseline_revision: 1
+    coverage_summary: 21/21
+review_provenance:
+  digest: 0695e09f5589b60a81620af033f4d53e7269c44104f8712bb7179b70ff5f402e
+  date: 2026-10-04
+  fingerprint_version: snapshot-v2
+  scope: repository-inputs-v2
+  graded_by: fresh-subagent
+test_provenance:
+  command: pnpm test
+  exit_code: 0
+  digest: 0695e09f5589b60a81620af033f4d53e7269c44104f8712bb7179b70ff5f402e
+  date: 2026-10-04
+  fingerprint_version: snapshot-v2
+  scope: repository-inputs-v2
+  attempt_id: faebaa46-cf97-4762-95f6-77505b2b8f09
+test_attempt:
+  id: faebaa46-cf97-4762-95f6-77505b2b8f09
+  date: 2026-10-04
+  outcome: passed
+  command: pnpm test
+  before_digest: 0695e09f5589b60a81620af033f4d53e7269c44104f8712bb7179b70ff5f402e
+  after_digest: 0695e09f5589b60a81620af033f4d53e7269c44104f8712bb7179b70ff5f402e
+  exit_code: 0
+delta_spec_provenance:
+  digest: b49736d6db08a80b91f29bcac2405ba6761e4cb07d98eaaba97ca290284c1aa1
+  date: 2026-10-04
+issue: https://github.com/benwu95/prospec/issues/326
+acceptance:
+  version: 1
+  current_revision: 1
+  revisions:
+    - revision: 1
+      digest: 77075f084be31d357e55af2bea142b551f7fd4c035840a22ef6cc7f2b685d3b8
+      captured_at: 2026-10-04T01:53:06.493Z
+      captured_status: story
+      origin: story
+      reason: initial freeze
+      scenarios:
+        - id: US-1.1
+          story_id: US-1
+          text: WHEN 我依 knowledge 指引量測知識大小，THEN 指引使用有效的 `prospec check` 形式並指出應查看的
+            `knowledge-size` 結果。
+          source: proposal.md:19
+        - id: US-1.2
+          story_id: US-1
+          text: WHEN 我將 review 輪數上限設為 1，THEN 指引與 CLI 接受的設定一致，不把可用範圍描述為 3–5。
+          source: proposal.md:20
+        - id: US-1.3
+          story_id: US-1
+          text: WHEN 我閱讀同一規則的 shipped、init 與專案文件，THEN 它們提供與現有程式判準一致的操作指引。
+          source: proposal.md:21
+        - id: US-2.1
+          story_id: US-2
+          text: "WHEN 變更為 `scale: backfill` 且 `backfill-draft.md` 存在，THEN 指引依 backfill
+            驗證規則說明 task 與 test 維度的處理。"
+          source: proposal.md:34
+        - id: US-2.2
+          story_id: US-2
+          text: "WHEN 變更只有 `scale: backfill` 而沒有 draft，THEN 指引不授予 proven-backfill 豁免。"
+          source: proposal.md:35
+        - id: US-2.3
+          story_id: US-2
+          text: WHEN 非 proven backfill 的 review 判定為 FAIL、skipped 或 unprovable，THEN 指引要求依
+            CLI 拒收原因完成補救後再記錄 verify 結果。
+          source: proposal.md:36
+        - id: US-2.4
+          story_id: US-2
+          text: WHEN promote 已追溯受影響模組，THEN 指引要求記錄它們，並依 CLI 回報完成同步，不宣稱空的 `related_modules`
+            必然讓同步閘門通過。
+          source: proposal.md:37
+        - id: US-3.1
+          story_id: US-3
+          text: WHEN 本輪沒有新 findings 但累積表仍有列，THEN 指引不宣稱 CLI 必然產生 clean
+            sentence；每輪計數與關閉輪次的義務仍成立。
+          source: proposal.md:50
+        - id: US-3.2
+          story_id: US-3
+          text: WHEN 合併後累積表為 0 列，THEN CLI 產生 artifact language 的 clean
+            sentence，指引不要求開發者手動附加。
+          source: proposal.md:51
+        - id: US-3.3
+          story_id: US-3
+          text: WHEN review 的豁免 WARN 已寫入 metadata 後重新評估失敗，THEN CLI help 與雙語 Reference 說明
+            WARN 留存且合併未完成的結果。
+          source: proposal.md:52
+        - id: US-4.1
+          story_id: US-4
+          text: WHEN 模組需要 sub-module 或 supplementary docs，THEN 指引允許建立並從 README
+            連結這些文件，不宣稱模組目錄只能有 README。
+          source: proposal.md:65
+        - id: US-4.2
+          story_id: US-4
+          text: WHEN supplementary doc 是流程圖，THEN 知識範圍指引與 diagram conventions 一致，並保留逐檔知識量測。
+          source: proposal.md:66
+        - id: US-4.3
+          story_id: US-4
+          text: WHEN 下游專案取得重新生成的 skills 與 init 文件，THEN 它們使用通用的知識入口規則，不要求沿用本 repo 早期的檔名格式。
+          source: proposal.md:67
+archived_at: 2026-10-04
