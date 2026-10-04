@@ -10459,3 +10459,161 @@ describe('guidance owner handoffs', () => {
     }
   });
 });
+
+describe('quantitative target baselines (issue #331)', () => {
+  const neutralProse = JSON.parse(fs.readFileSync(path.resolve(__dirname, '../fixtures/quantitative-baseline-prose.json'), 'utf8')) as {
+    rubric: string[]; authoring: string[];
+    fenced: { rubric: string[]; authoring: string[] };
+  };
+  const rubric = () => renderTemplate('skills/references/plan-verifier-rubric.hbs', TEMPLATE_CONTEXT);
+  const format = () => renderTemplate('skills/references/plan-format.hbs', TEMPLATE_CONTEXT);
+  const dimension = (text: string) => sectionOf(text, '### 4. Delta-Spec Completeness');
+  const baseline = (text: string) => sectionOf(sectionOf(text, '### 7. Risk Assessment'), '#### Quantitative Target Baseline');
+  const requiredRules = [
+    'proposal Success Criteria or delta-spec requirements', 'each quantitative acceptance target',
+    'measured HEAD/version', 'baseline value', "target project's measurement command", 'target and gap',
+    'unmet gap', 'closing mechanism and estimated improvement', 'distinct from measured evidence',
+    'already meets the target', 'no closing mechanism is required',
+    'no quantitative acceptance target', 'no baseline is required',
+    'Identifiers, versions and non-acceptance examples', 'do not alone trigger',
+    'unavailable', 'disclose the reason', 'never invent a value or use unmeasured zero',
+  ];
+  const assertRules = (text: string) => {
+    for (const rule of requiredRules) expect(flat(text)).toContain(rule);
+    // Closed, version-controlled paragraph inventory of the reviewed neutral prose.
+    // An arbitrary host, command or path added anywhere here must change this set;
+    // a vocabulary blacklist cannot make that guarantee (verify REQ-TESTS-089).
+    const marker = '  - **Quantitative Target Baseline**';
+    const isRubric = text.includes(marker);
+    const prose = isRubric ? text.slice(text.indexOf(marker)) : text;
+    const lines = prose.split('\n');
+    expect(hasUnclosedFence(lines)).toBe(false);
+    const masked = withoutFencedBlocks(lines);
+    const paragraphs = masked.join('\n').split(/\n\s*\n/)
+      .map((p) => flat(p).trim()).filter((p) => p && p !== '---');
+    expect(paragraphs.length).toBeGreaterThan(0);
+    expect(paragraphs).toEqual(neutralProse[isRubric ? 'rubric' : 'authoring']);
+    const fenced = lines.filter((line, index) => line !== masked[index])
+      .map((line) => flat(line).trim()).filter(Boolean);
+    expect(fenced).toEqual(neutralProse.fenced[isRubric ? 'rubric' : 'authoring']);
+  };
+  const assertFlaws = (text: string) => {
+    const table = findTable(sectionOf(text, '## Verdict & Severity Contract').split('\n'), {
+      isTarget: (h) => h[0] === 'verdict',
+    });
+    expect(table).not.toBeNull();
+    const row = table!.rows.find((r) => r[0] === '**FLAWS** (FAIL)');
+    expect(row).toBeDefined();
+    expect(row![1]).toContain('a quantitative acceptance target missing its measured baseline');
+    expect(row![1]).toContain('an unmet gap without a closing mechanism');
+    expect(row![2]).toContain('Break-Glass Override');
+  };
+  const headers = ['Acceptance target', 'Measured HEAD/version', 'Baseline value', 'Measurement command',
+    'Target', 'Gap', 'Closing mechanism / estimated improvement'];
+  const assertExample = (text: string) => {
+    assertRules(text);
+    expect(flat(text)).toContain('Use target-project placeholders for measurement commands, paths and thresholds');
+    expect(flat(text)).toContain('without prescribing a host or model');
+    const table = findTable(text.split('\n'), { isTarget: (h) => h[0] === 'acceptance target' });
+    expect(table).not.toBeNull();
+    expect(table!.headers).toEqual(headers);
+    expect(table!.rows).toHaveLength(1);
+    expect(table!.rows[0]).toHaveLength(headers.length);
+    for (const cell of table!.rows[0]!) expect(cell).toMatch(/^<[^<>]+>$/);
+    // Scoped to new guidance: protocol CLI commands and format limits elsewhere remain legal.
+    expect(text).not.toMatch(/\d/);
+    for (const span of text.matchAll(/(?<!`)`([^`\n]+)`(?!`)/g)) expect(span[1]).toMatch(/^<[^<>]+>$/);
+  };
+  const mutate = (text: string, from: string, to = 'omitted') => {
+    expect(text).toContain(from);
+    const changed = text.replaceAll(from, to);
+    expect(changed).not.toBe(text);
+    return changed;
+  };
+
+  it('keeps target checks in dimension 4 and both independent FLAWS conditions in the verdict table', () => {
+    assertRules(dimension(rubric()));
+    assertFlaws(rubric());
+    expect(rubric().split('\n').filter((l) => /^### \d\. /.test(l))).toHaveLength(5);
+  });
+
+  it('places a complete placeholder example inside Risk Assessment without renumbering sections', () => {
+    const content = format();
+    assertExample(baseline(content));
+    expect(content.split('\n').filter((l) => /^### \d\. /.test(l)).map((l) => l.match(/^### (\d)\./)![1]))
+      .toEqual(['1', '2', '3', '4', '5', '6', '7', '8']);
+    expect(content.indexOf('#### Quantitative Target Baseline')).toBeLessThan(content.indexOf('### 8. Simpler Alternative'));
+  });
+
+  it.each(requiredRules)('rejects removal of the rule: %s on both authoring and rubric surfaces', (rule) => {
+    for (const text of [dimension(rubric()), baseline(format())]) {
+      assertRules(text);
+      expect(() => assertRules(mutate(text, rule))).toThrow();
+    }
+  });
+
+  it.each(['a quantitative acceptance target missing its measured baseline', 'an unmet gap without a closing mechanism'])(
+    'rejects weakening FLAWS condition: %s', (condition) => {
+      const text = rubric();
+      assertFlaws(text);
+      expect(() => assertFlaws(mutate(text, condition))).toThrow();
+    });
+
+  it.each(headers)('rejects a missing authoring field: %s', (field) => {
+    const text = baseline(format());
+    assertExample(text);
+    expect(() => assertExample(mutate(text, field))).toThrow();
+  });
+
+  it.each(['<project measurement command>', '<target threshold>', '<measured value>'])(
+    'rejects concrete example values replacing %s', (placeholder) => {
+      const text = baseline(format());
+      assertExample(text);
+      expect(() => assertExample(mutate(text, placeholder, 'fixed-value'))).toThrow();
+    });
+
+  it.each(['pnpm measure:tokens', 'scripts/metrics.ts', '4000 tokens', 'Codex', '`custom-tool --measure`'])(
+    'rejects project/host constants added to the new guidance: %s', (constant) => {
+      const text = baseline(format());
+      assertExample(text);
+      expect(() => assertExample(text + '\n' + constant)).toThrow();
+    });
+
+  it('rejects a host prescription in rubric baseline prose (verify REQ-TESTS-089 regression)', () => {
+    const text = dimension(rubric());
+    const original = 'so feasibility can be assessed against the target?';
+    const replacement = 'use Codex for the feasibility assessment.';
+    expect(replacement.length).toBeLessThanOrEqual(original.length);
+    const changed = mutate(text, original, replacement.padEnd(original.length));
+    expect(changed.length).toBe(text.length);
+    expect(() => assertRules(changed)).toThrow();
+  });
+
+  it('rejects new prose even when every word is already present in the neutral inventory', () => {
+    for (const text of [dimension(rubric()), baseline(format())]) {
+      assertRules(text);
+      const changed = text + '\n\nrecord baseline';
+      expect(changed).not.toBe(text);
+      expect(() => assertRules(changed)).toThrow();
+    }
+  });
+
+  it('rejects extra fenced measurement instructions on both baseline surfaces', () => {
+    for (const text of [dimension(rubric()), baseline(format())]) {
+      assertRules(text);
+      const changed = text + '\n\n```sh\nmake measure metrics/baseline.csv\n```';
+      expect(changed).not.toBe(text);
+      expect(() => assertRules(changed)).toThrow();
+    }
+  });
+
+  it('rejects generic bare measurement commands/paths in authoring prose (verify REQ-TESTS-089 regression)', () => {
+    const text = baseline(format());
+    const original = 'These inputs support feasibility assessment rather than treating an estimate as a measurement.';
+    const replacement = 'Use make measure with metrics/baseline.csv for the measurement.';
+    expect(replacement.length).toBeLessThanOrEqual(original.length);
+    const changed = mutate(text, original, replacement.padEnd(original.length));
+    expect(changed.length).toBe(text.length);
+    expect(() => assertExample(changed)).toThrow();
+  });
+});

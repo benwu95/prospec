@@ -4,7 +4,7 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg?style=flat-square)](LICENSE)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.9-blue?style=flat-square&logo=typescript)](https://www.typescriptlang.org/)
-[![Tests](https://img.shields.io/badge/tests-7000%20total-success?style=flat-square)](tests/)
+[![Tests](https://img.shields.io/badge/tests-7041%20total-success?style=flat-square)](tests/)
 [![Node](https://img.shields.io/badge/node-%3E%3D22.13-brightgreen?style=flat-square&logo=node.js)](https://nodejs.org/)
 [![pnpm](https://img.shields.io/badge/pnpm-%3E%3D11-orange?style=flat-square&logo=pnpm)](https://pnpm.io/)
 
@@ -104,7 +104,7 @@ Prospec 2.0 turns SDD from a guided sequence into a **gated, resumable pipeline*
 
 | Capability | What changes in 2.0 |
 |------------|---------------------|
-| **Stronger planning** | Independent architecture and task verifiers check layering, blast radius, reuse, REQ traceability, task ordering, and TDD closure before implementation. Full-scale plans can compare multiple candidate architectures; standard plans must state the simpler alternative. |
+| **Stronger planning** | Independent architecture and task verifiers check layering, blast radius, reuse, REQ traceability, task ordering, and TDD closure before implementation. Quantitative acceptance targets need a measured baseline; unmet gaps need a closing mechanism and estimated improvement. Full-scale plans can compare multiple candidate architectures; standard plans must state the simpler alternative. |
 | **Gated, resumable execution** | `prospec status` routes the next station, names its canonical Skill as the action and the resolved skill file as a fallback, and names its entry gate. Station instructions are loaded at every transition — through the host's own skill mechanism where the agent registry declares one, by reading the file everywhere else; state-changing commands refuse illegal transitions instead of relying on prose discipline, and `implemented` plus every `review merge` require a fresh green test attempt recorded by `prospec check --record-tests` (a project with no test command or a proven backfill passes with a `tests: not-adjudicated` WARN). Design is conditional, Knowledge Update is a formal station, and quick/backfill routes remain explicit. A `verified` change whose latest grade is B/C/D is routed back to verify, and a plan or tasks station whose recorded verifier result is FAIL is routed back to itself. Archive and verify gates are adjudicated per change: a sibling change's missing evidence never blocks the target (the shared whole-tree evidence digest still does). |
 | **Self-correcting quality** | Drift can draft a bounded follow-up, review uses fresh-context verifier loops and circuit breakers, Verify records judgment provenance, and Archive checks requirement landing fidelity before the trust zone changes. Recurring corrections can graduate through the human-approved learning pipeline. |
 
@@ -706,7 +706,7 @@ templates alongside). The layer-by-layer breakdown and the tech-stack list are i
 ## Testing
 
 ```bash
-# Run all tests (7000 total; 4 skipped)
+# Run all tests (7041 total; 4 skipped)
 pnpm test
 
 # Watch mode
@@ -719,9 +719,9 @@ pnpm run typecheck
 pnpm run lint
 ```
 
-**Test Coverage**: 7000 total tests (6996 passed; 4 skipped) across 4 categories:
+**Test Coverage**: 7041 total tests (7037 passed; 4 skipped) across 4 categories:
 - Unit tests (types + lib + services + cli): 5062 tests
-- Contract tests (CLI output + Skill format): 1581 tests
+- Contract tests (CLI output + Skill format): 1622 tests
 - Integration tests: 153 tests
 - E2E tests: 204 tests
 

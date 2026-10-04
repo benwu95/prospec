@@ -207,6 +207,22 @@ Use a table to list risks, impacts, and mitigation strategies:
 
 ---
 
+#### Quantitative Target Baseline
+
+For each quantitative acceptance target in proposal Success Criteria or delta-spec requirements, record the measured HEAD/version, baseline value, target project's measurement command, target and gap. The version identifies the measured inputs; the command makes the value reproducible; the gap is the remaining distance to the target in that metric's units and direction. For an unmet gap, state the closing mechanism and estimated improvement distinct from measured evidence. These inputs support feasibility assessment rather than treating an estimate as a measurement.
+
+If the baseline already meets the target, record the value and gap; no closing mechanism is required. With no quantitative acceptance target, no baseline is required. Identifiers, versions and non-acceptance examples do not alone trigger this check. If measurement is unavailable, disclose the reason; never invent a value or use unmeasured zero. The Architecture Verifier's Delta-Spec Completeness dimension grades a missing measured baseline or an unmet gap without a closing mechanism as FLAWS.
+
+Use target-project placeholders for measurement commands, paths and thresholds, without prescribing a host or model:
+
+```markdown
+| Acceptance target | Measured HEAD/version | Baseline value | Measurement command | Target | Gap | Closing mechanism / estimated improvement |
+|-------------------|-----------------------|----------------|---------------------|--------|-----|-------------------------------------------|
+| <criterion> | <HEAD/version> | <measured value> | <project measurement command> | <target threshold> | <remaining distance in metric units> | <mechanism and estimated improvement, or not applicable> |
+```
+
+---
+
 ### 8. Simpler Alternative (required under `standard`)
 
 Placed **after Risk Assessment**. A `standard` plan MUST carry this section; under `full` the recorded non-selected candidates (Risk Assessment) stand in for it, so it is not repeated.
