@@ -21,7 +21,7 @@
 
 ## Modification Guide
 
-For Playbook loads, keep plan and implement Startup item 6 on `learn playbook --station`; keep learn's Sweep on the full file. Edit `promotion-format.hbs` for entry grammar, cap, cleanup/approval, prose ownership and history rules, then re-render both hosts and verify the startup/reference token ceilings without raising them.
+For Playbook loads, keep plan and implement Startup item 6 on `learn playbook --station`; keep learn's Sweep on the full file. Edit `promotion-format.hbs` for entry grammar, cap, cleanup/approval, prose ownership and history rules. Harvest cites the configured base directory's per-change summary and its `Review & Verify` section; preserve the legacy ledger Git-history fallback. Re-render both hosts and verify the startup/reference token ceilings without raising them.
 
 1. **Add a skill** — create `skills/prospec-{name}.hbs` with `{{> cli-probe}}` exactly once (ahead of any deterministic step) and `{{> next-step-handoff}}` at the end, register in `SKILL_DEFINITIONS` (`types/skill.ts`), run `prospec agent sync` (needs `## Output Contract` before `## NEVER`).
 2. **Add a reference** — create `skills/references/{name}.hbs`, declare it in `types`' `STATION_REFERENCES` (once per skill that needs it — a shared reference is registered per station, never cross-linked) with a load point per place the skill reads it, then cite it from the skill at exactly those places; an enumerated map is rendered by `{{stationReferences skill slot}}` rather than hand-written. `prospec check`'s `skill-reference-map` fails a deployment whose citations no longer match.

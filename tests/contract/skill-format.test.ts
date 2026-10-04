@@ -6098,16 +6098,21 @@ describe('Archive skill writes the Review & Verify section (REQ-TEMPLATES-127)',
 });
 
 describe('Lessons-ledger evidence points to committed _archived-history (REQ-TEMPLATES-128)', () => {
-  it('Harvest names the committed _archived-history evidence pointer', () => {
-    const content = renderTemplate(
-      'skills/references/promotion-format.hbs',
-      TEMPLATE_CONTEXT,
-    );
-    const harvest = sectionOf(content, '## Harvest (archive-time auto-extraction)');
-    expect(harvest).toContain('_archived-history');
-    // the name-aligned, date-prefixed committed record
-    expect(harvest).toContain('{date}-{name}');
-    expect(harvest).toMatch(/evidence/i);
+  it('Harvest cites the committed summary and preserves the legacy evidence fallback', () => {
+    for (const baseDir of ['prospec', 'project-docs']) {
+      const content = renderTemplate(
+        'skills/references/promotion-format.hbs',
+        { ...TEMPLATE_CONTEXT, base_dir: baseDir },
+      );
+      const harvest = sectionOf(content, '## Harvest (archive-time auto-extraction)');
+      expect(harvest).toContain('.prospec/archive/{date}-{name}/');
+      expect(harvest).toContain(`${baseDir}/specs/_archived-history/{date}-{name}.md`);
+      expect(harvest).toContain('## Review & Verify');
+      expect(harvest).toContain('ledger');
+      expect(harvest).toContain('git log -p');
+      expect(harvest).toMatch(/missing summary is not evidence/i);
+      expect(harvest).not.toMatch(/_archived-history\/\{date\}-\{name\}\//);
+    }
   });
 });
 
@@ -8308,6 +8313,7 @@ describe('split and trim references contract (REQ-TEMPLATES-215~220, REQ-AGNT-04
       '{slice}.md',
       '{sub-module}.md',
       '{YYYY-MM-DD}-{change-name}.md',
+      '{date}-{name}.md',
       // Shipped feature specs cited in examples
       'sdd-workflow.md',
       'ai-knowledge.md',

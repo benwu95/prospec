@@ -100,7 +100,7 @@
         "{{knowledge_base_path}}/module-map.yaml"
       ],
       "mandatory": 1,
-      "mandatory_context_tokens": 5561
+      "mandatory_context_tokens": 5612
     },
     "prospec-new-story": {
       "items": [
@@ -203,7 +203,7 @@
     "plan-verifier-rubric": 1948,
     "product-spec-format": 1189,
     "project-test-runner": 687,
-    "promotion-format": 1594,
+    "promotion-format": 1645,
     "proposal-format": 1106,
     "review-format": 2442,
     "review-lenses-content": 3047,
