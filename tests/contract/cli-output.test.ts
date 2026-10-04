@@ -265,6 +265,22 @@ describe('CLI Output Contract', () => {
       });
     }
 
+    it('review merge Returns discloses the persisted warning on post-WARN refusal', async () => {
+      const output = await helpOf('review merge');
+      const returns = output.slice(output.indexOf('Returns:'));
+      const expectWarningOutcome = (text: string) => {
+        expect(text).toMatch(/exemption WARN/);
+        expect(text).toMatch(/later refusal/);
+        expect(text).toMatch(/retains that WARN/);
+        expect(text).toMatch(/Consult the refusal reason for completed writes/);
+        expect(text).toMatch(/completed artifact write remains on disk/);
+      };
+      expectWarningOutcome(returns);
+      const mutated = returns.replace(/After persisting an exemption WARN,[^.]+\.[^.]+\./, '');
+      expect(mutated, 'warning-outcome removal must apply').not.toBe(returns);
+      expect(() => expectWarningOutcome(mutated)).toThrow();
+    });
+
     it('status help names the session start and the action: line; change log claims YAML-scalar escaping, never table escaping', async () => {
       const status = await helpOf('status');
       expect(status).toMatch(/first command of a session|start of a session|session start/i);

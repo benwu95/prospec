@@ -69,7 +69,7 @@ read foo.ts:38-46 — the `<=` bound overruns when n === len.
   marker-anchored `## Evidence` section below, keyed by finding `id`. Both are cumulative across
   rounds: a round that re-reports a finding without them keeps what the artifact holds, because a fix
   round reports a status and must not erase the reason the finding existed. A round with no evidence
-  writes no section at all. The two markers delimit a CLI-owned region — a sentence of your own (the artifact-language summary a clean round must carry) goes BELOW the closing marker, and the merge puts it back on every write. The relayed-field ceilings, the `repro` forms and the payload contract
+  writes no section at all. The two markers delimit a CLI-owned region. Optional author notes go below the closing marker; artifact generation follows `prospec review merge`. The relayed-field ceilings, the `repro` forms and the payload contract
   behind all of this are in [`delegated-evidence-format.md`](delegated-evidence-format.md) — this
   document does not restate the numbers, so there is one set of them.
 
@@ -109,7 +109,7 @@ read foo.ts:38-46 — the `<=` bound overruns when n === len.
 - **Test-failure metrics** (CLI-owned, same comment): `test_failures` + bounded `test_failure_ids` —
   distinct failed attempts observed by `prospec review merge` in a row (absent = zero; a replayed id
   never counts twice; a fresh certified green clears both; exemptions and loop rollover do not). Only
-  observed attempts count; a test refusal writes ONLY these two attributes.
+  observed attempts count. Follow `prospec review merge` for refusal outcomes, including a persisted exemption WARN.
 
 ---
 

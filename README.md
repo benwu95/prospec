@@ -4,7 +4,7 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg?style=flat-square)](LICENSE)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.9-blue?style=flat-square&logo=typescript)](https://www.typescriptlang.org/)
-[![Tests](https://img.shields.io/badge/tests-6973%20total-success?style=flat-square)](tests/)
+[![Tests](https://img.shields.io/badge/tests-6996%20total-success?style=flat-square)](tests/)
 [![Node](https://img.shields.io/badge/node-%3E%3D22.13-brightgreen?style=flat-square&logo=node.js)](https://nodejs.org/)
 [![pnpm](https://img.shields.io/badge/pnpm-%3E%3D11-orange?style=flat-square&logo=pnpm)](https://pnpm.io/)
 
@@ -594,6 +594,8 @@ are most likely to tune, with their shapes and defaults, are in
 
 ### Customizing Module READMEs (Project Section Extensions)
 
+Use each module README as the knowledge entry point: link its sub-module and supplementary docs, including flow diagrams. Run `prospec check` and inspect `knowledge-size` for per-file budgets.
+
 By default, every module README follows the canonical Recipe-First structure (`## Key Files`, `## Public API`, `## Dependencies`, `## Modification Guide`, `## Pitfalls`, and optional `## Ripple Effects` / `## Sub-Modules`) inside its generated block (`prospec:auto-start` ... `prospec:auto-end`).
 
 On the first non-blank line after the title's one-line summary — blank lines may separate the two — and above that block, sits a format marker: `<!-- prospec:module-readme-format 2026-09-01 -->`. It names the compatible grammar release the file conforms to, not the date the document was last edited: clarifications and registered optional extensions keep the same date, while an incompatible change to marker semantics or the core section grammar earns a new one. [`_module-readme-conventions.md`](prospec/ai-knowledge/_module-readme-conventions.md) is the authority for both the marker and the structure, and `prospec validate module-readme <module>` grades a README against them.
@@ -704,7 +706,7 @@ templates alongside). The layer-by-layer breakdown and the tech-stack list are i
 ## Testing
 
 ```bash
-# Run all tests (6973 total; 4 skipped)
+# Run all tests (6996 total; 4 skipped)
 pnpm test
 
 # Watch mode
@@ -717,9 +719,9 @@ pnpm run typecheck
 pnpm run lint
 ```
 
-**Test Coverage**: 6973 total tests (6969 passed; 4 skipped) across 4 categories:
-- Unit tests (types + lib + services + cli): 5049 tests
-- Contract tests (CLI output + Skill format): 1567 tests
+**Test Coverage**: 6996 total tests (6992 passed; 4 skipped) across 4 categories:
+- Unit tests (types + lib + services + cli): 5059 tests
+- Contract tests (CLI output + Skill format): 1580 tests
 - Integration tests: 153 tests
 - E2E tests: 204 tests
 

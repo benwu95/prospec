@@ -94,6 +94,8 @@ user block. The registry defines only marked sections; an unmarked user heading 
 
 #### 3a: Module README.md (created skeletons + readme-pending) — Recipe-First Format
 
+README.md is the module knowledge entry point; link and maintain its affected sub-module and supplementary docs, including flow diagrams.
+
 For CREATED modules (skeleton scaffolded by the CLI in Phase 1):
 - Fill `{{knowledge_base_path}}/modules/{module}/README.md` with real content in the **canonical
   Recipe-First structure** defined in `{{knowledge_base_path}}/_module-readme-conventions.md` (the
@@ -171,7 +173,6 @@ Emit one line: `Met N/M | Unmet: <items> | Overall: PASS|WARN|FAIL | Next: <one-
 - **NEVER** run without either delta-spec.md or manual module specification — one input source is required
 - **NEVER** hand-edit the {{base_dir}}/index.md auto block — it is CLI-generated from module-map; curate in module-map and re-run `prospec knowledge update`
 - **NEVER** ignore module-map.yaml when it exists — dependency graph must stay in sync
-- **NEVER** generate api-surface.md, dependencies.md, or patterns.md — all info goes in README.md (or its sub-module files) only
 - **NEVER** exceed {{readme_max_lines}} lines per module README or sub-module — when it overflows, extract an independent sub-area to `{module}/{sub-module}.md` and link it from `## Sub-Modules` before resorting to lossy trimming
 - **NEVER** list sub-modules in `{{base_dir}}/index.md` or `module-map.yaml` — they are reached only via the parent README's `## Sub-Modules` links
 

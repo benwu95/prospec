@@ -47,7 +47,7 @@ nondeterministic serialization this contract exists to remove.
 |-------|-------|-------------|-------------|
 | **L0** | `AGENTS.md` / `CLAUDE.md` | Every conversation (auto-injected via agent config) | Agent-injected — out of `knowledge-size` scope |
 | **L1** | `prospec/index.md` + Core Conventions + Context-specific artifacts | At startup (acts as entry point and current task context) | ≤ 2500 tokens per file |
-| **L2** | `prospec/ai-knowledge/modules/{name}/README.md` (+ each linked `{sub-module}.md`) | When Skill identifies related modules from L1 keywords | ≤ 2000 tokens per module file — README and each linked sub-module alike; also ≤ 100 lines |
+| **L2** | `prospec/ai-knowledge/modules/{name}/README.md` (plus linked sub-module and supplementary docs) | When Skill identifies related modules from L1 keywords | ≤ 2000 tokens per module file — module Markdown files, including linked documents; also ≤ 100 lines |
 | **Spec** | `prospec/specs/features/**/*.md` + `prospec/specs/product.md` | When Skill identifies related features | ≤ 5000 tokens per spec file — a slice under `features/{feature}/` is measured alike |
 | **Demand** | Demand Conventions (lessons ledger, playbook, …) | When their topic is relevant — read in slices, never whole | ≤ 20000 tokens per file |
 | **L3** | Source code files | When Agent needs implementation details | No limit (read on demand) |
@@ -57,7 +57,7 @@ nondeterministic serialization this contract exists to remove.
 **Principles:**
 1. L0 answers "how to use skills" — L1 answers "where to look" and "what to do" — L2 answers "what it does" (Feature Spec) and "how to modify" (Module README) — L3 answers "how to write"
 2. Each layer must NOT duplicate information available in a lower layer
-3. The README (plus any linked `{sub-module}.md`) is the only knowledge per module — no api-surface.md, dependencies.md, or patterns.md
+3. Use README.md as the module knowledge entry point, linking sub-module and supplementary docs.
 4. Sub-modules are an L2 sub-layer reached via the README's `## Sub-Modules` links — never listed in `prospec/index.md`
 
 **Token Budget Reminder:** After updating, verify the affected README stays within budget. If it overflows and has a content-rich, functionally-independent sub-area, extract a sub-module (see Phase 3a) rather than trimming away useful detail; otherwise trim Key Files and Public API, keeping Modification Guide and Pitfalls intact. Canonical rules: `prospec/ai-knowledge/_module-readme-conventions.md`.
@@ -125,6 +125,8 @@ user block. The registry defines only marked sections; an unmarked user heading 
 > and writing knowledge prose — which is exactly what the CLI does not do.
 
 #### 3a: Module README.md (created skeletons + readme-pending) — Recipe-First Format
+
+README.md is the module knowledge entry point; link and maintain its affected sub-module and supplementary docs, including flow diagrams.
 
 For CREATED modules (skeleton scaffolded by the CLI in Phase 1):
 - Fill `prospec/ai-knowledge/modules/{module}/README.md` with real content in the **canonical
@@ -203,7 +205,6 @@ Emit one line: `Met N/M | Unmet: <items> | Overall: PASS|WARN|FAIL | Next: <one-
 - **NEVER** run without either delta-spec.md or manual module specification — one input source is required
 - **NEVER** hand-edit the prospec/index.md auto block — it is CLI-generated from module-map; curate in module-map and re-run `prospec knowledge update`
 - **NEVER** ignore module-map.yaml when it exists — dependency graph must stay in sync
-- **NEVER** generate api-surface.md, dependencies.md, or patterns.md — all info goes in README.md (or its sub-module files) only
 - **NEVER** exceed 100 lines per module README or sub-module — when it overflows, extract an independent sub-area to `{module}/{sub-module}.md` and link it from `## Sub-Modules` before resorting to lossy trimming
 - **NEVER** list sub-modules in `prospec/index.md` or `module-map.yaml` — they are reached only via the parent README's `## Sub-Modules` links
 

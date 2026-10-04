@@ -4476,6 +4476,9 @@ describe('Startup Loading cache-stable prefix ordering (REQ-TEMPLATES-080/081)',
   // the story-id source too, offset by dropping the L2 parenthetical in the Do-NOT paragraph;
   // earlier step of the same round: 88_538 → 88_537 — plan item 4 names
   // `{{knowledge_base_path}}/feature-map.yaml` in place of the undefined "hub ids" clause, one token shorter.
+  // align-skill-guidance (#326): recaptured exact rows after valid-command,
+  // owner-pointer, proven-backfill and README-linked-doc guidance corrections.
+  // Both ceiling anchors remain unchanged.
   const REFERENCE_CEILING_ANCHOR = 51_089;
   const CUMULATIVE_CEILING_ANCHOR = 88_535;
 
@@ -5260,11 +5263,15 @@ describe('backfill graduation — promote-backfill skill (scale: backfill entry 
     expect(c).toContain('hollow make-work');
   });
 
-  it('NEVER writes the trust zone, carries unresolved intent, or empties related_modules', () => {
+  it('NEVER writes the trust zone, carries unresolved intent, or omits traced modules', () => {
     const never = sectionOf(render(), '## NEVER');
     expect(never).toContain('specs/features/'); // base_dir-templated trust zone
     expect(never).toContain('unresolved `[NEEDS CLARIFICATION]`');
-    expect(never).toContain('leave `related_modules` empty');
+    const assertTracedModules = (text: string) => expect(text).toContain('omit a traced module from `related_modules`');
+    assertTracedModules(never);
+    const mutated = never.replace('`related_modules`', '`missing-field`');
+    expect(mutated).not.toBe(never);
+    expect(() => assertTracedModules(mutated)).toThrow();
     expect(never).toContain('but `backfill`'); // scale must be backfill
   });
 });
@@ -6149,22 +6156,22 @@ describe('mechanize-review-gate — review provenance gate + playbook fall-back 
     expect(prov).toContain('indistinguishable from a review that never ran');
   });
 
-  it('prospec-verify Entry Gate BLOCKS a non-backfill change with absent/stale review (not the old advisory note)', () => {
+  it('prospec-verify Entry Gate defers review refusal and remediation to the CLI', () => {
     const gate = sectionOf(renderVerify(), '## Entry Gate');
-    expect(gate).toContain('Review provenance (blocking, non-backfill)');
+    expect(gate).toContain('Review provenance (blocking)');
     expect(gate).toContain('review-provenance');
-    expect(gate).toContain('stale');
+    expect(gate).toContain('refusal and remediation');
     expect(gate).toContain('do not proceed');
     // scale: backfill keeps the current recommended-only exemption
-    expect(gate).toContain('`scale: backfill` review exemption');
+    expect(gate).toContain('references/verify-backfill.md');
     // negative: the bypassable "Absence does NOT block verify" language is gone
     expect(gate).not.toContain('Absence does NOT block verify');
   });
 
-  it('prospec-verify NEVER forbids proceeding when review-provenance FAILs', () => {
+  it('prospec-verify NEVER defers review-provenance refusal to verify record', () => {
     const never = sectionOf(renderVerify(), '## NEVER');
     expect(never).toContain('review-provenance');
-    expect(never).toContain('review absent or stale');
+    expect(never).toContain('`prospec verify record` refuses');
   });
 
   it('residual playbook rules fall back to gates — PB-001 & PB-007 inline in prospec-implement NEVER', () => {
@@ -6572,12 +6579,20 @@ describe('Structured quality_log (issue #61)', () => {
     const successCriteria = sectionOf(review, '### Success Criteria');
     const exitGate = sectionOf(review, '### Exit Gate (Constitution)');
 
-    const expectedPointer =
-      "The CLI records this round's counts and clean sentence at merge time; `change log` only closes the round and audits self-reported counts";
-
-    // Pointer appears in both Clean review callout (in Persistence) and Review Provenance
-    expect(persistence).toContain(expectedPointer);
-    expect(provenance).toContain(expectedPointer);
+    for (const section of [persistence, provenance]) {
+      expect(section).toContain('CLI');
+      expect(section).toContain('counts');
+      expect(section).toContain('`change log`');
+      expect(section).toContain('closes the round');
+      expect(section).toContain('audits self-reported counts');
+    }
+    const callout = persistence.split('\n').find((line) => line.startsWith('> **Review artifact generation**'))!;
+    expect(callout).toBeDefined();
+    const assertArtifactOwner = (text: string) => expect(text).toContain('`prospec review merge`');
+    assertArtifactOwner(callout);
+    const mutated = callout.replace('`prospec review merge`', '`missing-operation`');
+    expect(mutated).not.toBe(callout);
+    expect(() => assertArtifactOwner(mutated)).toThrow();
 
     // Negative assertions (mutation-verified in T19):
     // 1. §Provenance does NOT instruct passing counts flags as primary writer
@@ -6749,8 +6764,9 @@ describe('Structured quality_log (issue #61)', () => {
       expect(tests).toContain('test-provenance');
       expect(tests).toContain('exit code');
       expect(tests).toContain('not-adjudicated');
-      // backfill relaxation survives the mechanization, but a real failure never does
-      expect(tests).toContain('never suppress a recorded non-zero exit');
+      // Backfill policy is owned by the reference; the machine verdict stays here.
+      expect(tests).toContain('references/verify-backfill.md');
+      expect(flat(tests)).toContain('No run recorded / stale / non-zero exit');
     });
 
     it('requires Constitution audit against machine inventory with declared rules and new threshold (REQ-TESTS-057)', () => {
@@ -7789,7 +7805,7 @@ describe("Autonomous Pipeline Cascading & Verifier Gates (issue #183)", () => {
     expect(content).toContain("Human Escape Hatch");
   });
 
-  it("circuit-breaker.md defines 3-5 round limit, oscillation detection, and escalation protocol", () => {
+  it("circuit-breaker.md defines the configured round limit, oscillation detection, and escalation protocol", () => {
     const content = renderTemplate("skills/references/circuit-breaker.hbs", TEMPLATE_CONTEXT);
     expect(content).toContain("Maximum Iteration Ceiling");
     expect(content).toContain("Oscillation Breaker");
@@ -9774,6 +9790,8 @@ describe('fresh-test gate — prose demoted to one CLI-refusal sentence, maps an
       expect(para).toMatch(/[Ll]egacy|absent/);
       expect(para).toMatch(/fresh (certified )?green/);
       expect(para).toMatch(/observed by `?prospec review merge`?|review merge (itself )?observed/);
+      expect(para).toContain('Follow `prospec review merge` for refusal outcomes');
+      expect(para).toContain('persisted exemption WARN');
       expect(para).not.toMatch(/pnpm test|vitest/);
     });
 
@@ -10296,5 +10314,92 @@ describe('shipped templates render no literal Handlebars braces', () => {
   });
   it.each(templates)('%s', (template) => {
     expect(renderTemplate(template, TEMPLATE_CONTEXT)).not.toMatch(/\{\{[^}]*\}\}/);
+  });
+});
+
+// Scoped operation contracts: behavior comes from the CLI owners, while these
+// predicates guard the required handoff/reference structure in shipped guidance.
+describe('guidance owner handoffs', () => {
+  const render = (name: string) => renderTemplate(`skills/${name}.hbs`, TEMPLATE_CONTEXT);
+  const expectOperation = (section: string, operation: string, pointer: string) => {
+    const lines = section.split('\n').filter((line) => line.includes(operation));
+    expect(lines.length, `operation missing: ${operation}`).toBeGreaterThan(0);
+    expect(lines.some((line) => line.includes(pointer)), `operation lacks owner pointer: ${pointer}`).toBe(true);
+  };
+
+  it('knowledge budget instructions use the check operation and its named result', () => {
+    const prerequisite = sectionOf(render('prospec-knowledge-generate'), '## Progressive Knowledge Loading Strategy');
+    const note = prerequisite.split('\n').find((line) => line.includes("`index.md`'s budget note"))!;
+    expect(note).toBeDefined();
+    const assertOperation = (text: string) => {
+      expect(text).toContain('`prospec check`');
+      expect(text).toContain('`knowledge-size`');
+      expect(text).toContain('`knowledge.token_budget`');
+    };
+    assertOperation(note);
+    const mutated = note.replace('`prospec check`', '`prospec`');
+    expect(mutated).not.toBe(note);
+    expect(() => assertOperation(mutated)).toThrow();
+  });
+
+  for (const heading of ['## Entry Gate', '### Verification 1/5', '### Verification 5/5', '## NEVER']) {
+    it(`verify ${heading} delegates backfill policy to its reference`, () => {
+      const section = sectionOf(render('prospec-verify'), heading);
+      const assertPointer = (text: string) => expectOperation(text, 'backfill', 'references/verify-backfill.md');
+      assertPointer(section);
+      const mutated = section.replaceAll('references/verify-backfill.md', 'missing-reference');
+      expect(mutated).not.toBe(section);
+      expect(() => assertPointer(mutated)).toThrow();
+    });
+  }
+
+  it('verify-backfill binds the provenance grant to both scale and the draft artifact', () => {
+    const gate = sectionOf(render('references/verify-backfill'), '## 1. Provenance Gate');
+    const grant = gate.split('\n').find((line) => line.includes('requires both'))!;
+    expect(grant).toBeDefined();
+    const assertGrant = (text: string) => {
+      expect(text).toContain('`metadata.scale: backfill`');
+      expect(text).toMatch(/and .*backfill-draft\.md.* exists/);
+      expect(text).toContain('Apply the quality relaxations below only');
+    };
+    assertGrant(grant);
+    const mutated = grant.replace(/and .*backfill-draft\.md.* exists/, '');
+    expect(mutated).not.toBe(grant);
+    expect(() => assertGrant(mutated)).toThrow();
+    const broadened = grant.replace('quality relaxations', 'policies');
+    expect(broadened).not.toBe(grant);
+    expect(() => assertGrant(broadened)).toThrow();
+  });
+
+  it('review-format keeps optional author notes outside the CLI-owned evidence region', () => {
+    const format = sectionOf(render('references/review-format'), '## review.md Format');
+    const boundary = format.split('\n\n').find((paragraph) => paragraph.includes('Two surfaces'));
+    expect(boundary, 'evidence boundary paragraph').toBeDefined();
+    const assertBoundary = (text: string) => {
+      expect(text).toContain('Optional author notes go below the closing marker');
+      expect(text).toContain('artifact generation follows `prospec review merge`');
+    };
+    assertBoundary(boundary!);
+    for (const required of ['Optional author notes', 'prospec review merge']) {
+      const mutated = boundary!.replaceAll(required, 'missing-boundary');
+      expect(mutated).not.toBe(boundary);
+      expect(() => assertBoundary(mutated)).toThrow();
+    }
+  });
+
+  it('review retains the counts/close/baseline operations with CLI owners', () => {
+    const provenance = sectionOf(render('prospec-review'), '### Review Provenance (machine gate)');
+    const assertOperations = (text: string) => {
+      expect(text).toContain('Every round');
+      expect(text).toContain('prospec change log --skill prospec-review');
+      expect(text).toContain('prospec check --record-review');
+      expect(text).toMatch(/CLI[^\n]*counts/);
+    };
+    assertOperations(provenance);
+    for (const operation of ['prospec change log --skill prospec-review', 'prospec check --record-review']) {
+      const mutated = provenance.replaceAll(operation, 'missing-operation');
+      expect(mutated).not.toBe(provenance);
+      expect(() => assertOperations(mutated)).toThrow();
+    }
   });
 });
