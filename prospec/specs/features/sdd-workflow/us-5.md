@@ -20,16 +20,17 @@ so that quality is assured before archiving.
 ### Behavior Specifications
 
 #### REQ-TEMPLATES-034: Verify Skill Knowledge↔Implementation Consistency
-- WHEN triggered, THEN verify dimension 4/5 takes its verdict from the `knowledge-health` check verbatim and grades ONLY pre-existing Knowledge drift (module READMEs vs code not touched by this change); semantic observations may be ADDED as WARN detail but never overturn the machine verdict
-- WHEN a README describes behavior the code lacks (beyond this change's gap) or an existing module has no README at all, THEN graded WARN/FAIL (remediate via /prospec-knowledge-update or /prospec-knowledge-generate)
-- WHEN this change's knowledge gap exists (README not updated or a newly added module has no README yet), THEN emit informational detail outside the grade and point to final Knowledge/count sync before final review/tests/verify, retaining the archive Entry Gate as backstop; ungraduated REQ ids are not inserted into Knowledge
+Verification 4/5 adopts the repository-wide `knowledge-health` verdict. Freshness and README coverage follow REQ-LIB-015; narrative observations supplement that result.
+- WHEN triggered, THEN adopt the repository-wide check without excluding the verified change's own lag; semantic observations may be ADDED as WARN detail but never overturn the machine verdict
+- WHEN reporting the result, THEN cite `structural.knowledge_health` and name modules needing Knowledge review, updates or confirmation before final validation
 - WHEN a permanent Feature Spec lags an un-archived change, THEN informational only (graduates at /prospec-archive) — not drift, does not affect grade
 - WHEN an already-archived capability regresses or Feature Spec Health (Density/Freshness/Consistency) degrades, THEN informational signal for the developer, not grade-blocking
 - WHEN ui_scope != none + design-spec.md exists, THEN execute design consistency check
 
 #### REQ-TEMPLATES-045: Verify Knowledge Staleness Detection
-- WHEN delta-spec MODIFIED but module README not updated, THEN emit an informational note pointing to final Knowledge/count sync before final review/tests/verify, with archive as the backstop; the note is not counted toward the grade and never permits committing changed inputs under older evidence
-- WHEN the live assessment is available, THEN staleness is adjudicated by its `structural.knowledge_health` section (git timestamps, deterministic) and verify adopts that verdict without re-deriving it; an unavailable mechanical dimension remains not-adjudicated plus WARN (S unreachable), never substituted by LLM judgment, while unprovable required evidence can separately refuse recording
+Verify cites the engine's Knowledge freshness and coverage facts. Prepare Knowledge inputs before final validation as described by REQ-TEMPLATES-129.
+- WHEN a change's Knowledge needs updating or confirmation, THEN name the affected modules and complete the necessary synchronization before final review/tests/verify; a subsequent effective-input edit requires renewed validation
+- WHEN the live assessment is available, THEN adopt the repository-wide `knowledge-health` verdict without re-deriving it; an unavailable mechanical dimension remains not-adjudicated plus WARN (S unreachable), while unprovable required evidence can separately refuse recording
 
 #### REQ-TEMPLATES-063: Verify Grades Constitution by Severity
 verify Verification 3/5 reports by RFC-2119 severity grading of rules; the grade vocabulary stays PASS/WARN/FAIL (no fourth state added). The rule list and severities are taken from the report's `structural.constitution.rules[]` inventory — never re-derived or re-assigned. A rule that declares `check: <id>[; covers: <scope>]` has its declared scope's verdict filled by the CLI from the report and the grader may only add a WARN on top; the grader writes statements only for rules with no `check:` and for the uncovered part of declared rules. The audit still accounts for every principle: statement count must be ≥ (rules with no `check:`) + (declared rules carrying a `covers:` clause), so no principle is silently skipped.
