@@ -1,6 +1,6 @@
 # CLI Surface
 
-> Thin I/O layer — Commander commands parse args → call one service → format output (74 files)
+> Thin I/O layer — Commander commands parse args → call one service → format output (76 files)
 <!-- prospec:module-readme-format 2026-09-01 -->
 
 <!-- prospec:auto-start -->
@@ -9,6 +9,7 @@
 
 | File | Purpose |
 |------|---------|
+| `commands/change-abandon.ts` / `formatters/change-abandon-output.ts` | Lazy service dispatch, required reason/repeatable overturned leaves, JSON and sanitized local tracker summary |
 | `index.ts` | Shebang entry only: imports `enable-compile-cache.js` → `setup-color.js` → `program.js`, then `void runProgram(process.argv)`; declares `GlobalOptions` (type-only import by the command layer, so the entry's run is never pulled into a consumer) |
 | `program.ts` | `createProgram()` registers all 19 top-level commands + `preAction` config gate (resolves `.prospec.yaml` against the action's `--cwd`, else cwd); `runProgram(argv)` parses + dispatches errors (exit status on `process.exitCode`, never `process.exit`); registration imports no service (each loads lazily per action); `.version()` from `types/version`. Importable with NO side effects (no argv parse / no output on load) so the e2e suite drives it in-process |
 | `enable-compile-cache.ts` | Enables the Node module compile cache (guarded); MUST be the first import in `index.ts`, ahead of `setup-color` and `program` (touches no picocolors) |
@@ -22,7 +23,7 @@
 
 - `learn playbook --station <s> [--modules <m,…>]` is registered in `commands/learn.ts`; `formatters/learn-output.ts` writes the complete active catalog and station-selected bodies to stdout, and fallback, unknown declaration and over-cap diagnostics to stderr. In station mode, modules only sort catalog rows; `--modules` alone and `--id` retain their legacy output contracts.
 - `createProgram()` / `runProgram(argv)` — in `program.ts`: the Commander program (all 19 commands) and the parse+error-dispatch loop; both importable with no side effects. `index.ts` is the shebang entry that calls `runProgram(process.argv)` and exports `GlobalOptions`
-- `registerXxxCommand(program)` — 31 registrars; `formatXxxOutput(result, logLevel)` — 31 formatters (+ the `formatEscapingNotice(escapedCells)` and `formatDelegationSettlement(settlement)` helpers; `change-delegate-output` prints a mutation refusal as one `facet: pre-spawn … → now …` line per facet, the checkpoint path and the hand-off sentence, every value sanitized); `handleError(err, verbose)` → stderr
+- `registerXxxCommand(program)` — 32 registrars; `formatXxxOutput(result, logLevel)` — 39 output functions (+ the `formatEscapingNotice(escapedCells)` and `formatDelegationSettlement(settlement)` helpers; `change-delegate-output` prints a mutation refusal as one `facet: pre-spawn … → now …` line per facet, the checkpoint path and the hand-off sentence, every value sanitized); `handleError(err, verbose)` → stderr
 - `resolveLogLevel(opts)` / `parseDepth(value)` / `parseDate(value)` / `collect(value, prev)` / `parseIntOption` / `parseBoundedInt` / `parseRatio` — shared cli helpers
 - `sanitizeTerminal(s)` — in `formatters/sanitize.ts`, re-exported by `check-output.ts`
 - `GlobalOptions` (type) — `{ verbose?, quiet? }`
@@ -45,6 +46,10 @@
 - `preAction` in `program.ts` runs before every command; option/command-name changes silently break E2E tests.
 
 ## Pitfalls
+
+- Abandon human output names the dedicated abandoned destination; its JSON preserves the `archiveDir` key with the same actual path.
+
+- Human abandon/history/retry output sanitizes file-derived values. JSON preserves typed partial phase/path/entry details on stderr with exit 1; the tracker summary is local text, never a network write.
 
 - `validate proposal <change> [--json]` addresses a change name, not an arbitrary file. `premise-output.ts` renders shared structural-limit and legacy/exemption notices; validation policy stays in lib/services. Status may route to `prospec-explore` while preserving the recorded lifecycle status.
 

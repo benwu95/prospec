@@ -1,7 +1,7 @@
 ---
 feature: project-setup
 status: active
-last_updated: 2026-09-27
+last_updated: 2026-10-05
 story_count: 19
 req_count: 49
 ---
@@ -66,6 +66,7 @@ req_count: 49
 
 | Date | Change | Impact | Stories/REQs |
 |------|--------|--------|-------------|
+| 2026-10-05 | add-change-abandon | MODIFIED REQ-LIB-030 | REQ-LIB-030 |
 | 2026-09-27 | slice-constitution-and-playbook | ADDED REQ-LIB-095; MODIFIED REQ-TYPES-021 | REQ-LIB-095, REQ-TYPES-021 |
 | 2026-09-03 | prompt-trust-zone-language-at-init | ADDED REQ-CLI-051; MODIFIED REQ-SETUP-015; MODIFIED REQ-SETUP-017 | REQ-CLI-051, REQ-SETUP-015, REQ-SETUP-017 |
 | 2026-09-02 | support-native-language-trust-zone | MODIFIED REQ-TYPES-025; MODIFIED REQ-TYPES-063; MODIFIED REQ-LIB-013; MODIFIED REQ-LIB-030 | REQ-TYPES-025, REQ-TYPES-063, REQ-LIB-013, REQ-LIB-030 |

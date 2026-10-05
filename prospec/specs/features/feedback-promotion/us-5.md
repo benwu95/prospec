@@ -29,6 +29,7 @@ Implement business service `executeYield` in `services/learn.service.ts` to scan
 - WHEN `executeYield` is invoked, THEN read configuration from `.prospec.yaml` `learn.lens_thresholds`, scan `.prospec/archive/` and any `extraCorpusDirs` (resolved against the working directory, deduplicated, ordered by date then name in code-point order) for `review.md` files, parse findings tables and metrics comments, and compute lens yield statistics; an `extraCorpusDirs` entry that is not an existing directory raises a `PrerequisiteError` while an absent default archive yields an empty corpus
 - WHEN no archived reviews exist, THEN return an empty report gracefully without error
 - WHEN invalid threshold values are provided in config or CLI overrides, THEN raise a `PrerequisiteError` with actionable remediation guidance
+- WHEN either default or explicit archive corpus entries are scanned, THEN abandoned metadata and incomplete abandon operation markers exclude those attempts from review-yield statistics; legacy corpus entries without these markers retain existing behavior.
 
 #### REQ-CLI-044: prospec learn yield CLI Command
 Add CLI subcommand and output formatter for lens yield statistics under `prospec learn yield`.

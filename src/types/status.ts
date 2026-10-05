@@ -318,6 +318,7 @@ export interface ChangeRouteError {
 
 /** The `prospec status` result over `.prospec/changes/`. */
 export interface StatusReport {
+  abandoned?: import('./abandon.js').AbandonedAttempt[];
   /** True when there is no in-flight change and no unroutable record. */
   clean: boolean;
   changes: ChangeRoute[];

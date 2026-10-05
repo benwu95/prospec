@@ -40,6 +40,7 @@ describe('resolveLanguageScope', () => {
 
     expect(nativePaths).toContain('.prospec/changes/**');
     expect(nativePaths).toContain('.prospec/archive/**');
+    expect(nativePaths).toContain('.prospec/abandoned/**');
     expect(nativePaths).toContain('prospec/specs/_archived-history/**');
   });
 

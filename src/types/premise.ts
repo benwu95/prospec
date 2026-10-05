@@ -14,6 +14,7 @@ const reproduction = z.object({
 
 /** Shape validation permits pending/empty scaffolds; assessment decides readiness. */
 export const PremiseSchema = z.object({
+  retry_difference: z.string().optional(),
   problem: z.string(),
   source: z.enum(PREMISE_SOURCES),
   source_ref: z.string(),

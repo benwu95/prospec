@@ -1,6 +1,6 @@
 # Verification Suite
 
-> 4-layer Vitest suite (fast-glob/git bypass memfs — 281 test files, 7,274 tests (unit 5283, contract 1631, integration 153, e2e 207)).
+> 4-layer Vitest suite (fast-glob/git bypass memfs — 290 test files, 7,383 tests (unit 5383, contract 1635, integration 153, e2e 212)).
 <!-- prospec:module-readme-format 2026-09-01 -->
 
 <!-- prospec:auto-start -->
@@ -9,6 +9,7 @@
 
 | File | Purpose |
 |------|---------|
+| `change-abandon.service.test.ts` / `abandon-consumers.test.ts` / `change-abandon.test.ts` | Real Git preservation/publication faults, retry writer admission, archive/yield exclusion and in-process CLI flow |
 | `tests/unit/{lib,services,cli,types,scripts}/*.test.ts` | Isolated units — mock `node:fs` with memfs; one suite per station engine (`markdown-table`, `delegated-evidence`, `verify-grade`, `review-merge`, `lessons-ledger`, `artifact-validators`, `review-circuit-breaker`, `lens-yield`), baseline/assessment engines (`acceptance-baseline`, `requirement-assessment`, `verification-context`), service and formatter (incl. `change-acceptance`, `verify-context`, `learn-yield.service` / `learn-yield-output`, and the CLI-owned review round counts across `change-metadata` round-keyed upsert, `review-merge` clean-sentence idempotency and `change-log` self-report mismatch audit); heaviest are `services/archive`, `knowledge-update`, `upgrade`, `lib/config`, `module-detector`, `drift-*`. |
 | `tests/contract/*.test.ts` | Format, registry, public-document and trust-zone pins, including bare Skill identities, host invocation matrices, registry↔program help completeness (both directions), skill negative-scope / bare-trigger hygiene, README parity, website release/version/social-preview readiness, and deployed artifacts — see [Contract Guards](./contract-guards.md). |
 | `tests/unit/scripts/counts-registry.test.ts` | Factual-count registry structure and target completeness, including one total/passed/skipped target in each website language source. |
@@ -45,6 +46,8 @@
 - Template/skill/service/CLI changes ripple to contract + E2E expectations; public README or website claims ripple to the section-scoped document contracts; a new station command needs a formatter unit test AND an E2E case.
 
 ## Pitfalls
+
+- Abandon suites pin directory isolation (same-named successful archive, unsafe/missing history root, linked-record recheck), opposing staged/unstaged patches, byte/mode/link/deletion preservation, nested project scope and failure phases. Retry tests cover legacy/all scales, linked-record changes, incomplete sources and direct writers; contract mutations delete the ordered retry handoff and preservation-before-metadata clause.
 
 - Premise coverage spans schema/parser/contained-reader, read/write services, rendered contracts and `cli-premise` E2E. `helpers/premise.ts` explicitly authors verified fixtures for workflows advancing newly created stories; never make the production scaffold ready to repair fixtures. Refusal tests compare artifact bytes, and template mutation checks must prove the edit landed before judging failure.
 

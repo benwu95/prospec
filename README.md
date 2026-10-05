@@ -4,7 +4,7 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg?style=flat-square)](LICENSE)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.9-blue?style=flat-square&logo=typescript)](https://www.typescriptlang.org/)
-[![Tests](https://img.shields.io/badge/tests-7274%20total-success?style=flat-square)](tests/)
+[![Tests](https://img.shields.io/badge/tests-7383%20total-success?style=flat-square)](tests/)
 [![Node](https://img.shields.io/badge/node-%3E%3D22.13-brightgreen?style=flat-square&logo=node.js)](https://nodejs.org/)
 [![pnpm](https://img.shields.io/badge/pnpm-%3E%3D11-orange?style=flat-square&logo=pnpm)](https://pnpm.io/)
 
@@ -519,6 +519,7 @@ The few command details a reader most often needs from here:
 
 - **`prospec validate <kind> <file>`** — validates one artifact against its schema; `<kind>` is one of
   `proposal`, `slug`, `backfill-draft`, `promote-scaffold`, `design-spec`, `module-readme`, `candidates`.
+- **`prospec change abandon <name> --reason <text> [--overturned <field>]`** — ends an attempt after preserving staged/unstaged binary patches and changed work bytes within the Prospec project root (excluding monorepo siblings). Original artifacts and reasons are retained in `.prospec/abandoned/`; partial failures report actual paths and moved/pending files for manual reconciliation. Unsupported Git inputs refuse; the command performs no rollback or tracker write. Same-issue new Stories report prior reasons and require Premise `retry_difference` on every scale.
 - **`prospec change story <name> --freeze-scenarios` / `--amend-scenarios`** — freezes acceptance scenarios from `proposal.md` into `metadata.yaml` baseline (or appends a controlled revision with `--reason` and `--expected-digest`). Planning and tasks require a frozen baseline; legacy changes lacking baselines are admitted with disclosure (capped below grade S). Baseline modifications on verified/archived changes face terminal refusal. Note that baseline digests and verification context provide audit traceability, not sandbox or permission isolation.
 - **`prospec verify context --change <name>`** — writes deterministic `verify-context.json` combining spec, frozen baseline, proposal, code snapshot, and test attempt facts before grading; verified by `verify record` during per-REQ evaluation.
 - **`prospec change log --skill <skill> --verifier-report <file>`** — records a planning verifier's own
@@ -707,7 +708,7 @@ templates alongside). The layer-by-layer breakdown and the tech-stack list are i
 ## Testing
 
 ```bash
-# Run all tests (7274 total; 4 skipped)
+# Run all tests (7383 total; 4 skipped)
 pnpm test
 
 # Watch mode
@@ -720,11 +721,11 @@ pnpm run typecheck
 pnpm run lint
 ```
 
-**Test Coverage**: 7274 total tests (7270 passed; 4 skipped) across 4 categories:
-- Unit tests (types + lib + services + cli): 5283 tests
-- Contract tests (CLI output + Skill format): 1631 tests
+**Test Coverage**: 7383 total tests (7379 passed; 4 skipped) across 4 categories:
+- Unit tests (types + lib + services + cli): 5383 tests
+- Contract tests (CLI output + Skill format): 1635 tests
 - Integration tests: 153 tests
-- E2E tests: 207 tests
+- E2E tests: 212 tests
 
 The suite includes a real `init` + `agent sync` generation contract (`tests/integration/skill-contract.test.ts`) asserting agent-specific reference paths, no dangling references, canonical convention docs, `base_dir`-relative spec paths, and `.agents` convergence.
 

@@ -1,7 +1,7 @@
 import type { EscalationDecision, EscalationFailureDetails } from '../../types/cascade.js';
 import type { EscalationHistory } from '../../types/change.js';
 import pc from 'picocolors';
-import { EscalationError, ProspecError, TestGateError } from '../../types/errors.js';
+import { AbandonError, EscalationError, ProspecError, TestGateError } from '../../types/errors.js';
 import { sanitizeTerminal } from './sanitize.js';
 
 /** Project the service's decision without deriving exits or retry eligibility. */
@@ -46,6 +46,11 @@ export function formatProspecError(error: ProspecError): void {
   const msg = `${pc.red('✗')} ${sanitizeTerminal(error.message)}`;
   const suggestion = `  ${pc.dim('→')} ${highlightCommands(sanitizeTerminal(error.suggestion))}`;
   process.stderr.write(msg + '\n' + suggestion + '\n');
+  if (error instanceof AbandonError) {
+    for (const [key, value] of Object.entries(error.details)) {
+      process.stderr.write(`  ${sanitizeTerminal(key)}: ${sanitizeTerminal(JSON.stringify(value))}\n`);
+    }
+  }
   // A tripped test breaker is a refusal that must also stop automated retries:
   // name the trigger and the observed count so the loop escalates, never re-runs.
   const report = error instanceof TestGateError ? error.circuitBreaker?.escalationReport : undefined;
@@ -112,6 +117,7 @@ export function handleError(error: unknown, verbose = false, json = false): void
       code: error instanceof ProspecError ? error.code : 'UNEXPECTED_ERROR',
       message: error instanceof Error ? error.message : String(error),
       ...(error instanceof ProspecError ? { suggestion: error.suggestion } : {}),
+      ...(error instanceof AbandonError ? { details: error.details } : {}),
       ...(escalationOf(error) ? { escalation: escalationOf(error) } : {}),
       ...(error instanceof TestGateError ? { circuitBreaker: error.circuitBreaker, warningRecorded: error.warningRecorded } : {}),
       ...(error instanceof Error && error.cause !== undefined ? { cause: error.cause instanceof Error ? error.cause.message : String(error.cause) } : {}),

@@ -1,4 +1,7 @@
+import { archiveDirFor } from '../lib/archive-paths.js';
+export { archiveDirFor } from '../lib/archive-paths.js';
 import { requirePremise } from '../lib/premise.js';
+import { excludesAbandonFromYield } from '../lib/abandon-history.js';
 import { reduceEscalationHistory, upsertEscalationHistory } from '../lib/escalation.js';
 import type { EscalationHistory } from '../types/change.js';
 import * as fs from 'node:fs';
@@ -343,15 +346,6 @@ export function filterByStatus(
   status: ChangeStatus = 'verified',
 ): ChangeEntry[] {
   return changes.filter((c) => c.status === status);
-}
-
-/**
- * Compute the .prospec/archive/{YYYY-MM-DD}-{name}/ destination for a change.
- * Single source for the archive-dir naming, shared by moveToArchive and dry-run.
- */
-export function archiveDirFor(cwd: string, changeName: string): string {
-  const today = new Date().toISOString().slice(0, 10); // YYYY-MM-DD
-  return path.join(cwd, '.prospec', 'archive', `${today}-${changeName}`);
 }
 
 /**
@@ -2394,6 +2388,9 @@ export async function executeFinalize(
     );
   }
   const archiveDir = path.join(archiveRoot, archiveDirName);
+  if (excludesAbandonFromYield(archiveDir, cwd)) {
+    throw new PrerequisiteError('Abandoned or incomplete attempts cannot be finalized', 'Inspect the retained attempt; only successful archives enter spec history');
+  }
   const summaryPath = path.join(archiveDir, 'summary.md');
   if (!fs.existsSync(summaryPath)) {
     throw new PrerequisiteError(

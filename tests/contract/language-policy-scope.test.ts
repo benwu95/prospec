@@ -221,6 +221,7 @@ describe('resolveLanguageScope is the single source both documents read', () => 
     expect(scope.nativePaths).toEqual([
       '.prospec/changes/**',
       '.prospec/archive/**',
+      '.prospec/abandoned/**',
       'x/specs/_archived-history/**',
     ]);
     expect(scope.trustZonePaths).toEqual([
@@ -241,7 +242,7 @@ describe('resolveLanguageScope is the single source both documents read', () => 
 // the next `agent sync` for a feature it never opted into.
 describe('entry config — default trust zone is byte-identical to the pre-axis wording', () => {
   const PINNED_TWO_ZONE_ENTRY =
-    "\nThe user's primary language for **change artifacts** (`.prospec/changes/**`, `.prospec/archive/**`, `prospec/specs/_archived-history/**`) is **Traditional Chinese (Taiwan)**, and requests may be phrased in it. The trust zone (`prospec/CONSTITUTION.md`, `prospec/README.md`, `prospec/index.md`, `prospec/specs/product.md`, `prospec/specs/features/**`, `prospec/ai-knowledge/**`) always remains in English, as do code, identifiers, technical terms, and git commit messages — it is technical documentation read next to the code and cited in English, exempt from the Traditional Chinese (Taiwan) requirement. The Constitution's Language Policy rule is generated from this same path set and names the few per-spot exceptions in both directions — trust-zone spots that may use Traditional Chinese (Taiwan), and change-artifact spots that stay English because their content is copied into the trust zone verbatim.\n";
+    "\nThe user's primary language for **change artifacts** (`.prospec/changes/**`, `.prospec/archive/**`, `.prospec/abandoned/**`, `prospec/specs/_archived-history/**`) is **Traditional Chinese (Taiwan)**, and requests may be phrased in it. The trust zone (`prospec/CONSTITUTION.md`, `prospec/README.md`, `prospec/index.md`, `prospec/specs/product.md`, `prospec/specs/features/**`, `prospec/ai-knowledge/**`) always remains in English, as do code, identifiers, technical terms, and git commit messages — it is technical documentation read next to the code and cited in English, exempt from the Traditional Chinese (Taiwan) requirement. The Constitution's Language Policy rule is generated from this same path set and names the few per-spot exceptions in both directions — trust-zone spots that may use Traditional Chinese (Taiwan), and change-artifact spots that stay English because their content is copied into the trust zone verbatim.\n";
   const PINNED_ENGLISH_ENTRY =
     "\nAll generated documents — code, identifiers, technical terms, and git commit messages included — are written in English (see the Constitution's Language Policy rule).\n";
 

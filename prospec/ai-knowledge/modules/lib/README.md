@@ -1,6 +1,6 @@
 # Shared Kernel
 
-> Config, I/O, templates, scanning, detection, drift engine, status routing, knowledge reads, station engines (66 files)
+> Config, I/O, templates, scanning, detection, drift engine, status routing, knowledge reads, station engines (70 files)
 <!-- prospec:module-readme-format 2026-09-01 -->
 
 <!-- prospec:auto-start -->
@@ -9,6 +9,7 @@
 
 | File | Purpose |
 |------|---------|
+| `work-preservation.ts` / `abandon-history.ts` / `abandon-paths.ts` / `archive-paths.ts` | Project-scoped capture/recheck; dedicated abandoned root/entry resolution; successful archive naming |
 | `config.ts` | read/writeConfig, resolveBasePaths, resolveKnowledgeTokenBudget (shipped skill/reference budgets always resolve to DEFAULT), the two language resolvers (`resolveArtifactLanguage` / `resolveTrustZoneLanguage`, each defaulting to English); `resolvePauseAt` (a set `PROSPEC_PAUSE_AT` — empty or `none` = no pause — decides alone, else `workflow.pause_at`; an invalid value throws `PauseAtInvalid`) and `readPauseAtFallback` (the pause setting of a config that failed validation; an unreadable or unparseable file pauses everywhere and says why) |
 | `project-runner.ts` | Multi-ecosystem test command resolution (`resolveProjectTestCommand`, `detectTestCommand`): declared `test_command` → declared package manager + `scripts.test` → manifest detection (Rust, Python, Go, Node lockfile, Makefile) → honest `null`; the review circuit breaker is a station engine — see the sub-module below |
 | `fs-utils.ts` / `yaml-utils.ts` | atomicWrite (string or Buffer, optional file mode applied after the write so the umask cannot mask it), ensureDir, readFileIfExists (ENOENT→''); parse/stringifyYaml, escapeYamlScalar, mergeIntoDocument (comment-preserving) |
@@ -57,6 +58,8 @@ The drift and station engines are detailed in the linked sub-modules; other sing
 - `renderTemplate()`/`atomicWrite()` hit every service + CLI formatter; `knowledge-reader.ts` reaches mcp.service/drift-sources/check.service.
 
 ## Pitfalls
+
+- Preservation uses separate binary patches and raw changed bytes, including nonignored `.prospec` inputs except its own destination. Git reads have a 30-second timeout; `captureGitState` avoids content scans that refresh index stat data. History and linked Premise inputs share `abandon-paths.ts` under `.prospec/abandoned/`, refusing linked roots and never falling back to successful archive. A completed record needs validated metadata and manifest; `assertNoIncompleteAbandon` blocks a partial source in both forward admission and abandon, including across UTC dates. `premise.ts` captures linked metadata/manifest bytes and rechecks them before advancing.
 
 - `premise.ts` owns structural assessment plus contained metadata/proposal capture. All readers and advancing writers share it; writers call the returned `recheck()` immediately before their first write. Its metadata projection validates only scale/version so archive retains pre-schema legacy compatibility; writer-specific completeness checks still apply. `markdown-fences.fencedCodeBlocks` locates YAML using the existing fence scanner.
 

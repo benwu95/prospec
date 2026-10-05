@@ -35,7 +35,11 @@ Keys and enum values stay English; narrative values follow this proposal's artif
 
 Required values must be substantive; blanks, placeholders and NEEDS CLARIFICATION remain blocked. Duplicate sections/keys/blocks, unknown keys, YAML aliases and unclosed fences are invalid. Fenced examples elsewhere do not satisfy the real section.
 
-New scaffolds declare `premise_version: 1` in CLI-owned metadata and remain pending until authored. `prospec validate proposal <change>` reads that metadata and the proposal together: new standard/full changes require ready; quick/backfill are exempt; absent version is legacy with a visible limitation. Unknown versions or unreadable metadata refuse rather than become legacy. Validation checks structure only, never source authenticity or evidence truth, and never runs reproduction steps. A blocked result returns to explore, then new-story updates the same proposal. All autonomous inferences still belong in Stated Assumptions.
+New scaffolds declare `premise_version: 1` in CLI-owned metadata and remain pending until authored. `prospec validate proposal <change>` reads that metadata and the proposal together: new standard/full changes require ready; after the retry check below, quick/backfill are exempt; absent version is legacy with a visible limitation. Unknown versions or unreadable metadata refuse rather than become legacy. Validation checks structure only, never source authenticity or evidence truth, and never runs reproduction steps. A blocked result returns to explore, then new-story updates the same proposal. All autonomous inferences still belong in Stated Assumptions.
+
+### Retrying an abandoned attempt
+
+For CLI-linked `retry_of`, author substantive `retry_difference` against prior reasons before exemptions: quick/backfill allow a difference-only Premise; other requirements remain. Missing/changed links refuse. Structural validation cannot predict success. Issue matching normalizes whitespace, not URL aliases; absent issues never match.
 
 ### 1. Background (Why)
 

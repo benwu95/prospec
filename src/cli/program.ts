@@ -15,6 +15,7 @@ import { registerKnowledgeVerifyCommand } from './commands/knowledge-verify.js';
 import { registerAgentCommand } from './commands/agent-sync.js';
 import { registerConfigCommand } from './commands/config.js';
 import { registerChangeCommand } from './commands/change-story.js';
+import { registerChangeAbandonCommand } from './commands/change-abandon.js';
 import { registerChangePlanCommand } from './commands/change-plan.js';
 import { registerChangeTasksCommand } from './commands/change-tasks.js';
 import { registerChangeLogCommand } from './commands/change-log.js';
@@ -99,6 +100,7 @@ export function createProgram(): Command {
   registerAgentCommand(program);
   registerConfigCommand(program);
   registerChangeCommand(program);
+  registerChangeAbandonCommand(program);
   registerChangePlanCommand(program);
   registerChangeTasksCommand(program);
   registerChangeLogCommand(program);

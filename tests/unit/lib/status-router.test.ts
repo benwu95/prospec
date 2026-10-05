@@ -57,6 +57,13 @@ function facts(overrides: Partial<ChangeRouteFacts> = {}): ChangeRouteFacts {
 }
 
 describe('status-router — lifecycle edges', () => {
+  it.each(['quick', 'backfill'] as const)('routes blocked %s retry to exploration before a scale skip', (scale) => {
+    expect(routeChange(facts({ scale, premise: { state: 'blocked', findings: ['retry_difference'], remedy: 'repair', limitation: '' } }))).toMatchObject({ next: 'explore', code: 'PREMISE_INCOMPLETE' });
+  });
+  it('treats abandoned as terminal even with an incomplete premise', () => {
+    const route = routeChange(facts({ status: 'abandoned', premise: { state: 'blocked', findings: ['missing'], remedy: 'repair', limitation: '' } }));
+    expect(route).toMatchObject({ next: null, code: 'TERMINAL', blockingGates: [] });
+  });
   it('story (standard) → plan', () => {
     const route = routeChange(facts());
     expect(route.current).toBe('story');
@@ -687,6 +694,7 @@ describe('status-router — full status × scale matrix stays lifecycle-consiste
     implemented: { quick: 'review', standard: 'review', full: 'review', backfill: 'review' },
     verified: { quick: 'archive', standard: 'archive', full: 'archive', backfill: 'archive' },
     archived: { quick: null, standard: null, full: null, backfill: null },
+    abandoned: { quick: null, standard: null, full: null, backfill: null },
   };
 
   for (const status of CHANGE_STATUSES) {
@@ -707,7 +715,7 @@ describe('status-router — full status × scale matrix stays lifecycle-consiste
   it('routes every non-archived null next to a HUMAN_HALT_CODES code', () => {
     const halts = new Set<string>();
     for (const status of CHANGE_STATUSES) {
-      if (status === 'archived') continue;
+      if (status === 'archived' || status === 'abandoned') continue;
       for (const scale of CHANGE_SCALES) {
         for (const pauseAtPlan of [false, true]) {
           for (const planSignedOff of [false, true]) {

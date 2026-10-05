@@ -1,6 +1,6 @@
 # Command Services
 
-> Business logic — one `execute(options) → Promise<Result>` per command + shared helpers (37 files)
+> Business logic — one `execute(options) → Promise<Result>` per command + shared helpers (38 files)
 <!-- prospec:module-readme-format 2026-09-01 -->
 
 <!-- prospec:auto-start -->
@@ -9,6 +9,7 @@
 
 | File | Purpose |
 |------|---------|
+| `change-abandon.service.ts` | Admission → exclusive `.prospec/abandoned/` claim → preservation → artifact moves → terminal metadata; failures retain actual source/abandoned paths and moved/pending lists |
 | `init.service.ts` / `upgrade.service.ts` | Scaffold config + Constitution + AI Knowledge (per-file skip-if-exists, `.prospec.yaml` last); the provisional `AGENTS.md` uses the SAME render-flag reducer over the selected agents that actually write that file (none → conservative, never `selectedAgents[0]`); resolves both language axes — the trust-zone prompt appears only for a non-English artifact language (default = that language; `--trust-zone-language` sets it without a prompt; CI without the flag keeps English); upgrade records `version`, re-syncs, back-fills missing init docs (never overwrite) + refresh report (stale Language Policy, canonical docs marker) |
 | `cascade.service.ts` | `generateTastemakerSummary`, `formatTastemakerPresentation` (Tastemaker presentation) — no transition evaluator: `prospec status` is the cascade's only next-station oracle |
 | `archive.service.ts` | Archive + spec-sync (Feature Spec / product.md / `feature-map.yaml`) — writer contracts in the Spec Sync sub-module; `syncToFeatureSpecs` takes the change name as a REQUIRED arg (both Change History writers name it through `escapeTableCell`); `dryRun` short-circuits every write and returns `planned`; `generateSummary` adds a `Plan Decision` line whose `graded_by` comes from quality_log alone (a fresh sign-off → its option, `human`; else a schema-valid decision.json recommendation, `in-session` — a decision claiming `human` is not trusted) |
@@ -48,6 +49,8 @@ Also: `quickstart` (init + agentSync), `agent-triggers` + `trigger-localization`
 3. **Change a Result type** — interface → CLI formatter → unit-test assertions.
 
 ## Pitfalls
+
+- Abandonment does not call spec-sync/finalize. Save failures leave source artifacts intact; move/publication failures can split artifacts across directories and require manual reconciliation. Terminal metadata is the sole success marker. Story creation captures normalized same-issue history once, preserves supplied proposal bytes and returns prior reasons, including dry runs.
 
 - Sourced-premise admission is shared through `lib/premise`: plan, tasks, forward status, post-story scale promotion, verify record and archive (including dry-run) refuse blocked inputs before writing. Keep each writer’s existing gates and recheck the capture before its first write. Story creation declares version 1 with pending evidence; results disclose ready/legacy/exempt without claiming evidence truth.
 

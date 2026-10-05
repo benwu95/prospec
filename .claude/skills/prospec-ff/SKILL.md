@@ -73,7 +73,8 @@ Sub-agents are available here, so take the sub-agent path. Should a spawn fail a
 | Scaffold | Run `prospec change story [name] --description "<one-liner>" [--issue <ref>]` (Bash) — creates proposal + metadata (status: story). Pass `--issue` only for a supplied tracker item; this creation-only flag cannot amend an existing change |
 | Scale | Apply `prospec-new-story` Phase 3.5 (criteria + quick veto). Record Draft-First assumptions; interactive mode asks only for an undecided scale. Write via `prospec change scale <scale>` (Bash). Quick → slim proposal form |
 | Populate | Preserve original source independently of verification; use input or actual code investigation as traceable evidence. Read [`references/proposal-format.md`](references/proposal-format.md) on demand, then write User Story and ACs to that format |
-| Premise | Run `prospec validate proposal [name]`. New standard/full must be ready before planning; blocked returns to `prospec-explore`, then `prospec-new-story` updates the same proposal. Quick/backfill are exempt, legacy is explicitly admitted; structural PASS does not establish evidence truth |
+| Retry history | For all scales, read prior abandoned reasons; author Premise `retry_difference` before validation. CLI owns linkage |
+| Premise | Run `prospec validate proposal [name]` per proposal-format. Blocked → `prospec-explore` → `prospec-new-story` updates the same proposal. Structural PASS does not establish evidence truth |
 | Freeze | Freeze substantive acceptance scenarios via `prospec change story [name] --freeze-scenarios` (Bash). Amend via `prospec change story [name] --amend-scenarios --reason "<text>" --expected-digest <sha256>`. Never hand-edit metadata.yaml |
 | Check | INVEST is **advisory**: record concerns via `prospec change log --skill prospec-ff --result WARN --warning "<concern>"` and continue; never pause the Story. `prospec-verify` owns the authoritative audit |
 
@@ -165,13 +166,13 @@ offering the next skill.
 
 ## Escalation Decision (CLI-Owned)
 
-- Stop; present the CLI decision: trigger, lifetime ordinal, exits, recommended action.
-- Never self-authorize: a report warning is not a grant. Log the human's nonempty `Manual override: <reason>` via composed WARN.
-- Grants allow one new attempt per current event and station; replay consumes none, resolution expires grants. Tests remain an independent gate.
-- An unpersisted observation is not a grant target; repair receipt-bound gaps.
-- For re-scope, revise proposal or start a Story; amendment gates remain, without unlocking escalation or regressing status.
-- For abandon, stop and retain artifacts/reasons; rollback requires human approval.
-- Preserve history after PASS, adjacent prose and fenced examples.
+- Present CLI trigger, lifetime ordinal, exits/recommendation; stop.
+- Human `Manual override: <reason>` composed WARN alone grants one event/station attempt; observations/report warnings grant nothing. Replay consumes none; resolution expires grants. Tests remain independent.
+- Re-scope retains amendment gates/status without unlocking escalation. Preserve history, adjacent prose and fenced examples after PASS.
+
+### Abandon an attempt
+
+Run `prospec change abandon <name> --reason <text>`; retain `.prospec/abandoned/` artifacts. `--overturned <field>` identifies disproved leaves. Work preservation precedes movement and terminal metadata; inspect partial-failure paths. Every scale requires retry `retry_difference`.
 
 ## Output Contract
 

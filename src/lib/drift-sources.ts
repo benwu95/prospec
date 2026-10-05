@@ -8,7 +8,7 @@ import { parseDocument, isMap, isScalar } from 'yaml';
 import { DEFAULT_KNOWLEDGE_TOKEN_BUDGET, isShippedBudgetField, type ShippedBudgetField } from '../types/config.js';
 import { withoutFencedBlocks } from './markdown-fences.js';
 import { mergeContent } from './content-merger.js';
-import { ARCHIVE_NATIVE_GLOB, compareLanguagePolicy, type LanguagePolicyComparison } from './language-policy.js';
+import { ARCHIVE_NATIVE_GLOB, ABANDONED_NATIVE_GLOB, compareLanguagePolicy, type LanguagePolicyComparison } from './language-policy.js';
 import type { LanguageScope } from '../types/constitution.js';
 import { parseConstitutionRules } from './constitution-parser.js';
 import { defaultExecutableProbe, unspawnableReason, type ExecutableProbe } from './test-runner.js';
@@ -2516,8 +2516,8 @@ export interface ArtifactLanguageSource {
  * same resolver the Constitution's Language Policy rule is generated from — and
  * is a deliberate SUBSET of it, so it enforces less than the rule states but can
  * never contradict it.
- * `.prospec/archive/**` is excluded: it is gitignored, its content is a copy of
- * what already shipped, and flagging it would be unactionable noise.
+ * Archive and abandoned history are excluded: preserved attempts are historical
+ * records; flagging their copied content would be unactionable noise.
  *
  * The sample is NARROWER than "every `.md` under nativePaths", and the honest
  * framing is definitional, not a list: whatever the canonical scanner filters is
@@ -2565,7 +2565,7 @@ export function collectArtifactLanguage(
   for (const glob of scope.nativePaths) {
     // Keyed on the exported constant, never a twin literal: relocating the
     // archive glob must not silently pull 300+ gitignored copies into scope.
-    if (glob === ARCHIVE_NATIVE_GLOB) continue;
+    if (glob === ARCHIVE_NATIVE_GLOB || glob === ABANDONED_NATIVE_GLOB) continue;
     const absRoot = path.resolve(cwd, glob.replace(/\/\*\*$/, ''));
     // A scope that escapes the repo is refused — but refusing is not the same
     // as finding it clean, so it is recorded rather than skipped over.

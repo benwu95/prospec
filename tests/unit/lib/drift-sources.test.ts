@@ -2730,7 +2730,7 @@ describe('collectArtifactLanguage (REQ-LIB-037)', () => {
     language,
     nativePaths,
   });
-  const NATIVE = ['.prospec/changes/**', '.prospec/archive/**', 'prospec/specs/_archived-history/**'];
+  const NATIVE = ['.prospec/changes/**', '.prospec/archive/**', '.prospec/abandoned/**', 'prospec/specs/_archived-history/**'];
 
   it('reports the source unavailable when the language has no detectable script', () => {
     const src = collectArtifactLanguage(tmpDir, scope(NATIVE, 'Spanish'));
@@ -2766,6 +2766,8 @@ describe('collectArtifactLanguage (REQ-LIB-037)', () => {
     // The scope IS passed `.prospec/archive/**` — exclusion is the collector's
     // decision, so a mutation that stops excluding it turns this red.
     write('.prospec/archive/2026-01-01-x/summary.md', 'English only prose.\n');
+    write('.prospec/abandoned/2026-01-01-x/summary.md', 'English only prose.\n');
+    write('.prospec/abandoned/2026-01-01-x/preservation/work.md', 'English only prose.\n');
     write('.prospec/changes/y/plan.md', '中文計畫。\n');
     const src = collectArtifactLanguage(tmpDir, scope(NATIVE));
     expect(src.files.map((f) => f.path)).toEqual(['.prospec/changes/y/plan.md']);

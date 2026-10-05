@@ -16,7 +16,7 @@ import { realpathSync } from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
 
-export const GIT_READ_SUBCOMMANDS = ['rev-parse', 'ls-files', 'for-each-ref', 'status', 'symbolic-ref', 'reflog'] as const;
+export const GIT_READ_SUBCOMMANDS = ['rev-parse', 'ls-files', 'for-each-ref', 'status', 'symbolic-ref', 'reflog', 'diff'] as const;
 export type GitReadSubcommand = (typeof GIT_READ_SUBCOMMANDS)[number];
 
 /** What building a snapshot needs beyond reads — each run against the snapshot only. */
@@ -47,6 +47,7 @@ const SYMBOLIC_REF_READ_OPTIONS = new Set(['-q', '--short']);
 /** `reflog show` is `log -g`: of log's options only a format is admitted (`--output=<file>` writes). */
 const REFLOG_SHOW_OPTION = /^--format=/;
 const GIT_READ_MAX_BUFFER = 256 * 1024 * 1024;
+export const PRESERVATION_DIFF_FLAGS = ['--binary', '--full-index', '--no-ext-diff', '--no-textconv', '--no-renames'] as const;
 
 /** The inherited environment without the repository-selecting variables, plus `extra`. */
 export function fixedGitEnv(extra: Readonly<Record<string, string>> = {}): NodeJS.ProcessEnv {
@@ -74,6 +75,13 @@ function assertReadInvocation(sub: string, args: readonly string[]): void {
   if (!(GIT_READ_SUBCOMMANDS as readonly string[]).includes(sub)) {
     throw new Error(`git ${sub} is not a read-only subcommand of the delegation path`);
   }
+  if (sub === 'diff') {
+    const separator = args.indexOf('--');
+    const expected = [...PRESERVATION_DIFF_FLAGS, ...(args.includes('--cached') ? ['--cached', 'HEAD'] : [])];
+    if (separator !== expected.length || !expected.every((arg, i) => args[i] === arg) || args.length <= separator + 1) {
+      throw new Error('git diff requires the fixed read-only preservation options and a pathspec');
+    }
+  }
   if (sub === 'symbolic-ref') {
     const options = args.filter((arg) => arg.startsWith('-'));
     const refs = args.filter((arg) => !arg.startsWith('-'));
@@ -96,13 +104,19 @@ function assertReadInvocation(sub: string, args: readonly string[]): void {
 
 /** Run one allowlisted git read in `cwd`; anything outside the set throws before a process starts. */
 export function gitRead(cwd: string, sub: GitReadSubcommand, args: readonly string[] = []): string {
+  return gitReadBuffer(cwd, sub, args).toString('utf8');
+}
+
+/** Preserve raw patch bytes; reads are bounded and never return a partial capture. */
+export function gitReadBuffer(cwd: string, sub: GitReadSubcommand, args: readonly string[] = []): Buffer {
   assertReadInvocation(sub, args);
   return execFileSync('git', ['--no-optional-locks', sub, ...args], {
     cwd,
     stdio: 'pipe',
     env: fixedGitEnv(),
     maxBuffer: GIT_READ_MAX_BUFFER,
-  }).toString('utf8');
+    timeout: 30_000,
+  });
 }
 
 /**
@@ -111,13 +125,7 @@ export function gitRead(cwd: string, sub: GitReadSubcommand, args: readonly stri
  * path that UTF-8 cannot represent fails closed instead of being altered.
  */
 export function gitReadRecords(cwd: string, sub: GitReadSubcommand, args: readonly string[] = []): string[] {
-  assertReadInvocation(sub, args);
-  const raw = execFileSync('git', ['--no-optional-locks', sub, ...args], {
-    cwd,
-    stdio: 'pipe',
-    env: fixedGitEnv(),
-    maxBuffer: GIT_READ_MAX_BUFFER,
-  });
+  const raw = gitReadBuffer(cwd, sub, args);
   const decoded = raw.toString('utf8');
   if (!Buffer.from(decoded).equals(raw)) throw new Error('Git output cannot be represented losslessly');
   if (decoded !== '' && !decoded.endsWith('\0')) throw new Error('Incomplete NUL Git capture');

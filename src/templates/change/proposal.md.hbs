@@ -2,6 +2,16 @@
 
 {{> premise}}
 
+{{#if prior_attempts.length}}
+## Previous Abandoned Attempts
+
+{{#each prior_attempts}}
+- {{this.archive}}: {{this.reason}}
+{{/each}}
+
+Author `retry_difference` in the Premise mapping with the changed evidence or approach before advancing.
+{{/if}}
+
 ## User Story
 
 As a [role/user type],

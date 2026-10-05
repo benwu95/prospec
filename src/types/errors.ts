@@ -8,6 +8,7 @@
  */
 
 import type { CircuitBreakerState, EscalationFailureDetails } from './cascade.js';
+import type { AbandonFailureDetails } from './abandon.js';
 import { PAUSE_AT_ENV_VAR, PAUSE_AT_NONE, PAUSE_STATIONS } from './config.js';
 import { TEST_GATE_NOT_ADJUDICATED, testGateRemediation, type TestGateEntrance } from './station.js';
 
@@ -25,6 +26,16 @@ export class ProspecError extends Error {
     this.name = 'ProspecError';
     this.code = code;
     this.suggestion = suggestion;
+  }
+}
+
+export class AbandonError extends ProspecError {
+  constructor(readonly details: AbandonFailureDetails, cause: unknown) {
+    super(`Abandonment incomplete during ${details.phase}: ${String(cause)}`,
+      'ABANDON_INCOMPLETE',
+      `Inspect source ${details.sourceDir}, abandoned destination ${details.archiveDir}, and preservation ${details.preservationDir}. Compare moved/pending entries with both directories. After checking retained bytes, manually return moved artifacts to the source and retain the partial abandoned entry elsewhere before retrying. Do not overwrite either copy.`,
+      { cause });
+    this.name = 'AbandonError';
   }
 }
 

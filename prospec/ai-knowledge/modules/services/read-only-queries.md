@@ -33,6 +33,8 @@
 
 ## Pitfalls
 
+- Status reads completed abandoned attempts separately from active routes; history alone is clean. Incomplete publication reports a named error and suppresses its residual active source route. Abandoned metadata remaining in the active directory is a named incomplete-location error. Retry Premise failures route every scale to explore.
+
 - Status collects the shared premise assessment before routing. A blocked active change routes to explore after pending escalation has priority; archived remains terminal. Legacy and exempt decisions remain visible and do not certify evidence truth.
 
 - Status passes resolved retry configuration to the shared history reducer and provenance readers. Pending events route through the shared decision; resolved lifetime history and override usage remain visible without writing metadata. Non-retry human halts do not create events.

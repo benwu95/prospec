@@ -3,7 +3,7 @@
 This document is a **reader's guide** to a change's `metadata.yaml`
 (`.prospec/changes/{name}/metadata.yaml`). The file is **CLI-written, skill-read**: every mutation goes through a `prospec` command — `change story` (create),
 `change scale`, `change related-modules`, `change auto-draft` (create), `change status`, `change log` (quality_log append), `verify record`,
-`check --record-review` / `--record-tests`, `archive` — so skills never hand-serialize it.
+`check --record-review` / `--record-tests`, `change abandon`, `archive` — so skills never hand-serialize it.
 What follows documents the shape those commands emit, so a skill reading the file (or
 composing structured CLI input) knows what each field means.
 
@@ -15,10 +15,16 @@ composing structured CLI input) knows what each field means.
 
 ---
 
+## Abandonment and retry
+
+`prospec change abandon <name> --reason <text> [--overturned <field>]` owns terminal `abandoned` and its record: `reason`, `at`, `from_status`, `escalation` (last trigger/ordinal or null), `overturned` (scalar Premise leaves and values), `premise_note`, `manifest`. Artifacts live in `.prospec/abandoned/YYYY-MM-DD-name/`. An operation marker without completed metadata means incomplete publication: inspect before retry.
+
+New Stories link completed same-issue attempts via `retry_of`: `archive` is an ID under `.prospec/abandoned/`, paired with its digest; empty means no matches, absent means legacy. Creation reports reasons and retains supplied proposals; skills author the difference. Abandoned entries are excluded from successful archive/finalize and review-yield.
+
 ## Canonical field order
 
 `name` → `created_at` → `status` → `scale` → `related_modules` → `description` →
-`quality_log` → `review_provenance` → `test_provenance` → `test_attempt` → `delta_spec_provenance` → `issue` → `acceptance`
+`quality_log` → `review_provenance` → `test_provenance` → `test_attempt` → `delta_spec_provenance` → `issue` → `acceptance` → `premise_version` → `retry_of` → `abandonment`
 
 Existing documents containing YAML aliases retain their authored field order: anchor/alias bindings
 take precedence over canonical ordering. Comments and unknown fields remain preserved.
@@ -27,7 +33,7 @@ take precedence over canonical ordering. Comments and unknown fields remain pres
 |-------|----------|-----------|-------|
 | `name` | yes | `prospec change story` (create) | change dir name (kebab-case) |
 | `created_at` | yes | `prospec change story` (create) | full ISO 8601 |
-| `status` | yes | `prospec change plan/tasks/status` + `verify record` (S/A) + `archive` | one of the lifecycle values (`_status-lifecycle.md`), forward-only |
+| `status` | yes | `prospec change plan/tasks/status` + `verify record` (S/A) + `archive` + `change abandon` | one of the lifecycle values (`_status-lifecycle.md`), forward-only |
 | `scale` | no (defaults `standard`) | `prospec change scale`, after user-confirmed assessment; also `change auto-draft` at create time, from the drift check that triggered it | one of the schema's `CHANGE_SCALES` values |
 | `related_modules` | no | `prospec change story` (auto-match or `--related-module`); `change auto-draft` writes the module it attributed, or nothing; `change related-modules` corrects it | bare module names |
 | `description` | no | `prospec change story --description` | one line, plain text |

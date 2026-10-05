@@ -1,6 +1,6 @@
 # Contract Registry
 
-> Zod schemas, errors, frozen registries — the leaf layer every module imports (23 files)
+> Zod schemas, errors, frozen registries — the leaf layer every module imports (24 files)
 <!-- prospec:module-readme-format 2026-09-01 -->
 
 <!-- prospec:auto-start -->
@@ -9,12 +9,13 @@
 
 | File | Purpose |
 |------|---------|
+| `abandon.ts` | Retry linkage, preservation manifest, operation marker and typed partial/success contracts; `change.ts` owns terminal metadata and `errors.ts` owns `AbandonError` |
 | `change.ts` | Change metadata contract — loose read + strict build views (incl. acceptance baseline schemas `AcceptanceBaselineSchema`, `AcceptanceRevisionSchema`, `AcceptanceScenarioSchema`, shared `computeAcceptanceDigest` validating revision content, `NewQualityLogEntrySchema` with the sink-only `verifier_verdict` stamp (and, on a plan verifier entry, the `audited_option` it audited), the sign-off-only `signoff_option` stamp over `PLAN_DECISION_OPTIONS`, the optional `round` int≥0 that tags a `prospec-review` counts entry — the upsert idempotency key AND the discriminator that tells a merge-written counts entry from a round-less close entry — and `PLANNING_VERDICTS`), `BareModuleNameSchema`, `issue`; its registry half (statuses, scales, artifact matrix, gate/grade enums) is in the sub-module |
 | `cascade.ts` | Review-loop and Tastemaker contracts — `CircuitBreakerConfigSchema` (+ `REVIEW_ROUNDS_MIN/MAX`, `maxConsecutiveTestFailures` default 3 — the single threshold source the streak reducer and breaker share), `TestFailureStreakSchema` / `EMPTY_TEST_FAILURE_STREAK`, `PersistentTestFailureDiagnosticsSchema`, `CircuitBreakerStateSchema`, `OscillationRecordSchema`, `EscalationReportSchema`, `TastemakerPresentationSchema`, the `CascadeScale` alias (kept as a spec-listed export; no consumer since the transition evaluator left); no station list — `SDD_STATIONS` (`status.ts`) is the only station vocabulary |
 | `config.ts` | `ProspecConfigSchema` (`.prospec.yaml`, `.loose()`), `DEFAULT_KNOWLEDGE_TOKEN_BUDGET`/`KnowledgeSizeBudget` (7 thresholds; `SHIPPED_BUDGET_FIELDS` names the two the schema strips), `KnowledgeSizeKind`, `test_command`, `skill_exclusions` (same shape as `skill_triggers`, optional), `workflow.pause_at` (declared shape-agnostic, so a mistyped value never makes the whole config unreadable — `resolvePauseAt` validates it) beside `PAUSE_STATIONS` / `PAUSE_AT_ENV_VAR` / `PAUSE_AT_NONE`, `knowledge.generated_artifacts` (staleness exclusion globs — `.optional()` with NO schema `.default()`, since a default lands in the OUTPUT type and breaks every typed `ProspecConfig` literal; each consumer supplies `?? []`) |
 | `constitution.ts` | `ConstitutionRule` (RFC-2119 severity + name/description/rationale/check/`stations`) and `formatVerifyHint` — the one `**Verify**:` renderer init and upgrade share; `LanguageScope` (both zone languages, `nativePaths` / `trustZonePaths`, plus BOTH exception directions — `namedExceptions` / `trustZoneExceptions`; no language name hardcoded) |
 | `drift-report.ts` | `DriftReportSchema` (optional versioned snapshot trace), `DRIFT_CHECK_SCOPES` (every check `change` or `repository` — a `Record<DriftCheckId, …>`, so a new id must declare one), the additive `checks[].subjects` a change-scoped check enumerates (and `subject_skips` for the ones it could not grade), `InputSnapshot` / `CurrentDriftAssessment` read-only gate contracts — its frozen id list and `knowledge_health` shape are in the sub-module |
-| `errors.ts` | `ProspecError` base + 19 error subclasses (incl. `DelegationRefusedError` — one `code` per operation: issue, receive, fail, settle —, `InvalidTransitionError`, `PauseAtInvalid` — names the source and value and the valid stations, `TestGateError` — entrance, actual reason, target-scoped remediation, optional tripped `CircuitBreakerState`, `warningRecorded` for the warning-only partial outcome) |
+| `errors.ts` | `ProspecError` base + 20 error subclasses (incl. `DelegationRefusedError` — one `code` per operation: issue, receive, fail, settle —, `InvalidTransitionError`, `PauseAtInvalid` — names the source and value and the valid stations, `TestGateError` — entrance, actual reason, target-scoped remediation, optional tripped `CircuitBreakerState`, `warningRecorded` for the warning-only partial outcome) |
 | `knowledge.ts` | `index.md` columns (INDEX_TABLE_COLUMNS) + header/separator helpers — reorderable in one edit, `INDEX_COLUMN` pinned to its order by a contract test |
 | `module-map.ts` | `ModuleMapSchema`, `ModuleEntry` (incl. optional `last_verified` — load-bearing: a field absent from the schema is stripped by the validating reader before staleness can read it), `ModuleRelationships` |
 | `skill.ts` / `station-references.ts` | Skill and agent registries, plus `STATION_REFERENCES` — the ONE map from a shipped skill to its reference files, each one's load point, purpose and scale/UI applicability (`skill.ts` re-exports it; `skillHasReferences` derives from it, never a second flag); closed host `InvocationProfile` metadata and `mergeGroupInvocationGuidance` for shared entry-config output; a closed `skillContentLifecycle` per host (`persistent-reattach` / `tool-output` / `unknown`; a declared value carries a dated source inline, absence of one stays `unknown`), merged by the same per-key reducer registry and projected by `renderFlagContext`; every `description` ends in a negative-scope clause and `exclude` holds its short-phrase English baseline (translation source only, never rendered) |
@@ -53,6 +54,10 @@ Also: `auto-draft.ts` (drift-drafting options/result, incl. the `created | skipp
 - Imported everywhere: a schema change ripples to every consumer — config → `lib/config.ts`, errors → `cli/formatters/error-output.ts`. Registry ripple is in the sub-module.
 
 ## Pitfalls
+
+- Abandon JSON retains `retry_of[].archive` as an entry ID relative to `.prospec/abandoned/`; result/error `archiveDir` is the actual abandoned destination, not a successful archive path.
+
+- `abandoned` is terminal and gate-owned; it is not a station. Missing `retry_of` is legacy, while new creators write an explicit array. Keep light-scale `retry_difference` admission ahead of exemptions.
 
 - `premise.ts` owns the strict premise schema and assessment contract. `premise_version: 1` opts a change into it; absence means legacy. `RouteTarget` adds `explore` without extending lifecycle stations or statuses; derive route skill identities from `ROUTE_TARGET_SKILLS`.
 
