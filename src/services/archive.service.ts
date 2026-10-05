@@ -1,7 +1,9 @@
+import { reduceEscalationHistory, upsertEscalationHistory } from '../lib/escalation.js';
+import type { EscalationHistory } from '../types/change.js';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { ensureDir, atomicWrite } from '../lib/fs-utils.js';
-import { readConfig, resolveBasePaths } from '../lib/config.js';
+import { readConfig, resolveBasePaths, resolveMaxStationRetries } from '../lib/config.js';
 import { parseYaml, stringifyYaml } from '../lib/yaml-utils.js';
 import { parseTaskLine } from '../lib/task-markers.js';
 import { isArchivedSpec, isSafeResourceName, loadModuleMap, loadFeatureSpecContent } from '../lib/knowledge-reader.js';
@@ -14,7 +16,7 @@ import { constitutionFallbackModuleMap } from '../lib/drift-checker.js';
 import { renderTemplate } from '../lib/template.js';
 import { escapeTableCell, findTable } from '../lib/markdown-table.js';
 import { stripTrailingCr } from '../lib/text-lines.js';
-import { isProvenBackfill, latestFreshPlanSignoff, normalizeIssueRef } from '../lib/change-metadata.js';
+import { isProvenBackfill, latestFreshPlanSignoff, normalizeIssueRef, readArchivedQualityLog } from '../lib/change-metadata.js';
 import {
   assessDrops,
   classifyBlockTerminator,
@@ -401,7 +403,7 @@ export async function moveToArchive(
  * without a sign-off entry is not trusted. Every value is an enum, so nothing a file
  * carries can inject a line break into the committed history.
  */
-function resolvePlanDecisionLine(rawLog: unknown, archiveDir: string): string | undefined {
+function resolvePlanDecisionLine(rawLog: unknown, archiveDir: string, history: EscalationHistory): string | undefined {
   const log = Array.isArray(rawLog)
     ? rawLog.flatMap((raw) => {
         if (raw === null || typeof raw !== 'object') return [];
@@ -417,7 +419,7 @@ function resolvePlanDecisionLine(rawLog: unknown, archiveDir: string): string | 
         }];
       })
     : [];
-  const signedOff = latestFreshPlanSignoff(log);
+  const signedOff = latestFreshPlanSignoff(log, history);
   if (signedOff !== null) return `${signedOff} (graded_by: human)`;
   const decision = parseDecision(readCandidateFiles(archiveDir).decision);
   return decision.state === 'valid' ? `${decision.payload.recommended_option} (graded_by: in-session)` : undefined;
@@ -431,6 +433,7 @@ export async function generateSummary(
   archiveDir: string,
   changeName: string,
   createdDate: string,
+  maxStationRetries: number,
 ): Promise<{ content: string; affectedModules: string[] }> {
   // Read proposal.md for User Story
   const proposalPath = path.join(archiveDir, 'proposal.md');
@@ -473,6 +476,7 @@ export async function generateSummary(
 
   // Read metadata for quality grade and the external-tracker registration
   const metadataPath = path.join(archiveDir, 'metadata.yaml');
+  const history = reduceEscalationHistory(readArchivedQualityLog(metadataPath, changeName), maxStationRetries);
   let qualityGrade = 'Unverified';
   let issue: string | undefined;
   let planDecision: string | undefined;
@@ -488,7 +492,7 @@ export async function generateSummary(
     // `- **Quality Grade**:` row below the real one. It also absorbs the lenient
     // read here (a non-string value reads as nothing registered).
     issue = normalizeIssueRef(meta.issue);
-    planDecision = resolvePlanDecisionLine(meta.quality_log, archiveDir);
+    planDecision = resolvePlanDecisionLine(meta.quality_log, archiveDir, history);
   }
 
   const today = new Date().toISOString().slice(0, 10);
@@ -515,7 +519,7 @@ ${reqTable}
 - **Tasks**: ${taskStats}
 `;
 
-  return { content, affectedModules };
+  return { content: upsertEscalationHistory(content, history), affectedModules };
 }
 
 /**
@@ -1591,6 +1595,7 @@ export async function execute(options: ArchiveOptions): Promise<ArchiveResult> {
           artifactsDir,
           change.name,
           createdDate,
+          resolveMaxStationRetries(configObj),
         );
         const summaryPath = path.join(archiveDir, 'summary.md');
         if (dryRun) {
@@ -2381,7 +2386,8 @@ export async function executeFinalize(
       'Re-run `prospec archive <name>` to scaffold it, then overwrite it with the Phase 2 summary',
     );
   }
-  const summaryContent = fs.readFileSync(summaryPath, 'utf-8');
+  const originalSummary = fs.readFileSync(summaryPath, 'utf-8');
+  let summaryContent = originalSummary;
   if (!/^##\s+Review\s*&\s*Verify/m.test(summaryContent)) {
     throw new PrerequisiteError(
       `summary.md in ${archiveDirName} has no \`## Review & Verify\` section — it still looks like the scaffold`,
@@ -2391,6 +2397,8 @@ export async function executeFinalize(
 
   const config = await readConfig(cwd);
   const { specsPath } = resolveBasePaths(config, cwd);
+  const escalationHistory = reduceEscalationHistory(readArchivedQualityLog(path.join(archiveDir, 'metadata.yaml'), options.name), resolveMaxStationRetries(config));
+  summaryContent = upsertEscalationHistory(summaryContent, escalationHistory);
   const historyDir = path.join(specsPath, '_archived-history');
   const historyPath = path.join(historyDir, `${archiveDirName}.md`);
   const relHistoryPath = path.relative(cwd, historyPath).replace(/\\/g, '/');
@@ -2402,6 +2410,12 @@ export async function executeFinalize(
       detail: 'copy the finalized summary.md into the committed spec history',
     },
   ];
+
+  if (summaryContent !== originalSummary) planned.unshift({
+    action: 'update',
+    target: path.relative(cwd, summaryPath).replace(/\\/g, '/'),
+    detail: 'refresh the finalized summary escalation history from metadata',
+  });
 
   // Counter reconciliation across every active feature spec — recounting from
   // the body is idempotent and also corrects pre-existing drift (PB-004).
@@ -2443,6 +2457,7 @@ export async function executeFinalize(
 
   if (!dryRun) {
     await ensureDir(historyDir);
+    if (summaryContent !== originalSummary) await atomicWrite(summaryPath, summaryContent);
     await atomicWrite(historyPath, summaryContent);
     for (const rewrite of rewrites) {
       await atomicWrite(rewrite.absolute, rewrite.content);

@@ -8,6 +8,7 @@ import { forbiddenArtifacts, isStatusBefore } from '../types/change.js';
 import { AGENT_CONFIGS } from '../types/skill.js';
 import { RELATED_MODULE_HALT_CONDITION } from './knowledge-sync.js';
 import type { ValidAgent } from '../types/config.js';
+import { applicableGrant, escalationDecision } from './escalation.js';
 
 /**
  * The executable copy of `prospec/ai-knowledge/_status-lifecycle.md` — a pure,
@@ -85,6 +86,7 @@ export function routeChange(facts: ChangeRouteFacts): ChangeRoute {
     ...(facts.unresolvedWarnings === undefined || facts.unresolvedWarnings.length === 0
       ? {}
       : { unresolvedWarnings: facts.unresolvedWarnings }),
+    ...(facts.escalationHistory === undefined ? {} : { escalationHistory: facts.escalationHistory }),
   } satisfies Omit<ChangeRoute, 'next' | 'code' | 'blockingGates' | 'reasons'>;
 
   // A scale with neither a plan nor a task list has NO forward planning station:
@@ -106,6 +108,26 @@ export function routeChange(facts: ChangeRouteFacts): ChangeRoute {
       reasons: [
         `scale: ${facts.scale} — its contract has no plan and no task list, so the lifecycle entry is the promotion itself; \`status: ${facts.status}\` is before \`implemented\`, so that promotion has not landed`,
       ],
+    };
+  }
+
+  const history = facts.escalationHistory;
+  if (facts.status !== 'archived' && history?.pending != null) {
+    const pending = history.pending;
+    const decision = escalationDecision({
+      event_id: pending.event_id, station: pending.station,
+      trigger: pending.trigger, ordinal: history.events.length,
+    });
+    const grant = applicableGrant(history, pending.station);
+    const station = pending.station.slice('prospec-'.length) as 'plan' | 'tasks' | 'review' | 'verify';
+    return {
+      ...base, escalation: decision,
+      next: grant === undefined ? null : station,
+      code: grant === undefined ? 'ESCALATE_TO_HUMAN' : 'LIFECYCLE_NEXT',
+      blockingGates: grant === undefined
+        ? ['Present the CLI exits to the developer; a break-glass grant requires an explicit nonempty reason for this event and station']
+        : ['One new accepted attempt is authorized; existing test and live-evidence gates still apply'],
+      reasons: [`${pending.trigger}: ${history.events.length} lifetime escalation event(s); recommended: ${decision.recommended}`],
     };
   }
 
@@ -140,7 +162,7 @@ export function routeChange(facts: ChangeRouteFacts): ChangeRoute {
       // anything is built on it. Superseded only by a later PASS or Break-Glass
       // WARN — the service applies that reading, the router just trusts the fact.
       if (facts.lastPlanVerifierResult === 'FAIL') {
-        if (facts.planFlawsStreak >= facts.maxStationRetries) {
+        if (history === undefined && facts.planFlawsStreak >= facts.maxStationRetries) {
           return {
             ...base,
             next: null,
@@ -232,7 +254,7 @@ export function routeChange(facts: ChangeRouteFacts): ChangeRoute {
 
     case 'tasks': {
       if (facts.lastTasksVerifierResult === 'FAIL') {
-        if (facts.tasksFlawsStreak >= facts.maxStationRetries) {
+        if (history === undefined && facts.tasksFlawsStreak >= facts.maxStationRetries) {
           return {
             ...base,
             next: null,
@@ -296,7 +318,7 @@ export function routeChange(facts: ChangeRouteFacts): ChangeRoute {
       }
       const belowBar = gradeBelowBar(facts.lastVerifyGrade);
       if (belowBar) {
-        if (facts.verifyBelowBarStreak >= facts.maxStationRetries) {
+        if (history === undefined && facts.verifyBelowBarStreak >= facts.maxStationRetries) {
           reasons.push(
             `prospec-verify has produced below-bar grades ${facts.verifyBelowBarStreak} consecutive times (limit: ${facts.maxStationRetries}, latest: ${facts.lastVerifyGrade}) — escalating to human; fix the WARN/FAIL items and re-run prospec-verify`,
           );
@@ -332,7 +354,7 @@ export function routeChange(facts: ChangeRouteFacts): ChangeRoute {
       // route: a re-verify that landed B/C/D means the change is not archivable
       // until a fresh S/A — say so here, not at the archive refusal.
       if (gradeBelowBar(facts.lastVerifyGrade)) {
-        if (facts.verifyBelowBarStreak >= facts.maxStationRetries) {
+        if (history === undefined && facts.verifyBelowBarStreak >= facts.maxStationRetries) {
           return {
             ...base,
             next: null,

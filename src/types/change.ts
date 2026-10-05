@@ -32,6 +32,116 @@ export const CANDIDATE_IDS = ['option-a', 'option-b', 'option-c'] as const;
 export const PLAN_DECISION_OPTIONS = [...CANDIDATE_IDS, 'hybrid'] as const;
 export type PlanDecisionOption = (typeof PLAN_DECISION_OPTIONS)[number];
 
+/** Retry escalations only: sign-off and knowledge-input halts have other owners. */
+export const ESCALATION_TRIGGERS = [
+  'oscillation', 'max_rounds_exceeded', 'unrecoverable_critical',
+  'persistent_test_failure', 'fix_induced_threshold_exceeded', 'station_retry_limit_exceeded',
+] as const;
+export const ESCALATION_STATIONS = [
+  'prospec-plan', 'prospec-tasks', 'prospec-review', 'prospec-verify',
+] as const;
+export type EscalationTrigger = (typeof ESCALATION_TRIGGERS)[number];
+export type EscalationStation = (typeof ESCALATION_STATIONS)[number];
+
+const EscalationAnchorShape = {
+  event_id: z.string().min(1),
+  station: z.enum(ESCALATION_STATIONS),
+};
+/** Append-only transitions, separate from verdicts, counts and round closes. */
+export const EscalationRecordSchema = z.discriminatedUnion('kind', [
+  z.object({
+    ...EscalationAnchorShape, kind: z.literal('trigger'), trigger: z.enum(ESCALATION_TRIGGERS),
+    legacy: z.boolean().optional(),
+    /** Position of a legacy source preserved before its counts row is replaced. */
+    source_index: z.number().int().nonnegative().optional(),
+  }),
+  z.object({ ...EscalationAnchorShape, kind: z.literal('resolve') }),
+  z.object({
+    ...EscalationAnchorShape, kind: z.literal('override'), grant_id: z.string().min(1),
+    reason: z.string().refine((value) => value.trim().length > 0, 'An override needs a nonempty reason'),
+  }),
+  z.object({
+    ...EscalationAnchorShape, kind: z.literal('consume'), grant_id: z.string().min(1),
+    attempt_id: z.string().min(1),
+  }),
+]);
+export type EscalationRecord = z.infer<typeof EscalationRecordSchema>;
+
+export interface EscalationEvent {
+  event_id: string;
+  station: EscalationStation;
+  trigger: EscalationTrigger;
+  ordinal: number;
+  legacy: boolean;
+  source_index?: number;
+}
+export interface EscalationGrant {
+  event_id: string | null;
+  station: EscalationStation;
+  grant_id: string | null;
+  reason: string;
+  consumed_by: string | null;
+  legacy?: boolean;
+  expired?: boolean;
+}
+export interface EscalationHistory {
+  events: EscalationEvent[];
+  pending: EscalationEvent | null;
+  grants: EscalationGrant[];
+  completeness: 'complete' | 'legacy-partial';
+}
+
+/** Lightweight receipt: evidence itself remains in the station artifact. */
+export const AcceptedAttemptSchema = z.object({
+  request_id: z.string().min(1),
+  artifact_digest: z.string().min(1).optional(),
+  base_digest: z.string().min(1).optional(),
+});
+export type AcceptedAttempt = z.infer<typeof AcceptedAttemptSchema>;
+
+/** Each sink collects these causal inputs; the pure identity function performs no I/O. */
+export interface AttemptSpecInputs {
+  proposal: string | null;
+  deltaSpec: string | null;
+  acceptance: NewAcceptanceBaseline | null;
+}
+export interface PlanningAttemptInputs {
+  station: 'prospec-plan' | 'prospec-tasks';
+  /** Canonical serialization of the schema-validated report, never its path. */
+  report: string;
+  warnings: readonly string[];
+  specs: AttemptSpecInputs;
+  plan: string | null;
+  tasks: string | null;
+  candidates: string | null;
+  maxStationRetries: number;
+}
+export interface ReviewAttemptInputs {
+  station: 'prospec-review';
+  round: number;
+  baseRound: number;
+  findings: string;
+  specs: AttemptSpecInputs;
+  breakerConfig: string;
+  testEvidence: string;
+  delegation: string;
+  priorState: string;
+}
+export interface VerifyAttemptInputs {
+  station: 'prospec-verify';
+  dimensions: readonly QualityDimension[];
+  warnings: readonly string[];
+  specs: AttemptSpecInputs;
+  tasks: string | null;
+  assessment: string;
+  testEvidence: string;
+  codeSnapshot: string;
+  contextId: string | null;
+  evidence: string;
+  maxStationRetries: number;
+}
+export type EscalationAttemptInputs = PlanningAttemptInputs | ReviewAttemptInputs | VerifyAttemptInputs;
+
 /** A single verify dimension's outcome. Wider than `GATE_RESULTS`: a dimension
  *  that does not apply to this change's scale is reported `not-applicable`, which
  *  `prospec-verify` mandates over PASS (a quick change has no delta-spec to
@@ -114,6 +224,10 @@ const QualityLogEntryShape = {
   context_id: z.string().optional(),
   baseline_revision: z.number().int().positive().optional(),
   coverage_summary: z.string().optional(),
+  /** CLI-owned retry history, never a station's ordinary gate verdict. */
+  escalation: EscalationRecordSchema.optional(),
+  attempt_id: z.string().min(1).optional(),
+  accepted: AcceptedAttemptSchema.optional(),
 } as const;
 
 /** Strict view — no index signature, so tsc's excess-property check still catches

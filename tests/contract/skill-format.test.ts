@@ -1800,7 +1800,9 @@ describe('Skill Format Contract', () => {
       expect(section).toContain('code: ESCALATE_TO_HUMAN');
       expect(section).toContain('HALT immediately');
       expect(section).toContain('EscalationReport');
-      expect(section).toContain('type: station_retry_limit_exceeded');
+      expect(section).toContain('CLI-produced');
+      expect(section).toContain('persisted lifetime ordinal');
+      expect(section).not.toContain('type: station_retry_limit_exceeded');
     });
 
     // issue #271 — the station-transition guidance branches on the host's declared
@@ -6686,6 +6688,7 @@ describe('Structured quality_log (issue #61)', () => {
         '## What each gate checks (artifact ownership)',
         '## Provenance audit scope',
         '## Rules',
+        '## Persistent Escalation Decisions',
       ]);
       expect(copy).not.toMatch(/introduced_by|escaped-defect|--escaped-defects/i);
     }
@@ -7636,7 +7639,7 @@ describe('opt-in plan sign-off pause and autonomous selection (REQ-TEMPLATES-236
   it('cascade Step 5 HALTs on AWAITING_HUMAN_PLAN_SIGNOFF without an EscalationReport, and leaves the transition table unchanged', () => {
     const cascade = render('skills/references/cascade-protocol.hbs');
     const step5 = oneLine(cascade.split('\n').find((l) => l.includes('**Step 5 [NEXT]**')) ?? '');
-    expect(step5).toMatch(/`code: ESCALATE_TO_HUMAN`, HALT immediately and emit an `EscalationReport`/);
+    expect(step5).toMatch(/`code: ESCALATE_TO_HUMAN`, HALT immediately and emit the CLI-produced `EscalationReport`/);
     expect(step5).toMatch(/`code: AWAITING_HUMAN_PLAN_SIGNOFF`, HALT and present the candidate summary, metrics table, in-session rationale and plan verifier report — it is not a failure, so emit no `EscalationReport`/);
     // REQ-TEMPLATES-195 / #310: the third halt exits the loop too, without a report
     expect(step5).toMatch(/`code: KNOWLEDGE_INPUT_INVALID`, HALT and present the knowledge-sync input its reasons name \(no `EscalationReport`\)/);
@@ -9635,7 +9638,10 @@ describe('one verdict vocabulary, one station route (issue #266 — REQ-TEMPLATE
     ]) {
       const gates = sectionOf(doc, '## Gates (why some transitions are conditional)');
       expect(gates).toContain('--verifier-report');
-      expect(gates).toContain('Manual override:');
+      expect(gates).toContain('never substitutes for a verifier verdict');
+      const escalation = sectionOf(doc, '## Persistent Escalation Decisions');
+      expect(escalation).toMatch(/composed WARN.*nonempty `Manual override:/);
+      expect(escalation).toMatch(/report warnings.*grant nothing/);
       expect(gates).toContain('VERIFY_GRADE_BELOW_BAR');
       expect(gates).toContain('CHECK_UNPROVABLE');
       expect(gates).toMatch(/sibling change/);

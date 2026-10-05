@@ -63,6 +63,26 @@ export async function readFileIfExists(filePath: string): Promise<string> {
   }
 }
 
+/** Capture causal file inputs with an absence sentinel and a fail-closed write fence. */
+export function captureFileInputs(paths: Readonly<Record<string, string>>): {
+  values: Readonly<Record<string, string | null>>;
+  recheck: () => boolean;
+} {
+  const read = (filePath: string): string | null => {
+    try { return fs.readFileSync(filePath, 'utf8'); } catch (error) {
+      if ((error as NodeJS.ErrnoException).code === 'ENOENT') return null;
+      throw error;
+    }
+  };
+  const values = Object.freeze(Object.fromEntries(Object.entries(paths).map(([name, file]) => [name, read(file)])));
+  return {
+    values,
+    recheck: () => {
+      try { return Object.entries(paths).every(([name, file]) => read(file) === values[name]); } catch { return false; }
+    },
+  };
+}
+
 /**
  * Synchronously checks whether a file exists.
  */

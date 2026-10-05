@@ -343,6 +343,30 @@ describe('CLI E2E — station commands', () => {
       expect(stampSection).not.toContain('templates');
     });
 
+    it('review merge --json exposes the shared refusal and one-attempt grant through real commands', async () => {
+      const changeDir = await initChange();
+      const findings = path.join(tmpDir, 'round.json');
+      await fs.promises.writeFile(findings, '[]');
+      await fs.promises.appendFile(path.join(changeDir, 'metadata.yaml'), `
+quality_log:
+  - { skill: prospec-escalation, date: '2026-10-01', result: WARN, escalation: { kind: trigger, station: prospec-review, event_id: e1, trigger: oscillation } }
+  - { skill: prospec-escalation, date: '2026-10-02', result: WARN, escalation: { kind: trigger, station: prospec-review, event_id: e2, trigger: oscillation } }
+`);
+      const refused = await runCli(['review', 'merge', '--findings', findings, '--json']);
+      expect(refused.exitCode).toBe(1);
+      expect(refused.stdout).toBe('');
+      expect(JSON.parse(refused.stderr).error.escalation.decision).toMatchObject({ ordinal: 2, recommended: 're-scope' });
+      const grant = await runCli(['change', 'log', '--skill', 'prospec-review', '--result', 'WARN', '--warning', 'Manual override: inspect one corrected attempt']);
+      expect(grant.exitCode).toBe(0);
+      const accepted = await runCli(['review', 'merge', '--findings', findings, '--json']);
+      expect(accepted.exitCode).toBe(0);
+      expect(JSON.parse(accepted.stdout)).toMatchObject({ totalRows: 0, round: { roundNumber: 1 } });
+      expect(accepted.stderr).toBe('');
+      const replay = await runCli(['review', 'merge', '--findings', findings, '--json']);
+      expect(replay.exitCode).toBe(0);
+      expect(JSON.parse(replay.stdout).replay).toBe(true);
+    });
+
     it('review merge builds the cumulative table and reports round counts', async () => {
       const changeDir = await initChange();
       const findings = path.join(tmpDir, 'round.json');
@@ -1093,7 +1117,7 @@ describe('fresh-test gates through the CLI (REQ-SERVICES-103, REQ-CLI-028, REQ-C
     expect(again.stdout).toContain('already recorded');
     const meta = metadataOf('nocmd');
     expect((meta.match(/skill: prospec-test-gate/g) ?? []).length).toBe(2);
-    expect((meta.match(/skill: prospec-review/g) ?? []).length).toBe(1);
+    expect((meta.match(/skill: prospec-review/g) ?? []).length).toBe(2); // counts + accepted receipt
   });
 
   it('a proven backfill passes with the backfill WARN; scale alone is refused with the remediation', async () => {
@@ -1210,7 +1234,7 @@ describe('fresh-test gates through the CLI (REQ-SERVICES-103, REQ-CLI-028, REQ-C
       const remerge = await runCli(['review', 'merge', '--findings', findingsR1, '--lenses', 'correctness,security']);
       expect(remerge.exitCode).toBe(0);
       metadata = await fs.promises.readFile(metadataFile, 'utf-8');
-      expect((metadata.match(/skill: prospec-review/g) ?? []).length).toBe(1);
+      expect((metadata.match(/skill: prospec-review/g) ?? []).length).toBe(2); // counts + accepted receipt
       expect((metadata.match(/round: 1/g) ?? []).length).toBe(1);
 
       // 3. change log with mismatching counts flag pushes log_mismatch to warnings, coerces result >= WARN, and leaves CLI truth intact
@@ -1224,8 +1248,8 @@ describe('fresh-test gates through the CLI (REQ-SERVICES-103, REQ-CLI-028, REQ-C
       expect(logMismatch.exitCode).toBe(0);
 
       metadata = await fs.promises.readFile(metadataFile, 'utf-8');
-      // Exactly 2 prospec-review entries: round-tagged counts entry + round-less close entry
-      expect((metadata.match(/skill: prospec-review/g) ?? []).length).toBe(2);
+      // Three entries: round-tagged counts, accepted receipt, and round-less close
+      expect((metadata.match(/skill: prospec-review/g) ?? []).length).toBe(3);
       expect(metadata).toContain('round: 1');
       expect(metadata).toContain('criticals_found: 1');
       expect(metadata).not.toContain('criticals_found: 99');
@@ -1234,8 +1258,10 @@ describe('fresh-test gates through the CLI (REQ-SERVICES-103, REQ-CLI-028, REQ-C
       // Close entry has no count fields or round field
       const parsed = parseYaml<{ quality_log: Array<Record<string, unknown>> }>(metadata);
       const reviewEntries = parsed.quality_log.filter((e) => e.skill === 'prospec-review');
-      expect(reviewEntries).toHaveLength(2);
-      const [countsEntry, closeEntry] = reviewEntries;
+      expect(reviewEntries).toHaveLength(3);
+      const [countsEntry, acceptedEntry, closeEntry] = reviewEntries;
+      expect(acceptedEntry?.accepted).toBeDefined();
+      expect(acceptedEntry?.round).toBeUndefined();
       expect(countsEntry).toMatchObject({
         skill: 'prospec-review',
         round: 1,

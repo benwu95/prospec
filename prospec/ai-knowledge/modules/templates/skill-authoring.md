@@ -1,13 +1,13 @@
 # Skill Authoring
 
-> Sub-module of [Template Library](./README.md) — the skill-template contract (17 skills, 8 partials, 31 references) and what `agent sync` deploys from it.
+> Sub-module of [Template Library](./README.md) — the skill-template contract (17 skills, 9 partials, 31 references) and what `agent sync` deploys from it.
 
 ## Key Files
 
 | File | Purpose |
 |------|---------|
 | `skills/prospec-*.hbs` (17) | Skill definitions → `SKILL.md` per agent on `agent sync`; frontmatter description single-sourced from `types/skill.ts`; canonical references use bare `prospec-<name>`, while host-specific syntax is confined to the entry-config matrix |
-| `skills/_*.hbs` (8) | Shared partials: `cli-probe` (the required-CLI probe), `harness-capabilities` (per-agent capability flags + the degradation floor; consumers pass their own `degraded_action`), `next-step-handoff`, `output-summary-note`, `generated-notice`, `language-policy` (path-scoped), `knowledge-loading-rules`, `verifier-rubric-base` (shared LLM-as-Verifier scaffold for the plan/tasks verifier rubrics) |
+| `skills/_*.hbs` (9) | Shared partials: `cli-probe` (the required-CLI probe), `harness-capabilities` (per-agent capability flags + the degradation floor; consumers pass their own `degraded_action`), `next-step-handoff`, `output-summary-note`, `generated-notice`, `language-policy` (path-scoped), `knowledge-loading-rules`, `verifier-rubric-base` (shared LLM-as-Verifier scaffold), `escalation-guidance` (CLI-owned exits, human-only scoped grants and partial-write handling) |
 | `skills/references/*.hbs` (31) | Per-skill format specs + design adapters, rendered to `.md` on demand — `metadata-format` guides the **CLI-written** metadata.yaml; `review-format` pins the 8-column findings table, its evidence section, **and the finding-CONTENT rules** (a Summary claiming mutation verification must name each mutation and its outcome) |
 
 ## Public API

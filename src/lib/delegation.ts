@@ -67,6 +67,13 @@ export interface StoredTicket {
   ticket: DelegationTicket;
 }
 
+/** Causal receipt facts shared by sinks; consumption and wall-clock dates are output lifecycle. */
+export function delegationAttemptInputs(tickets: readonly StoredTicket[], station: DelegationStation) {
+  return tickets.filter(({ ticket }) => ticket.station === station)
+    .map(({ stem, ticket }) => ({ stem, pre_spawn: ticket.pre_spawn, received: !!ticket.received, refusal: ticket.refusal,
+      failure: ticket.failure && { reason: ticket.failure.reason, accepted: ticket.failure.accepted } }));
+}
+
 const stemOf = (ticket: DelegationTicket, attempt = ticket.attempt): string =>
   formatDelegationStem({ station: ticket.station, role: ticket.role, round: ticket.round, attempt });
 const toSecond = (ms: number): number => Math.floor(ms / 1000);

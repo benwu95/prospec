@@ -35,7 +35,7 @@ export function registerStatusCommand(program: Command): void {
           formatStatusOutput(result, logLevel);
         }
       } catch (err) {
-        handleError(err, globalOpts.verbose ?? false);
+        handleError(err, globalOpts.verbose ?? false, options.json);
       }
     });
 }

@@ -18,6 +18,7 @@ import {
 } from './markdown-table.js';
 import { trimTrailingNewlines } from './markdown-fences.js';
 import { EMPTY_TEST_FAILURE_STREAK, type TestFailureStreak } from '../types/cascade.js';
+import { canonicalDigest } from './escalation.js';
 import { PrerequisiteError } from '../types/errors.js';
 
 /**
@@ -340,7 +341,15 @@ const decodeToken = (s: string): string => {
   }
 };
 
+export interface ReviewAttemptReceipt {
+  request_id: string;
+  attempt_id: string;
+  base_digest: string;
+  artifact_digest: string;
+}
+
 export interface ReviewMetrics {
+  receipt?: ReviewAttemptReceipt;
   round?: number;
   loopBase?: number;
   provenanceDigest?: string;
@@ -369,6 +378,15 @@ function readTestFailureAttributes(attrs: Record<string, string>): Pick<ReviewMe
     : attrs.test_failure_ids.split(',').map((s) => decodeToken(s.trim()));
   if (ids.some((id) => id === '')) return null;
   return { consecutiveTestFailures: parseInt(attrs.test_failures, 10), testFailureAttemptIds: ids };
+}
+
+function receiptFromAttributes(attrs: Record<string, string>): ReviewAttemptReceipt | undefined {
+  const keys = ['request_id', 'attempt_id', 'base_digest', 'artifact_digest'] as const;
+  if (keys.every(key => attrs[key] === undefined)) return undefined;
+  if (keys.some(key => !new RegExp(key === 'attempt_id' ? '^prospec-review:[a-f0-9]{64}$' : '^[a-f0-9]{64}$').test(attrs[key] ?? ''))) {
+    throw new PrerequisiteError('review.md carries an incomplete or malformed attempt receipt', 'Restore the last CLI-written review.md before retrying');
+  }
+  return Object.fromEntries(keys.map(key => [key, attrs[key]])) as unknown as ReviewAttemptReceipt;
 }
 
 function metricsFromAttributes(attrs: Record<string, string>): ReviewMetrics {
@@ -440,7 +458,7 @@ export function parseReviewMetricsStrict(content: string): ReviewMetrics {
       'Repair or remove the `test_failures` / `test_failure_ids` attributes by hand, then re-run the merge',
     );
   }
-  return metricsFromAttributes(attrs);
+  return { ...metricsFromAttributes(attrs), receipt: receiptFromAttributes(attrs) };
 }
 
 /** The bounded streak a metrics record carries; legacy records read as empty. */
@@ -514,6 +532,9 @@ export function renderReviewMetricsComment(metrics: ReviewMetrics): string {
       attrs.push(`test_failure_ids="${streak.testFailureAttemptIds.map(encodeToken).join(',')}"`);
     }
   }
+  if (metrics.receipt) {
+    for (const [key, value] of Object.entries(metrics.receipt)) attrs.push(`${key}="${value}"`);
+  }
   return attrs.length > 0 ? `<!-- prospec:review-metrics ${attrs.join(' ')} -->\n` : '';
 }
 
@@ -534,6 +555,20 @@ export function replaceReviewMetrics(content: string, streak: TestFailureStreak)
     return content.slice(0, match.index) + comment + content.slice(end + newlineAfter);
   }
   return comment + content;
+}
+
+/** Receipt uses the existing metrics owner; its digest excludes only receipt fields. */
+export function withReviewReceipt(content: string, receipt?: ReviewAttemptReceipt): string {
+  const metrics = parseReviewMetricsStrict(content);
+  const comment = renderReviewMetricsComment({ ...metrics, receipt });
+  const match = new RegExp(METRICS_COMMENT.source).exec(content);
+  if (!match) return comment + content;
+  const end = match.index + match[0].length;
+  return content.slice(0, match.index) + comment + content.slice(end + (content[end] === '\n' ? 1 : 0));
+}
+
+export function reviewArtifactDigest(content: string): string {
+  return canonicalDigest(withReviewReceipt(content));
 }
 
 /**
@@ -557,6 +592,7 @@ export function renderReviewDocument(
   const existingMetrics = parseReviewMetrics(before);
   const effectiveMetrics: ReviewMetrics = metrics
     ? {
+        receipt: metrics.receipt,
         round: metrics.round ?? existingMetrics.round,
         loopBase: metrics.loopBase ?? existingMetrics.loopBase,
         provenanceDigest: metrics.provenanceDigest ?? existingMetrics.provenanceDigest,

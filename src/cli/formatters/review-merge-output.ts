@@ -1,3 +1,4 @@
+import { formatEscalationDecision } from './error-output.js';
 import pc from 'picocolors';
 import type { LogLevel } from '../../types/config.js';
 import type { ReviewMergeResult } from '../../services/review-merge.service.js';
@@ -38,7 +39,7 @@ export function formatReviewMergeOutput(
   }
 
   const lines = [
-    `${pc.green('✓')} Merged review round into ${pc.cyan(sanitizeTerminal(result.reviewPath))} (${result.totalRows} row(s) cumulative${evidence})`,
+    `${pc.green('✓')} ${result.replay ? 'Accepted replay; current review is' : 'Merged review round into'} ${pc.cyan(sanitizeTerminal(result.reviewPath))} (${result.totalRows} row(s) cumulative${evidence})`,
     `  round: ${roundMetrics.join(' · ')}`,
   ];
   if (result.criticals.length > 0) {
@@ -59,9 +60,10 @@ export function formatReviewMergeOutput(
     lines.push('');
     lines.push(`${pc.red('🚨 Circuit Breaker Tripped')}: ${pc.bold(sanitizeTerminal(rep.message))}`);
     lines.push(`   Type: ${pc.yellow(sanitizeTerminal(rep.type))}`);
-    if (rep.tradeoffOptions.length > 0) {
+    if (rep.decision) lines.push(...formatEscalationDecision(rep.decision));
+    if (!rep.decision && rep.tradeoffOptions.length > 0) {
       lines.push(`   ${pc.bold('Recommended Trade-off Options')}:`);
-      for (const opt of rep.tradeoffOptions) {
+      for (const opt of rep.decision ? [] : rep.tradeoffOptions) {
         lines.push(`     • ${sanitizeTerminal(opt)}`);
       }
     }

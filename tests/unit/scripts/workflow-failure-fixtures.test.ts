@@ -60,14 +60,14 @@ describe('failed and pending workflow fixtures', () => {
       const report2 = JSON.parse(fixtureCli(fixture.cwd, ['status', '--json']));
       expect(report2.changes[0].next).toBe('verify');
 
-      fixtureCli(fixture.cwd, ['verify', 'record', '--change', 'x', '--dimensions', judgmentPath]);
+      fixtureCli(fixture.cwd, ['verify', 'record', '--change', 'x', '--dimensions', judgmentPath, '--warning', 'Second distinct assessment']);
       // Streak = 3 (N): escalates, MUST NOT route to verify
       const report3 = JSON.parse(fixtureCli(fixture.cwd, ['status', '--json']));
       expect(report3.changes[0].next).toBeNull();
       expect(report3.changes[0].code).toBe('ESCALATE_TO_HUMAN');
 
       // Streak = 4 (N+1): still escalated, cannot re-enter verify
-      fixtureCli(fixture.cwd, ['verify', 'record', '--change', 'x', '--dimensions', judgmentPath]);
+      fixtureCli(fixture.cwd, ['verify', 'record', '--change', 'x', '--dimensions', judgmentPath, '--warning', 'Third distinct assessment']);
       const report4 = JSON.parse(fixtureCli(fixture.cwd, ['status', '--json']));
       expect(report4.changes[0].next).toBeNull();
       expect(report4.changes[0].code).toBe('ESCALATE_TO_HUMAN');

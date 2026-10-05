@@ -49,6 +49,10 @@ Also: `quickstart` (init + agentSync), `agent-triggers` + `trigger-localization`
 
 ## Pitfalls
 
+- Planning, review and verify enforce current-event admission before new verdict writes. Accepted receipts and grant consumption share one metadata write. Review writes artifact→metadata, verify metadata→evidence; each rechecks causal inputs before the next write. Persistent-test refusal persists an event before metrics and never consumes a grant.
+- Planning identity and its write fence use the complete `readCandidateFiles` discovery. Review repair binds the current receipt's causal base before considering older acceptances; exemption revalidation also preserves the original assessment facts, including its content digest. Verify identity and its evidence fence compare the content digest, excluding diagnostic Git cleanliness and HEAD.
+- Verify's second-write fence includes every declared Constitution check and its rule inventory. Evidence with unfenced history markers or unclosed fences is refused before acceptance; complete fenced examples remain verbatim.
+
 - Use `atomicWrite()` (never `writeFileSync`) + `lib/content-merger` for files with user sections.
 - Spec writes (Feature Specs / `product.md` / `feature-map.yaml` / `finalize`) follow the Spec Sync contract — merge or refuse, never regenerate authored text; slice-aware via `loadFeatureSpecContent`.
 - metadata.yaml is built + serialized, never templated; status advances forward-only; metadata is parsed and serialized via `lib/change-metadata`; `archive.service` also reads and stamps it raw (`parseYaml`/`stringifyYaml`).

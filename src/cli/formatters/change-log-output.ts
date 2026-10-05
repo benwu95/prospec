@@ -1,3 +1,4 @@
+import { formatEscalationDecision, formatEscalationHistoryLines } from './error-output.js';
 import pc from 'picocolors';
 import type { LogLevel } from '../../types/config.js';
 import type { ChangeLogResult } from '../../services/change-log.service.js';
@@ -12,10 +13,16 @@ export function formatChangeLogOutput(
 
   const { entry } = result;
   const lines: string[] = [
-    `${pc.green('✓')} Appended quality_log entry to ${pc.cyan(sanitizeTerminal(result.metadataPath))}`,
+    `${pc.green('✓')} ${result.replay ? 'Accepted replay in' : 'Appended quality_log entry to'} ${pc.cyan(sanitizeTerminal(result.metadataPath))}`,
     `  skill: ${sanitizeTerminal(entry.skill)} · date: ${sanitizeTerminal(entry.date)} · result: ${entry.result}` +
       (entry.grade ? ` · grade: ${entry.grade}` : ''),
   ];
+  if (entry.escalation?.kind === 'override') {
+    const grant = entry.escalation;
+    lines.push(`  One scoped grant: event=${sanitizeTerminal(grant.event_id)} · station=${sanitizeTerminal(grant.station)} · one new attempt`,
+      `  reason: ${sanitizeTerminal(grant.reason)}`);
+  }
+  lines.push(...(result.escalation ? formatEscalationDecision(result.escalation) : []), ...formatEscalationHistoryLines(result.escalationHistory));
   if (entry.warnings.length > 0) {
     lines.push(`  warnings: ${entry.warnings.length}`);
   }

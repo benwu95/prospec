@@ -1,6 +1,6 @@
 # Verification Suite
 
-> 4-layer Vitest suite (fast-glob/git bypass memfs — 268 test files, 7,041 tests (unit 5062, contract 1622, integration 153, e2e 204)).
+> 4-layer Vitest suite (fast-glob/git bypass memfs — 274 test files, 7,192 tests (unit 5209, contract 1625, integration 153, e2e 205)).
 <!-- prospec:module-readme-format 2026-09-01 -->
 
 <!-- prospec:auto-start -->
@@ -45,6 +45,8 @@
 - Template/skill/service/CLI changes ripple to contract + E2E expectations; public README or website claims ripple to the section-scoped document contracts; a new station command needs a formatter unit test AND an E2E case.
 
 ## Pitfalls
+
+- Escalation fixtures pin lifetime chronology, same-round changed-input admission, source-content identity without context IDs, one-use grants, partial-write repair and persisted-versus-observed failures. Fault injection checks actual metadata/artifact bytes; history contracts preserve fenced examples and adjacent prose.
 
 - Startup measurements use isolated real-Git status fixtures (no/current/stale report and in-flight change); assert the executed branch, not only a module ceiling, so archive cannot hide a report-dependent path.
 - Invalid UTF-8 path refusal uses a real Git index on macOS and Linux, with additional Linux worktree coverage, keeping both platforms' test counts aligned.

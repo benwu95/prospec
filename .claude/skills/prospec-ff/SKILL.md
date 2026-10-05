@@ -62,14 +62,9 @@ Sub-agents are available here, so take the sub-agent path. Should a spawn fail a
 ### Phase 1: Quick Interview (3 questions to converge)
 
 Collect: Core goal (one sentence), primary user, key acceptance criteria (3-5 points).
-Derive kebab-case change name. STOP. Ask the user to confirm the change name **and, in the same
-question, which tracker item this change belongs to (optional — accept "none")**; do not enter Phase 2
-until a reply is received. Folding the tracker question into the name confirmation is deliberate: it
-is not a fourth interview question, so the three-question ceiling below still holds. The answer is
-free-form (a reference, a URL, another tracker's id) and is written by `prospec change story --issue`
-in Phase 2 — prospec judges nothing about its shape and calls no API (runs of whitespace, line breaks
-included, collapse to one space). No answer means the field is simply
-absent; never invent one, and never derive one from the branch name.
+Derive a kebab-case change name. STOP and ask the user to confirm it **and the optional tracker
+item in the same question** (accept "none"); await their reply before Phase 2. This is not a fourth interview question. Pass their free-form reference to `prospec change story --issue`; prospec judges nothing about its shape, calls no API, and whitespace and line breaks collapse to one space.
+Omit when declined; never invent one or infer it from the branch name.
 
 > **Phase 1 Gate** — proceed when:
 > - [ ] change name (kebab-case) confirmed
@@ -105,12 +100,12 @@ Loading is still read). Status advances `story → tasks` directly
 | Knowledge | Layer 1 (prospec/index.md) → Layer 2 (related module READMEs + any `{sub-module}.md` they link) |
 | Station | Enter the `prospec-plan` station per the Station Transition Protocol and run its phases there: `prospec change plan` scaffold, plan/delta-spec authoring per [`references/plan-format.md`](references/plan-format.md) + [`references/delta-spec-format.md`](references/delta-spec-format.md) (full: the candidate selection with mechanical metrics), and the Architecture Verification ([`references/plan-verifier-rubric.md`](references/plan-verifier-rubric.md) for its dimensions and report schema). This table is the entry checklist, not a second copy of that flow |
 | Receipt | Apply the **Physical Receipt Verification Protocol** in [`references/delegation-protocol.md`](references/delegation-protocol.md) to the verifier report; never fabricate a mock report or a synthetic PASS (zero-mock) |
-| Verdict | Record the report via `prospec change log --skill prospec-plan --verifier-report <file>` — the CLI validates it against the rubric-owned schema (verdict "PASS" | "WARN" | "FLAWS") and records `FLAWS` as `result: FAIL`; an invalid or missing report is refused, never worked around. Then run `prospec status`: a recorded FAIL routes back to plan until a later verifier PASS/WARN, or a documented Break-Glass `--result WARN --warning "Manual override: <rationale>"`, supersedes it |
+| Verdict | Record the report via `prospec change log --skill prospec-plan --verifier-report <file>` — the CLI validates it against the rubric-owned schema (verdict "PASS" | "WARN" | "FLAWS") and records `FLAWS` as `result: FAIL`; an invalid or missing report is refused, never worked around. Then run `prospec status`: a recorded FAIL routes back to plan until a later verifier PASS/WARN; Break-Glass grants permit a bounded retry, never supersede the verifier verdict |
 | Selection | (full) On `AWAITING_HUMAN_PLAN_SIGNOFF`, STOP after plan — present the candidate summary, metrics table, in-session rationale and plan verifier report, and do not generate tasks until the human signs off (`prospec change log --skill prospec-plan --signoff <option>`, never run without an explicit human instruction). Without the pause, keep the in-session selection (`graded_by: in-session`) and continue to Phase 4 — NEVER ask the human to choose |
 
 > **Phase 3 Gate** — proceed when:
 > - [ ] (standard/full) `plan.md` + `delta-spec.md` created, status → `plan`
-> - [ ] (standard/full) Architecture Verifier report recorded via `prospec change log --verifier-report` with result PASS/WARN (or a documented Break-Glass override)
+> - [ ] (standard/full) Architecture Verifier report recorded via `prospec change log --verifier-report` with result PASS/WARN (a Break-Glass grant alone does not satisfy this gate)
 > - [ ] (quick) phase marked skipped per `scale: quick` — no plan artifacts produced
 > - [ ] (full) `prospec status` does not report `AWAITING_HUMAN_PLAN_SIGNOFF` — otherwise ff halts here
 
@@ -120,22 +115,22 @@ Loading is still read). Status advances `story → tasks` directly
 |------|--------|
 | Station | Enter the `prospec-tasks` station per the Station Transition Protocol and run its phases there: `prospec change tasks` scaffold (including the quick `story → tasks` transition), decomposition per [`references/tasks-format.md`](references/tasks-format.md), and the Task Contract Verification ([`references/tasks-verifier-rubric.md`](references/tasks-verifier-rubric.md) for its dimensions and report schema) |
 | Receipt | Apply the **Physical Receipt Verification Protocol** in [`references/delegation-protocol.md`](references/delegation-protocol.md) to the verifier report; never fabricate a mock report or a synthetic PASS (zero-mock) |
-| Verdict | Record the report via `prospec change log --skill prospec-tasks --verifier-report <file>` — the CLI validates it against the rubric-owned schema (verdict "PASS" | "WARN" | "FLAWS") and records `FLAWS` as `result: FAIL`. Then run `prospec status`: a recorded FAIL routes back to tasks until a later verifier PASS/WARN, or a documented Break-Glass `--result WARN --warning "Manual override: <rationale>"`, supersedes it |
+| Verdict | Record the report via `prospec change log --skill prospec-tasks --verifier-report <file>` — the CLI validates it against the rubric-owned schema (verdict "PASS" | "WARN" | "FLAWS") and records `FLAWS` as `result: FAIL`. Then run `prospec status`: a recorded FAIL routes back to tasks until a later verifier PASS/WARN; Break-Glass grants permit a bounded retry, never supersede the verifier verdict |
 
 > **Phase 4 Gate** — proceed when:
 > - [ ] tasks.md created with layer-ordered tasks and kind markers, status → `tasks`
-> - [ ] Task Verifier report recorded via `prospec change log --verifier-report` with result PASS/WARN (or a documented Break-Glass override)
+> - [ ] Task Verifier report recorded via `prospec change log --verifier-report` with result PASS/WARN (a Break-Glass grant alone does not satisfy this gate)
 
 ### Phase 5: Autonomous Execution & Cascading (when cascading active)
 
-**Autonomous Pipeline Cascading**: in cascading mode, execution advances seamlessly across `story → [plan] → tasks → implement → review → verify → knowledge-update` as machine verifiers PASS, protected by Circuit Breakers, halting strictly at Tastemaker presentation for human sign-off — and, when the project opts in to the plan sign-off pause, also after plan on a `scale: full` change.
+**Autonomous Pipeline Cascading**: Advance through stations as machine verifiers PASS, honoring Circuit Breakers and plan sign-off pauses. HALT at Tastemaker presentation.
 
-**Station Transition & Receipt Protocol**: On advancing to each station, re-read and reload that downstream skill to ensure full compliance with its receipt contracts and entry gates.
+**Station Transition & Receipt Protocol**: Re-read each downstream skill before entry and follow its gates and receipt contracts.
 
 Read [`references/cascade-protocol.md`](references/cascade-protocol.md), [`references/circuit-breaker.md`](references/circuit-breaker.md), and [`references/project-test-runner.md`](references/project-test-runner.md) on demand:
-1. **Implementation**: Execute code tasks sequentially in the project's dependency-layer order (as grouped in `tasks.md` per [`references/tasks-format.md`](references/tasks-format.md) / `_conventions.md`). Invoke dynamic project test command (`check --record-tests` or detected runner) to ensure tests pass. Set `status: implemented`.
-2. **Adversarial Review Loop**: Run review pass, ticketing and receiving every delegate per [`references/delegation-protocol.md`](references/delegation-protocol.md) before calling `prospec review merge` with the `ReviewFindingsInputSchema` round file, auto-fixing verifier-confirmed criticals. Follow the configured breakers in [`references/circuit-breaker.md`](references/circuit-breaker.md).
-3. **Verify Audit**: Execute 5+1 dimension audit, ticketing and receiving every grader per [`references/delegation-protocol.md`](references/delegation-protocol.md) before calling `prospec verify record` with the `JudgmentDimensionsInputSchema` verdicts, until Grade S/A is reached (`status: verified`).
+1. **Implementation**: Follow `tasks.md` dependency order and [`references/tasks-format.md`](references/tasks-format.md) / `_conventions.md`. Record passing tests via `check --record-tests`; set `status: implemented`.
+2. **Adversarial Review Loop**: Ticket and receive delegates via [`references/delegation-protocol.md`](references/delegation-protocol.md); `prospec review merge` receives `ReviewFindingsInputSchema`. Auto-fix verifier-confirmed criticals; follow [`references/circuit-breaker.md`](references/circuit-breaker.md).
+3. **Verify Audit**: Apply the **Physical Receipt Verification Protocol** in [`references/delegation-protocol.md`](references/delegation-protocol.md) to graders; `prospec verify record` receives `JudgmentDimensionsInputSchema`. Complete the 5+1 audit to Grade S/A (`status: verified`).
 4. **Final evidence convergence**: If Knowledge/count/generated-asset sync changed inputs, repeat review → tests → verify on the resulting snapshot before sign-off.
 5. **Tastemaker Presentation**: Present Git Diff, Verify report, and Delta-Spec summary. **HALT** for human sign-off; do not commit or archive automatically.
 
@@ -170,6 +165,16 @@ offering the next skill.
 | Implement / Review fails | working tree + tasks.md | Resolve blocker or switch to single-station skill |
 | Circuit breaker tripped | state & diagnostics | Escalate to human with trade-off options |
 | Severe Constitution violation | All parts completed before failure | Pause FF, switch to single-phase Skill |
+
+## Escalation Decision (CLI-Owned)
+
+- Stop; present the CLI decision: trigger, lifetime ordinal, exits, recommended action.
+- Never self-authorize: a report warning is not a grant. Log the human's nonempty `Manual override: <reason>` via composed WARN.
+- Grants allow one new attempt per current event and station; replay consumes none, resolution expires grants. Tests remain an independent gate.
+- An unpersisted observation is not a grant target; repair receipt-bound gaps.
+- For re-scope, revise proposal or start a Story; amendment gates remain, without unlocking escalation or regressing status.
+- For abandon, stop and retain artifacts/reasons; rollback requires human approval.
+- Preserve history after PASS, adjacent prose and fenced examples.
 
 ## Output Contract
 

@@ -92,7 +92,7 @@ Before consuming the Task Verifier report, apply the Physical Receipt Verificati
 If the Verifier produces a false positive or the project requires a deliberate, documented exception:
 1. The developer provides an explicit rationale explaining why the flagged item is acceptable.
 2. The orchestrator records the exception in `metadata.yaml` `quality_log` via `prospec change log --skill prospec-tasks --result WARN --warning "Manual override: <rationale>"`.
-3. Progression may then proceed.
+3. The CLI binds any accepted grant to the pending event and station for one new attempt. It does not turn FLAWS into PASS, replace a verifier report, or advance the station. A report warning with this prefix grants nothing; never invent the developer rationale.
 
 ---
 

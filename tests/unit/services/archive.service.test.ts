@@ -259,7 +259,7 @@ So that my changes directory stays clean.
       '/archive/metadata.yaml': 'status: verified\n',
     });
 
-    const { content } = await generateSummary('/archive', 'feat-a', '2026-01-01');
+    const { content } = await generateSummary('/archive', 'feat-a', '2026-01-01', 3);
     expect(content).toContain('As a developer');
     expect(content).toContain('automated archiving');
   });
@@ -285,7 +285,7 @@ None
       '/archive/metadata.yaml': 'status: verified\n',
     });
 
-    const { content, affectedModules } = await generateSummary('/archive', 'feat-a', '2026-01-01');
+    const { content, affectedModules } = await generateSummary('/archive', 'feat-a', '2026-01-01', 3);
     expect(content).toContain('REQ-TYPES-010');
     expect(content).toContain('REQ-SERVICES-010');
     expect(affectedModules).toContain('types');
@@ -309,7 +309,7 @@ Description.
       '/archive/metadata.yaml': 'status: verified\n',
     });
 
-    const { content, affectedModules } = await generateSummary('/archive', 'feat-a', '2026-01-01');
+    const { content, affectedModules } = await generateSummary('/archive', 'feat-a', '2026-01-01', 3);
     // multi-segment module is no longer silently dropped
     expect(affectedModules).toContain('api-middleware');
     expect(affectedModules).toContain('types');
@@ -327,7 +327,7 @@ Description.
       '/archive/metadata.yaml': 'status: verified\n',
     });
 
-    const { content } = await generateSummary('/archive', 'feat-a', '2026-01-01');
+    const { content } = await generateSummary('/archive', 'feat-a', '2026-01-01', 3);
     expect(content).toContain('2/3');
     expect(content).toContain('67%');
   });
@@ -346,7 +346,7 @@ Description.
       '/archive/metadata.yaml': 'status: verified\n',
     });
 
-    const { content } = await generateSummary('/archive', 'feat-a', '2026-01-01');
+    const { content } = await generateSummary('/archive', 'feat-a', '2026-01-01', 3);
     // code denominator: T1, T2, T3 → 2/3; [M]/[V] (T4, T5, T6) never counted in it
     expect(content).toContain('2/3');
     expect(content).toContain('67%');
@@ -368,7 +368,7 @@ Description.
     const statsLine = async (tasks: string): Promise<string> => {
       vol.reset();
       vol.fromJSON({ '/archive/tasks.md': tasks, '/archive/metadata.yaml': 'status: verified\n' });
-      const { content } = await generateSummary('/archive', 'feat-a', '2026-01-01');
+      const { content } = await generateSummary('/archive', 'feat-a', '2026-01-01', 3);
       return content.split('\n').find((l) => l.startsWith('- **Tasks**:')) ?? '';
     };
 
@@ -386,7 +386,7 @@ Description.
       '/archive/metadata.yaml': 'status: verified\n',
     });
 
-    const { content } = await generateSummary('/archive', 'feat-a', '2026-01-01');
+    const { content } = await generateSummary('/archive', 'feat-a', '2026-01-01', 3);
     expect(content).toContain('1/2 (50%)');
     expect(content).not.toContain('[M]/[V]');
   });
@@ -396,7 +396,7 @@ Description.
       '/archive/metadata.yaml': 'status: verified\n',
     });
 
-    const { content } = await generateSummary('/archive', 'feat-a', '2026-01-01');
+    const { content } = await generateSummary('/archive', 'feat-a', '2026-01-01', 3);
     expect(content).toContain('feat-a');
     // pin N/A to the User Story slot specifically: the template renders
     // `## User Story\n\n${userStory}\n`, so this fails if only taskStats is N/A
@@ -1979,7 +1979,7 @@ describe('generateSummary additional branches', () => {
       '/archive/metadata.yaml': 'status: verified\n',
     });
 
-    const { content, affectedModules } = await generateSummary('/archive', 'feat', '2026-01-01');
+    const { content, affectedModules } = await generateSummary('/archive', 'feat', '2026-01-01', 3);
     // both tables fall back to the placeholder string, not a built table
     const placeholderCount = content.split('No delta-spec.md found.').length - 1;
     expect(placeholderCount).toBe(2);
@@ -1991,7 +1991,7 @@ describe('generateSummary additional branches', () => {
       '/archive/metadata.yaml': 'status: verified\nquality_grade: A\n',
     });
 
-    const { content } = await generateSummary('/archive', 'feat', '2026-01-01');
+    const { content } = await generateSummary('/archive', 'feat', '2026-01-01', 3);
     expect(content).toContain('**Quality Grade**: A');
   });
 
@@ -1999,7 +1999,7 @@ describe('generateSummary additional branches', () => {
     vol.fromJSON({});
     vol.mkdirSync('/archive', { recursive: true });
 
-    const { content } = await generateSummary('/archive', 'feat', '2026-01-01');
+    const { content } = await generateSummary('/archive', 'feat', '2026-01-01', 3);
     expect(content).toContain('**Quality Grade**: Unverified');
   });
 
@@ -2009,7 +2009,7 @@ describe('generateSummary additional branches', () => {
       '/archive/metadata.yaml': 'status: verified\n',
     });
 
-    const { content } = await generateSummary('/archive', 'feat', '2026-01-01');
+    const { content } = await generateSummary('/archive', 'feat', '2026-01-01', 3);
     expect(content).toContain('No tasks found');
   });
 
@@ -2019,7 +2019,7 @@ describe('generateSummary additional branches', () => {
       '/archive/metadata.yaml': 'status: verified\n',
     });
 
-    const { content } = await generateSummary('/archive', 'feat', '2026-01-01');
+    const { content } = await generateSummary('/archive', 'feat', '2026-01-01', 3);
     expect(content).toContain('0/0 code, 1/2 [M]/[V] (not counted)');
   });
 });
@@ -2307,7 +2307,7 @@ describe('internal helper edge branches', () => {
       '/archive/metadata.yaml': 'status: verified\n',
     });
 
-    const { content } = await generateSummary('/archive', 'feat', '2026-01-01');
+    const { content } = await generateSummary('/archive', 'feat', '2026-01-01', 3);
     // User Story block is empty → 'N/A'
     expect(content).toContain('## User Story\n\nN/A');
   });
@@ -2318,7 +2318,7 @@ describe('internal helper edge branches', () => {
       '/archive/metadata.yaml': 'status: verified\n',
     });
 
-    const { content } = await generateSummary('/archive', 'feat', '2026-01-01');
+    const { content } = await generateSummary('/archive', 'feat', '2026-01-01', 3);
     expect(content).toContain('| REQ-TYPES-001 | UNKNOWN | orphan req |');
   });
 
@@ -2339,7 +2339,7 @@ body
       '/archive/metadata.yaml': 'status: verified\n',
     });
 
-    const { content, affectedModules } = await generateSummary('/archive', 'feat', '2026-01-01');
+    const { content, affectedModules } = await generateSummary('/archive', 'feat', '2026-01-01', 3);
     // module 'types' collapses to a single row with the FIRST description
     expect(affectedModules).toEqual(['types']);
     const moduleTable = content.slice(
@@ -2402,14 +2402,14 @@ describe('generateSummary issue registration', () => {
   it('renders the registered reference in the Change Overview', async () => {
     vol.fromJSON({ '/archive/metadata.yaml': 'status: verified\nissue: "#131"\n' });
 
-    const { content } = await generateSummary('/archive', 'feat-a', '2026-01-01');
+    const { content } = await generateSummary('/archive', 'feat-a', '2026-01-01', 3);
     expect(content).toContain('- **Issue**: #131');
   });
 
   it('omits the Issue line for a change that registered none', async () => {
     vol.fromJSON({ '/archive/metadata.yaml': 'status: verified\n' });
 
-    const { content } = await generateSummary('/archive', 'feat-a', '2026-01-01');
+    const { content } = await generateSummary('/archive', 'feat-a', '2026-01-01', 3);
     expect(content).not.toContain('**Issue**');
   });
 
@@ -2419,14 +2419,14 @@ describe('generateSummary issue registration', () => {
   it('ignores a non-string issue value rather than rendering it', async () => {
     vol.fromJSON({ '/archive/metadata.yaml': 'status: verified\nissue: 131\n' });
 
-    const { content } = await generateSummary('/archive', 'feat-a', '2026-01-01');
+    const { content } = await generateSummary('/archive', 'feat-a', '2026-01-01', 3);
     expect(content).not.toContain('**Issue**');
   });
 
   it.each(['', '   '])('omits the line for a blank registration (%j)', async (blank) => {
     vol.fromJSON({ '/archive/metadata.yaml': `status: verified\nissue: "${blank}"\n` });
 
-    const { content } = await generateSummary('/archive', 'feat-a', '2026-01-01');
+    const { content } = await generateSummary('/archive', 'feat-a', '2026-01-01', 3);
     expect(content).not.toContain('**Issue**');
   });
 
@@ -2445,7 +2445,7 @@ describe('generateSummary issue registration', () => {
         'status: verified\nissue: |-\n  #131\n\n  ## Forged Heading\n\n  - **Quality Grade**: S\n',
     });
 
-    const { content } = await generateSummary('/archive', 'feat-a', '2026-01-01');
+    const { content } = await generateSummary('/archive', 'feat-a', '2026-01-01', 3);
 
     // the whole value survives as ONE line, so nothing it carries starts a line
     expect(content).toContain('- **Issue**: #131 ## Forged Heading - **Quality Grade**: S');
@@ -2481,7 +2481,7 @@ describe('generateSummary — plan decision line (REQ-SERVICES-119)', () => {
       '/archive/metadata.yaml': `status: verified\nquality_log:\n${verifier}${signoff.replace('option-b', 'option-a')}`,
       '/archive/candidates/decision.json': decision('human'),
     });
-    const { content } = await generateSummary('/archive', 'feat-a', '2026-01-01');
+    const { content } = await generateSummary('/archive', 'feat-a', '2026-01-01', 3);
     expect(content).toContain('- **Plan Decision**: option-a (graded_by: human)\n');
   });
 
@@ -2490,7 +2490,7 @@ describe('generateSummary — plan decision line (REQ-SERVICES-119)', () => {
       '/archive/metadata.yaml': `status: verified\nquality_log:\n${verifier}`,
       '/archive/candidates/decision.json': decision('human'),
     });
-    const { content } = await generateSummary('/archive', 'feat-a', '2026-01-01');
+    const { content } = await generateSummary('/archive', 'feat-a', '2026-01-01', 3);
     expect(content).toContain('- **Plan Decision**: option-b (graded_by: in-session)\n');
   });
 
@@ -2499,13 +2499,13 @@ describe('generateSummary — plan decision line (REQ-SERVICES-119)', () => {
       '/archive/metadata.yaml': `status: verified\nquality_log:\n${verifier}${signoff}${verifier}`,
       '/archive/candidates/decision.json': decision(),
     });
-    const { content } = await generateSummary('/archive', 'feat-a', '2026-01-01');
+    const { content } = await generateSummary('/archive', 'feat-a', '2026-01-01', 3);
     expect(content).toContain('(graded_by: in-session)');
   });
 
   it('adds no line without a decision, or with a legacy decision lacking graded_by', async () => {
     vol.fromJSON({ '/archive/metadata.yaml': 'status: verified\n' });
-    const bare = (await generateSummary('/archive', 'feat-a', '2026-01-01')).content;
+    const bare = (await generateSummary('/archive', 'feat-a', '2026-01-01', 3)).content;
     expect(bare).not.toContain('Plan Decision');
 
     vol.reset();
@@ -2513,7 +2513,7 @@ describe('generateSummary — plan decision line (REQ-SERVICES-119)', () => {
       '/archive/metadata.yaml': 'status: verified\n',
       '/archive/candidates/decision.json': decision(null),
     });
-    const legacy = (await generateSummary('/archive', 'feat-a', '2026-01-01')).content;
+    const legacy = (await generateSummary('/archive', 'feat-a', '2026-01-01', 3)).content;
     expect(legacy).toBe(bare);
   });
 });

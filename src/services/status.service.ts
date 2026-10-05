@@ -1,3 +1,5 @@
+import { planningFlawsStreak, verifyBelowBarStreak, reduceEscalationHistory } from '../lib/escalation.js';
+export { planningFlawsStreak, verifyBelowBarStreak } from '../lib/escalation.js';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import {
@@ -7,7 +9,6 @@ import {
   latestVerifierResult,
   normalizeIssueRef,
   readChangeMetadata,
-  verifierGateResultOf,
 } from '../lib/change-metadata.js';
 import {
   readConfig,
@@ -227,6 +228,8 @@ async function collectFacts(
   pauseAtPlan: boolean,
 ): Promise<ChangeRouteFacts> {
   const issue = normalizeIssueRef(metadata.issue);
+  const maxStationRetries = resolveMaxStationRetries(config);
+  const escalationHistory = reduceEscalationHistory(metadata.quality_log, maxStationRetries);
   const tasksText = await readFileIfExists(path.join(changeDir, 'tasks.md'));
   const codeTasks = tasksText
     .split('\n')
@@ -245,13 +248,14 @@ async function collectFacts(
     hasReviewProvenance: metadata.review_provenance !== undefined,
     lastVerifyGrade: lastVerifyGrade(metadata.quality_log),
     verifyBelowBarStreak: verifyBelowBarStreak(metadata.quality_log),
-    lastPlanVerifierResult: latestVerifierResult(metadata.quality_log, 'prospec-plan'),
-    planFlawsStreak: planningFlawsStreak(metadata.quality_log, 'prospec-plan'),
-    lastTasksVerifierResult: latestVerifierResult(metadata.quality_log, 'prospec-tasks'),
-    tasksFlawsStreak: planningFlawsStreak(metadata.quality_log, 'prospec-tasks'),
-    maxStationRetries: resolveMaxStationRetries(config),
+    lastPlanVerifierResult: latestVerifierResult(metadata.quality_log, 'prospec-plan', escalationHistory),
+    planFlawsStreak: planningFlawsStreak(metadata.quality_log, 'prospec-plan', escalationHistory),
+    lastTasksVerifierResult: latestVerifierResult(metadata.quality_log, 'prospec-tasks', escalationHistory),
+    tasksFlawsStreak: planningFlawsStreak(metadata.quality_log, 'prospec-tasks', escalationHistory),
+    maxStationRetries,
+    escalationHistory,
     pauseAtPlan,
-    planSignedOff: hasPlanSignoffAfterVerifier(metadata.quality_log),
+    planSignedOff: hasPlanSignoffAfterVerifier(metadata.quality_log, escalationHistory),
     unresolvedWarnings: unresolvedWarnings(metadata.quality_log),
     knowledgeSyncReasons:
       metadata.status === 'verified'
@@ -269,7 +273,7 @@ async function collectFacts(
  */
 function unresolvedWarnings(
   qualityLog:
-    | Array<{ skill: string; date: string; result: string; warnings?: string[]; round?: number; signoff_option?: string }>
+    | Array<{ skill: string; date: string; result: string; warnings?: string[]; round?: number; signoff_option?: string; escalation?: unknown; accepted?: unknown }>
     | undefined,
 ): UnresolvedWarning[] {
   if (qualityLog === undefined) return [];
@@ -278,7 +282,7 @@ function unresolvedWarnings(
     // A merge-written round-counts entry is a metric, not a round record; it always
     // carries `warnings: []`, so letting it win last-per-skill would mask the round-less
     // close entry's WARN. Exclude it, mirroring the round-advance filter.
-    if (isReviewRoundCountsEntry(entry)) continue;
+    if (isReviewRoundCountsEntry(entry) || entry.escalation !== undefined || (entry.skill === 'prospec-review' && entry.accepted !== undefined)) continue;
     // A plan sign-off is provenance, not a gate result: it must not supersede the
     // plan verifier's WARN the human signed off over.
     if (isPlanSignoffEntry(entry)) continue;
@@ -325,58 +329,4 @@ function lastVerifyGrade(
     }
   }
   return null;
-}
-
-/**
- * Consecutive below-bar grades (B, C, D) from the tail of quality_log.
- * An S or A resets the streak to 0. Non-verify entries or entries without
- * a grade are skipped.
- */
-export function verifyBelowBarStreak(
-  qualityLog: Array<{ skill: string; grade?: VerifyGrade }> | undefined,
-): number {
-  if (qualityLog === undefined) return 0;
-  let streak = 0;
-  for (let i = qualityLog.length - 1; i >= 0; i--) {
-    const entry = qualityLog[i];
-    if (entry === undefined || entry.skill !== 'prospec-verify' || entry.grade === undefined) {
-      continue;
-    }
-    if (entry.grade === 'B' || entry.grade === 'C' || entry.grade === 'D') {
-      streak++;
-    } else if (entry.grade === 'S' || entry.grade === 'A') {
-      break;
-    }
-  }
-  return streak;
-}
-
-/**
- * Consecutive verifier FAIL results for a station from the tail of quality_log.
- *
- * Scanned from the latest entry backwards, using the identical provenance rule as
- * `latestVerifierResult` (`lib/change-metadata`): only an entry the sink stamped with `verifier_verdict` counts
- * (`FLAWS` → FAIL, `PASS` or `WARN` resets the streak), plus a Break-Glass `WARN`
- * whose warning opens with `BREAK_GLASS_PREFIX` (resets the streak). Every other
- * entry under the skill (the station's own unstamped Exit Gate PASS/WARN/FAIL) is
- * neither a verifier result nor able to hide one, so it is skipped.
- */
-export function planningFlawsStreak(
-  qualityLog:
-    | Array<{ skill: string; result: string; warnings?: string[]; verifier_verdict?: string }>
-    | undefined,
-  skill: string,
-): number {
-  if (qualityLog === undefined) return 0;
-  let streak = 0;
-  for (let i = qualityLog.length - 1; i >= 0; i--) {
-    const entry = qualityLog[i];
-    if (entry === undefined || entry.skill !== skill) continue;
-    const result = verifierGateResultOf(entry);
-    if (result === null) continue;
-    // PASS, WARN or a Break-Glass WARN resets the streak
-    if (result !== 'FAIL') break;
-    streak++;
-  }
-  return streak;
 }

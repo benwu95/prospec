@@ -9,6 +9,7 @@ import {
   type PersistentTestFailureDiagnostics,
   type TestFailureStreak,
 } from '../types/cascade.js';
+import { projectEscalationReport } from './escalation.js';
 import {
   REVIEW_DISMISSED_STATUSES,
   REVIEW_RESOLVED_STATUSES,
@@ -190,10 +191,7 @@ export class ReviewCircuitBreaker {
         type: 'persistent_test_failure',
         message: `Review merge observed ${diagnostics.count} consecutive failed test attempts (threshold ${diagnostics.threshold}).`,
         diagnostics,
-        tradeoffOptions: [
-          'ESCALATE_TO_HUMAN: stop automated review retries and hand the failing suite to the developer',
-          'Revert the latest fix attempts and re-establish a green baseline before re-entering review',
-        ],
+        tradeoffOptions: [],
       };
     }
     // 1. Check oscillation breaker
@@ -207,11 +205,7 @@ export class ReviewCircuitBreaker {
             trials: this.records.get(sig)?.trials ?? [],
           })),
         },
-        tradeoffOptions: [
-          'Halt automated cascading and escalate to human developer for manual resolution',
-          'Roll back latest fix attempt and re-evaluate implementation strategy (revert-and-redesign)',
-          'Mark unresolved findings as advisory tech-debt if non-critical',
-        ],
+        tradeoffOptions: [],
       };
     }
     // 2. Check fix-induced ratio in round > 1
@@ -224,10 +218,7 @@ export class ReviewCircuitBreaker {
           fixInducedRatio,
           threshold: this.config.maxFixInducedRatio,
         },
-        tradeoffOptions: [
-          'Revert recent fixes and redesign implementation strategy (revert-and-redesign)',
-          'Escalate remaining critical findings to human developer for manual intervention',
-        ],
+        tradeoffOptions: [],
       };
     }
     // 3. Check maximum iteration rounds — only when unresolved criticals remain
@@ -240,13 +231,17 @@ export class ReviewCircuitBreaker {
           maxAllowed: this.config.maxReviewRounds,
           unresolvedCriticals,
         },
-        tradeoffOptions: [
-          'Escalate remaining critical findings to human developer for decision',
-          'Review diff manually and determine if automated loop should be bypassed',
-        ],
+        tradeoffOptions: [],
       };
     }
 
+    if (escalationReport !== undefined) {
+      // Detection alone proves no persisted event. The sink supplies its ledger
+      // anchor after persistence (or its pre-write history on a failed write).
+      escalationReport = projectEscalationReport(escalationReport, {
+        station: 'prospec-review', event_id: null, ordinal: 0,
+      });
+    }
     return {
       tripped: !!escalationReport,
       reason: escalationReport?.message,

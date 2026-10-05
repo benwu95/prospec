@@ -240,3 +240,22 @@ describe('TestGateError output (REQ-CLI-043, REQ-SERVICES-103)', () => {
     expect(out).toContain('badreason');
   });
 });
+
+describe('structured escalation refusals', () => {
+  it('uses the same decision in terminal and JSON, retaining partial outcome and cause', async () => {
+    const { EscalationError } = await import('../../../src/types/errors.js');
+    const { escalationFailureDetails, reduceEscalationHistory } = await import('../../../src/lib/escalation.js');
+    const history = reduceEscalationHistory(['e1', 'e2'].map(event_id => ({ skill: 'prospec-escalation', result: 'WARN', escalation: { kind: 'trigger' as const, station: 'prospec-review' as const, event_id, trigger: 'oscillation' as const } })), 3);
+    const details = escalationFailureDetails(history, 'prospec-review', 'persistent_test_failure', { artifact_persisted: true });
+    const error = new EscalationError(`disk${BEL} full`, 'Inspect the current event', details, new Error('original I/O cause'));
+    const text = captureStderr(() => handleError(error));
+    expect(text).toContain('re-scope (recommended)');
+    expect(text).toContain('artifact_persisted=true');
+    expect(text).toContain('persisted=false');
+    expect(text).not.toContain(BEL);
+    const json = JSON.parse(captureStderr(() => handleError(error, false, true)));
+    expect(json.error.escalation).toEqual(details);
+    expect(json.error.cause).toBe('original I/O cause');
+    expect(process.exitCode).toBe(1);
+  });
+});

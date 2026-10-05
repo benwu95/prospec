@@ -17,6 +17,7 @@
  * parses back differently than it was written.
  */
 
+import { hasUnclosedFence, withoutFencedBlocks } from './markdown-fences.js';
 import { stripTrailingCr } from './text-lines.js';
 
 /** The prefix every marker in this grammar shares — the collision guard's key. */
@@ -134,10 +135,12 @@ export function renderEvidenceBlock(block: EvidenceBlock): string {
 export function renderEvidenceSection(
   blocks: readonly EvidenceBlock[],
   heading: string = EVIDENCE_SECTION_HEADING,
+  attemptId?: string,
 ): string {
   if (blocks.length === 0) return '';
   return [
     EVIDENCE_SECTION_MARKER,
+    ...(attemptId ? [`<!-- prospec:evidence-attempt ${attemptId} -->`] : []),
     heading,
     '',
     blocks.map(renderEvidenceBlock).join('\n\n'),
@@ -242,4 +245,22 @@ export function splitEvidenceSection(content: string): {
       sectionLines.slice(endAt === -1 ? (legacyAfterFrom ?? sectionLines.length) : endAt + 1),
     ).join('\n'),
   };
+}
+
+/** Locate only a complete, unique owned attempt section, ignoring fenced examples. */
+export function findEvidenceAttempt(content: string, attemptId: string):
+  { kind: 'missing' } | { kind: 'conflict' } | { kind: 'present'; section: string } {
+  const lines = content.split('\n');
+  if (hasUnclosedFence(lines)) return { kind: 'conflict' };
+  const visible = withoutFencedBlocks(lines).map(line => stripTrailingCr(line).trim());
+  const marker = `<!-- prospec:evidence-attempt ${attemptId} -->`;
+  const at = visible.flatMap((line, index) => line === marker ? [index] : []);
+  if (at.length === 0) return { kind: 'missing' };
+  const start = at[0]! - 1;
+  if (at.length !== 1 || visible[start] !== EVIDENCE_SECTION_MARKER) return { kind: 'conflict' };
+  for (let end = start + 2; end < lines.length; end++) {
+    if (visible[end] === EVIDENCE_SECTION_MARKER) return { kind: 'conflict' };
+    if (visible[end] === EVIDENCE_SECTION_END_MARKER) return { kind: 'present', section: lines.slice(start, end + 1).join('\n') };
+  }
+  return { kind: 'conflict' };
 }

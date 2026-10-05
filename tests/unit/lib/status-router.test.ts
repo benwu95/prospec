@@ -881,3 +881,27 @@ describe('resolveNextSkill — canonical station identity (REQ-LIB-059)', () => 
     }
   });
 });
+
+describe('shared escalation routing', () => {
+  const event = { event_id: 'e2', station: 'prospec-plan' as const, trigger: 'station_retry_limit_exceeded' as const, ordinal: 2, legacy: false };
+  const history = { events: [{ ...event, event_id: 'e1', ordinal: 1 }, event], pending: event, grants: [], completeness: 'complete' as const };
+  it('routes pending repeat history to the same CLI decision', () => {
+    const result = routeChange(facts({ status: 'plan', escalationHistory: history }));
+    expect(result.code).toBe('ESCALATE_TO_HUMAN');
+    expect(result.escalation?.recommended).toBe('re-scope');
+    expect(result.escalation?.ordinal).toBe(2);
+  });
+  it('routes a scoped grant back to its station without forging a PASS', () => {
+    const result = routeChange(facts({ status: 'plan', lastPlanVerifierResult: 'FAIL', planFlawsStreak: 4,
+      escalationHistory: { ...history, grants: [{ event_id: 'e2', station: event.station, grant_id: 'g1', reason: 'repair', consumed_by: null }] },
+    }));
+    expect(result.next).toBe('plan');
+    expect(result.code).not.toBe('ESCALATE_TO_HUMAN');
+    expect(result.escalation?.recommended).toBe('re-scope');
+  });
+  it('does not block a resolved event from lifetime history alone', () => {
+    const result = routeChange(facts({ status: 'plan', lastPlanVerifierResult: 'PASS', escalationHistory: { ...history, pending: null } }));
+    expect(result.next).toBe('tasks');
+    expect(result.escalationHistory?.events).toHaveLength(2);
+  });
+});

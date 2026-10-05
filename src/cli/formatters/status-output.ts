@@ -1,3 +1,4 @@
+import { formatEscalationDecision, formatEscalationHistoryLines } from './error-output.js';
 import pc from 'picocolors';
 import type { LogLevel } from '../../types/config.js';
 import type { HumanHaltCode, StatusReport } from '../../types/status.js';
@@ -20,7 +21,7 @@ const HALT_LINES: Record<HumanHaltCode, { color: (s: string) => string; next: st
   ESCALATE_TO_HUMAN: {
     color: pc.red,
     next: '— HALT (escalated to human)',
-    action: 'human intervention required; station retry limit exceeded',
+    action: 'human intervention required; inspect the persisted escalation decision',
   },
   AWAITING_HUMAN_PLAN_SIGNOFF: {
     color: pc.yellow,
@@ -122,6 +123,7 @@ export function formatStatusOutput(report: StatusReport, logLevel: LogLevel): vo
     for (const reason of change.reasons) {
       console.log(`  reason:  ${pc.dim(`[${change.code}]`)} ${sanitizeTerminal(reason)}`);
     }
+    for (const line of [...(change.escalation ? formatEscalationDecision(change.escalation) : []), ...formatEscalationHistoryLines(change.escalationHistory)]) console.log(`  ${line}`);
     for (const w of change.unresolvedWarnings ?? []) {
       console.log(`  warn:    ${sanitizeTerminal(`${w.skill}: ${w.warning}`)}`);
     }

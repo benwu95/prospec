@@ -1,6 +1,6 @@
 # Template Library
 
-> Handlebars template library — 78 `.hbs` files across skills, references, agent-configs, change, init/knowledge.
+> Handlebars template library — 79 `.hbs` files across skills, references, agent-configs, change, init/knowledge.
 <!-- prospec:module-readme-format 2026-09-01 -->
 
 <!-- prospec:auto-start -->
@@ -40,6 +40,8 @@
 
 ## Pitfalls
 
+- `_escalation-guidance.hbs` is the shared CLI-owned escalation instruction for plan/tasks/review/verify/ff/archive. A report warning never authorizes a retry; only an explicit human reason can grant one event/station attempt. Keep the rubric, cascade and metadata descriptions aligned.
+
 - Sync Knowledge/count/generated assets before final review/tests/verify; V4 adopts repository-wide `knowledge-health` including the verified change. Equivalent commits preserve `snapshot-v2` evidence; recheck Knowledge freshness separately before re-verifying and renew validation after re-stamping. Keep lifecycle, cascade and the mandatory backfill reference aligned; S/A confirms validated stamps.
 - `prospec-implement` Phase 4 and `prospec-review` Loop step 3 carry ONE test sentence each, pointing at the CLI refusal/remediation (`change status implemented` / `review merge` refuse without a fresh green attempt) and keeping the `project-test-runner` reference at its load point — the policy lives in the CLI; `review-format` documents the test-failure metrics and `circuit-breaker` its `persistent_test_failure` dimension (default threshold literal pinned to `DEFAULT_CIRCUIT_BREAKER_CONFIG`). Section-scoped contracts pin all four; the shipped-reference size anchor was raised for the two references. The `prospec-review` skill's Review-Provenance counts prose and Clean-review callout were likewise demoted to a one-line pointer — the CLI records this round's counts at `review merge` time, so `change log` only closes the round and audits self-reported counts.
 - Verify Error Handling separates unavailable skips, uncertified-attempt failures and required-input refusal; its section-scoped table guard pins those distinct remedies.
@@ -60,7 +62,7 @@
 
 ## Sub-Modules
 
-- [Skill Authoring](./skill-authoring.md) — the 17 skills + 8 partials + 31 references contract and its `agent sync` deployment
+- [Skill Authoring](./skill-authoring.md) — the 17 skills + 9 partials + 31 references contract and its `agent sync` deployment
 
 <!-- prospec:auto-end -->
 

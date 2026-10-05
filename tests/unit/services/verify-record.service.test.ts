@@ -1677,3 +1677,258 @@ describe('verify record settles the verify delegations first (REQ-SERVICES-121)'
     expect(JSON.parse(vol.readFileSync(`${DELEGATED}/verify-grader-1-1.ticket.json`, 'utf-8') as string).state).toBe('consumed');
   });
 });
+
+describe('verify causal attempts without context_id', () => {
+  it('records an accepted receipt and makes a date-only replay byte-idempotent', async () => {
+    seed();
+    await execute({ cwd: CWD, judgmentDimensions: judgment(), warnings: [], date: '2026-10-01' });
+    const meta = vol.readFileSync(META, 'utf8');
+    const evidence = vol.readFileSync(META.replace('metadata.yaml', 'verify.md'), 'utf8');
+    expect(meta).toContain('attempt_id: prospec-verify:');
+    expect(await execute({ cwd: CWD, judgmentDimensions: judgment(), warnings: [], date: '2026-10-02' })).toMatchObject({ replay: true, statusAdvanced: false });
+    expect(vol.readFileSync(META, 'utf8')).toBe(meta);
+    expect(vol.readFileSync(META.replace('metadata.yaml', 'verify.md'), 'utf8')).toBe(evidence);
+  });
+  it.each(['proposal.md', 'delta-spec.md', 'acceptance', 'warnings'])('treats changed %s as new input and refuses without a repeat-event grant', async input => {
+    seed({ acceptance: true });
+    await execute({ cwd: CWD, judgmentDimensions: judgment(), warnings: [] });
+    const { readChangeMetadata, writeChangeMetadataDoc } = await import('../../../src/lib/change-metadata.js');
+    const { doc } = readChangeMetadata(META, 'add-widget');
+    for (const event_id of ['first', 'second']) doc.addIn(['quality_log'], doc.createNode({ skill: 'prospec-escalation', date: '2026-10-05', result: 'WARN', warnings: [],
+      escalation: { kind: 'trigger', station: 'prospec-verify', event_id, trigger: 'station_retry_limit_exceeded' },
+    }));
+    if (input === 'acceptance') doc.setIn(['acceptance', 'revisions', 0, 'reason'], 'amended interpretation');
+    await writeChangeMetadataDoc(META, doc, 'add-widget');
+    if (input.endsWith('.md')) vol.writeFileSync(META.replace('metadata.yaml', input), '# Changed content\n');
+    const before = [vol.readFileSync(META, 'utf8'), vol.readFileSync(META.replace('metadata.yaml', 'verify.md'), 'utf8')];
+    await expect(execute({ cwd: CWD, judgmentDimensions: judgment(), warnings: input === 'warnings' ? ['New warning'] : [] })).rejects.toMatchObject({ code: 'ESCALATION_REFUSED' });
+    expect([vol.readFileSync(META, 'utf8'), vol.readFileSync(META.replace('metadata.yaml', 'verify.md'), 'utf8')]).toEqual(before);
+  });
+  it('old accepted warnings cannot overwrite a later grade or append evidence', async () => {
+    seed();
+    await execute({ cwd: CWD, judgmentDimensions: judgment(), warnings: [] });
+    await execute({ cwd: CWD, judgmentDimensions: judgment(), warnings: ['one', 'two', 'three', 'four'] });
+    const before = [vol.readFileSync(META, 'utf8'), vol.readFileSync(META.replace('metadata.yaml', 'verify.md'), 'utf8')];
+    expect(await execute({ cwd: CWD, judgmentDimensions: judgment(), warnings: [] })).toMatchObject({ replay: true });
+    expect([vol.readFileSync(META, 'utf8'), vol.readFileSync(META.replace('metadata.yaml', 'verify.md'), 'utf8')]).toEqual(before);
+  });
+});
+
+it.each(['proposal.md', 'delta-spec.md'])('rechecks actual %s without context_id after machine assessment', async filename => {
+  seed();
+  const before = vol.readFileSync(META, 'utf8');
+  vi.mocked(assessCurrentDrift).mockImplementationOnce(async () => {
+    vol.writeFileSync(META.replace('metadata.yaml', filename), 'concurrent scope change');
+    return { report: live.report, snapshot: { digest: 'current', clean: true }, recheck: () => true } as Awaited<ReturnType<typeof assessCurrentDrift>>;
+  });
+  await expect(execute({ cwd: CWD, judgmentDimensions: judgment(), warnings: [] })).rejects.toThrow(/verification inputs changed/);
+  expect(vol.readFileSync(META, 'utf8')).toBe(before);
+});
+
+const verifyWrites = vi.hoisted(() => ({ failOn: null as ((path: string) => boolean) | null, afterWrite: null as ((path: string) => void) | null }));
+vi.mock('../../../src/lib/fs-utils.js', async original => {
+  const actual = await original<typeof import('../../../src/lib/fs-utils.js')>();
+  return { ...actual, atomicWrite: async (file: string, content: string) => {
+    if (verifyWrites.failOn?.(file)) { verifyWrites.failOn = null; throw new Error('disk full (verify injected)'); }
+    await actual.atomicWrite(file, content);
+    const hook = verifyWrites.afterWrite; verifyWrites.afterWrite = null; hook?.(file);
+  } };
+});
+beforeEach(() => { verifyWrites.failOn = null; verifyWrites.afterWrite = null; });
+
+async function seedVerifyGrant(): Promise<void> {
+  seed();
+  const { readChangeMetadata, writeChangeMetadataDoc } = await import('../../../src/lib/change-metadata.js');
+  const { doc } = readChangeMetadata(META, 'add-widget');
+  doc.set('quality_log', doc.createNode([]));
+  for (const event_id of ['first', 'second']) doc.addIn(['quality_log'], doc.createNode({ skill: 'prospec-escalation', date: '2026-10-05', result: 'WARN', warnings: [],
+    escalation: { kind: 'trigger', station: 'prospec-verify', event_id, trigger: 'station_retry_limit_exceeded' },
+  }));
+  doc.addIn(['quality_log'], doc.createNode({ skill: 'prospec-escalation', date: '2026-10-05', result: 'WARN', warnings: [],
+    escalation: { kind: 'override', station: 'prospec-verify', event_id: 'second', grant_id: 'verify-grant', reason: 'one bounded assessment' },
+  }));
+  await writeChangeMetadataDoc(META, doc, 'add-widget');
+}
+
+describe('verify metadata-first repair boundary', () => {
+  it('consumes once with acceptance, then repairs missing evidence without another grade or grant', async () => {
+    await seedVerifyGrant();
+    verifyWrites.failOn = file => file.endsWith('verify.md');
+    const err = await execute({ cwd: CWD, judgmentDimensions: judgment(), warnings: [], date: '2026-10-01' }).catch(e => e);
+    expect(err.details).toMatchObject({ persistence: { accepted_persisted: true, grant_consumed: true, artifact_persisted: false } });
+    expect(err.cause?.message).toContain('disk full');
+    const meta = vol.readFileSync(META, 'utf8');
+    expect(String(meta).match(/kind: consume/g)).toHaveLength(1);
+    expect(await execute({ cwd: CWD, judgmentDimensions: judgment(), warnings: [], date: '2026-10-05' })).toMatchObject({ replay: true });
+    expect(vol.readFileSync(META, 'utf8')).toBe(meta);
+    const evidence = String(vol.readFileSync(META.replace('metadata.yaml', 'verify.md'), 'utf8'));
+    expect(evidence).toContain('## 2026-10-01 — grade A');
+    expect(evidence.match(/prospec:evidence-attempt/g)).toHaveLength(1);
+    await execute({ cwd: CWD, judgmentDimensions: judgment(), warnings: [] });
+    expect(vol.readFileSync(META.replace('metadata.yaml', 'verify.md'), 'utf8')).toBe(evidence);
+  });
+  it('does not write evidence or consume a grant when metadata fails', async () => {
+    await seedVerifyGrant();
+    const before = vol.readFileSync(META, 'utf8');
+    verifyWrites.failOn = file => file === META;
+    await expect(execute({ cwd: CWD, judgmentDimensions: judgment(), warnings: [] })).rejects.toMatchObject({
+      details: { persistence: { accepted_persisted: false, grant_consumed: false, artifact_persisted: false } },
+    });
+    expect(vol.readFileSync(META, 'utf8')).toBe(before);
+    expect(vol.existsSync(META.replace('metadata.yaml', 'verify.md'))).toBe(false);
+  });
+  it.each(['evidence', 'proposal', 'metadata', 'live'])('stops before evidence when %s changes after accepting metadata', async target => {
+    await seedVerifyGrant();
+    const verify = META.replace('metadata.yaml', 'verify.md');
+    vol.writeFileSync(verify, '# Existing evidence\n');
+    verifyWrites.afterWrite = file => {
+      if (file !== META) return;
+      if (target === 'evidence') vol.writeFileSync(verify, '# Concurrent evidence\n');
+      if (target === 'proposal') vol.writeFileSync(META.replace('metadata.yaml', 'proposal.md'), 'changed');
+      if (target === 'metadata') vol.appendFileSync(META, '# Concurrent metadata\n');
+      if (target === 'live') live.recheck = false;
+    };
+    await expect(execute({ cwd: CWD, judgmentDimensions: judgment(), warnings: [] })).rejects.toMatchObject({
+      details: { persistence: { accepted_persisted: true, grant_consumed: true, artifact_persisted: false } },
+    });
+    expect(vol.readFileSync(verify, 'utf8')).toBe(target === 'evidence' ? '# Concurrent evidence\n' : '# Existing evidence\n');
+  });
+});
+
+it('records lifetime verify events using the configured retry bound', async () => {
+  seed();
+  vol.writeFileSync('/repo/.prospec.yaml', 'version: "1.0"\nproject:\n  name: t\n');
+  const warnings = ['one', 'two', 'three', 'four'];
+  vol.appendFileSync('/repo/.prospec.yaml', 'workflow:\n  max_station_retries: 2\n');
+  // Two distinct below-bar inputs reach the configured boundary once.
+  for (const warning of ['a', 'b']) await execute({ cwd: CWD, judgmentDimensions: judgment(), warnings: [...warnings, warning] });
+  const { readChangeMetadata } = await import('../../../src/lib/change-metadata.js');
+  const log = readChangeMetadata(META, 'add-widget').metadata.quality_log!;
+  expect(log.filter(e => e.escalation?.kind === 'trigger')).toHaveLength(1);
+  expect(log.filter(e => e.accepted)).toHaveLength(2);
+});
+
+it('repairs an older accepted section while preserving newer evidence and grade bytes', async () => {
+  seed();
+  verifyWrites.failOn = file => file.endsWith('verify.md');
+  await expect(execute({ cwd: CWD, judgmentDimensions: judgment(), warnings: [], date: '2026-10-01' })).rejects.toThrow('disk full');
+  await execute({ cwd: CWD, judgmentDimensions: judgment(), warnings: ['changed warning'], date: '2026-10-02' });
+  const verify = META.replace('metadata.yaml', 'verify.md');
+  const beforeEvidence = String(vol.readFileSync(verify, 'utf8'));
+  const beforeMeta = vol.readFileSync(META, 'utf8');
+  await execute({ cwd: CWD, judgmentDimensions: judgment(), warnings: [], date: '2026-10-05' });
+  expect(String(vol.readFileSync(verify, 'utf8')).startsWith(beforeEvidence.trimEnd())).toBe(true);
+  expect(vol.readFileSync(verify, 'utf8')).toContain('## 2026-10-01 — grade A');
+  expect(vol.readFileSync(META, 'utf8')).toBe(beforeMeta);
+});
+
+it('refuses to duplicate or replace a modified section carrying the accepted attempt marker', async () => {
+  seed();
+  await execute({ cwd: CWD, judgmentDimensions: judgment(), warnings: [] });
+  const verify = META.replace('metadata.yaml', 'verify.md');
+  vol.writeFileSync(verify, String(vol.readFileSync(verify, 'utf8')).replace('grade A', 'grade D'));
+  const before = [vol.readFileSync(META, 'utf8'), vol.readFileSync(verify, 'utf8')];
+  await expect(execute({ cwd: CWD, judgmentDimensions: judgment(), warnings: [] })).rejects.toThrow('conflicting attempt receipt');
+  expect([vol.readFileSync(META, 'utf8'), vol.readFileSync(verify, 'utf8')]).toEqual(before);
+});
+
+it('keeps override reasons in verify evidence after later passing grades', async () => {
+  await seedVerifyGrant();
+  const result = await execute({ cwd: CWD, judgmentDimensions: judgment(), warnings: [] });
+  expect(result.escalationHistory?.grants[0]).toMatchObject({ reason: 'one bounded assessment' });
+  const verify = META.replace('metadata.yaml', 'verify.md');
+  const content = String(vol.readFileSync(verify, 'utf8'));
+  expect(content).toContain('Overrides: 1');
+  expect(content).toContain('consumed by prospec-verify:');
+  vol.appendFileSync(verify, '\nAdjacent authored note\n');
+  await execute({ cwd: CWD, judgmentDimensions: judgment(), warnings: ['new passing assessment'] });
+  const final = String(vol.readFileSync(verify, 'utf8'));
+  expect(final).toContain('one bounded assessment');
+  expect(final).toContain('Adjacent authored note\n');
+  expect(final.match(/<!-- prospec:escalation-history -->/g)).toHaveLength(1);
+});
+
+
+it.each(['clean', 'head'] as const)('R330-reviewer: diagnostic Git %s cannot create a new verify attempt', async (diagnostic) => {
+  seed();
+  const snapshot = { digest: 'same-repository-inputs', clean: false, head: 'before-commit' };
+  vi.mocked(assessCurrentDrift).mockImplementation(async () => ({
+    report: live.report,
+    snapshot: { ...snapshot },
+    recheck: () => true,
+  }) as Awaited<ReturnType<typeof assessCurrentDrift>>);
+  await execute({ cwd: CWD, judgmentDimensions: judgment(), warnings: [] });
+  const before = [vol.readFileSync(META, 'utf8'), vol.readFileSync(META.replace('metadata.yaml', 'verify.md'), 'utf8')];
+  if (diagnostic === 'clean') snapshot.clean = true;
+  else snapshot.head = 'equivalent-commit';
+  const replay = await execute({ cwd: CWD, judgmentDimensions: judgment(), warnings: [] });
+  expect(replay.replay).toBe(true);
+  expect([vol.readFileSync(META, 'utf8'), vol.readFileSync(META.replace('metadata.yaml', 'verify.md'), 'utf8')]).toEqual(before);
+  snapshot.digest = 'changed-repository-inputs';
+  expect((await execute({ cwd: CWD, judgmentDimensions: judgment(), warnings: [] })).replay).not.toBe(true);
+  expect(vol.readFileSync(META, 'utf8')).not.toBe(before[0]);
+});
+
+
+it('R330-R2-2: rechecks every declared Constitution check after metadata acceptance', async () => {
+  const constitution = { rules: [{
+    name: 'Artifact language', severity: 'MUST' as const, has_verify_hint: true, line: 1, check_id: 'artifact-language',
+  }] };
+  seed({ reportJson: report({}, { constitution, extraChecks: [{ id: 'artifact-language', status: 'pass' }] }) });
+  const verify = META.replace('metadata.yaml', 'verify.md');
+  vol.writeFileSync(verify, '# Existing evidence\n');
+  verifyWrites.afterWrite = file => {
+    if (file === META) {
+      vol.mkdirSync('/repo/.prospec/changes/another', { recursive: true });
+      vol.writeFileSync('/repo/.prospec/changes/another/proposal.md', 'English-only prose changes the repository-wide language check');
+      live.report = JSON.parse(report({}, { constitution, extraChecks: [{ id: 'artifact-language', status: 'warn' }] }));
+    }
+  };
+  const first = await execute({ cwd: CWD, change: 'add-widget', judgmentDimensions: judgment(), warnings: [] }).catch(e => e);
+  // The changed check really affects grading, not just an informational report field.
+  await expect(execute({ cwd: CWD, change: 'add-widget', judgmentDimensions: judgment(), warnings: [] }))
+    .rejects.toThrow('machine check "artifact-language"');
+  expect(first).toMatchObject({
+    code: 'ESCALATION_REFUSED',
+    details: { persistence: { accepted_persisted: true, artifact_persisted: false } },
+  });
+  expect(vol.readFileSync(verify, 'utf8')).toBe('# Existing evidence\n');
+});
+
+
+it('R330-R2-3: raw escalation history markers in judgment evidence cannot rewrite the accepted evidence', async () => {
+  seed();
+  const verify = META.replace('metadata.yaml', 'verify.md');
+  const payload = '/repo/dimensions.json';
+  const suppliedEvidence = 'before\n<!-- prospec:escalation-history -->\nUNIQUE literal reviewed proof\n<!-- prospec:escalation-history-end -->\nafter';
+  vol.writeFileSync(payload, JSON.stringify(judgment().map(d => ({ ...d, evidence: d.name === 'constitution' ? suppliedEvidence : 'reviewed proof' }))));
+  const beforeMeta = vol.readFileSync(META, 'utf8');
+  const first = await execute({ cwd: CWD, dimensionsPath: payload, warnings: [] }).catch(e => e);
+  if (first instanceof Error) {
+    // Refusing a newly reserved marker is safe only before acceptance.
+    expect(first).toBeInstanceOf(PrerequisiteError);
+    expect(vol.readFileSync(META, 'utf8')).toBe(beforeMeta);
+    expect(vol.existsSync(verify)).toBe(false);
+    return;
+  }
+  const artifact = String(vol.readFileSync(verify, 'utf8'));
+  const afterMeta = vol.readFileSync(META, 'utf8');
+  const replay = await execute({ cwd: CWD, dimensionsPath: payload, warnings: [] }).catch(e => e);
+  expect.soft(artifact).toContain(suppliedEvidence);
+  expect.soft(replay).toMatchObject({ replay: true });
+  expect(vol.readFileSync(META, 'utf8')).toBe(afterMeta);
+  expect(vol.readFileSync(verify, 'utf8')).toBe(artifact);
+});
+
+it('preserves fenced history evidence across an accepted verify replay', async () => {
+  seed();
+  const payload = '/repo/dimensions.json';
+  const evidence = '```md\n<!-- prospec:escalation-history -->\nliteral proof\n<!-- prospec:escalation-history-end -->\n```';
+  vol.writeFileSync(payload, JSON.stringify(judgment().map(d => ({ ...d, evidence }))));
+  await execute({ cwd: CWD, dimensionsPath: payload, warnings: [] });
+  const verify = META.replace('metadata.yaml', 'verify.md');
+  const before = [vol.readFileSync(META, 'utf8'), vol.readFileSync(verify, 'utf8')];
+  expect(before[1]).toContain(evidence);
+  expect((await execute({ cwd: CWD, dimensionsPath: payload, warnings: [] })).replay).toBe(true);
+  expect([vol.readFileSync(META, 'utf8'), vol.readFileSync(verify, 'utf8')]).toEqual(before);
+});

@@ -7,7 +7,7 @@
  * - suggestion: actionable fix recommendation
  */
 
-import type { CircuitBreakerState } from './cascade.js';
+import type { CircuitBreakerState, EscalationFailureDetails } from './cascade.js';
 import { PAUSE_AT_ENV_VAR, PAUSE_AT_NONE, PAUSE_STATIONS } from './config.js';
 import { TEST_GATE_NOT_ADJUDICATED, testGateRemediation, type TestGateEntrance } from './station.js';
 
@@ -25,6 +25,17 @@ export class ProspecError extends Error {
     this.name = 'ProspecError';
     this.code = code;
     this.suggestion = suggestion;
+  }
+}
+
+/** Shared typed refusal/partial outcome; the CLI renders the service's decision. */
+export class EscalationError extends ProspecError {
+  readonly details: EscalationFailureDetails;
+
+  constructor(message: string, suggestion: string, details: EscalationFailureDetails, cause?: unknown) {
+    super(message, 'ESCALATION_REFUSED', suggestion, { cause });
+    this.name = 'EscalationError';
+    this.details = details;
   }
 }
 
@@ -240,6 +251,7 @@ export class TestGateError extends ProspecError {
   readonly remediation: string;
   readonly circuitBreaker?: CircuitBreakerState;
   readonly warningRecorded: boolean;
+  readonly escalation?: EscalationFailureDetails;
 
   constructor(options: {
     changeName: string;
@@ -247,6 +259,8 @@ export class TestGateError extends ProspecError {
     reason: string;
     circuitBreaker?: CircuitBreakerState;
     warningRecorded?: boolean;
+    escalation?: EscalationFailureDetails;
+    cause?: unknown;
   }) {
     const remediation = testGateRemediation(options.changeName);
     const warningRecorded = options.warningRecorded ?? false;
@@ -254,8 +268,9 @@ export class TestGateError extends ProspecError {
       `${options.entrance} refused for ${options.changeName}: ${options.reason}`,
       'TEST_GATE_REFUSED',
       warningRecorded
-        ? `The \`${TEST_GATE_NOT_ADJUDICATED}\` warning was recorded in metadata.yaml but the merge was not completed — review.md was left untouched. Run \`${remediation}\`, then retry`
+        ? `The \`${TEST_GATE_NOT_ADJUDICATED}\` warning was recorded in metadata.yaml but the merge was not completed — ${options.escalation?.persistence.artifact_persisted ? 'review.md was written; metadata acceptance did not complete' : 'review.md was left untouched'}. Run \`${remediation}\`, then retry`
         : `Run \`${remediation}\`, then retry`,
+      { cause: options.cause },
     );
     this.name = 'TestGateError';
     this.entrance = options.entrance;
@@ -263,6 +278,7 @@ export class TestGateError extends ProspecError {
     this.remediation = remediation;
     this.circuitBreaker = options.circuitBreaker;
     this.warningRecorded = warningRecorded;
+    this.escalation = options.escalation;
   }
 }
 

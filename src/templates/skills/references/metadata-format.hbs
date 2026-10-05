@@ -185,8 +185,8 @@ quality_log:
   — the verifier's own verdict (`PASS` | `WARN` | `FLAWS`; `FLAWS` maps to `result: FAIL`). It is the
   provenance stamp `prospec status` keys on: only a stamped entry is the station's verifier result, a
   later stamped `PASS`/`WARN` supersedes a stamped `FLAWS`, and a station's own Exit Gate entry under
-  the same skill (unstamped) is never read as one. The one unstamped entry that also counts is a
-  Break-Glass `WARN` whose warning opens with `{{break_glass_prefix}}`.
+  the same skill (unstamped) is never read as one. Legacy unstamped Break-Glass `WARN` entries with `{{break_glass_prefix}}` remain historical evidence,
+  but cannot unlock a pending escalation. New grants are explicit composed WARNs with a nonempty human reason, bound by the CLI to the current event and station; report warning text grants nothing.
 - **`audited_option`** (plan only) is stamped by the same sink from a schema-valid
   `candidates/decision.json` — the recommendation the verifier audited. A sign-off must name the latest report's stamp (a
   later Break-Glass WARN audited nothing), so a recommendation changed after the audit needs a
@@ -218,3 +218,12 @@ quality_log:
     warnings: []
 issue: "#412"
 ```
+
+## Escalation Ledger (CLI-Owned)
+
+`quality_log` is the sole ledger: dedicated `prospec-escalation` entries carry
+`escalation.kind` trigger / resolve / override / consume, an event and station binding,
+and (for grants) reason, grant ID and the consuming attempt. Station sinks own
+`attempt_id` and `accepted` receipts. Never hand-author these fields or counters.
+`status`, verify and archive retain lifetime reasons and usage after later PASS;
+legacy incomplete coverage is disclosed, not guessed.

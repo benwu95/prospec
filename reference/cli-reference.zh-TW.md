@@ -225,6 +225,16 @@ Entry Points、Dependencies、Config Files 沒有逐語言覆寫機制——未�
 
 #### 變更管理命令詳解
 
+##### Escalation 與有界重試
+
+`status --json`、`change log --json`、`review merge --json` 與 `verify record --json` 提供結構化結果。寫入命令的拒收走 stderr 並回傳 exit 1，包含已保存與僅觀察到的事件、部分寫入旗標及原始 cause。
+
+`quality_log` 是 lifetime ledger；所有 reader 都使用同一份 `workflow.max_station_retries`。ordinal ≥ 2 的 pending event 只提供 re-scope、abandon、break-glass，推薦 re-scope。只有明確 composed WARN 中非空的 `Manual override: <reason>` 能授權目前事件與 station 的一次新 attempt；report warning 與 legacy 未綁定 marker 都不構成授權。Accepted replay 不耗用 grant；事件解決時未用 grant 到期，新事件不能沿用。測試 gate 仍然獨立。
+
+Re-scope 是由開發者調整 proposal 或建立新 Story；scenario amendment 仍須通過 reason／digest／lifecycle gate，不倒退 status，也不解鎖 escalation。Abandon 是停止並保留工件與理由；rollback 另由人類決定。Abandon 目前由人類停止流程處理。
+
+Review 維持 artifact→metadata，verify 維持 metadata→evidence 的寫入順序；receipt 綁定的補件不新增第二筆 accepted verdict，也不再次耗用 grant。Persistent-test refusal 先保存事件、重新檢查，再更新 metrics；事件寫入失敗就保留 metrics。Status 保持唯讀，verify／archive 在 PASS 後仍保留 override 理由、事件綁定與使用狀態。
+
 - **`prospec status`**
   - **核心用途**：唯讀查詢所有進行中變更的生命週期狀態與自動化路由建議。
   - **重點條列**：
@@ -311,7 +321,7 @@ Entry Points、Dependencies、Config Files 沒有逐語言覆寫機制——未�
 - **`prospec change log --skill <station> (--result <PASS|WARN|FAIL> | --verifier-report <file> | --signoff <option>) [options]`**
   - **核心用途**：在 `metadata.yaml` 追加一筆結構化的 `quality_log` 記錄。
   - **選項**：支援 `--warning <w>`、`--grade <g>`、`--dimension n=r`、`--criticals-found <n>` 等參數，欄位順序固定；自由文字由 yaml 函式庫以 YAML 資料序列化（僅在 YAML 語法需要時加引號），metacharacter 不會破壞檔案；此命令寫的是 YAML 而非 Markdown 表格，不做表格跳脫。針對 `prospec-review`，`--criticals-found`、`--criticals-fixed` 與 `--majors` 旗標僅作為期望值稽核輸入而非直寫：與 `review merge` 所記錄的 CLI 真值不符時會追加 `log_mismatch` 警告並將結果至少提升為 `WARN`（不覆寫已記錄之真值），且追加的關輪記錄本身不帶計數欄位。
-  - **`--verifier-report <file>`**（plan/tasks 站）：以 rubric 擁有的 schema 驗證 Architecture/Task Verifier 的 JSON 報告（verdict `PASS` | `WARN` | `FLAWS`、恰好該站的 dimensions、單行且有上限的 `rationale`/`warnings`）並記錄——`FLAWS` 落為 `result: FAIL`，無效 payload 在寫入前即被拒絕。對 `prospec-plan` 另以通過 schema 的 `candidates/decision.json` 推薦方案蓋上 `audited_option`（verifier 所稽核者）。與 `--result` 及組合式欄位互斥。`prospec status` 會把最新 verifier 結果為 `FAIL` 的站導回該站，直到後續 verifier `PASS`／`WARN`，或 Break-Glass `--result WARN --warning "Manual override: …"` 取代它。
+  - **`--verifier-report <file>`**（plan/tasks 站）：以 rubric 擁有的 schema 驗證 Architecture/Task Verifier 的 JSON 報告（verdict `PASS` | `WARN` | `FLAWS`、恰好該站的 dimensions、單行且有上限的 `rationale`/`warnings`）並記錄——`FLAWS` 落為 `result: FAIL`，無效 payload 在寫入前即被拒絕。對 `prospec-plan` 另以通過 schema 的 `candidates/decision.json` 推薦方案蓋上 `audited_option`（verifier 所稽核者）。與 `--result` 及組合式欄位互斥。`prospec status` 會把最新 verifier 結果為 `FAIL` 的站導回該站，直到後續 verifier `PASS`／`WARN`；Break-Glass `--result WARN --warning "Manual override: …"` 只授權有界重試，不取代 verifier verdict。
   - **`--signoff <option>`**（僅限 `--skill prospec-plan`，且須有人類明確指示）：記錄人類的 plan 簽核。以下任一不成立即拒絕且不寫入任何檔案：最新 plan verifier 結果為 PASS/WARN、`candidates/decision.json` 通過 schema、option 等於其 `recommended_option` 與最新一筆 plan verifier 報告的 `audited_option`（Break-Glass 記錄未稽核任何方案）（要改選其他方案，須先修訂 plan 與 decision 並重新記錄 verifier）、整組候選通過 `prospec validate candidates`（因此非 hybrid 的 option 必有有效的 `candidates/<option>.json`）。接受後把 decision.json 的 `graded_by` 設為 `human`，並追加一筆帶 `signoff_option` 的 PASS 記錄；`--warning` 為人類備註。與 `--result`、`--verifier-report` 及組合式欄位互斥。
 
 - **`prospec change progress [--complete <task>] [--change <name>]`**
@@ -328,7 +338,7 @@ Entry Points、Dependencies、Config Files 沒有逐語言覆寫機制——未�
   - **Sink**：`review merge` 與 `verify record` 在任何其他拒收之前結清本站票據——任一最新 attempt 為 open 或 refused 時不寫入任何東西——之後把每個 live attempt 標記為 consumed；一般輸出必定帶一行 delegation 揭露。
   - **極限**：它偵測並保存，不防止任何事，也不還原任何事；它防範的是意外或行為出錯的委派代理，而非惡意代理。它看不到 ignored 檔案（被 ignore 的 `prospec-report.json` 也在內）；`.prospec/` 內的工件，包括票據與 checkpoint（委派代理若竄改自己的票據或其他 CLI 紀錄，可使收件通過）；repository 的 `.git/config`、hooks 與 `info/exclude`（委派代理在那裡設定的 hook 或命令，如 `core.fsmonitor` 或 reference-transaction hook，會在 CLI 自己收件時的 git 呼叫與之後每一次 git 呼叫中執行）；沒有任何面向讀取的 `.git` metadata（`.git/shallow`、`info/grafts`、`info/attributes`）；比委派代理存活更久的程序（`--spawn-failed` 或被新 attempt 取代後仍在跑的代理，或它啟動的背景程序），可能在收件後改動工作樹；委派代理在返回前自行復原的改動；專案以外的內容；以及推送到任何遠端（remote-tracking refs 不是面向）——但 `git fetch` 自動跟隨的 tags 會改變 refs 面向。同一 repository 中同時進行的多個 change 的委派彼此不隔離。
 
-- **`prospec review merge --findings <file> [--round <n>] [--max-fix-induced-ratio <r>] [--max-rounds <n>] [--max-flips <n>] [--lenses <list>] [--change <name>]`**
+- **`prospec review merge --findings <file> [--round <n>] [--max-fix-induced-ratio <r>] [--max-rounds <n>] [--max-flips <n>] [--lenses <list>] [--json] [--change <name>]`**
   - **核心用途**：將單輪審查的 JSON 發現合併至累積的 `review.md` 表格中。
   - **跳脫規則**：表格 cell 內的 `|` 寫成 `\|`、換行摺成一個空白；同一性以 finding `id` 判定，不比對 location 文字；至少一個 cell 被跳脫時，成功輸出多印一行提示。
   - **重點條列**：依識別碼去重、蓋印各發現的來源輪次（`Origin`）、嚴重度取最大值、跨輪次保留記錄、記錄執行的鏡角清單，並評估 Circuit Breaker（修復引發缺陷比率、震盪翻轉、輪次硬上限、持續測試失敗）於跳閘時輸出升級報告（EscalationReport）。每次合併時，CLI 自動在 `metadata.yaml` 的 `quality_log` 寫入或更新該輪的計數記錄（`criticals_found`、`criticals_fixed`、`majors`、`round`，依輪次冪等）。當累積 findings 表格為 0 列（clean review 輪）時，CLI 亦會自動在 `review.md` 注入符合工件語言（artifact language）的 clean review 總結句。
@@ -662,7 +672,7 @@ src/
 ├── services/     — 業務邏輯（33 個 service）
 ├── lib/          — 純工具函式（config、fs、logger 等）
 ├── types/        — Zod schema + TypeScript 型別
-└── templates/    — Handlebars 範本（78 個 .hbs 檔案）
+└── templates/    — Handlebars 範本（79 個 .hbs 檔案）
     └── skills/   — 17 個 Skill 範本 + 31 個 reference 範本
 ```
 

@@ -21,6 +21,7 @@ export function registerReviewCommand(program: Command): void {
     .description('Merge one review round\'s findings into the cumulative review.md table')
     .addHelpText('after', renderCommandHelp(COMMAND_HELP_SPECS['review merge']))
     .requiredOption('--findings <file>', "Path to the round's findings JSON array")
+    .option('--json', 'Emit the merge result as JSON; refusals go to stderr with exit status 1')
     .option('--change <name>', 'Specify the change name')
     .option('--round <number>', 'In-loop round, starting at 1 on every entry into review (omitted: re-runs the recorded round until `prospec change log` closes it)', parseIntOption('round', 1))
     .option('--max-fix-induced-ratio <ratio>', 'Maximum fix-induced ratio threshold (0.0-1.0)', parseRatio('max-fix-induced-ratio'))
@@ -29,6 +30,7 @@ export function registerReviewCommand(program: Command): void {
     .option('--lenses <list>', 'Comma-separated list of lenses invoked this round', (v: string) => v.split(',').map((s) => s.trim()).filter(Boolean))
     .action(
       async (options: {
+        json?: boolean;
         findings: string;
         change?: string;
         round?: number;
@@ -51,9 +53,10 @@ export function registerReviewCommand(program: Command): void {
             maxFlips: options.maxFlips,
             lenses: options.lenses,
           });
-          formatReviewMergeOutput(result, logLevel);
+          if (options.json) process.stdout.write(JSON.stringify(result) + '\n');
+          else formatReviewMergeOutput(result, logLevel);
         } catch (err) {
-          handleError(err, globalOpts.verbose ?? false);
+          handleError(err, globalOpts.verbose ?? false, options.json);
         }
       },
     );

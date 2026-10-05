@@ -378,6 +378,16 @@ Final Knowledge consistency summary:
 
 WARN items are deployment risks — recommend resolving before `prospec-archive`.
 
+## Escalation Decision (CLI-Owned)
+
+- Stop; present the CLI decision: trigger, lifetime ordinal, exits, recommended action.
+- Never self-authorize: a report warning is not a grant. Log the human's nonempty `Manual override: <reason>` via composed WARN.
+- Grants allow one new attempt per current event and station; replay consumes none, resolution expires grants. Tests remain an independent gate.
+- An unpersisted observation is not a grant target; repair receipt-bound gaps.
+- For re-scope, revise proposal or start a Story; amendment gates remain, without unlocking escalation or regressing status.
+- For abandon, stop and retain artifacts/reasons; rollback requires human approval.
+- Preserve history after PASS, adjacent prose and fenced examples.
+
 ## Output Contract
 
 > After running, self-assess and emit a concise Output Summary. Every Success Criterion must be objectively checkable (file existence / grep / test result / count) — no subjective adjectives.

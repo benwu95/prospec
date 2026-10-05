@@ -3,22 +3,18 @@ import * as path from 'node:path';
 import { isMap, isScalar, isSeq, visit, type Document } from 'yaml';
 import {
   ChangeMetadataSchema,
+  QualityLogEntrySchema,
   NewChangeMetadataSchema,
   NewQualityLogEntrySchema,
-  PLANNING_VERDICTS,
   type ChangeMetadata,
-  type GateResult,
   type NewQualityLogEntry,
-  type PlanDecisionOption,
 } from '../types/change.js';
 import { MetadataValidationError } from '../types/errors.js';
 import {
   TEST_GATE_NOT_ADJUDICATED,
   TEST_GATE_PRODUCER,
-  planningVerdictToGateResult,
   type TestGateEntrance,
 } from '../types/station.js';
-import { BREAK_GLASS_PREFIX } from '../types/status.js';
 import { atomicWrite } from './fs-utils.js';
 import { parseYamlDocument, stringifyYaml, stringifyYamlDocument } from './yaml-utils.js';
 import { collapseWhitespace } from './text-lines.js';
@@ -103,6 +99,16 @@ export function isProvenBackfill(changeDir: string, scale: string | undefined): 
   return scale === 'backfill' && fs.existsSync(path.join(changeDir, 'backfill-draft.md'));
 }
 
+/** Read only the typed ledger when archiving a pre-schema metadata envelope. */
+export function readArchivedQualityLog(metadataPath: string, changeName: string): NewQualityLogEntry[] {
+  if (!fs.existsSync(metadataPath)) return [];
+  const doc = parseYamlDocument(fs.readFileSync(metadataPath, 'utf8'), metadataPath);
+  const value = doc.toJS() as { quality_log?: unknown } | null;
+  const parsed = QualityLogEntrySchema.array().safeParse(value?.quality_log ?? []);
+  if (!parsed.success) throw new MetadataValidationError(changeName, parsed.error.message);
+  return parsed.data;
+}
+
 /**
  * Validate a mutated `Document` and write it back, preserving comments and any
  * fields outside the schema. Validation runs before the write, so a rejected
@@ -168,6 +174,9 @@ export function buildOrderedQualityLogEntry(entry: NewQualityLogEntry): Record<s
   if (parsed.context_id !== undefined) ordered.context_id = parsed.context_id;
   if (parsed.baseline_revision !== undefined) ordered.baseline_revision = parsed.baseline_revision;
   if (parsed.coverage_summary !== undefined) ordered.coverage_summary = parsed.coverage_summary;
+  if (parsed.attempt_id !== undefined) ordered.attempt_id = parsed.attempt_id;
+  if (parsed.accepted !== undefined) ordered.accepted = parsed.accepted;
+  if (parsed.escalation !== undefined) ordered.escalation = parsed.escalation;
   return ordered;
 }
 
@@ -211,7 +220,8 @@ export function upsertReviewRoundEntry(doc: Document, entry: NewQualityLogEntry)
       if (isMap(item)) {
         const skill = item.get('skill');
         const round = item.get('round');
-        return skill === 'prospec-review' && round === targetRound;
+        return skill === 'prospec-review' && round === targetRound &&
+          item.get('escalation') === undefined && item.get('accepted') === undefined;
       }
       return false;
     });
@@ -225,113 +235,17 @@ export function upsertReviewRoundEntry(doc: Document, entry: NewQualityLogEntry)
   doc.addIn(['quality_log'], node);
 }
 
-/**
- * True for a merge-written `prospec-review` round-counts entry — the one `review merge`
- * upserts per round, carrying `round`. It is a metric record, NOT a round-close/gate
- * record: consumers that read the LATEST entry per skill (round advancement,
- * `prospec status` unresolved warnings) must exclude it, or a round-tagged entry
- * (always `warnings: []`, `result` = the round's outcome) would mask the round-less
- * close entry that carries the real WARN. The single source of that "is this a
- * counts entry" test.
- */
-export function isReviewRoundCountsEntry(entry: { skill?: string; round?: number }): boolean {
-  return entry.skill === 'prospec-review' && entry.round !== undefined;
-}
-
 /** A plan sign-off written by `change log --signoff` — provenance, not a gate result. */
-export function isPlanSignoffEntry(entry: { skill?: string; signoff_option?: string }): boolean {
-  return entry.skill === 'prospec-plan' && entry.signoff_option !== undefined;
+export function isPlanSignoffEntry(entry: { skill?: string; signoff_option?: string; escalation?: unknown }): boolean {
+  return entry.skill === 'prospec-plan' && entry.signoff_option !== undefined && entry.escalation === undefined;
 }
 
-type ProvenanceEntry = { skill: string; result: string; warnings?: string[]; verifier_verdict?: string };
-
-/**
- * The ONE per-entry plan/tasks verifier provenance rule: an entry stamped with a
- * known `verifier_verdict` is the verifier's word (`FLAWS` → FAIL), a Break-Glass
- * WARN counts as WARN, and every other entry — a station's own Exit Gate note, a
- * sign-off — is not a verifier result (null). An unknown stamp is not a verdict.
- */
-export function verifierGateResultOf(entry: ProvenanceEntry): GateResult | null {
-  if (entry.verifier_verdict !== undefined) {
-    const verdict = PLANNING_VERDICTS.find((v) => v === entry.verifier_verdict);
-    return verdict === undefined ? null : planningVerdictToGateResult(verdict);
-  }
-  if (
-    entry.result === 'WARN' &&
-    (entry.warnings ?? []).some((w) => w.trimStart().startsWith(BREAK_GLASS_PREFIX))
-  ) {
-    return 'WARN';
-  }
-  return null;
-}
-
-/** A station's latest entry that is a verifier result (scanned latest-first by provenance), or null. */
-export function latestVerifierEntry<E extends ProvenanceEntry>(
-  qualityLog: ReadonlyArray<E> | undefined,
-  skill: string,
-): E | null {
-  if (qualityLog === undefined) return null;
-  for (let i = qualityLog.length - 1; i >= 0; i--) {
-    const entry = qualityLog[i];
-    if (entry === undefined || entry.skill !== skill) continue;
-    if (verifierGateResultOf(entry) !== null) return entry;
-  }
-  return null;
-}
-
-/** A station's latest entry recorded from a verifier report (`verifier_verdict`), or null —
- *  unlike `latestVerifierEntry`, a Break-Glass WARN is skipped because it audited nothing. */
-export function latestStampedVerifierEntry<E extends ProvenanceEntry>(
-  qualityLog: ReadonlyArray<E> | undefined,
-  skill: string,
-): E | null {
-  if (qualityLog === undefined) return null;
-  for (let i = qualityLog.length - 1; i >= 0; i--) {
-    const entry = qualityLog[i];
-    if (entry !== undefined && entry.skill === skill && entry.verifier_verdict !== undefined) return entry;
-  }
-  return null;
-}
-
-/** A station's latest recorded verifier result, or null. */
-export function latestVerifierResult(
-  qualityLog: ReadonlyArray<ProvenanceEntry> | undefined,
-  skill: string,
-): GateResult | null {
-  const entry = latestVerifierEntry(qualityLog, skill);
-  return entry === null ? null : verifierGateResultOf(entry);
-}
-
-/**
- * The option of the latest plan sign-off that still counts, or null. A sign-off
- * counts only when it sits after the latest plan verifier result and that result is
- * PASS/WARN — judged by quality_log position, because `date` is day-granular and two
- * re-plans on one day would be indistinguishable. A later verifier entry supersedes it.
- */
-export function latestFreshPlanSignoff(
-  qualityLog: ReadonlyArray<ProvenanceEntry & { signoff_option?: PlanDecisionOption }> | undefined,
-): PlanDecisionOption | null {
-  if (qualityLog === undefined) return null;
-  let latestSignoff: PlanDecisionOption | null = null;
-  for (let i = qualityLog.length - 1; i >= 0; i--) {
-    const entry = qualityLog[i];
-    if (entry === undefined || entry.skill !== 'prospec-plan') continue;
-    if (latestSignoff === null && entry.signoff_option !== undefined) {
-      latestSignoff = entry.signoff_option;
-      continue;
-    }
-    const result = verifierGateResultOf(entry);
-    if (result === null) continue;
-    return latestSignoff !== null && result !== 'FAIL' ? latestSignoff : null;
-  }
-  return null;
-}
-
-export function hasPlanSignoffAfterVerifier(
-  qualityLog: Parameters<typeof latestFreshPlanSignoff>[0],
-): boolean {
-  return latestFreshPlanSignoff(qualityLog) !== null;
-}
+// Compatibility exports: the pure escalation core owns shared provenance.
+export {
+  isReviewCloseEntry, isReviewRoundCountsEntry,
+  verifierGateResultOf, latestVerifierEntry, latestStampedVerifierEntry,
+  latestVerifierResult, latestFreshPlanSignoff, hasPlanSignoffAfterVerifier,
+} from './escalation.js';
 
 /** The one WARN line a test-gate exemption records: prefix, entrance, reason. */
 export function testGateWarning(entrance: TestGateEntrance, reason: string): string {

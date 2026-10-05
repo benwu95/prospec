@@ -1369,3 +1369,76 @@ describe('planningFlawsStreak (REQ-SERVICES-070, REQ-TESTS-122)', () => {
   });
 });
 
+
+describe('status durable escalation history', () => {
+  it('uses a non-default retry bound and does not turn a legacy override into admission', async () => {
+    const metadata = `${CWD}/.prospec/changes/escalating/metadata.yaml`;
+    vol.fromJSON({
+      [`${CWD}/.prospec.yaml`]: 'version: "1.0"\nproject:\n  name: test\nworkflow:\n  max_station_retries: 2\n',
+      [metadata]: metadataYaml({ name: 'escalating', status: 'plan', extra: `quality_log:
+  - { skill: prospec-plan, date: '2026-10-01', result: FAIL, verifier_verdict: FLAWS }
+  - { skill: prospec-plan, date: '2026-10-02', result: FAIL, verifier_verdict: FLAWS }
+  - { skill: prospec-plan, date: '2026-10-03', result: WARN, warnings: ['Manual override: historical explanation'] }
+` }),
+    });
+    const before = vol.toJSON();
+    const result = await execute({ cwd: CWD });
+    expect(result.changes[0]).toMatchObject({ next: null, escalation: { ordinal: 1, trigger: 'station_retry_limit_exceeded' } });
+    expect(result.changes[0]?.escalationHistory?.events).toHaveLength(1);
+    expect(result.changes[0]?.escalationHistory?.grants[0]).toMatchObject({ legacy: true, grant_id: null });
+    expect(vol.toJSON()).toEqual(before);
+  });
+  it('preserves a resolved event and its reason after a later PASS', async () => {
+    vol.fromJSON({ [`${CWD}/.prospec/changes/escalating/metadata.yaml`]: metadataYaml({ name: 'escalating', status: 'plan', extra: `quality_log:
+  - { skill: prospec-escalation, date: '2026-10-01', result: WARN, escalation: { kind: trigger, station: prospec-plan, event_id: e1, trigger: station_retry_limit_exceeded } }
+  - { skill: prospec-escalation, date: '2026-10-01', result: WARN, escalation: { kind: override, station: prospec-plan, event_id: e1, grant_id: g1, reason: inspected design } }
+  - { skill: prospec-plan, date: '2026-10-02', result: PASS, verifier_verdict: PASS }
+  - { skill: prospec-escalation, date: '2026-10-02', result: WARN, escalation: { kind: resolve, station: prospec-plan, event_id: e1 } }
+` }) });
+    const route = (await execute({ cwd: CWD })).changes[0]!;
+    expect(route.escalationHistory?.pending).toBeNull();
+    expect(route.escalationHistory?.events).toHaveLength(1);
+    expect(route.escalationHistory?.grants[0]).toMatchObject({ reason: 'inspected design', expired: true });
+    expect(route.next).toBe('tasks');
+  });
+});
+
+
+it('R330-R2-1: an old review breaker followed by clean review preserves history without rerouting a verified change', async () => {
+  vol.fromJSON({
+    [`${CWD}/.prospec/changes/add-auth/metadata.yaml`]: metadataYaml({
+      name: 'add-auth', status: 'verified', extra: `review_provenance:
+  digest: reviewed
+  date: 2026-09-01
+quality_log:
+  - skill: prospec-review
+    date: 2026-09-01
+    result: WARN
+    round: 3
+    warnings: ['circuit breaker tripped: max_rounds_exceeded']
+  - skill: prospec-review
+    date: 2026-09-02
+    result: PASS
+    round: 4
+    criticals_found: 0
+    criticals_fixed: 0
+    majors: 0
+    warnings: []
+  - skill: prospec-review
+    date: 2026-09-02
+    result: PASS
+    warnings: []
+  - skill: prospec-verify
+    date: 2026-09-02
+    result: PASS
+    grade: S
+    warnings: []
+`,
+    }),
+  });
+  const report = await execute({ cwd: CWD });
+  expect(report.errors).toEqual([]);
+  expect(report.changes[0]?.escalationHistory?.events).toHaveLength(1);
+  expect.soft(report.changes[0]?.escalationHistory?.pending).toBeNull();
+  expect(report.changes[0]?.next).toBe('archive');
+});

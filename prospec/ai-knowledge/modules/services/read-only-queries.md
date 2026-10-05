@@ -33,6 +33,8 @@
 
 ## Pitfalls
 
+- Status passes resolved retry configuration to the shared history reducer and provenance readers. Pending events route through the shared decision; resolved lifetime history and override usage remain visible without writing metadata. Non-retry human halts do not create events.
+
 - MCP resources are per-request reads, never cached; diagnostics go to stderr because stdout is the JSON-RPC channel (a contract test spies on `process.stdout.write`).
 - A REQ-scoped read is a TOOL, not a query on `spec://feature/{name}`: the SDK's `UriTemplate` compiles a `{?req,story}` expansion into a MANDATORY `\?req=…` match, so adding one would stop the plain whole-spec read from matching its own template.
 - `spec-show` reads the file ON DISK at that moment. archive's graduation judges the MERGED spec (PB-015), so a cached or reconstructed copy would answer a different question than the one asked.

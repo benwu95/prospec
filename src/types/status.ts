@@ -1,4 +1,5 @@
-import type { ChangeScale, ChangeStatus, GateResult, VerifyGrade } from './change.js';
+import type { ChangeScale, ChangeStatus, EscalationHistory, GateResult, VerifyGrade } from './change.js';
+import type { EscalationDecision } from './cascade.js';
 import type { ReferenceLoadKind } from './station-references.js';
 import { PAUSE_AT_ENV_VAR, PAUSE_AT_NONE } from './config.js';
 
@@ -164,6 +165,7 @@ export interface UnresolvedWarning {
  * evaluators are pure).
  */
 export interface ChangeRouteFacts {
+  escalationHistory?: EscalationHistory;
   name: string;
   status: ChangeStatus;
   /** Resolved scale — an absent metadata `scale` reads as `standard`. */
@@ -235,6 +237,8 @@ export interface StationReferenceMapRow {
 
 /** One routed in-flight change — the router's whole verdict. */
 export interface ChangeRoute {
+  escalation?: EscalationDecision;
+  escalationHistory?: EscalationHistory;
   name: string;
   status: ChangeStatus;
   scale: ChangeScale;

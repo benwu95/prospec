@@ -143,6 +143,7 @@ function ensureBuiltinPartials(): void {
     'index-auto-block',
     readTemplateSource('knowledge/_index-auto-block.hbs'),
   );
+  Handlebars.registerPartial('escalation-guidance', readTemplateSource('skills/_escalation-guidance.hbs'));
   builtinPartialsRegistered = true;
 }
 

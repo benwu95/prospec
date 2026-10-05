@@ -1,9 +1,12 @@
+import type { EscalationDecision } from '../types/cascade.js';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { isDeepStrictEqual } from 'node:util';
-import { PrerequisiteError } from '../types/errors.js';
+import { EscalationError, PrerequisiteError } from '../types/errors.js';
 import {
   isStatusBefore,
+  type EscalationHistory,
+  type VerifyAttemptInputs,
   type QualityDimension,
   type VerifyGrade,
   type GateResult,
@@ -20,9 +23,10 @@ import {
   writeChangeMetadataDoc,
   appendQualityLogEntry,
 } from '../lib/change-metadata.js';
-import { atomicWrite, readFileIfExists } from '../lib/fs-utils.js';
+import { atomicWrite, captureFileInputs } from '../lib/fs-utils.js';
 import { toInlineCodeSpan, trimTrailingNewlines } from '../lib/markdown-fences.js';
 import {
+  findEvidenceAttempt,
   findUnsafeBlockField,
   isUnsafeRawLine,
   renderEvidenceSection,
@@ -41,15 +45,18 @@ import {
   isSelfVerified,
   applySelfVerifiedCap,
 } from '../lib/verify-grade.js';
+import { stringifyYamlDocument } from '../lib/yaml-utils.js';
 import { todayIso } from '../lib/date-utils.js';
 import { resolveChange } from './change-resolver.js';
-import { admitSettlement, consumeSettlement, type DelegationSettlement } from '../lib/delegation.js';
+import { admitSettlement, consumeSettlement, readTickets, delegationAttemptInputs, type DelegationSettlement } from '../lib/delegation.js';
 import { assessVerificationContext } from '../lib/verification-context.js';
 import {
   assessRequirementCompliance,
   type RequirementAssessmentResult,
 } from '../lib/requirement-assessment.js';
 import { iterateDeltaEntries } from '../lib/landing-fidelity.js';
+import { admitEscalation, canonicalAttemptId, canonicalDigest, escalationFailureDetails, escalationDecision, escalationTransitions, hasUnsafeEscalationEvidence, legacyEscalationRecords, reduceEscalationHistory, verifyBelowBarStreak, upsertEscalationHistory } from '../lib/escalation.js';
+import { resolveConfigPath, resolveMaxStationRetries, validateConfig } from '../lib/config.js';
 import { renderMarkdownTable } from '../lib/markdown-table.js';
 
 export interface VerifyRecordOptions {
@@ -73,6 +80,9 @@ export interface VerifyRecordOptions {
 }
 
 export interface VerifyRecordResult {
+  escalationHistory?: EscalationHistory;
+  escalation?: EscalationDecision;
+  replay?: boolean;
   changeName: string;
   grade: VerifyGrade;
   result: GateResult;
@@ -309,6 +319,25 @@ export async function execute(options: VerifyRecordOptions): Promise<VerifyRecor
     'Which change is being verified?',
   );
   const settlement = admitSettlement(path.join(cwd, '.prospec', 'changes', changeName), 'verify');
+
+  const changeDir = path.join(cwd, '.prospec', 'changes', changeName);
+  const configPath = resolveConfigPath(cwd);
+  const inputSnapshot = captureFileInputs({
+    proposal: path.join(changeDir, 'proposal.md'), deltaSpec: path.join(changeDir, 'delta-spec.md'),
+    tasks: path.join(changeDir, 'tasks.md'), config: configPath,
+    ...(options.dimensionsPath ? { dimensions: options.dimensionsPath } : {}),
+  });
+  const configBytes = inputSnapshot.values.config;
+  const retryBound = resolveMaxStationRetries(configBytes == null ? null : validateConfig(configBytes, configPath));
+  const delegationInputs = () => canonicalDigest(delegationAttemptInputs(readTickets(changeDir, 'settle'), 'verify'));
+  const delegationDigest = delegationInputs();
+  const inputsStable = () => inputSnapshot.recheck() && delegationInputs() === delegationDigest;
+
+  const verifyPath = path.join(changeDir, 'verify.md');
+  let evidenceSnapshot: ReturnType<typeof captureFileInputs> | undefined;
+  let evidenceReadError: unknown;
+  try { evidenceSnapshot = captureFileInputs({ evidence: verifyPath }); }
+  catch (cause) { evidenceReadError = cause; }
 
   // The richer input form, read and validated FIRST: every refusal it carries
   // must precede the metadata write.
@@ -719,17 +748,7 @@ export async function execute(options: VerifyRecordOptions): Promise<VerifyRecor
     coverageSummaryStr = `${adjudicated}/${reqAssessment.expectedReqIds.length}`;
   }
 
-  appendQualityLogEntry(doc, {
-    skill: 'prospec-verify',
-    date,
-    result: gateResult,
-    warnings,
-    grade,
-    dimensions,
-    context_id: deltaInput?.context_id,
-    baseline_revision: currentRevisionNumber,
-    coverage_summary: coverageSummaryStr,
-  });
+
 
   const blocks: EvidenceBlock[] = [];
   if (judgmentInput.length > 0) {
@@ -754,6 +773,12 @@ export async function execute(options: VerifyRecordOptions): Promise<VerifyRecor
   }
 
   for (const block of blocks) {
+    if (hasUnsafeEscalationEvidence(block.body)) {
+      throw new PrerequisiteError(
+        `Block ${block.key} contains owned escalation-history markup or an unclosed Markdown fence`,
+        'Quote history markers inside a closed Markdown fence; nothing was written',
+      );
+    }
     const unsafe = findUnsafeBlockField(block);
     if (unsafe !== undefined) {
       throw new PrerequisiteError(
@@ -775,8 +800,70 @@ export async function execute(options: VerifyRecordOptions): Promise<VerifyRecor
     );
   }
 
+  const assertCurrentInputs = (): void => {
+    if (
+      !inputsStable() ||
+      !assessment.recheck() ||
+      (liveContextAssessment !== undefined && !liveContextAssessment.recheck()) ||
+      (savedContextRecheck !== undefined && !savedContextRecheck()) ||
+      fs.readFileSync(metadataPath, 'utf8') !== metadataInput
+    ) {
+      throw new PrerequisiteError('verification inputs changed or are unprovable — nothing was written', 'Re-run verify against stable current inputs');
+    }
+  };
+  assertCurrentInputs();
+
+  const log = metadata.quality_log ?? [];
+  const history = reduceEscalationHistory(log, retryBound);
+  const inputs: VerifyAttemptInputs = {
+    station: 'prospec-verify', dimensions, warnings,
+    specs: { proposal: inputSnapshot.values.proposal ?? null, deltaSpec: inputSnapshot.values.deltaSpec ?? null, acceptance: metadata.acceptance ?? null },
+    tasks: inputSnapshot.values.tasks ?? null,
+    assessment: canonicalDigest({ grade, excludedFromGrade, notApplicableMachine, constitutionAudit, reqAssessment,
+      review: adjudicateChangeCheck(report, 'review-provenance', changeName), delegation: delegationDigest,
+      config: configBytes == null ? null : validateConfig(configBytes, configPath) }),
+    testEvidence: canonicalDigest({ attempt: metadata.test_attempt, provenance: metadata.test_provenance }),
+    codeSnapshot: canonicalDigest(assessment.snapshot.digest), contextId: deltaInput?.context_id ?? null,
+    evidence: canonicalDigest(blocks), maxStationRetries: retryBound,
+  };
+  const attemptId = canonicalAttemptId('prospec-verify', inputs);
+  const admission = admitEscalation(history, log, 'prospec-verify', attemptId);
+  if (admission.kind === 'refused') throw new EscalationError(
+    'A new verify attempt requires current-event authorization', 'Present the CLI exits and obtain the developer decision',
+    escalationFailureDetails(history, 'prospec-verify'),
+  );
+  const replay = admission.kind === 'replay';
+  const entry = {
+    attempt_id: attemptId, accepted: { request_id: attemptId, artifact_digest: canonicalDigest(blocks) },
+    skill: 'prospec-verify', date, result: gateResult, warnings, grade, dimensions,
+    context_id: deltaInput?.context_id, baseline_revision: currentRevisionNumber, coverage_summary: coverageSummaryStr,
+  };
+  const trigger = verifyBelowBarStreak([...log, entry]) >= retryBound ? 'station_retry_limit_exceeded' as const : null;
+  const records = replay ? [] : [...legacyEscalationRecords(log, retryBound), ...escalationTransitions(history, {
+    station: 'prospec-verify', event_id: `retry:${attemptId}`, trigger, attempt_id: attemptId,
+    grant: admission.kind === 'accept' ? admission.grant : undefined,
+  })];
+  const eventEntries = records.map(escalation => ({ skill: 'prospec-escalation', date, result: 'WARN' as const, warnings: [], escalation }));
+  if (!replay) {
+    appendQualityLogEntry(doc, entry);
+    for (const eventEntry of eventEntries) appendQualityLogEntry(doc, eventEntry);
+  }
+  let acceptedPersisted = replay;
+  let grantConsumed = replay && log.some(e => e.escalation?.kind === 'consume' && e.escalation.attempt_id === attemptId);
+  const partialFailure = (cause: unknown): EscalationError => {
+    const persistedHistory = acceptedPersisted && !replay ? reduceEscalationHistory([...log, entry, ...eventEntries], retryBound) : history;
+    return new EscalationError(
+      `${acceptedPersisted ? `metadata.yaml was updated with grade ${grade}, but writing verify.md failed` : 'Verify metadata write failed'} (${cause instanceof Error ? cause.message : String(cause)})`,
+      'Re-run the same verify inputs to repair only their missing evidence; accepted grades and grants are not repeated',
+      escalationFailureDetails(persistedHistory, 'prospec-verify', !acceptedPersisted ? trigger ?? undefined : undefined, {
+        accepted_persisted: acceptedPersisted, grant_consumed: grantConsumed,
+        event_persisted: acceptedPersisted && eventEntries.some(e => e.escalation.kind === 'trigger'),
+      }), cause,
+    );
+  };
+
   let statusAdvanced = false;
-  if (gradeAdvancesStatus(grade) && isStatusBefore(metadata.status, 'verified')) {
+  if (!replay && gradeAdvancesStatus(grade) && isStatusBefore(metadata.status, 'verified')) {
     doc.set('status', 'verified');
     statusAdvanced = true;
   }
@@ -787,15 +874,13 @@ export async function execute(options: VerifyRecordOptions): Promise<VerifyRecor
   // the authoritative write left a dated, graded evidence section for a run that
   // has no `quality_log` entry at all; this order can only ever leave a recorded
   // run whose evidence is missing, which reads as what it is.
-  if (
-    !assessment.recheck() ||
-    (liveContextAssessment !== undefined && !liveContextAssessment.recheck()) ||
-    (savedContextRecheck !== undefined && !savedContextRecheck()) ||
-    fs.readFileSync(metadataPath, 'utf8') !== metadataInput
-  ) {
-    throw new PrerequisiteError('verification inputs changed or are unprovable — nothing was written', 'Re-run verify against stable current inputs');
+  assertCurrentInputs();
+  if (!replay) {
+    try { await writeChangeMetadataDoc(metadataPath, doc, changeName); }
+    catch (cause) { throw partialFailure(cause); }
+    acceptedPersisted = true;
+    grantConsumed = admission.kind === 'accept' && admission.grant !== undefined;
   }
-  await writeChangeMetadataDoc(metadataPath, doc, changeName);
 
   // The judgment evidence goes to `verify.md`, never to `metadata.yaml`: the
   // metadata records the verdict, the artifact records why. Appended — a
@@ -809,24 +894,59 @@ export async function execute(options: VerifyRecordOptions): Promise<VerifyRecor
   // because `findUnsafeBlockField` refuses it in every field that reaches a raw
   // line — which is also what makes the shared reference's claim that BOTH
   // artifacts carry this grammar true rather than aspirational.
+  const outputHistory = replay ? history : reduceEscalationHistory([...log, entry, ...eventEntries], retryBound);
   let evidencePath: string | undefined;
-  if (blocks.length > 0) {
-    const verifyPath = path.join(cwd, '.prospec', 'changes', changeName, 'verify.md');
+  if (blocks.length > 0 || outputHistory.events.length > 0 || outputHistory.grants.length > 0) {
     try {
-      const existing = await readFileIfExists(verifyPath);
-      const section = renderEvidenceSection(blocks, evidenceHeading);
+      if (evidenceReadError !== undefined) throw evidenceReadError;
+      const existing = evidenceSnapshot!.values.evidence ?? '';
+      const recordedDate = admission.kind === 'replay' ? admission.entry.date : date;
+      const section = renderEvidenceSection(blocks, `## ${recordedDate} — grade ${grade}`, attemptId);
+      const found = findEvidenceAttempt(existing, attemptId);
+      if (found.kind === 'conflict' || (found.kind === 'present' && found.section !== section)) {
+        throw new Error('verify.md has a conflicting attempt receipt; restore its CLI-owned section before retrying');
+      }
       const head = existing.trim() === '' ? `# Verify Evidence: ${changeName}\n` : existing;
-      await atomicWrite(verifyPath, `${trimTrailingNewlines(head)}\n\n${section}\n`);
+      const withEvidence = found.kind === 'missing' && section !== '' ? `${trimTrailingNewlines(head)}\n\n${section}\n` : existing;
+      const rendered = upsertEscalationHistory(withEvidence, outputHistory);
+      if (rendered !== existing) {
+        // Metadata is our intentional write; every other causal input and the
+        // next target still need a live fence before the evidence append.
+        const expectedMetadata = replay ? metadataInput : stringifyYamlDocument(doc);
+        const stableTargets = () => inputsStable() && evidenceSnapshot!.recheck() &&
+          fs.readFileSync(metadataPath, 'utf8') === expectedMetadata &&
+          (savedContextRecheck === undefined || savedContextRecheck());
+        if (!stableTargets()) throw new Error('verification inputs or evidence changed after metadata acceptance');
+        const after = await assessCurrentDrift(cwd);
+        if (!after.recheck() || canonicalDigest(after.snapshot.digest) !== inputs.codeSnapshot || !stableTargets()) {
+          throw new Error('live verification inputs changed after metadata acceptance');
+        }
+        if (!isDeepStrictEqual(after.report.structural.constitution?.rules ?? [], constitutionRules)) {
+          throw new Error('live Constitution rule inventory changed after metadata acceptance');
+        }
+        const gradedChecks = new Set([...Object.values(MACHINE_CHECK_FOR_DIMENSION), 'review-provenance', 'constitution-severity',
+          ...constitutionAudit.machineLedger.map(rule => rule.check_id)]);
+        for (const checkId of gradedChecks) {
+          if (!isDeepStrictEqual(adjudicateChangeCheck(after.report, checkId as DriftCheckId, changeName), adjudicateChangeCheck(report, checkId as DriftCheckId, changeName))) {
+            throw new Error(`live ${checkId} changed after metadata acceptance`);
+          }
+        }
+        if (liveContextAssessment) {
+          const currentContext = assessVerificationContext(cwd, changeName);
+          if (!currentContext.recheck() || !isDeepStrictEqual(currentContext.context, liveContextAssessment.context)) {
+            throw new Error('verification context changed after metadata acceptance');
+          }
+        }
+        await atomicWrite(verifyPath, rendered);
+      }
       evidencePath = path.join('.prospec', 'changes', changeName, 'verify.md');
-    } catch (error) {
-      throw new PrerequisiteError(
-        `metadata.yaml was updated with grade ${grade}, but writing verify.md failed (${error instanceof Error ? error.message : String(error)})`,
-        'Re-run verify record to append the missing evidence; metadata has recorded this run',
-      );
-    }
+    } catch (cause) { throw partialFailure(cause); }
   }
 
   return {
+    ...(replay ? { replay: true } : {}),
+    escalationHistory: outputHistory,
+    ...(outputHistory.pending ? { escalation: escalationDecision({ ...outputHistory.pending, ordinal: outputHistory.events.length }) } : {}),
     changeName,
     grade,
     result: gateResult,

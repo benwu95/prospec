@@ -1,5 +1,8 @@
 import { z } from 'zod';
-import type { ChangeScale } from './change.js';
+import {
+  ESCALATION_STATIONS, ESCALATION_TRIGGERS, type ChangeScale,
+  type EscalationHistory, type EscalationStation, type EscalationTrigger,
+} from './change.js';
 
 /**
  * Scale driving the autonomous cascading path.
@@ -78,18 +81,56 @@ export type PersistentTestFailureDiagnostics = z.infer<typeof PersistentTestFail
 /**
  * Escalation report generated when a circuit breaker trips or unrecoverable defect is hit.
  */
+export const ESCALATION_EXIT_IDS = [
+  'revert-and-redesign', 'manual-intervention', 're-scope', 'abandon', 'break-glass',
+] as const;
+export const EscalationExitSchema = z.object({
+  id: z.enum(ESCALATION_EXIT_IDS), label: z.string(), description: z.string(),
+});
+export type EscalationExit = z.infer<typeof EscalationExitSchema>;
+export const EscalationDecisionSchema = z.object({
+  trigger: z.enum(ESCALATION_TRIGGERS),
+  station: z.enum(ESCALATION_STATIONS),
+  event_id: z.string().min(1).nullable(),
+  /** Zero is possible when a first observation could not be persisted. */
+  ordinal: z.number().int().nonnegative(),
+  exits: z.array(EscalationExitSchema).min(1),
+  recommended: z.enum(ESCALATION_EXIT_IDS),
+}).refine((value) => value.exits.some((exit) => exit.id === value.recommended), {
+  message: 'The recommendation must belong to the allowed exits', path: ['recommended'],
+}).refine((value) => new Set(value.exits.map((exit) => exit.id)).size === value.exits.length, {
+  message: 'Exit ids must be unique', path: ['exits'],
+});
+export type EscalationDecision = z.infer<typeof EscalationDecisionSchema>;
+
+export interface ObservedEscalation {
+  trigger: EscalationTrigger;
+  station: EscalationStation;
+  event_id: null;
+  ordinal: null;
+  persisted: false;
+}
+/** Only completed writes are true; this describes a per-file outcome, not a transaction. */
+export interface PartialWriteOutcome {
+  event_persisted: boolean;
+  metrics_persisted: boolean;
+  artifact_persisted: boolean;
+  accepted_persisted: boolean;
+  grant_consumed: boolean;
+}
+export interface EscalationFailureDetails {
+  decision?: EscalationDecision;
+  history: EscalationHistory;
+  observed_escalation?: ObservedEscalation;
+  persistence: PartialWriteOutcome;
+}
+
 export const EscalationReportSchema = z.object({
-  type: z.enum([
-    'oscillation',
-    'max_rounds_exceeded',
-    'unrecoverable_critical',
-    'persistent_test_failure',
-    'fix_induced_threshold_exceeded',
-    'station_retry_limit_exceeded',
-  ]),
+  type: z.enum(ESCALATION_TRIGGERS),
   message: z.string(),
   diagnostics: z.record(z.string(), z.unknown()).optional(),
   tradeoffOptions: z.array(z.string()),
+  decision: EscalationDecisionSchema.optional(),
 });
 
 export type EscalationReport = z.infer<typeof EscalationReportSchema>;
