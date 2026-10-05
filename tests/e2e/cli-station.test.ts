@@ -1,3 +1,4 @@
+import { withVerifiedPremise } from '../helpers/premise.js';
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
@@ -21,6 +22,11 @@ let tmpDir: string;
 const runCli = (args: string[], options: { cwd?: string } = {}) =>
   runCliInProcess(args, { cwd: options.cwd ?? tmpDir });
 
+async function authorPremise(name: string): Promise<void> {
+  const file = path.join(tmpDir, '.prospec/changes', name, 'proposal.md');
+  await fs.promises.writeFile(file, withVerifiedPremise(await fs.promises.readFile(file, 'utf8')));
+}
+
 beforeEach(async () => {
   tmpDir = await fs.promises.mkdtemp(path.join(os.tmpdir(), 'prospec-e2e-'));
 });
@@ -37,6 +43,7 @@ describe('CLI E2E — station commands', () => {
     );
     await runCli(['init', '--name', 'station-test', '--agents', 'claude']);
     await runCli(['change', 'story', name, '--description', 'station test change']);
+      await authorPremise(name);
     return path.join(tmpDir, '.prospec', 'changes', name);
   }
 
@@ -160,7 +167,7 @@ describe('CLI E2E — station commands', () => {
         const changeDir = await initChange('ui-change');
         await fs.promises.writeFile(
           path.join(changeDir, 'proposal.md'),
-          '# p\n\n## UI Scope\n\n**Scope:** full\n',
+          withVerifiedPremise('# p\n\n## UI Scope\n\n**Scope:** full\n'),
         );
         await runCli(['change', 'status', 'plan']);
         const change = await mapOf('ui-change');
@@ -192,6 +199,7 @@ describe('CLI E2E — station commands', () => {
         await fs.promises.writeFile(path.join(tmpDir, 'package.json'), JSON.stringify({ name: 'station-test' }));
         await runCli(['init', '--name', 'station-test', '--agents', 'codex']);
         await runCli(['change', 'story', 'codex-change', '--description', 'host test']);
+      await authorPremise('codex-change');
         const change = await mapOf('codex-change');
         expect(change.nextSkillPath?.startsWith('.agents/skills/')).toBe(true);
         for (const row of change.nextReferenceMap ?? []) {
@@ -311,6 +319,7 @@ describe('CLI E2E — station commands', () => {
         '# Templates\n\n<!-- prospec:auto-start -->\ncontent\n<!-- prospec:auto-end -->\n',
       );
       await runCli(['change', 'story', 'my-change', '--description', 'x']);
+      await authorPremise('my-change');
       const changeDir = path.join(tmpDir, '.prospec', 'changes', 'my-change');
       // delta-spec names ONLY a templates REQ (module-prefix → templates)
       await fs.promises.writeFile(
@@ -894,6 +903,7 @@ quality_log:
 it('reports source mutation during tests and refuses archive through normal command entry', async () => {
   await runCli(['init', '--name', 'mutation', '--agents', 'claude']);
   await runCli(['change', 'story', 'mutation', '--description', 'fixture']);
+      await authorPremise('mutation');
   await recordCliEvidence(tmpDir, 'mutation');
   await runCli(['change', 'status', 'implemented']);
   fs.writeFileSync(path.join(tmpDir, 'suite.cjs'), "const fs=require('fs');require('assert').strictEqual(fs.readFileSync('input.txt','utf8'),'old');fs.writeFileSync('input.txt','new');");
@@ -929,10 +939,11 @@ describe('change log --verifier-report (REQ-CLI-053, issue #266)', () => {
   async function initChange(): Promise<string> {
     await runCli(['init', '--name', 'e2e', '--agents', 'claude']);
     await runCli(['change', 'story', 'plan-me', '--description', 'fixture']);
+      await authorPremise('plan-me');
     const proposalPath = path.join(tmpDir, '.prospec/changes/plan-me/proposal.md');
     await fs.promises.writeFile(
       proposalPath,
-      '# Proposal: plan-me\n\n## User Story\n\n### US-1: Title [P1]\n\n**Acceptance Scenarios:**\n- WHEN action THEN result\n',
+      withVerifiedPremise('# Proposal: plan-me\n\n## User Story\n\n### US-1: Title [P1]\n\n**Acceptance Scenarios:**\n- WHEN action THEN result\n'),
     );
     await runCli(['change', 'story', 'plan-me', '--freeze-scenarios']);
     await runCli(['change', 'plan']);
@@ -1016,10 +1027,11 @@ describe('opt-in plan sign-off pause through the CLI (REQ-TESTS-124)', () => {
   async function initFullPlan(): Promise<string> {
     await runCli(['init', '--name', 'e2e', '--agents', 'claude']);
     await runCli(['change', 'story', 'pick-arch', '--description', 'fixture']);
+      await authorPremise('pick-arch');
     const dir = path.join(tmpDir, '.prospec/changes/pick-arch');
     await fs.promises.writeFile(
       path.join(dir, 'proposal.md'),
-      '# Proposal: pick-arch\n\n## User Story\n\n### US-1: Title [P1]\n\n**Acceptance Scenarios:**\n- WHEN action THEN result\n',
+      withVerifiedPremise('# Proposal: pick-arch\n\n## User Story\n\n### US-1: Title [P1]\n\n**Acceptance Scenarios:**\n- WHEN action THEN result\n'),
     );
     await runCli(['change', 'story', 'pick-arch', '--freeze-scenarios']);
     await runCli(['change', 'scale', 'full']);
@@ -1092,6 +1104,7 @@ describe('fresh-test gates through the CLI (REQ-SERVICES-103, REQ-CLI-028, REQ-C
     fs.writeFileSync(path.join(tmpDir, 'package.json'), JSON.stringify({ name: 'gate-test' }));
     await runCli(['init', '--name', 'gate-test', '--agents', 'claude']);
     await runCli(['change', 'story', name, '--description', 'gate fixture']);
+      await authorPremise(name);
     fs.writeFileSync(path.join(tmpDir, '.prospec/changes', name, 'tasks.md'), '- [x] T1 done ~1 lines\n');
     await runCli(['change', 'status', 'tasks']);
   }
@@ -1203,6 +1216,7 @@ describe('fresh-test gates through the CLI (REQ-SERVICES-103, REQ-CLI-028, REQ-C
       );
       await runCli(['init', '--name', 'review-counts-test', '--agents', 'claude']);
       await runCli(['change', 'story', name, '--description', 'review counts change']);
+      await authorPremise(name);
       return path.join(tmpDir, '.prospec', 'changes', name);
     }
 
@@ -1286,6 +1300,7 @@ describe('fresh-test gates through the CLI (REQ-SERVICES-103, REQ-CLI-028, REQ-C
 
       // Create a change
       await runCli(['change', 'story', 'clean-change', '--description', 'clean change test']);
+      await authorPremise('clean-change');
 
       const emptyFindings = path.join(tmpDir, 'empty.json');
       await fs.promises.writeFile(emptyFindings, '[]');
@@ -1360,6 +1375,7 @@ describe('fresh-test gates through the CLI (REQ-SERVICES-103, REQ-CLI-028, REQ-C
 
       // 1. Authored story
       await runCli(['change', 'story', 'feat-auth', '--description', 'User authentication flow']);
+      await authorPremise('feat-auth');
       const proposalPath = path.join(tmpDir, '.prospec', 'changes', 'feat-auth', 'proposal.md');
       const proposalContent = [
         '# Proposal: feat-auth',
@@ -1373,7 +1389,7 @@ describe('fresh-test gates through the CLI (REQ-SERVICES-103, REQ-CLI-028, REQ-C
         '- WHEN user submits invalid credentials THEN error 401 is returned',
         '',
       ].join('\n');
-      await fs.promises.writeFile(proposalPath, proposalContent);
+      await fs.promises.writeFile(proposalPath, withVerifiedPremise(proposalContent));
 
       // 2. Freeze scenarios
       const freezeResult = await runCli(['change', 'story', 'feat-auth', '--freeze-scenarios']);
@@ -1537,6 +1553,7 @@ describe('CLI E2E — delegation tickets (REQ-TESTS-125, REQ-CLI-057)', () => {
     write('package.json', JSON.stringify({ name: 'delegation-test' }));
     await runCli(['init', '--name', 'delegation-test', '--agents', 'claude']);
     await runCli(['change', 'story', 'my-change', '--description', 'delegation test change']);
+      await authorPremise('my-change');
     write('.gitignore', '.prospec/\n');
     git('init', '-q', '-b', 'main');
     write('src/a.ts', 'committed a\n');

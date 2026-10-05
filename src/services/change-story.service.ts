@@ -118,6 +118,7 @@ export async function execute(options: ChangeStoryOptions): Promise<ChangeStoryR
   // loose read-side schema, and reach disk under the wrong name.
   const issue = normalizeIssueRef(options.issue);
   const metadata: NewChangeMetadata = {
+    premise_version: 1,
     name: changeName,
     created_at: new Date().toISOString(),
     status: 'story',

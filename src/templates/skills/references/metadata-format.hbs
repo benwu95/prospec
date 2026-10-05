@@ -227,3 +227,7 @@ and (for grants) reason, grant ID and the consuming attempt. Station sinks own
 `attempt_id` and `accepted` receipts. Never hand-author these fields or counters.
 `status`, verify and archive retain lifetime reasons and usage after later PASS;
 legacy incomplete coverage is disclosed, not guessed.
+
+## Premise Contract Version
+
+`premise_version: 1` is written by new-story scaffolding, including auto-draft. The editable declaration lives in proposal.md's `## Premise` (see proposal-format). New standard/full changes require a ready declaration before advancing; quick/backfill are exempt. An absent version identifies a legacy change and stays admissible with a limitation; malformed/unknown versions and unreadable metadata refuse. Version declaration and verification are separate: the CLI checks structure and does not authenticate evidence.

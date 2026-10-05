@@ -1,6 +1,6 @@
 # Contract Registry
 
-> Zod schemas, errors, frozen registries — the leaf layer every module imports (22 files)
+> Zod schemas, errors, frozen registries — the leaf layer every module imports (23 files)
 <!-- prospec:module-readme-format 2026-09-01 -->
 
 <!-- prospec:auto-start -->
@@ -53,6 +53,8 @@ Also: `auto-draft.ts` (drift-drafting options/result, incl. the `created | skipp
 - Imported everywhere: a schema change ripples to every consumer — config → `lib/config.ts`, errors → `cli/formatters/error-output.ts`. Registry ripple is in the sub-module.
 
 ## Pitfalls
+
+- `premise.ts` owns the strict premise schema and assessment contract. `premise_version: 1` opts a change into it; absence means legacy. `RouteTarget` adds `explore` without extending lifecycle stations or statuses; derive route skill identities from `ROUTE_TARGET_SKILLS`.
 
 - Escalation contracts are additive: typed trigger/resolve/override/consume records and accepted-attempt receipts live in `change.ts`; `cascade.ts` carries shared decisions and truthful partial-write outcomes. Composed entries cannot forge sink-owned fields.
 

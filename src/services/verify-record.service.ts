@@ -1,3 +1,4 @@
+import { requirePremise } from '../lib/premise.js';
 import type { EscalationDecision } from '../types/cascade.js';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
@@ -80,6 +81,7 @@ export interface VerifyRecordOptions {
 }
 
 export interface VerifyRecordResult {
+  premise?: import('../types/premise.js').PremiseAssessment;
   escalationHistory?: EscalationHistory;
   escalation?: EscalationDecision;
   replay?: boolean;
@@ -321,6 +323,7 @@ export async function execute(options: VerifyRecordOptions): Promise<VerifyRecor
   const settlement = admitSettlement(path.join(cwd, '.prospec', 'changes', changeName), 'verify');
 
   const changeDir = path.join(cwd, '.prospec', 'changes', changeName);
+  const premise = requirePremise(changeDir, cwd);
   const configPath = resolveConfigPath(cwd);
   const inputSnapshot = captureFileInputs({
     proposal: path.join(changeDir, 'proposal.md'), deltaSpec: path.join(changeDir, 'delta-spec.md'),
@@ -810,6 +813,7 @@ export async function execute(options: VerifyRecordOptions): Promise<VerifyRecor
     ) {
       throw new PrerequisiteError('verification inputs changed or are unprovable — nothing was written', 'Re-run verify against stable current inputs');
     }
+    premise.recheck();
   };
   assertCurrentInputs();
 
@@ -953,6 +957,7 @@ export async function execute(options: VerifyRecordOptions): Promise<VerifyRecor
     dimensions,
     warnings,
     statusAdvanced,
+    premise: premise.assessment,
     gradeGraduates: gradeAdvancesStatus(grade),
     excludedFromGrade,
     evidencePath,

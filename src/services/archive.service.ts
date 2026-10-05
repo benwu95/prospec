@@ -1,3 +1,4 @@
+import { requirePremise } from '../lib/premise.js';
 import { reduceEscalationHistory, upsertEscalationHistory } from '../lib/escalation.js';
 import type { EscalationHistory } from '../types/change.js';
 import * as fs from 'node:fs';
@@ -138,6 +139,7 @@ export interface RefusedChange {
 }
 
 export interface ArchivedChange {
+  premise?: import('../types/premise.js').PremiseAssessment;
   name: string;
   sourcePath: string;
   archivePath: string;
@@ -1492,6 +1494,12 @@ export async function execute(options: ArchiveOptions): Promise<ArchiveResult> {
 
   for (const change of candidates) {
     try {
+      let premise: ReturnType<typeof requirePremise>;
+      try { premise = requirePremise(change.dir, cwd); }
+      catch (error) {
+        refused.push({ name: change.name, status: change.status, reason: error instanceof Error ? error.message : String(error) });
+        continue;
+      }
       const createdDate = String(change.metadata.created ?? change.metadata.created_at ?? 'unknown');
       let assessment: CurrentDriftAssessment;
       try { assessment = await assessCurrentDrift(cwd); }
@@ -1567,6 +1575,12 @@ export async function execute(options: ArchiveOptions): Promise<ArchiveResult> {
       }
       if (!assessment.recheck() || fs.readFileSync(path.join(change.dir, 'metadata.yaml'), 'utf8') !== currentMetadata) {
         refused.push({ name: change.name, status: change.status, reason: 'archive inputs changed or are unprovable after preflight — nothing was written' });
+        continue;
+      }
+
+      try { premise.recheck(); }
+      catch (error) {
+        refused.push({ name: change.name, status: change.status, reason: error instanceof Error ? error.message : String(error) });
         continue;
       }
 
@@ -1670,6 +1684,7 @@ export async function execute(options: ArchiveOptions): Promise<ArchiveResult> {
       }
 
       archived.push({
+        premise: premise.assessment,
         name: change.name,
         sourcePath: change.dir,
         archivePath: archiveDir,

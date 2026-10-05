@@ -89,9 +89,17 @@ export function hasUnclosedFence(lines: string[]): boolean {
   return scanFences(lines).unclosed;
 }
 
-function scanFences(lines: string[]): { masked: string[]; unclosed: boolean } {
-  let fence: { char: string; len: number } | null = null;
-  const masked = lines.map((line) => {
+export interface FencedCodeBlock { start: number; end: number; info: string }
+
+/** Closed, outermost blocks using the same rules as the masking scanner. */
+export function fencedCodeBlocks(lines: string[]): FencedCodeBlock[] {
+  return scanFences(lines).blocks;
+}
+
+function scanFences(lines: string[]): { masked: string[]; unclosed: boolean; blocks: FencedCodeBlock[] } {
+  const blocks: FencedCodeBlock[] = [];
+  let fence: { char: string; len: number; start: number; info: string } | null = null;
+  const masked = lines.map((line, index) => {
     // We allow arbitrary leading whitespace because a fenced block may be deeply
     // indented inside list items. We cannot differentiate root-level indented code
     // blocks from list-item fenced blocks without a full markdown parser, so we err
@@ -109,13 +117,14 @@ function scanFences(lines: string[]): { masked: string[]; unclosed: boolean } {
         // A backtick fence's info string may not contain a backtick (a one-line
         // ```code``` span is inline code, not an opener); tilde info may.
         if (char === '`' && rest.includes('`')) return line;
-        fence = { char, len: marker.length };
+        fence = { char, len: marker.length, start: index, info };
       } else if (char === fence.char && marker.length >= fence.len && info === '') {
+        blocks.push({ start: fence.start, end: index, info: fence.info });
         fence = null;
       }
       return '';
     }
     return fence === null ? line : '';
   });
-  return { masked, unclosed: fence !== null };
+  return { masked, unclosed: fence !== null, blocks };
 }

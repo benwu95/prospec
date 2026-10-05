@@ -1,3 +1,4 @@
+import { formatPremiseNotice } from './premise-output.js';
 import pc from 'picocolors';
 import type { LogLevel } from '../../types/config.js';
 import type { ArchiveResult, ArchiveFinalizeResult } from '../../services/archive.service.js';
@@ -18,6 +19,9 @@ import { sanitizeTerminal } from './sanitize.js';
  */
 export function formatArchiveOutput(result: ArchiveResult, logLevel: LogLevel): void {
   if (logLevel !== 'quiet') {
+    for (const item of result.archived) {
+      for (const line of formatPremiseNotice(item.premise)) console.log(line);
+    }
     if (result.dryRun) {
       console.log(pc.bold('Dry-run — nothing was written. Planned mutations:'));
       if (result.planned.length === 0) {
@@ -45,7 +49,6 @@ export function formatArchiveOutput(result: ArchiveResult, logLevel: LogLevel): 
         console.log(`${pc.dim('Affected modules:')} ${modules}`);
       }
     }
-
   }
 
   if (result.pendingConvergence.length > 0) {

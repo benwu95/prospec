@@ -57,6 +57,7 @@ description: Add auth
     // the change dir exists, so resolveChange succeeds; the service-level
     // proposal.md guard is what fires — distinct from the change-not-found branch
     vol.mkdirSync('/project/.prospec/changes/add-auth', { recursive: true });
+    vol.writeFileSync('/project/.prospec/changes/add-auth/metadata.yaml', 'name: add-auth\ncreated_at: today\nstatus: story\n');
 
     await expect(
       execute({ change: 'add-auth', cwd: '/project' }),
@@ -238,22 +239,14 @@ description: Add auth
     }
   });
 
-  it('creates plan artifacts without metadata.yaml and writes no status (L76 else)', async () => {
+  it('refuses missing metadata rather than guessing legacy applicability', async () => {
     vol.fromJSON({
       '/project/.prospec.yaml': 'project:\n  name: test\n',
       '/project/.prospec/changes/no-meta/proposal.md': '# Proposal\n',
     });
-
-    const result = await execute({ change: 'no-meta', cwd: '/project' });
-
-    // plan + delta-spec still scaffolded
-    expect(result.createdFiles).toContain('.prospec/changes/no-meta/plan.md');
-    expect(result.createdFiles).toContain('.prospec/changes/no-meta/delta-spec.md');
-    // no metadata to read → no related modules surfaced
-    expect(result.relatedModules).toEqual([]);
-    // the metadata-write branch is skipped because metaDoc is null:
-    // no metadata.yaml is conjured into existence
-    expect(fs.existsSync('/project/.prospec/changes/no-meta/metadata.yaml')).toBe(false);
+    const before = vol.toJSON();
+    await expect(execute({ change: 'no-meta', cwd: '/project' })).rejects.toThrow('metadata.yaml is missing');
+    expect(vol.toJSON()).toEqual(before);
   });
 
   it('maps related_modules into the template context when present (L84 then)', async () => {

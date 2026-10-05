@@ -1,6 +1,6 @@
 # Template Library
 
-> Handlebars template library — 79 `.hbs` files across skills, references, agent-configs, change, init/knowledge.
+> Handlebars template library — 80 `.hbs` files across skills, references, agent-configs, change, init/knowledge.
 <!-- prospec:module-readme-format 2026-09-01 -->
 
 <!-- prospec:auto-start -->
@@ -40,6 +40,8 @@
 
 ## Pitfalls
 
+- `_premise.hbs` is the shared pending proposal mapping. Proposal-format owns the contract; new-story/ff ground confirmed Why in traceable evidence, and explore hands missing evidence back to new-story to update the same proposal without resetting status or scenarios. `source` remains the original origin after verification. Interactive prompts ask only for missing decisions, reusing supplied name, scale and tracker inputs.
+
 - `_escalation-guidance.hbs` is the shared CLI-owned escalation instruction for plan/tasks/review/verify/ff/archive. A report warning never authorizes a retry; only an explicit human reason can grant one event/station attempt. Keep the rubric, cascade and metadata descriptions aligned.
 
 - Sync Knowledge/count/generated assets before final review/tests/verify; V4 adopts repository-wide `knowledge-health` including the verified change. Equivalent commits preserve `snapshot-v2` evidence; recheck Knowledge freshness separately before re-verifying and renew validation after re-stamping. Keep lifecycle, cascade and the mandatory backfill reference aligned; S/A confirms validated stamps.
@@ -62,7 +64,7 @@
 
 ## Sub-Modules
 
-- [Skill Authoring](./skill-authoring.md) — the 17 skills + 9 partials + 31 references contract and its `agent sync` deployment
+- [Skill Authoring](./skill-authoring.md) — the skills, shared partials and references contract and its `agent sync` deployment
 
 <!-- prospec:auto-end -->
 

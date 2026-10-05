@@ -1,3 +1,4 @@
+import { withVerifiedPremise } from '../helpers/premise.js';
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
@@ -13,6 +14,11 @@ vi.setConfig({ testTimeout: 90_000, hookTimeout: 90_000 });
 let tmpDir: string;
 const runCli = (args: string[], options: { cwd?: string } = {}) =>
   runCliInProcess(args, { cwd: options.cwd ?? tmpDir });
+
+async function authorPremise(name: string): Promise<void> {
+  const file = path.join(tmpDir, '.prospec/changes', name, 'proposal.md');
+  await fs.promises.writeFile(file, withVerifiedPremise(await fs.promises.readFile(file, 'utf8')));
+}
 
 beforeEach(async () => {
   tmpDir = await fs.promises.mkdtemp(path.join(os.tmpdir(), 'prospec-e2e-'));
@@ -109,6 +115,7 @@ describe('CLI E2E — change & spec', () => {
       );
       await runCli(['init', '--name', 'issue-test', '--agents', 'claude']);
       await runCli(['change', 'story', 'unlinked-story', '--description', 'No tracker item']);
+      await authorPremise('unlinked-story');
 
       const metadataRaw = await fs.promises.readFile(
         path.join(tmpDir, '.prospec', 'changes', 'unlinked-story', 'metadata.yaml'),
@@ -193,6 +200,7 @@ describe('CLI E2E — change & spec', () => {
       );
       await runCli(['init', '--name', 'status-test', '--agents', 'claude']);
       await runCli(['change', 'story', 'add-feature', '--description', 'Routing e2e']);
+      await authorPremise('add-feature');
 
       const { stdout, exitCode } = await runCli(['status']);
       expect(exitCode).toBe(0);
@@ -216,6 +224,7 @@ describe('CLI E2E — change & spec', () => {
       );
       await runCli(['init', '--name', 'status-test', '--agents', 'claude']);
       await runCli(['change', 'story', 'add-feature', '--description', 'Routing e2e']);
+      await authorPremise('add-feature');
       // Drop the agents list: the deployment root is gone, the station is not.
       const configPath = path.join(tmpDir, '.prospec.yaml');
       const config = await fs.promises.readFile(configPath, 'utf-8');
@@ -238,6 +247,7 @@ describe('CLI E2E — change & spec', () => {
       );
       await runCli(['init', '--name', 'status-test', '--agents', 'claude']);
       await runCli(['change', 'story', 'add-feature', '--description', 'Routing e2e']);
+      await authorPremise('add-feature');
 
       const { stdout, exitCode } = await runCli(['status', '--json']);
       expect(exitCode).toBe(0);
@@ -274,6 +284,7 @@ describe('CLI E2E — change & spec', () => {
       );
       await runCli(['init', '--name', 'crlf-test', '--agents', 'claude']);
       await runCli(['change', 'story', 'add-feature', '--description', 'CRLF routing e2e']);
+      await authorPremise('add-feature');
       await runCli(['change', 'scale', 'quick']);
       const proposalPath = path.join(tmpDir, '.prospec', 'changes', 'add-feature', 'proposal.md');
       await fs.promises.writeFile(
@@ -413,6 +424,7 @@ describe('CLI E2E — change & spec', () => {
       );
       await runCli(['init', '--name', 'gatec-test', '--agents', 'claude']);
       await runCli(['change', 'story', 'feat-c', '--description', 'x']);
+      await authorPremise('feat-c');
     }
     const tasksPath = (): string =>
       path.join(tmpDir, '.prospec', 'changes', 'feat-c', 'tasks.md');

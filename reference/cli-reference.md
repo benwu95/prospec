@@ -384,7 +384,7 @@ Review preserves artifact→metadata ordering; verify preserves metadata→evide
   - **Key Details**: Tracks consecutive zero-yield changes and yield ratio per lens; outputs recommendations (`keep`, `review`, `retire`).
 
 - **`prospec validate <kind> [target] [--change <name>]`**
-  - **Purpose**: Machine validation of artifact structural integrity (`slug`, `promote-scaffold`, `backfill-draft`, `design-spec`, `module-readme`, `candidates`). `module-readme` validates a module's README against its canonical Markdown convention. `candidates` validates a change's `candidates/option-*.json` and `decision.json` against their schemas and prints a metrics table (`direction_violations` against the module map's `depends_on`, `touched_modules`, `estimated_lines`, `unknown_references`). Exits 1 on failure.
+  - **Purpose**: Machine validation of artifact structural integrity (`proposal`, `slug`, `promote-scaffold`, `backfill-draft`, `design-spec`, `module-readme`, `candidates`). `module-readme` validates a module's README against its canonical Markdown convention. `candidates` validates a change's `candidates/option-*.json` and `decision.json` against their schemas and prints a metrics table (`direction_violations` against the module map's `depends_on`, `touched_modules`, `estimated_lines`, `unknown_references`). Exits 1 on failure.
 
 > [!IMPORTANT]
 > **Deterministic Execution Layer**: These change management commands serve as the deterministic core of the workflow (issue #107). Skills (`prospec-new-story`, `prospec-ff`, etc.) delegate every scaffold, status transition, and audit record to the CLI rather than authoring raw bookkeeping artifacts. If the CLI binary is missing or below the version probe threshold, the Skill halts (STOP). All commands can also be run manually or scripted in CI/CD.
@@ -677,7 +677,7 @@ src/
 ├── services/     — Business logic (33 services)
 ├── lib/          — Pure utility functions (config, fs, logger, etc.)
 ├── types/        — Zod schemas + TypeScript types
-└── templates/    — Handlebars templates (79 .hbs files)
+└── templates/    — Handlebars templates (80 .hbs files)
     └── skills/   — 17 Skill templates + 31 reference templates
 ```
 
@@ -692,3 +692,9 @@ src/
 - **TypeScript**: 5.9
 
 ---
+
+## Proposal premise validation
+
+`prospec validate proposal <change> [--json]` uses the change metadata, not an arbitrary artifact path. Results include ready/blocked/legacy/exempt, findings, remedy and the structural-validation limitation; blocked exits 1. New standard/full changes require problem, original source/reference, evidence/result, withdrawal and verification; reproduction also requires steps/expected/actual. An AI origin remains ai-proposed after verification. Quick/backfill are exempt; absent version is legacy, while missing metadata or unknown versions refuse. The CLI contacts no tracker, authenticates no evidence, and executes no reproduction steps.
+
+Status routes PREMISE_INCOMPLETE to explore; explore writes no artifacts and new-story updates the same proposal preserving status/scenarios. Plan/tasks, forward status, verify record, archive (including dry-run), and post-story promotion to standard/full share admission before the first write. Existing baseline, tests, sign-off and escalation gates remain applicable.

@@ -33,6 +33,8 @@ When triggered, briefly describe:
 - The draft has **no unresolved `[NEEDS CLARIFICATION]`** — promotion is a record of *confirmed* behavior; an unresolved marker means the user-review gate (`prospec-backfill-spec` Phase 5) is incomplete. FAIL → send the user back to resolve it; never carry it into the scaffold.
 - The candidate feature slug is confirmed and `prospec validate slug <candidate>` (Bash) PASSes.
 
+Premise validation exempts `scale: backfill`; promotion documents existing behavior through its own reviewed draft contract. It does not establish a verified premise for new work.
+
 ## Core Workflow
 
 > The draft is already fidelity-checked (every AC backed by `file:line`, no fabricated intent, no uncounted facts — `prospec-backfill-spec` guarantees this). Promotion **reshapes** that material into the forward-path artifacts; it does not re-derive behavior and **adds no claim the draft did not already ground**.

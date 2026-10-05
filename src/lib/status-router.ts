@@ -2,8 +2,9 @@ import type {
   ChangeRoute,
   ChangeRouteFacts,
   SddStation,
+  RouteTarget,
 } from '../types/status.js';
-import { BREAK_GLASS_PREFIX, formatWorkflowReason, PLAN_SIGNOFF_REMEDIES, STATION_SKILLS } from '../types/status.js';
+import { BREAK_GLASS_PREFIX, formatWorkflowReason, PLAN_SIGNOFF_REMEDIES, ROUTE_TARGET_SKILLS } from '../types/status.js';
 import { forbiddenArtifacts, isStatusBefore } from '../types/change.js';
 import { AGENT_CONFIGS } from '../types/skill.js';
 import { RELATED_MODULE_HALT_CONDITION } from './knowledge-sync.js';
@@ -68,6 +69,7 @@ export function routeChange(facts: ChangeRouteFacts): ChangeRoute {
 
   const base = {
     name: facts.name,
+    ...(facts.premise === undefined ? {} : { premise: facts.premise }),
     status: facts.status,
     scale: facts.scale,
     // `implemented` marks `implement` as completed — except for a scale with no
@@ -128,6 +130,14 @@ export function routeChange(facts: ChangeRouteFacts): ChangeRoute {
         ? ['Present the CLI exits to the developer; a break-glass grant requires an explicit nonempty reason for this event and station']
         : ['One new accepted attempt is authorized; existing test and live-evidence gates still apply'],
       reasons: [`${pending.trigger}: ${history.events.length} lifetime escalation event(s); recommended: ${decision.recommended}`],
+    };
+  }
+
+  if (facts.status !== 'archived' && facts.premise?.state === 'blocked') {
+    return {
+      ...base, next: 'explore', code: 'PREMISE_INCOMPLETE',
+      blockingGates: facts.premise.findings,
+      reasons: [facts.premise.remedy, facts.premise.limitation],
     };
   }
 
@@ -453,8 +463,8 @@ export function routeChange(facts: ChangeRouteFacts): ChangeRoute {
  * agent configuration costs the caller the fallback path, never the target.
  * Returns null only for a terminal change (no next station).
  */
-export function resolveNextSkill(station: SddStation | null): string | null {
-  return station === null ? null : STATION_SKILLS[station];
+export function resolveNextSkill(station: RouteTarget | null): string | null {
+  return station === null ? null : ROUTE_TARGET_SKILLS[station];
 }
 
 /**
@@ -467,7 +477,7 @@ export function resolveNextSkill(station: SddStation | null): string | null {
  * FIRST configured agent's registry `skillPath` (every agent's per-station
  * subdirectory is identically named, so the choice is only which root to show).
  * The host-neutral canonical Skill name in `next:` stays the primary reference;
- * this path is an actionable read-target hint. `STATION_SKILLS[station]` is
+ * this path is an actionable read-target hint. `ROUTE_TARGET_SKILLS[station]` is
  * already the Skill directory name (so `story` → `prospec-new-story`, not
  * `prospec-story`).
  *
@@ -477,12 +487,12 @@ export function resolveNextSkill(station: SddStation | null): string | null {
  */
 export function resolveNextSkillPath(
   agentNames: readonly string[],
-  station: SddStation | null,
+  station: RouteTarget | null,
 ): string | null {
   if (station === null) return null;
   const root = resolveSkillRoot(agentNames);
   if (root === null) return null;
-  return `${root}/${STATION_SKILLS[station]}/SKILL.md`;
+  return `${root}/${ROUTE_TARGET_SKILLS[station]}/SKILL.md`;
 }
 
 /**

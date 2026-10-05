@@ -49,6 +49,8 @@ Also: `quickstart` (init + agentSync), `agent-triggers` + `trigger-localization`
 
 ## Pitfalls
 
+- Sourced-premise admission is shared through `lib/premise`: plan, tasks, forward status, post-story scale promotion, verify record and archive (including dry-run) refuse blocked inputs before writing. Keep each writer’s existing gates and recheck the capture before its first write. Story creation declares version 1 with pending evidence; results disclose ready/legacy/exempt without claiming evidence truth.
+
 - Planning, review and verify enforce current-event admission before new verdict writes. Accepted receipts and grant consumption share one metadata write. Review writes artifact→metadata, verify metadata→evidence; each rechecks causal inputs before the next write. Persistent-test refusal persists an event before metrics and never consumes a grant.
 - Planning identity and its write fence use the complete `readCandidateFiles` discovery. Review repair binds the current receipt's causal base before considering older acceptances; exemption revalidation also preserves the original assessment facts, including its content digest. Verify identity and its evidence fence compare the content digest, excluding diagnostic Git cleanliness and HEAD.
 - Verify's second-write fence includes every declared Constitution check and its rule inventory. Evidence with unfenced history markers or unclosed fences is refused before acceptance; complete fenced examples remain verbatim.

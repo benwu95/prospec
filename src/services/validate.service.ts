@@ -1,3 +1,5 @@
+import type { PremiseAssessment } from '../types/premise.js';
+import { readPremiseAssessment } from '../lib/premise.js';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { execFileSync } from 'node:child_process';
@@ -54,7 +56,7 @@ export interface ValidateResult {
   ok: boolean;
   findings: ValidationFinding[];
   /** Structural facts for the subset kinds — the skill's judgment inputs. */
-  facts?: BackfillDraftFacts | DesignSpecFacts | ModuleReadmeFormatFacts | CandidateMetricsFacts;
+  facts?: PremiseAssessment | BackfillDraftFacts | DesignSpecFacts | ModuleReadmeFormatFacts | CandidateMetricsFacts;
 }
 
 /**
@@ -66,6 +68,19 @@ export interface ValidateResult {
  */
 export async function execute(options: ValidateOptions): Promise<ValidateResult> {
   const cwd = options.cwd ?? process.cwd();
+
+  if (options.kind === 'proposal') {
+    const changeName = await resolveChange(cwd, options.change ?? options.target, options.quiet, 'Which change owns the proposal?');
+    const assessment = readPremiseAssessment(path.join(cwd, '.prospec', 'changes', changeName), cwd).assessment;
+    return {
+      kind: 'proposal', target: changeName, ok: assessment.state !== 'blocked', facts: assessment,
+      findings: [
+        ...assessment.findings.map((message): ValidationFinding => ({ level: assessment.state === 'blocked' ? 'FAIL' : 'INFO', message })),
+        ...(assessment.remedy ? [{ level: 'INFO' as const, message: assessment.remedy }] : []),
+        { level: 'INFO', message: assessment.limitation },
+      ],
+    };
+  }
 
   if (options.kind === 'slug') {
     if (!options.target) {

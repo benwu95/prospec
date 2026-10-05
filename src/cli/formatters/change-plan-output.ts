@@ -1,3 +1,4 @@
+import { formatPremiseNotice } from './premise-output.js';
 import pc from 'picocolors';
 import type { LogLevel } from '../../types/config.js';
 import type { ChangePlanResult } from '../../services/change-plan.service.js';
@@ -18,7 +19,7 @@ export function formatChangePlanOutput(
 ): void {
   if (logLevel === 'quiet') return;
 
-  const lines: string[] = [];
+  const lines: string[] = formatPremiseNotice(result.premise);
 
   // 1. Created files
   for (const file of result.createdFiles) {

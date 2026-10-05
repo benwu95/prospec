@@ -1,5 +1,6 @@
 import type { ChangeScale, ChangeStatus, EscalationHistory, GateResult, VerifyGrade } from './change.js';
 import type { EscalationDecision } from './cascade.js';
+import type { PremiseAssessment } from './premise.js';
 import type { ReferenceLoadKind } from './station-references.js';
 import { PAUSE_AT_ENV_VAR, PAUSE_AT_NONE } from './config.js';
 
@@ -54,6 +55,11 @@ export const STATION_SKILLS: Record<SddStation, string> = {
   archive: 'prospec-archive',
 };
 
+export type RouteTarget = SddStation | 'explore';
+export const ROUTE_TARGET_SKILLS: Record<RouteTarget, string> = {
+  ...STATION_SKILLS, explore: 'prospec-explore',
+};
+
 const STATION_NAMES = new Set<string>(SDD_STATIONS);
 const SKILL_PREFIX = 'prospec-';
 
@@ -102,6 +108,7 @@ export const WORKFLOW_REASON_CODES = [
   'REVIEW_STALE',
   'TESTS_STALE',
   'DELTA_SPEC_STALE',
+  'PREMISE_INCOMPLETE',
 ] as const;
 
 export type WorkflowReasonCode = (typeof WORKFLOW_REASON_CODES)[number];
@@ -165,6 +172,7 @@ export interface UnresolvedWarning {
  * evaluators are pure).
  */
 export interface ChangeRouteFacts {
+  premise?: PremiseAssessment;
   escalationHistory?: EscalationHistory;
   name: string;
   status: ChangeStatus;
@@ -237,6 +245,8 @@ export interface StationReferenceMapRow {
 
 /** One routed in-flight change — the router's whole verdict. */
 export interface ChangeRoute {
+  /** Current structural premise assessment, including legacy/exemption disclosure. */
+  premise?: PremiseAssessment;
   escalation?: EscalationDecision;
   escalationHistory?: EscalationHistory;
   name: string;
@@ -246,7 +256,7 @@ export interface ChangeRoute {
   current: SddStation;
   /** Suggested next station; null at the terminal `archived` and on a
    *  `HUMAN_HALT_CODES` route, where the next actor is a human. */
-  next: SddStation | null;
+  next: RouteTarget | null;
   /** Why the change was placed here, as a stable code (`reasons` carries the prose). */
   code: WorkflowReasonCode;
   /** Canonical skill identity for `next` (`STATION_SKILLS[next]`, e.g. `prospec-verify`),

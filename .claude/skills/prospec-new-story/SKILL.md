@@ -10,7 +10,7 @@ description: "New Story - Create change requests by guiding User Story and accep
 
 When triggered, briefly describe:
 - Operating under the Draft-First protocol (Type III) by default — automatically inferring change name, scale, and scaffolding proposal.md
-- Supporting `--interactive` mode for guided step-by-step interview and confirmation
+- Supporting `--interactive` interviews
 - A proposal.md with `## Stated Assumptions` will be created in `.prospec/changes/`
 
 ## Language Policy
@@ -49,33 +49,32 @@ nondeterministic serialization this contract exists to remove.
 
 ## Action Space Spectrum (Draft-First Protocol)
 
-To protect developer focus and maintain flow, this skill defaults to the **Draft-First** protocol:
-- **Action: Draft (Default)**: When developer intent is clear or knowledge base (`prospec/index.md`, `specs/features/`) provides sufficient context, infer change name & scale, scaffold the change directory, and draft `proposal.md` with explicit `## Stated Assumptions`.
+Default to **Draft-First**:
+- **Action: Draft (Default)**: Infer name/scale from intent and Knowledge, then scaffold `proposal.md` with `## Stated Assumptions`; premise readiness is checked separately.
 - **Action: Question**: ONLY when critical boundary conditions or goals are severely ambiguous and cannot be derived from code/specs, ask at most **one targeted question** at a time.
 - **Action: Stay Silent**: Advisory checks (Phase 6 INVEST check, Phase 7 Knowledge check) are silently recorded to `metadata.yaml` `quality_log` rather than cluttering the conversation.
-- **Action: Notify / Deliver**: Deliver the completed `proposal.md` and concise Output Summary for single-pass human review.
+- **Action: Notify / Deliver**: Deliver proposal and Output Summary for review.
 - **Escape Hatch (`--interactive`)**: If the user passes `--interactive` (or explicitly requests step-by-step interview), fall back to guided interview mode.
 
 ## Core Workflow
 
-> Note: Phase 3.5 (Complexity Assessment) is an intentional semantic insertion between Phase 3 and Phase 4, not a numbering bug.
-
 ### Phase 1: Requirements Gathering (Draft-First vs Interactive)
 
-- **Draft-First mode (default)**: Parse user prompt, match terms against `prospec/index.md` keywords, and examine existing feature specs under `prospec/specs/features/`. Infer Background (why), Role (who), Feature (what), Value (why it matters), and Constraints without interactive friction. If a key boundary is severely ambiguous, ask **one question at a time**.
+- **Draft-First mode (default)**: Match the prompt to index keywords and relevant Feature Specs. Draft Role, Feature and Constraints. Ground Background/Value in traceable input or actual code investigation; clear intent alone is insufficient. Record original source/evidence; verification preserves `source: ai-proposed`. If a key boundary is severely ambiguous, ask **one question at a time**.
+- Reproduction evidence (steps, expected/actual behavior, conclusion) can skip deep interviewing, not the Premise structure. Missing evidence stays pending → `prospec-explore`.
 - **Interactive mode (`--interactive`)**: Guide the user through 3-4 focused questions to collect Background, Role, Feature, Value, and Constraints.
 
 > **Phase 1 Gate** — proceed when:
-> - [ ] Background, Role, Feature, and Value are captured (inferred in Draft-First, or collected via interview)
+> - [ ] Background, Role, Feature, and Value are captured with evidence or explicitly pending hypotheses
 > - [ ] Known Constraints recorded (or explicitly noted as none)
 
 ### Phase 2: Derive Change Name
 
-Derive a kebab-case name from requirements (verb-first, 2-4 words).
-- **Draft-First mode (default)**: Automatically adopt the derived kebab-case name. If the user prompt provided a tracker reference/URL, extract it for `--issue <ref>`.
-- **Interactive mode (`--interactive`)**: STOP. Ask the user to confirm the change name and, in the same question, which tracker item this change belongs to (**optional** — accept "none").
+Reuse a supplied name; otherwise derive a kebab-case name (verb-first, 2-4 words).
+- **Draft-First mode (default)**: Adopt the supplied or derived kebab-case name. If the user prompt provided a tracker reference/URL, extract it for `--issue <ref>`.
+- **Interactive mode (`--interactive`)**: Reuse supplied decisions; only for missing input: STOP. Ask the user to confirm the change name and, in the same question, which tracker item this change belongs to (**optional** — accept "none").
 
-The tracker answer is free-form (a reference, a URL, another tracker's id) and is written by `prospec change story --issue` in Phase 3 — prospec judges nothing about its shape and calls no API (runs of whitespace, line breaks included, collapse to one space). No answer means the field is simply absent; never invent one, and never derive one from the branch name.
+Pass the free-form tracker reference via `prospec change story --issue` in Phase 3. Prospec judges nothing about its shape and calls no API; whitespace and line breaks collapse to one space. Omit absent references; never invent one or derive it from the branch name.
 
 > **Phase 2 Gate** — proceed when:
 > - [ ] A kebab-case change name is derived (all lowercase, hyphen-separated, verb-first)
@@ -87,15 +86,15 @@ The tracker answer is free-form (a reference, a URL, another tracker's id) and i
 | Scenario | Action |
 |----------|--------|
 | Directory doesn't exist | Run `prospec change story [name] --description "<one-liner>" [--issue <ref>]` (Bash) — the CLI scaffolds `.prospec/changes/[name]/` with `metadata.yaml` (status: story) and `proposal.md`. Pass `--issue` only when a tracker item was provided in the prompt or Phase 2; the flag exists ONLY here, so a skipped answer cannot be amended later without rebuilding the change |
-| Already exists | Read existing files, proceed to populate |
+| Already exists | Read and update the same proposal; preserve unrelated sections, scenarios, scale and metadata status. Do not scaffold again. On return from explore, incorporate its premise-check without relabeling the original source |
 
 > **Phase 3 Gate** — proceed when:
 > - [ ] `prospec change story` ran (or the directory pre-existed) — `.prospec/changes/[name]/` has `metadata.yaml` + `proposal.md`
-> - [ ] `metadata.yaml` `status` is `story` (CLI-written — never edit it by hand)
+> - [ ] A new scaffold has `status: story`; re-entry preserves the existing status (CLI-written — never edit it by hand)
 
 ### Phase 3.5: Complexity Assessment (Scale)
 
-Assess the change's complexity and determine scale (`quick` / `standard` / `full`). The scale drives process weight in subsequent SDD stages (ff/plan/review/verify/archive all read `metadata.scale`).
+For an existing change returning from explore, retain its recorded scale. For a new change, assess the change's complexity and determine scale (`quick` / `standard` / `full`). Subsequent stations read `metadata.scale`.
 
 **Assessment criteria:**
 
@@ -108,9 +107,9 @@ Assess the change's complexity and determine scale (`quick` / `standard` / `full
 **Hard veto:** if the change is expected to affect spec-covered behavior, do NOT propose `quick` — at least `standard`. (Prediction may still be wrong; the `prospec-archive` Entry Gate re-checks against the actual diff.)
 
 **Flow:**
-1. Read `prospec/specs/features/` on demand to check whether existing REQs cover the affected behavior.
+1. Check relevant Feature Specs for existing REQ coverage.
 2. **Draft-First mode (default)**: Autonomously select scale based on criteria table; document reasoning in `## Stated Assumptions`; write via `prospec change scale quick|standard|full` (Bash) — never edit metadata.yaml by hand.
-3. **Interactive mode (`--interactive`)**: Present proposed scale WITH reasoning against criteria table. STOP. Ask user to confirm or override. Write confirmed value via `prospec change scale quick|standard|full` (Bash) — never edit metadata.yaml by hand.
+3. **Interactive mode (`--interactive`)**: Reuse supplied decisions; only for missing input: present scale with criteria-based reasoning. STOP. Ask user to confirm or override. Write confirmed value via `prospec change scale quick|standard|full` (Bash) — never edit metadata.yaml by hand.
 
 > **`scale: backfill` is not a new-story-time option.** It is a *promotion-time* scale set only by
 > `prospec-promote-backfill` when formalizing a reviewed `backfill-draft.md` (documenting existing
@@ -126,7 +125,7 @@ Assess the change's complexity and determine scale (`quick` / `standard` / `full
 
 Define one or more INVEST User Stories (slim form when `scale: quick` — see Phase 3.5):
 
-1. **Background**: Context and problem statement
+1. **Background and Premise**: Context and problem statement with the structured source, evidence, withdrawal condition and verification record from proposal-format
 2. **User Stories**: INVEST stories with Priority (P0/P1/P2), Acceptance Scenarios (WHEN/THEN), and Independent Test
 3. **Stated Assumptions**: 100% list of autonomous inferences in artifact language
 4. **Edge Cases**: Boundary conditions and error scenarios
@@ -143,16 +142,19 @@ Define one or more INVEST User Stories (slim form when `scale: quick` — see Ph
 
 ### Phase 5: Write proposal.md
 
-Follow `references/proposal-format.md` format with all sections from Phase 4.
+Follow `references/proposal-format.md` format with all sections from Phase 4. Keep every unconfirmed inference in Stated Assumptions, including inferred problem/value claims.
+
+Run `prospec validate proposal [name]` after editing. Blocked → `prospec-explore`, then resume on the same proposal. Ready/legacy/exempt may advance; pending is not a completed handoff. Applicability and structural-validation limits are defined in proposal-format.
 
 Once substantive acceptance scenarios have been authored, **freeze** the baseline:
-- Run `prospec change story [name] --freeze-scenarios` (Bash) to snapshot scenarios into `metadata.yaml` `acceptance` baseline (revision 1, origin: story).
+- If no baseline exists, run `prospec change story [name] --freeze-scenarios` (Bash) to snapshot scenarios into `metadata.yaml` `acceptance` baseline (revision 1, origin: story).
 - A later scenario change must use the controlled amendment path: `prospec change story [name] --amend-scenarios --reason "<text>" --expected-digest <sha256>`. Never hand-edit `metadata.yaml`.
 
 > **Phase 5 Gate** — proceed when:
 > - [ ] `proposal.md` written following `references/proposal-format.md`
 > - [ ] All Phase 4 sections present (including `## Stated Assumptions`, no empty Background/Why)
-> - [ ] Substantive acceptance scenarios frozen into baseline via `prospec change story [name] --freeze-scenarios`
+> - [ ] Premise validation admits the change (ready, legacy, or exempt); blocked returns to explore
+> - [ ] Substantive acceptance scenarios frozen or retained unchanged in baseline via `prospec change story [name] --freeze-scenarios`
 
 ### Phase 6: Constitution Check (site-specific: INVEST)
 

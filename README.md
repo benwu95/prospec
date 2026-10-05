@@ -4,7 +4,7 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg?style=flat-square)](LICENSE)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.9-blue?style=flat-square&logo=typescript)](https://www.typescriptlang.org/)
-[![Tests](https://img.shields.io/badge/tests-7192%20total-success?style=flat-square)](tests/)
+[![Tests](https://img.shields.io/badge/tests-7274%20total-success?style=flat-square)](tests/)
 [![Node](https://img.shields.io/badge/node-%3E%3D22.13-brightgreen?style=flat-square&logo=node.js)](https://nodejs.org/)
 [![pnpm](https://img.shields.io/badge/pnpm-%3E%3D11-orange?style=flat-square&logo=pnpm)](https://pnpm.io/)
 
@@ -518,7 +518,7 @@ measurement) lives in **[CLI Reference — CLI Commands](./reference/cli-referen
 The few command details a reader most often needs from here:
 
 - **`prospec validate <kind> <file>`** — validates one artifact against its schema; `<kind>` is one of
-  `slug`, `backfill-draft`, `promote-scaffold`, `design-spec`, `module-readme`, `candidates`.
+  `proposal`, `slug`, `backfill-draft`, `promote-scaffold`, `design-spec`, `module-readme`, `candidates`.
 - **`prospec change story <name> --freeze-scenarios` / `--amend-scenarios`** — freezes acceptance scenarios from `proposal.md` into `metadata.yaml` baseline (or appends a controlled revision with `--reason` and `--expected-digest`). Planning and tasks require a frozen baseline; legacy changes lacking baselines are admitted with disclosure (capped below grade S). Baseline modifications on verified/archived changes face terminal refusal. Note that baseline digests and verification context provide audit traceability, not sandbox or permission isolation.
 - **`prospec verify context --change <name>`** — writes deterministic `verify-context.json` combining spec, frozen baseline, proposal, code snapshot, and test attempt facts before grading; verified by `verify record` during per-REQ evaluation.
 - **`prospec change log --skill <skill> --verifier-report <file>`** — records a planning verifier's own
@@ -707,7 +707,7 @@ templates alongside). The layer-by-layer breakdown and the tech-stack list are i
 ## Testing
 
 ```bash
-# Run all tests (7192 total; 4 skipped)
+# Run all tests (7274 total; 4 skipped)
 pnpm test
 
 # Watch mode
@@ -720,11 +720,11 @@ pnpm run typecheck
 pnpm run lint
 ```
 
-**Test Coverage**: 7192 total tests (7188 passed; 4 skipped) across 4 categories:
-- Unit tests (types + lib + services + cli): 5209 tests
-- Contract tests (CLI output + Skill format): 1625 tests
+**Test Coverage**: 7274 total tests (7270 passed; 4 skipped) across 4 categories:
+- Unit tests (types + lib + services + cli): 5283 tests
+- Contract tests (CLI output + Skill format): 1631 tests
 - Integration tests: 153 tests
-- E2E tests: 205 tests
+- E2E tests: 207 tests
 
 The suite includes a real `init` + `agent sync` generation contract (`tests/integration/skill-contract.test.ts`) asserting agent-specific reference paths, no dangling references, canonical convention docs, `base_dir`-relative spec paths, and `.agents` convergence.
 
@@ -834,3 +834,9 @@ Prospec's unique contribution: **cli-first SDD with judgment-only Skills** — t
 [Back to top](#prospec)
 
 </div>
+
+### Sourced requirement premises
+
+New standard/full changes start with a pending `## Premise` in proposal.md and `premise_version: 1` in metadata. Record the problem, original source/reference, evidence/result, withdrawal condition and verification. `prospec validate proposal <change>` (or `--json`) checks readiness; `prospec status` routes incomplete premises to `prospec-explore`, then `prospec-new-story` updates the same proposal. Plan/tasks, forward status changes, verify recording and archive refuse before writing until ready; promoting a post-story change to standard/full checks the target scale too. Quick/backfill are exempt; metadata without the version remains legacy with a visible limitation. Missing metadata and unknown versions refuse.
+
+Verification never relabels an `ai-proposed` origin. Reproducible bugs use evidence with steps, expected/actual behavior and a conclusion; this can shorten the interview. CLI validation checks structure, not source authenticity or evidence truth, and runs no reproduction steps. Auto-drafts remain pending until their premise is investigated.

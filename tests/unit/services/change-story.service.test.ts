@@ -49,6 +49,7 @@ describe('change-story.service', () => {
 
     const metaRaw = fs.readFileSync('/project/.prospec/changes/add-auth/metadata.yaml', 'utf-8');
     const parsedMeta = parseYaml(metaRaw) as Record<string, unknown>;
+    expect(parsedMeta.premise_version).toBe(1);
     expect(parsedMeta.acceptance).toEqual({ version: 1, revisions: [] });
   });
 

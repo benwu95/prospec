@@ -628,6 +628,7 @@ export type LessonInput = z.infer<typeof LessonInputSchema>;
  * semantic judgment and stay in the skill.
  */
 export const VALIDATE_KINDS = [
+  'proposal',
   'slug',
   'backfill-draft',
   'promote-scaffold',

@@ -1,3 +1,4 @@
+import { formatPremiseNotice } from './premise-output.js';
 import pc from 'picocolors';
 import type { LogLevel } from '../../types/config.js';
 import type { ChangeStatusResult } from '../../services/change-status.service.js';
@@ -21,6 +22,7 @@ export function formatChangeStatusOutput(
   process.stdout.write(
     `${pc.green('✓')} ${changeName}: status ${pc.dim(result.from)} → ${pc.cyan(result.to)}\n`,
   );
+  for (const line of formatPremiseNotice(result.premise)) process.stdout.write(`${line}\n`);
   const warning = formatTestGateWarning(result.testGate);
   if (warning !== undefined) process.stdout.write(`${warning}\n`);
 }
