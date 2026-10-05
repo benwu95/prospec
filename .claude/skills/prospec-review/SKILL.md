@@ -78,7 +78,7 @@ Apply `references/review-format.md`. In short: **critical** blocks the loop and 
 3. Apply each fix to the **working tree** (no commit); `prospec review merge` refuses the round without a fresh green `test_attempt` and prints its remediation (runner per [`references/project-test-runner.md`](references/project-test-runner.md)) — on `ESCALATE_TO_HUMAN` stop automated retries.
 4. Re-review defaults to **full-lens re-review**: treat the fix as a new diff and re-run all review lenses over the cumulative diff in a fresh minimal context (input: cumulative diff + lenses + list of pinned findings). Previously pinned findings are mechanically guarded by their regression tests and are not re-adjudicated with judgment tokens. Continue until **0 unresolved critical** (review-clean).
 5. **Circuit Breakers & Hard Cap**: Read [`references/circuit-breaker.md`](references/circuit-breaker.md) on demand. Hard cap: **3 rounds** (maximum 5). The CLI evaluates the breakers on every merge: the round cap, the **Oscillation Breaker** (state flips `FAIL → PASS → FAIL` ≥ 2), the **fix-induced defect ratio** (trips if > 0.5 in round > 1) and **persistent test failure** (consecutive failed test attempts). The early-stop conditions that reference lists (zero delta, suite regression, the regression pin gate) are yours to observe — the CLI does not compute them.
-6. **Escalation**: at the cap, circuit breaker trip, or early-stop with unresolved criticals, emit an `EscalationReport` recommending revert-and-redesign to the human for decision — never silently pass.
+6. **Escalation**: On a cap, breaker or early-stop, present the CLI `EscalationReport` using the guidance below.
 
 ### Harness Degradation
 
@@ -100,6 +100,16 @@ Review must leave a machine-queryable record so `prospec-verify`'s Entry Gate ca
 2. **At loop convergence** (review-clean or escalation), run `prospec check --record-review --graded-by <fresh-subagent|in-session>` — it code-computes the reviewed change's digest and writes `review_provenance` (with the declared grading context) to `metadata.yaml`. This is the baseline the `review-provenance` drift check compares against.
 
 Because the digest is code-computed, editing the change's code after this point flips `review-provenance` to stale — `prospec-verify` will then require a fresh review round before it runs.
+
+## Escalation Decision (CLI-Owned)
+
+- Stop; present the CLI decision: trigger, lifetime ordinal, exits, recommended action.
+- Never self-authorize: a report warning is not a grant. Log the human's nonempty `Manual override: <reason>` via composed WARN.
+- Grants allow one new attempt per current event and station; replay consumes none, resolution expires grants. Tests remain an independent gate.
+- An unpersisted observation is not a grant target; repair receipt-bound gaps.
+- For re-scope, revise proposal or start a Story; amendment gates remain, without unlocking escalation or regressing status.
+- For abandon, stop and retain artifacts/reasons; rollback requires human approval.
+- Preserve history after PASS, adjacent prose and fenced examples.
 
 ## Output Contract
 

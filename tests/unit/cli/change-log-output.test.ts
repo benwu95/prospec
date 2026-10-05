@@ -86,3 +86,12 @@ describe('change-log-output', () => {
     expect(out).toContain('dimname=PASS');
   });
 });
+
+it('names a scoped grant and its reason instead of a generic verdict', () => {
+  const out = captureStdout(() => formatChangeLogOutput(baseResult({ entry: { skill: 'prospec-escalation', result: 'WARN', date: '2026-10-05', warnings: [],
+    escalation: { kind: 'override', station: 'prospec-review', event_id: 'e2', grant_id: 'g2', reason: 'inspect one attempt' },
+  } })));
+  expect(out).toContain('inspect one attempt');
+  expect(out).toContain('event=e2');
+  expect(out).toContain('one new attempt');
+});

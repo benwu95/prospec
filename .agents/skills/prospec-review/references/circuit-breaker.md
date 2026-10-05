@@ -15,12 +15,12 @@ This document defines the **Circuit Breaker & Escalation Protocol** used by `pro
 - **Mechanism**: `prospec review merge` records, in `review.md`'s metrics comment, each finding `id`'s per-round resolved/unresolved history and evaluates it on every merge — this half is CLI-owned. Test-identifier oscillation (`test_file:test_name` flipping across fix rounds) is observed by you from the suite output and MUST be reported as a finding (so it enters the CLI-tracked set); it is not machine-tracked on its own.
 - **Oscillation Pattern**: A signature that alternates states (e.g. `FAIL → PASS → FAIL` or `PASS → FAIL → PASS`, `>= 2` flips) indicates an oscillating fix (fixing one bug reintroduces another).
 - **Rule**: When oscillation is detected on any active signature, the circuit breaker trips immediately.
-- **Action**: Immediately abort automated retry, roll back the unstable patch, and notify the developer with the specific oscillating signatures.
+- **Action**: Stop automated retry and present the CLI decision with the oscillating signatures; any rollback requires a separate developer decision.
 
 ### 3. Fix-Induced Defect Ratio
 - **Mechanism**: In round `R > 1` of the current review loop, the CLI computes `fix_induced_ratio` as the proportion of active (non-dismissed) findings whose `origin_round` is later than this loop's first round (newly surfaced findings).
 - **Rule**: Trip when `fix_induced_ratio` exceeds the threshold (default **0.5** / 50%); the ratio does not establish causation.
-- **Action**: Trip the circuit breaker immediately and emit an `EscalationReport` recommending **revert-and-redesign** rather than continued iterative patching.
+- **Action**: Trip the circuit breaker immediately and present the CLI-generated `EscalationReport`; its persisted lifetime ordinal takes priority over the trigger when choosing exits.
 
 ### 4. Early-Stop Conditions & Regression Pin Gate
 - **Zero Delta**: A fix round resolves 0 new criticals compared to the prior round.
@@ -36,18 +36,16 @@ This document defines the **Circuit Breaker & Escalation Protocol** used by `pro
 
 ## Escalation Protocol (Human Hand-off)
 
-When a circuit breaker trips, the Agent MUST NOT silently fail or hallucinate a resolution. Instead, it emits a structured escalation block:
-
-```markdown
-### 🚨 Circuit Breaker Tripped: Escalation Required
+Present the CLI-generated `EscalationReport` and its Trade-off Options for Developer; do not manufacture an exit list.
 
 - **Trigger**: [oscillation | max_rounds_exceeded | unrecoverable_critical | persistent_test_failure | fix_induced_threshold_exceeded | station_retry_limit_exceeded]
-- **Diagnostic Details**: [Summary of signatures, failing tests, round counts, or fix-induced ratio]
-- **Attempted Fixes**: [Brief summary of modifications made in recent rounds]
 
-#### Trade-off Options for Developer:
-1. **Revert and Redesign**: Roll back recent fix attempts and redesign implementation strategy (revert-and-redesign).
-2. **Manual Intervention**: Provide guidance or direct code patch to resolve the root cause.
-3. **Break-Glass Override**: Acknowledge the finding as a non-blocking known issue / tech debt.
-4. **Re-scope / Rollback**: Roll back current change branch to pre-fix baseline and re-plan.
-```
+## Escalation Decision (CLI-Owned)
+
+- Stop; present the CLI decision: trigger, lifetime ordinal, exits, recommended action.
+- Never self-authorize: a report warning is not a grant. Log the human's nonempty `Manual override: <reason>` via composed WARN.
+- Grants allow one new attempt per current event and station; replay consumes none, resolution expires grants. Tests remain an independent gate.
+- An unpersisted observation is not a grant target; repair receipt-bound gaps.
+- For re-scope, revise proposal or start a Story; amendment gates remain, without unlocking escalation or regressing status.
+- For abandon, stop and retain artifacts/reasons; rollback requires human approval.
+- Preserve history after PASS, adjacent prose and fenced examples.

@@ -41,6 +41,8 @@
 
 ## Pitfalls
 
+- `escalation-guidance.test.ts` scopes assertions to the shared rendered section, enumerates all six station consumers and kills deletion of each enforcement predicate. Keep source, bundle and deployment checks separate.
+
 - Assertions must be section-scoped AND structure-aware (PB-001) — a bare `toContain` over a whole document yields false-greens. Mutation-verify every new assertion.
 - Delegated-receipt guards pin every invariant — the physical non-empty schema gate, the bounded wait and re-spawn with their rendered values, causal terminal degradation, zero-mock, the ticket flow with its human hand-off of a mutation, the threat model and the detection limits — in `delegation-protocol.md` alone, then a negative guard finds no step-definition phrase, ticket-flow invariant or detection limit anywhere on the nine pointer surfaces (five skills, four references — each scanned whole, not only at its delegation sites, with equal-length mutations proving the scan), each of which must link its station's own copy; downstream neutrality covers all ten, the protocol must render identically whatever the host capabilities (no host-specific delegation artifact ships), and the user-facing descriptions of `change delegate` claim detection and preservation only. `cli-output.test.ts` pins that `change delegate` has no restore option and that only `lib/git-read.ts` of the delegation modules imports `node:child_process`. Mutations remove the full behavioral path, not one keyword an equivalent phrase could leave behind.
 - Doc↔doc agreement never proved either side matches the code, and a Yes-rows-only table leaves an exclusion unfalsifiable — key set equality over the registry's own domain so a missing row fails.

@@ -109,7 +109,7 @@ read foo.ts:38-46 — the `<=` bound overruns when n === len.
 - **Test-failure metrics** (CLI-owned, same comment): `test_failures` + bounded `test_failure_ids` —
   distinct failed attempts observed by `prospec review merge` in a row (absent = zero; a replayed id
   never counts twice; a fresh certified green clears both; exemptions and loop rollover do not). Only
-  observed attempts count. Follow `prospec review merge` for refusal outcomes, including a persisted exemption WARN.
+  observed attempts count. The CLI persists escalation events before rechecking and splicing metrics; failed event writes change no metrics. Follow `prospec review merge` for refusal outcomes, including any persisted exemption WARN.
 
 ---
 

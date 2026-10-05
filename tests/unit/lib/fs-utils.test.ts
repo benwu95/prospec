@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import * as fs from 'node:fs';
 import { vol } from 'memfs';
-import { atomicWrite, ensureDir, fileExists, readFileIfExists } from '../../../src/lib/fs-utils.js';
+import { atomicWrite, ensureDir, fileExists, readFileIfExists, captureFileInputs } from '../../../src/lib/fs-utils.js';
 import { WriteError } from '../../../src/types/errors.js';
 
 vi.mock('node:fs', async () => {
@@ -214,5 +214,22 @@ describe('readFileIfExists', () => {
       Object.assign(new Error('EACCES: permission denied'), { code: 'EACCES' }),
     );
     await expect(readFileIfExists('/tmp/doc.md')).rejects.toThrow('EACCES');
+  });
+});
+
+describe('captureFileInputs', () => {
+  it('distinguishes missing and empty files and detects later edits', () => {
+    vol.fromJSON({ '/tmp/empty': '' });
+    const snapshot = captureFileInputs({ empty: '/tmp/empty', missing: '/tmp/missing' });
+    expect(snapshot.values).toEqual({ empty: '', missing: null });
+    expect(snapshot.recheck()).toBe(true);
+    vol.writeFileSync('/tmp/missing', '');
+    expect(snapshot.recheck()).toBe(false);
+  });
+  it('refuses an unreadable source instead of hashing it as absent', () => {
+    vol.fromJSON({ '/tmp/doc': 'content' });
+    const spy = vi.spyOn(fs, 'readFileSync').mockImplementation(() => { throw Object.assign(new Error('EACCES'), { code: 'EACCES' }); });
+    expect(() => captureFileInputs({ doc: '/tmp/doc' })).toThrow('EACCES');
+    spy.mockRestore();
   });
 });

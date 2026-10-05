@@ -252,3 +252,15 @@ describe('verify-record-output delegation line (REQ-SERVICES-121 / REQ-CLI-057)'
     expect(lines[0]).toContain('could not mark as consumed: verify-grader-1-1');
   });
 });
+
+it('reports an old replay honestly and keeps consumed override reasons visible after PASS', () => {
+  const out = captureStdout(() => formatVerifyRecordOutput(baseResult({ replay: true, statusAdvanced: false, escalationHistory: {
+    events: [], pending: null, completeness: 'legacy-partial',
+    grants: [{ event_id: 'e1', station: 'prospec-verify', grant_id: 'g1', reason: `inspected${BEL} scope`, consumed_by: 'attempt-1' }],
+  } })));
+  expect(out).toContain('Accepted replay');
+  expect(out).toContain('inspected scope');
+  expect(out).toContain('event=e1');
+  expect(out).toContain('consumed by attempt-1');
+  expect(out).not.toContain(BEL);
+});

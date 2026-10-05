@@ -1,3 +1,4 @@
+import { formatEscalationDecision, formatEscalationHistoryLines } from './error-output.js';
 import pc from 'picocolors';
 import type { LogLevel } from '../../types/config.js';
 import type { VerifyRecordResult } from '../../services/verify-record.service.js';
@@ -21,6 +22,8 @@ export function formatVerifyRecordOutput(
     `Judgment ledger: ${judgment.map((d) => `${sanitizeTerminal(d.name)}=${d.result}`).join(' · ')}`,
     `Quality Grade: ${gradeColor(result.grade)} (result: ${result.result})`,
   ];
+  if (result.replay) lines.unshift('Accepted replay — no new grade or grant consumption; missing evidence may be repaired');
+  lines.push(...(result.escalation ? formatEscalationDecision(result.escalation) : []), ...formatEscalationHistoryLines(result.escalationHistory));
   if (result.coverageSummary !== undefined) {
     lines.push(`Requirements coverage: ${sanitizeTerminal(result.coverageSummary)}`);
   }

@@ -66,6 +66,7 @@ describe('status CLI e2e — escalation loops and output formatting (T19, REQ-CL
 
     const reportFile = writeReport('plan-flaws.json', planReport('FLAWS'));
     for (let i = 0; i < 3; i++) {
+      writeReport('plan-flaws.json', { ...planReport('FLAWS'), warnings: [`attempt ${i}`] });
       const res = await runCli(['change', 'log', '--skill', 'prospec-plan', '--verifier-report', reportFile]);
       expect(res.exitCode).toBe(0);
     }
@@ -88,7 +89,7 @@ describe('status CLI e2e — escalation loops and output formatting (T19, REQ-CL
 
     const humanRes = await runCli(['status']);
     expect(humanRes.stdout).toContain('HALT (escalated to human)');
-    expect(humanRes.stdout).toContain('HALT — human intervention required; station retry limit exceeded');
+    expect(humanRes.stdout).toContain('HALT — human intervention required; inspect the persisted escalation decision');
     expect(humanRes.stdout).toContain('[ESCALATE_TO_HUMAN]');
     expect(humanRes.stdout).not.toContain('action:  invoke skill');
     expect(humanRes.stdout).not.toContain('fallback: read');
@@ -108,13 +109,14 @@ describe('status CLI e2e — escalation loops and output formatting (T19, REQ-CL
 
     const reportFile = writeReport('tasks-flaws.json', tasksReport('FLAWS'));
     for (let i = 0; i < 3; i++) {
+      writeReport('tasks-flaws.json', { ...tasksReport('FLAWS'), warnings: [`attempt ${i}`] });
       const res = await runCli(['change', 'log', '--skill', 'prospec-tasks', '--verifier-report', reportFile]);
       expect(res.exitCode).toBe(0);
     }
 
     const humanRes = await runCli(['status']);
     expect(humanRes.stdout).toContain('HALT (escalated to human)');
-    expect(humanRes.stdout).toContain('HALT — human intervention required; station retry limit exceeded');
+    expect(humanRes.stdout).toContain('HALT — human intervention required; inspect the persisted escalation decision');
     expect(humanRes.stdout).toContain('[ESCALATE_TO_HUMAN]');
   });
 
@@ -145,7 +147,7 @@ describe('status CLI e2e — escalation loops and output formatting (T19, REQ-CL
 
     const humanRes = await runCli(['status']);
     expect(humanRes.stdout).toContain('HALT (escalated to human)');
-    expect(humanRes.stdout).toContain('HALT — human intervention required; station retry limit exceeded');
+    expect(humanRes.stdout).toContain('HALT — human intervention required; inspect the persisted escalation decision');
     expect(humanRes.stdout).toContain('[ESCALATE_TO_HUMAN]');
   });
 
@@ -192,7 +194,7 @@ describe('status CLI e2e — escalation loops and output formatting (T19, REQ-CL
       );
       const escalatedOutput = logs.join('\n');
       expect(escalatedOutput).toContain('— HALT (escalated to human)');
-      expect(escalatedOutput).toContain('HALT — human intervention required; station retry limit exceeded');
+      expect(escalatedOutput).toContain('HALT — human intervention required; inspect the persisted escalation decision');
       expect(escalatedOutput).not.toContain('— terminal (periodic prospec-learn)');
       expect(escalatedOutput).not.toContain('invoke skill');
 

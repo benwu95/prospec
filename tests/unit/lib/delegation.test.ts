@@ -5,6 +5,7 @@ import os from 'node:os';
 import path from 'node:path';
 import {
   admitSettlement,
+  delegationAttemptInputs,
   consumeSettlement,
   createTicketExclusive,
   issueTicket,
@@ -687,5 +688,17 @@ describe('delegation lifecycle (REQ-LIB-092)', () => {
     await consumeSettlement(changeDir, admitSettlement(changeDir, 'review'));
     expect(readTickets(changeDir, 'settle').map((t) => t.ticket.state)).toEqual(['consumed', 'consumed']);
     expect(admitSettlement(changeDir, 'review')).toEqual({ kind: 'not-ticketed' });
+  });
+});
+
+
+describe('delegation attempt inputs', () => {
+  it('ignores consumption but retains received facts, failures, and station scope', () => {
+    const review = ticket('reviewer', 1, { state: 'received', received: { at_ms: 11_000 } });
+    const original = delegationAttemptInputs([review], 'review');
+    expect(delegationAttemptInputs([{ ...review, ticket: { ...review.ticket, state: 'consumed' } }], 'review')).toEqual(original);
+    expect(delegationAttemptInputs([review], 'verify')).toEqual([]);
+    expect(delegationAttemptInputs([{ ...review, ticket: { ...review.ticket, received: undefined } }], 'review')).not.toEqual(original);
+    expect(delegationAttemptInputs([{ ...review, ticket: { ...review.ticket, failure: { at_ms: 12_000, reason: 'spawn failed' } } }], 'review')).not.toEqual(original);
   });
 });

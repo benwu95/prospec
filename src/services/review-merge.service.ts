@@ -1,6 +1,6 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
-import { PrerequisiteError, TestGateError } from '../types/errors.js';
+import { EscalationError, PrerequisiteError, TestGateError } from '../types/errors.js';
 import {
   ReviewFindingsInputSchema,
   REVIEW_RESOLVED_STATUSES,
@@ -9,13 +9,15 @@ import {
   type TestEvidenceDecision,
   type TestGateOutcome,
 } from '../types/station.js';
-import { atomicWrite, readFileIfExists } from '../lib/fs-utils.js';
-import { admitSettlement, consumeSettlement, type DelegationSettlement } from '../lib/delegation.js';
+import { atomicWrite, captureFileInputs, readFileIfExists } from '../lib/fs-utils.js';
+import { admitSettlement, consumeSettlement, readTickets, delegationAttemptInputs, type DelegationSettlement } from '../lib/delegation.js';
 import {
   findUnsafeBlockField,
   EVIDENCE_MARKER_PREFIX,
 } from '../lib/delegated-evidence.js';
 import {
+  withReviewReceipt,
+  reviewArtifactDigest,
   parseReviewDocument,
   mergeFindings,
   roundCounts,
@@ -32,20 +34,23 @@ import {
   type TestFailureObservation,
 } from '../lib/review-merge.js';
 import {
+  appendQualityLogEntry,
   appendTestGateWarning,
   readChangeMetadata,
   writeChangeMetadataDoc,
   upsertReviewRoundEntry,
-  isReviewRoundCountsEntry,
+  isReviewCloseEntry,
 } from '../lib/change-metadata.js';
-import { readConfig } from '../lib/config.js';
+import { readConfig, resolveConfigPath, resolveMaxStationRetries, validateConfig } from '../lib/config.js';
 import { resolveLanguageScope } from '../lib/language-policy.js';
+import { stringifyYamlDocument } from '../lib/yaml-utils.js';
 import { todayIso } from '../lib/date-utils.js';
 import { assessCurrentTestEvidence } from '../lib/drift-assessment.js';
 import { ReviewCircuitBreaker } from '../lib/review-circuit-breaker.js';
 import type { Document } from 'yaml';
 import type { CircuitBreakerState } from '../types/cascade.js';
-import type { ChangeMetadata, GateResult } from '../types/change.js';
+import { admitEscalation, canonicalAttemptId, canonicalDigest, escalationFailureDetails, escalationTransitions, legacyEscalationRecords, projectEscalationReport, reduceEscalationHistory } from '../lib/escalation.js';
+import type { ReviewAttemptInputs, ChangeMetadata, GateResult } from '../types/change.js';
 import { resolveChange } from './change-resolver.js';
 
 function resolveCleanReviewSentence(language: string): string {
@@ -97,6 +102,7 @@ export interface ReviewRoundStats extends ReviewRoundCounts {
 }
 
 export interface ReviewMergeResult {
+  replay?: boolean;
   changeName: string;
   reviewPath: string;
   /** Cumulative table size after the merge. */
@@ -145,6 +151,19 @@ export async function execute(options: ReviewMergeOptions): Promise<ReviewMergeR
     'Which change does this review round belong to?',
   );
   const settlement = admitSettlement(path.join(cwd, '.prospec', 'changes', changeName), 'review');
+
+  const changeDir = path.join(cwd, '.prospec', 'changes', changeName);
+  const configPath = resolveConfigPath(cwd);
+  const inputSnapshot = captureFileInputs({
+    findings: options.findingsPath, config: configPath,
+    proposal: path.join(changeDir, 'proposal.md'), deltaSpec: path.join(changeDir, 'delta-spec.md'),
+  });
+  const configBytes = inputSnapshot.values.config;
+  const retryBound = resolveMaxStationRetries(configBytes == null ? null : validateConfig(configBytes, configPath));
+  // Consuming a ticket changes its lifecycle fields, not the delegated input.
+  const delegationInputs = () => canonicalDigest(delegationAttemptInputs(readTickets(changeDir, 'settle'), 'review'));
+  const delegationDigest = delegationInputs();
+  const inputsStable = () => inputSnapshot.recheck() && delegationInputs() === delegationDigest;
 
   if (!fs.existsSync(options.findingsPath)) {
     throw new PrerequisiteError(
@@ -209,7 +228,7 @@ export async function execute(options: ReviewMergeOptions): Promise<ReviewMergeR
       // Merge-written round counts carry `round` and are ignored so a re-merge stays on this round;
       // only round-less close entries count as closed rounds (shared predicate, single source).
       const reviewEntries = (metadata.quality_log ?? []).filter(
-        (e) => e.skill === 'prospec-review' && !isReviewRoundCountsEntry(e),
+        isReviewCloseEntry,
       );
       priorReviewRounds = reviewEntries.length;
     } catch (err: unknown) {
@@ -260,7 +279,7 @@ export async function execute(options: ReviewMergeOptions): Promise<ReviewMergeR
   const nextStreak = reduceTestFailureStreak(streak, observationOf(decision), threshold);
   breaker.setTestFailureStreak(nextStreak);
 
-  const reviewBytesStable = async (): Promise<boolean> => (await readFileIfExists(reviewPath)) === existingContent;
+  const reviewBytesStable = (): boolean => (fs.existsSync(reviewPath) ? fs.readFileSync(reviewPath, 'utf8') : '') === existingContent;
   const metadataBytesStable = (): boolean =>
     metadataBytes === undefined ? !fs.existsSync(metadataPath) : fs.existsSync(metadataPath) && metadataBytes.equals(fs.readFileSync(metadataPath));
   const unstable = (warningRecorded: boolean): TestGateError =>
@@ -271,63 +290,65 @@ export async function execute(options: ReviewMergeOptions): Promise<ReviewMergeR
       warningRecorded,
     });
 
+  const log = metadata?.quality_log ?? [];
+  const history = reduceEscalationHistory(log, retryBound);
   if (decision.verdict === 'refuse') {
-    if (!assessment.recheck() || !(await reviewBytesStable()) || !metadataBytesStable()) throw unstable(false);
-    // Only the test axis is judged on a refusal: the findings axes were reported
-    // when their round merged, and re-feeding the stale table would re-trip them
-    // under a test-refusal label.
+    if (!inputsStable() || !assessment.recheck() || !reviewBytesStable() || !metadataBytesStable()) throw unstable(false);
+    // A red suite observes only the test axis; it never re-merges old findings.
     const blocked = breaker.checkCircuitBreaker();
+    const trigger = blocked.escalationReport?.type;
     const streakChanged =
       nextStreak.consecutiveTestFailures !== streak.consecutiveTestFailures ||
       nextStreak.testFailureAttemptIds.join('\0') !== streak.testFailureAttemptIds.join('\0');
-    if (streakChanged) {
-      // A write failure propagates as itself: the count was NOT recorded.
-      await atomicWrite(reviewPath, replaceReviewMetrics(existingContent, nextStreak));
-    }
-    throw new TestGateError({
-      changeName,
-      entrance: 'review merge',
-      reason: decision.reason,
-      ...(blocked.tripped ? { circuitBreaker: blocked } : {}),
-    });
-  }
-
-  // Exemption: the WARN lands FIRST through the metadata owner, then the facts are
-  // re-assessed and the review bytes re-read; a refusal after that point keeps the
-  // truthful warning (the one disclosed metadata exception) and writes nothing else.
-  let testGate: TestGateOutcome = { verdict: 'pass', warningRecorded: false };
-  if (decision.verdict === 'exempt') {
-    // An exemption ALWAYS persists its WARN: `assessCurrentTestEvidence` above
-    // refuses an unreadable target record, so a document is always in hand here.
-    // Asserting that keeps "no exemption merges without its audit trail" a
-    // structural guarantee rather than a fall-through branch that would merge
-    // with no `tests: not-adjudicated` entry at all.
-    if (metadataDoc === undefined || metadata === undefined) {
-      throw new PrerequisiteError(
-        `metadata.yaml for change "${changeName}" is unavailable for the test-gate exemption warning`,
-        `Restore .prospec/changes/${changeName}/metadata.yaml — an exemption is recorded in metadata or it is not granted`,
-      );
-    }
-    const warningRecorded = appendTestGateWarning(metadataDoc, metadata, 'review merge', decision.reason);
-    if (warningRecorded) {
-      if (!assessment.recheck() || !(await reviewBytesStable()) || !metadataBytesStable()) throw unstable(false);
-      await writeChangeMetadataDoc(metadataPath, metadataDoc, changeName);
-      metadataBytes = fs.readFileSync(metadataPath);
-      try {
-        assessment = await assessCurrentTestEvidence(cwd, changeName);
-      } catch (err) {
-        throw new TestGateError({
-          changeName,
-          entrance: 'review merge',
-          reason: `revalidation after the exemption warning failed: ${err instanceof Error ? err.message : String(err)}`,
-          warningRecorded: true,
-        });
+    let persistedHistory = history;
+    let eventPersisted = false;
+    let metricsPersisted = false;
+    const refusal = (reason: string, cause?: unknown, unpersistedObservation = false): TestGateError => {
+      const details = escalationFailureDetails(persistedHistory, 'prospec-review', unpersistedObservation ? trigger : undefined, {
+        event_persisted: eventPersisted, metrics_persisted: metricsPersisted,
+      });
+      if (blocked.escalationReport && details.decision) {
+        blocked.escalationReport = projectEscalationReport(blocked.escalationReport, details.decision);
       }
-      if (!sameExemption(decision, assessment.decision) || !(await reviewBytesStable())) throw unstable(true);
+      return new TestGateError({ changeName, entrance: 'review merge', reason, cause,
+        ...(blocked.tripped ? { circuitBreaker: blocked } : {}), escalation: details });
+    };
+    if (trigger) {
+      const samePending = history.pending?.station === 'prospec-review' && history.pending.trigger === trigger;
+      const eventId = samePending ? history.pending!.event_id : `review:test:${canonicalDigest(nextStreak.testFailureAttemptIds)}`;
+      const records = [...legacyEscalationRecords(log, retryBound), ...escalationTransitions(history, {
+        station: 'prospec-review', event_id: eventId, trigger, attempt_id: '',
+      })];
+      const entries = records.map(escalation => ({ skill: 'prospec-escalation', date: todayIso(), result: 'WARN' as const, warnings: [], escalation }));
+      if (entries.length > 0) {
+        // Event persistence precedes every metrics write. A failed event cannot
+        // claim an ordinal/grant target or advance the failure observation.
+        if (!metadataDoc) throw refusal('metadata.yaml unavailable for escalation', undefined, true);
+        for (const entry of entries) appendQualityLogEntry(metadataDoc, entry);
+        try { await writeChangeMetadataDoc(metadataPath, metadataDoc, changeName); }
+        catch (cause) { throw refusal(`Escalation event write failed: ${cause instanceof Error ? cause.message : String(cause)}`, cause, true); }
+        persistedHistory = reduceEscalationHistory([...log, ...entries], retryBound);
+        eventPersisted = true;
+        metadataBytes = Buffer.from(stringifyYamlDocument(metadataDoc));
+        // The prior assessment fenced the old metadata. Re-obtain it only after
+        // checking the exact bytes this writer produced, then compare live facts.
+        if (!inputsStable() || !metadataBytesStable() || !reviewBytesStable()) throw refusal('inputs changed after the escalation event; metrics were not written');
+        const previousFacts = canonicalDigest(assessment.facts);
+        try { assessment = await assessCurrentTestEvidence(cwd, changeName); }
+        catch (cause) { throw refusal('test evidence revalidation failed after the escalation event', cause); }
+        if (canonicalDigest(assessment.facts) !== previousFacts) throw refusal('test evidence changed after the escalation event; metrics were not written');
+      } else eventPersisted = true;
     }
-    testGate = { verdict: 'exempt', exemption: decision.exemption, reason: decision.reason, warningRecorded };
+    if (!inputsStable() || !assessment.recheck() || !reviewBytesStable() || !metadataBytesStable()) throw refusal('inputs changed before the metrics write');
+    if (streakChanged) {
+      try { await atomicWrite(reviewPath, replaceReviewMetrics(existingContent, nextStreak)); metricsPersisted = true; }
+      catch (cause) {
+        if (!trigger) throw cause;
+        throw refusal(`Metrics write failed: ${cause instanceof Error ? cause.message : String(cause)}`, cause);
+      }
+    }
+    throw refusal(decision.reason);
   }
-  const warningRecorded = testGate.warningRecorded;
 
   let roundNumber: number;
   if (options.round !== undefined) {
@@ -350,6 +371,73 @@ export async function execute(options: ReviewMergeOptions): Promise<ReviewMergeR
   const finalRoundNumber = roundNumber;
   const inLoopRound = Math.max(1, finalRoundNumber - loopBase);
   const baseRound = loopBase + 1;
+
+  const causalInputs: ReviewAttemptInputs = {
+    station: 'prospec-review', round: finalRoundNumber, baseRound,
+    findings: canonicalDigest({ findings, lenses: options.lenses ?? null }),
+    specs: { proposal: inputSnapshot.values.proposal ?? null, deltaSpec: inputSnapshot.values.deltaSpec ?? null, acceptance: metadata?.acceptance ?? null },
+    breakerConfig: canonicalDigest({ config: configBytes == null ? null : validateConfig(configBytes, configPath), maxRounds: options.maxRounds ?? null, maxFlips: options.maxFlips ?? null, maxFixInducedRatio: options.maxFixInducedRatio ?? null, retryBound }),
+    testEvidence: canonicalDigest(assessment.facts), delegation: delegationDigest, priorState: '',
+  };
+  const requestId = canonicalDigest(causalInputs);
+  const priorAccepted = log.find(entry => entry.skill === 'prospec-review' && entry.accepted?.request_id === requestId);
+  const artifactDigest = reviewArtifactDigest(existingContent);
+  const receipt = docMetrics.receipt;
+  const artifactMatches = receipt?.request_id === requestId && receipt.artifact_digest === artifactDigest;
+  // A matching artifact receipt owns the causal base, even when an older
+  // acceptance shares this request. Only a different request may replay that
+  // older acceptance without replacing the current artifact.
+  const baseDigest = artifactMatches ? receipt.base_digest : artifactDigest;
+  const attemptId = receipt?.request_id !== requestId && priorAccepted?.attempt_id !== undefined
+    ? priorAccepted.attempt_id
+    : canonicalAttemptId('prospec-review', { ...causalInputs, priorState: baseDigest });
+  const admission = admitEscalation(history, log, 'prospec-review', attemptId);
+  if (admission.kind === 'refused') throw new EscalationError(
+    'A new review attempt requires current-event authorization', 'Present the CLI exits and obtain the developer decision',
+    escalationFailureDetails(history, 'prospec-review'),
+  );
+  const replay = admission.kind === 'replay';
+  if (!inputsStable() || !assessment.recheck() || !reviewBytesStable() || !metadataBytesStable()) throw unstable(false);
+
+  // Exemption: the WARN lands FIRST through the metadata owner, then the facts are
+  // re-assessed and the review bytes re-read; a refusal after that point keeps the
+  // truthful warning (the one disclosed metadata exception) and writes nothing else.
+  let testGate: TestGateOutcome = { verdict: 'pass', warningRecorded: false };
+  if (decision.verdict === 'exempt' && !replay) {
+    // An exemption ALWAYS persists its WARN: `assessCurrentTestEvidence` above
+    // refuses an unreadable target record, so a document is always in hand here.
+    // Asserting that keeps "no exemption merges without its audit trail" a
+    // structural guarantee rather than a fall-through branch that would merge
+    // with no `tests: not-adjudicated` entry at all.
+    if (metadataDoc === undefined || metadata === undefined) {
+      throw new PrerequisiteError(
+        `metadata.yaml for change "${changeName}" is unavailable for the test-gate exemption warning`,
+        `Restore .prospec/changes/${changeName}/metadata.yaml — an exemption is recorded in metadata or it is not granted`,
+      );
+    }
+    const warningRecorded = appendTestGateWarning(metadataDoc, metadata, 'review merge', decision.reason);
+    if (warningRecorded) {
+      if (!inputsStable() || !assessment.recheck() || !reviewBytesStable() || !metadataBytesStable()) throw unstable(false);
+      await writeChangeMetadataDoc(metadataPath, metadataDoc, changeName);
+      metadataBytes = Buffer.from(stringifyYamlDocument(metadataDoc));
+      if (!metadataBytesStable()) throw unstable(true);
+      try {
+        assessment = await assessCurrentTestEvidence(cwd, changeName);
+      } catch (err) {
+        throw new TestGateError({
+          changeName,
+          entrance: 'review merge',
+          reason: `revalidation after the exemption warning failed: ${err instanceof Error ? err.message : String(err)}`,
+          warningRecorded: true,
+        });
+      }
+      if (!sameExemption(decision, assessment.decision) ||
+          canonicalDigest(assessment.facts) !== causalInputs.testEvidence || !reviewBytesStable()) throw unstable(true);
+    }
+    testGate = { verdict: 'exempt', exemption: decision.exemption, reason: decision.reason, warningRecorded };
+  }
+  if (decision.verdict === 'exempt' && replay) testGate = { verdict: 'exempt', exemption: decision.exemption, reason: decision.reason, warningRecorded: false };
+  const warningRecorded = testGate.warningRecorded;
 
   const merged = mergeFindings(rows, findings, finalRoundNumber);
 
@@ -380,6 +468,15 @@ export async function execute(options: ReviewMergeOptions): Promise<ReviewMergeR
     baseRound,
   });
 
+  const trigger = circuitBreaker.escalationReport?.type;
+  const writeFailure = (cause: unknown, artifactPersisted: boolean): Error => {
+    const message = cause instanceof Error ? cause.message : String(cause);
+    const details = escalationFailureDetails(history, 'prospec-review', trigger, { artifact_persisted: artifactPersisted });
+    return warningRecorded
+      ? new TestGateError({ changeName, entrance: 'review merge', reason: message, warningRecorded: true, escalation: details, cause })
+      : new EscalationError(message, 'Re-run with the unchanged receipt and current-event authorization', details, cause);
+  };
+
   const combinedLenses =
     options.lenses === undefined
       ? docMetrics.lenses
@@ -387,7 +484,7 @@ export async function execute(options: ReviewMergeOptions): Promise<ReviewMergeR
 
   // Pre-write fence: the verdict, the target's metadata and review.md must be the
   // ones observed. After an exemption WARN the assessment is the re-obtained one.
-  if (!assessment.recheck() || !(await reviewBytesStable()) || !metadataBytesStable()) throw unstable(warningRecorded);
+  if (!inputsStable() || !assessment.recheck() || !reviewBytesStable() || !metadataBytesStable()) throw unstable(warningRecorded);
   // Strip any stale clean-review block carried in `existingContent` before re-rendering:
   // renderReviewDocument carries the below-evidence region forward, so a prior 0-finding
   // round's sentence would otherwise persist into this round when it has findings.
@@ -412,72 +509,95 @@ export async function execute(options: ReviewMergeOptions): Promise<ReviewMergeR
     cleanSentence = resolveCleanReviewSentence(scope.language);
   }
   rendered = applyCleanReviewSentence(rendered, cleanSentence);
-  try {
-    await atomicWrite(reviewPath, rendered);
-  } catch (err) {
-    // After a persisted exemption WARN the outcome is warning-only and must say so;
-    // otherwise the I/O failure is reported as itself.
-    if (!warningRecorded) throw err;
-    throw new TestGateError({
-      changeName,
-      entrance: 'review merge',
-      reason: `review.md write failed after the exemption warning was recorded: ${err instanceof Error ? err.message : String(err)}`,
-      warningRecorded: true,
-    });
-  }
-
-  // Counts entry persistence: round-keyed quality_log entry written by the CLI at merge time.
-  const hasUnresolvedCritical = merged.some(
-    (f) => f.severity === 'critical' && !hasReviewStatus(REVIEW_RESOLVED_STATUSES, f.status),
-  );
-  const hasCarriedMajor = merged.some(
-    (f) => f.severity === 'major' && !hasReviewStatus(REVIEW_RESOLVED_STATUSES, f.status),
-  );
-  const roundResult: GateResult =
-    hasUnresolvedCritical || hasCarriedMajor || circuitBreaker?.tripped ? 'WARN' : 'PASS';
-
-  if (!metadataBytesStable()) throw unstable(warningRecorded);
-
-  if (metadataDoc === undefined) {
-    if (!fs.existsSync(metadataPath)) {
-      throw new PrerequisiteError(
-        `metadata.yaml for change "${changeName}" is unavailable`,
-        `Restore .prospec/changes/${changeName}/metadata.yaml — a review round requires metadata.yaml`,
-      );
-    }
-    const read = readChangeMetadata(metadataPath, changeName);
-    metadataDoc = read.doc;
-  }
-
-  const counts = roundCounts(findings);
-  upsertReviewRoundEntry(metadataDoc, {
-    skill: 'prospec-review',
-    date: todayIso(),
-    result: roundResult,
-    warnings: [],
-    round: finalRoundNumber,
-    criticals_found: counts.criticals_found,
-    criticals_fixed: counts.criticals_fixed,
-    majors: counts.majors,
+  rendered = withReviewReceipt(rendered, {
+    request_id: requestId, attempt_id: attemptId, base_digest: baseDigest, artifact_digest: reviewArtifactDigest(rendered),
   });
+  if (!inputsStable() || !assessment.recheck() || !reviewBytesStable() || !metadataBytesStable()) throw unstable(warningRecorded);
+  if (!replay) {
+    try {
+      if (!artifactMatches) await atomicWrite(reviewPath, rendered);
+    } catch (err) {
+      throw writeFailure(err, false);
+    }
 
-  try {
-    await writeChangeMetadataDoc(metadataPath, metadataDoc, changeName);
-  } catch (err) {
-    if (!warningRecorded) throw err;
-    throw new TestGateError({
-      changeName,
-      entrance: 'review merge',
-      reason: `metadata.yaml write failed after the exemption warning was recorded: ${err instanceof Error ? err.message : String(err)}`,
-      warningRecorded: true,
+    // Counts entry persistence: round-keyed quality_log entry written by the CLI at merge time.
+    const hasUnresolvedCritical = merged.some(
+      (f) => f.severity === 'critical' && !hasReviewStatus(REVIEW_RESOLVED_STATUSES, f.status),
+    );
+    const hasCarriedMajor = merged.some(
+      (f) => f.severity === 'major' && !hasReviewStatus(REVIEW_RESOLVED_STATUSES, f.status),
+    );
+    const roundResult: GateResult =
+      hasUnresolvedCritical || hasCarriedMajor || circuitBreaker?.tripped ? 'WARN' : 'PASS';
+
+    if (!inputsStable() || !assessment.recheck() || !metadataBytesStable() ||
+        fs.readFileSync(reviewPath, 'utf8') !== (artifactMatches ? existingContent : rendered)) {
+      throw writeFailure(unstable(warningRecorded), true);
+    }
+
+    if (metadataDoc === undefined) {
+      if (!fs.existsSync(metadataPath)) {
+        throw new PrerequisiteError(
+          `metadata.yaml for change "${changeName}" is unavailable`,
+          `Restore .prospec/changes/${changeName}/metadata.yaml — a review round requires metadata.yaml`,
+        );
+      }
+      const read = readChangeMetadata(metadataPath, changeName);
+      metadataDoc = read.doc;
+    }
+
+    const counts = roundCounts(findings);
+    upsertReviewRoundEntry(metadataDoc, {
+      skill: 'prospec-review',
+      date: todayIso(),
+      result: roundResult,
+      warnings: [],
+      round: finalRoundNumber,
+      criticals_found: counts.criticals_found,
+      criticals_fixed: counts.criticals_fixed,
+      majors: counts.majors,
+    });
+
+    appendQualityLogEntry(metadataDoc, {
+      skill: 'prospec-review', date: todayIso(), result: roundResult, warnings: [], attempt_id: attemptId,
+      accepted: { request_id: requestId, base_digest: baseDigest, artifact_digest: artifactMatches ? artifactDigest : reviewArtifactDigest(rendered) },
+    });
+
+    const records = [...legacyEscalationRecords(log, retryBound), ...escalationTransitions(history, {
+      station: 'prospec-review', event_id: `review:${finalRoundNumber}`, trigger: trigger ?? null,
+      attempt_id: attemptId, grant: admission.kind === 'accept' ? admission.grant : undefined,
+    })];
+    const eventEntries = records.map(escalation => ({ skill: 'prospec-escalation', date: todayIso(), result: 'WARN' as const, warnings: [], escalation }));
+    for (const entry of eventEntries) appendQualityLogEntry(metadataDoc, entry);
+
+    try {
+      await writeChangeMetadataDoc(metadataPath, metadataDoc, changeName);
+    } catch (err) {
+      throw writeFailure(err, true);
+    }
+
+    if (circuitBreaker.escalationReport) {
+      const persistedHistory = reduceEscalationHistory([...log, ...eventEntries], retryBound);
+      circuitBreaker.escalationReport = projectEscalationReport(circuitBreaker.escalationReport, {
+        station: 'prospec-review', event_id: `review:${finalRoundNumber}`, ordinal: persistedHistory.events.length,
+      });
+    }
+
+  }
+
+  if (replay && circuitBreaker.escalationReport) {
+    const event = history.events.find(event => event.event_id === `review:${finalRoundNumber}`);
+    circuitBreaker.escalationReport = projectEscalationReport(circuitBreaker.escalationReport, {
+      station: 'prospec-review', event_id: event?.event_id ?? null, ordinal: history.events.length,
     });
   }
 
   return {
+    ...(replay ? { replay: true } : {}),
     changeName,
     reviewPath: path.join('.prospec', 'changes', changeName, 'review.md'),
-    totalRows: merged.length,
-    evidenceBlocks: evidenceBlocksFor(merged).length,
+    totalRows: replay ? rows.length : merged.length,
+    evidenceBlocks: evidenceBlocksFor(replay ? rows : merged).length,
     criticals: findings
       .filter((f) => f.severity === 'critical')
       .map((f) => ({

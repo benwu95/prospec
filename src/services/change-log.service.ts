@@ -1,7 +1,7 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
-import { PLAN_DECISION_OPTIONS, type NewQualityLogEntry, type GateResult, type PlanDecisionOption } from '../types/change.js';
-import { PrerequisiteError } from '../types/errors.js';
+import { PLAN_DECISION_OPTIONS, type EscalationHistory, type NewQualityLogEntry, type GateResult, type PlanDecisionOption } from '../types/change.js';
+import { EscalationError, PrerequisiteError } from '../types/errors.js';
 import {
   VERIFIER_REPORT_SCHEMAS,
   isVerifierReportSkill,
@@ -17,7 +17,15 @@ import {
   latestVerifierEntry,
   verifierGateResultOf,
 } from '../lib/change-metadata.js';
-import { atomicWrite } from '../lib/fs-utils.js';
+import { atomicWrite, captureFileInputs } from '../lib/fs-utils.js';
+import { resolveConfigPath, resolveMaxStationRetries, validateConfig } from '../lib/config.js';
+import {
+  admitEscalation, canonicalAttemptId, canonicalDigest, escalationTransitions, escalationFailureDetails, escalationDecision,
+  legacyEscalationRecords, manualOverrideReason, planningFlawsStreak, reduceEscalationHistory,
+} from '../lib/escalation.js';
+import { ESCALATION_STATIONS, type PlanningAttemptInputs } from '../types/change.js';
+import { BREAK_GLASS_PREFIX } from '../types/status.js';
+import type { EscalationDecision } from '../types/cascade.js';
 import { checkCandidateSet, parseDecision } from '../lib/artifact-validators.js';
 import { CANDIDATES_DIR, DECISION_FILE, readCandidateFiles } from '../lib/plan-candidates.js';
 import { todayIso } from '../lib/date-utils.js';
@@ -52,6 +60,9 @@ export interface ChangeLogResult {
   changeName: string;
   metadataPath: string;
   entry: NewQualityLogEntry;
+  replay?: boolean;
+  escalation?: EscalationDecision;
+  escalationHistory?: EscalationHistory;
 }
 
 /**
@@ -77,6 +88,10 @@ export async function execute(options: ChangeLogOptions): Promise<ChangeLogResul
     );
   }
   if (options.signoff !== undefined) return recordSignoff(options.signoff, options, cwd);
+  if (options.entry?.attempt_id !== undefined || options.entry?.accepted !== undefined || options.entry?.escalation !== undefined || options.entry?.skill === 'prospec-escalation') {
+    throw new PrerequisiteError('A composed entry may not carry sink-owned attempt or escalation fields', 'Use the station sink, or an explicit reasoned Manual override WARN');
+  }
+
   // Same forgery guard as verifier_verdict: only the sign-off path writes this stamp.
   if (options.entry?.signoff_option !== undefined) {
     throw new PrerequisiteError(
@@ -95,10 +110,8 @@ export async function execute(options: ChangeLogOptions): Promise<ChangeLogResul
 
   // The report is validated BEFORE the change is resolved or its metadata read:
   // every refusal it carries must precede any prompt and any write.
-  const composed =
-    options.verifierReport === undefined
-      ? options.entry!
-      : entryFromVerifierReport(options.verifierReport, cwd);
+  const verifiedReport = options.verifierReport === undefined ? undefined : entryFromVerifierReport(options.verifierReport, cwd);
+  const composed = verifiedReport?.entry ?? options.entry!;
 
   const changeName = await resolveChange(
     cwd,
@@ -109,6 +122,48 @@ export async function execute(options: ChangeLogOptions): Promise<ChangeLogResul
 
   const metadataPath = path.join(cwd, '.prospec', 'changes', changeName, 'metadata.yaml');
   const { doc, metadata } = readChangeMetadata(metadataPath, changeName);
+  const metadataBytes = fs.readFileSync(metadataPath, 'utf8');
+  const configPath = resolveConfigPath(cwd);
+  const configSnapshot = captureFileInputs({ config: configPath });
+  const configBytes = configSnapshot.values.config;
+  const retryBound = resolveMaxStationRetries(configBytes == null ? null : validateConfig(configBytes, configPath));
+  const log = metadata.quality_log ?? [];
+  const history = reduceEscalationHistory(log, retryBound);
+  const escalationOutput = () => {
+    const escalationHistory = reduceEscalationHistory(doc.toJS().quality_log, retryBound);
+    return { escalationHistory, ...(escalationHistory.pending ? { escalation: escalationDecision({ ...escalationHistory.pending, ordinal: escalationHistory.events.length }) } : {}) };
+  };
+  const recheckMetadata = () => configSnapshot.recheck() && fs.readFileSync(metadataPath, 'utf8') === metadataBytes;
+  const changeDir = path.dirname(metadataPath);
+
+  // A report warning is untrusted report data. Only this explicit composed
+  // path can mint a grant, and a dedicated entry cannot become a round close.
+  const hasManualMarker = options.entry?.warnings.some((warning) => warning.trimStart().startsWith(BREAK_GLASS_PREFIX));
+  if (hasManualMarker) {
+    const reason = manualOverrideReason(options.entry?.warnings);
+    if (reason === undefined || composed.result !== 'WARN') {
+      throw new PrerequisiteError('Manual override requires WARN and a nonempty reason', "Supply the human's explicit reason after Manual override:");
+    }
+    const station = ESCALATION_STATIONS.find((value) => value === composed.skill);
+    if (station === undefined || history.pending?.station !== station) {
+      throw new PrerequisiteError('No pending escalation belongs to this station', 'Read prospec status and address the current event and station');
+    }
+    for (const record of legacyEscalationRecords(log, retryBound)) appendQualityLogEntry(doc, {
+      skill: 'prospec-escalation', date: composed.date ?? todayIso(), result: 'WARN', warnings: [], escalation: record,
+    });
+    const entry: NewQualityLogEntry = {
+      skill: 'prospec-escalation', date: composed.date ?? todayIso(), result: 'WARN', warnings: [],
+      escalation: {
+        kind: 'override', event_id: history.pending.event_id, station, reason,
+        grant_id: canonicalAttemptId(station, { event: history.pending.event_id, reason, position: log.length }),
+      },
+    };
+    appendQualityLogEntry(doc, entry);
+    if (!recheckMetadata()) throw new PrerequisiteError('Escalation inputs changed before grant write', 'Read status and record the reason again');
+    await writeChangeMetadataDoc(metadataPath, doc, changeName);
+    return { changeName, metadataPath: path.relative(cwd, metadataPath), entry, ...escalationOutput() };
+  }
+
 
   // The plan verifier audits plan.md together with the recommendation it argues for;
   // stamping that recommendation binds a later sign-off to what was audited.
@@ -181,13 +236,75 @@ export async function execute(options: ChangeLogOptions): Promise<ChangeLogResul
     result,
     warnings,
   };
-  appendQualityLogEntry(doc, entry);
-  await writeChangeMetadataDoc(metadataPath, doc, changeName);
+  let observedTrigger: 'station_retry_limit_exceeded' | undefined;
+  if (verifiedReport !== undefined && options.verifierReport !== undefined) {
+    const inputsSnapshot = captureFileInputs({
+      proposal: path.join(changeDir, 'proposal.md'), delta: path.join(changeDir, 'delta-spec.md'),
+      plan: path.join(changeDir, 'plan.md'), tasks: path.join(changeDir, 'tasks.md'),
+      report: path.resolve(cwd, options.verifierReport.path),
+    });
+    if (inputsSnapshot.values.report !== verifiedReport.sourceBytes) throw new PrerequisiteError('Verifier report changed after validation', 'Re-run against stable inputs');
+    const values = inputsSnapshot.values;
+    const candidateFiles = metadata.scale === 'full' ? readCandidateFiles(changeDir) : null;
+    const candidateBytes = canonicalDigest(candidateFiles);
+    const candidates = candidateFiles === null ? null : [...candidateFiles.candidates, ...(candidateFiles.decision ? [candidateFiles.decision] : [])].map(({ file, content: bytes }) => {
+      if (bytes === null) return { file, content: null };
+      try {
+        const parsed: unknown = JSON.parse(bytes);
+        if (file === DECISION_FILE && parsed !== null && typeof parsed === 'object' && !Array.isArray(parsed)) {
+          const semantics = { ...parsed } as Record<string, unknown>;
+          delete semantics.graded_by;
+          return { file, content: semantics };
+        }
+        return { file, content: parsed };
+      } catch { return { file, content: bytes }; }
+    });
+    const station = composed.skill as 'prospec-plan' | 'prospec-tasks';
+    const inputs: PlanningAttemptInputs = {
+      station, report: canonicalDigest(verifiedReport.payload), warnings: entry.warnings,
+      specs: { proposal: values.proposal ?? null, deltaSpec: values.delta ?? null, acceptance: metadata.acceptance ?? null },
+      plan: values.plan ?? null, tasks: values.tasks ?? null,
+      candidates: candidates === null ? null : canonicalDigest(candidates), maxStationRetries: retryBound,
+    };
+    const attemptId = canonicalAttemptId(station, inputs);
+    const admission = admitEscalation(history, log, station, attemptId);
+    if (admission.kind === 'refused') throw new EscalationError(
+      'A new planning attempt requires current-event authorization', "Present the CLI exits and obtain the developer's decision",
+      { decision: admission.decision, history, persistence: { event_persisted: false, metrics_persisted: false, artifact_persisted: false, accepted_persisted: false, grant_consumed: false } },
+    );
+    if (!recheckMetadata() || !inputsSnapshot.recheck() ||
+        (candidateFiles !== null && canonicalDigest(readCandidateFiles(changeDir)) !== candidateBytes)) {
+      throw new PrerequisiteError('Planning inputs changed before recording', 'Re-run against stable inputs');
+    }
+    if (admission.kind === 'replay') return { changeName, metadataPath: path.relative(cwd, metadataPath), entry: admission.entry, replay: true, ...escalationOutput() };
+    entry.attempt_id = attemptId;
+    entry.accepted = { request_id: attemptId };
+    const trigger = planningFlawsStreak([...log, entry], station, history) >= retryBound
+      ? 'station_retry_limit_exceeded' as const : null;
+    observedTrigger = trigger ?? undefined;
+    const records = [...legacyEscalationRecords(log, retryBound), ...escalationTransitions(history, {
+      station, event_id: `retry:${attemptId}`, trigger, attempt_id: attemptId, grant: admission.grant,
+    })];
+    appendQualityLogEntry(doc, entry);
+    for (const record of records) appendQualityLogEntry(doc, {
+      skill: 'prospec-escalation', date: entry.date, result: 'WARN', warnings: [], escalation: record,
+    });
+  } else appendQualityLogEntry(doc, entry);
+  if (!recheckMetadata()) throw new PrerequisiteError('Metadata changed before recording', 'Re-run against stable inputs');
+  try { await writeChangeMetadataDoc(metadataPath, doc, changeName); } catch (cause) {
+    if (verifiedReport === undefined) throw cause;
+    throw new EscalationError(
+      `Planning metadata was not committed: ${cause instanceof Error ? cause.message : String(cause)}`,
+      'Repair the write failure and retry the unchanged inputs; no attempt or grant consumption was committed',
+      escalationFailureDetails(history, composed.skill as 'prospec-plan' | 'prospec-tasks', observedTrigger), cause,
+    );
+  }
 
   return {
     changeName,
     metadataPath: path.join('.prospec', 'changes', changeName, 'metadata.yaml'),
     entry,
+    ...escalationOutput(),
   };
 }
 
@@ -225,8 +342,11 @@ async function recordSignoff(
   const metadataPath = path.join(changeDir, 'metadata.yaml');
   const { doc, metadata } = readChangeMetadata(metadataPath, changeName);
 
-  const verifierEntry = latestVerifierEntry(metadata.quality_log, 'prospec-plan');
-  const verifier = verifierEntry === null ? null : verifierGateResultOf(verifierEntry);
+  const configPath = resolveConfigPath(cwd);
+  const config = captureFileInputs({ config: configPath }).values.config;
+  const history = reduceEscalationHistory(metadata.quality_log, resolveMaxStationRetries(config == null ? null : validateConfig(config, configPath)));
+  const verifierEntry = latestVerifierEntry(metadata.quality_log, 'prospec-plan', history);
+  const verifier = verifierEntry === null ? null : verifierGateResultOf(verifierEntry, history.pending === null);
   if (verifier === null || verifier === 'FAIL') {
     throw new PrerequisiteError(
       verifier === null
@@ -306,7 +426,7 @@ function entryFromVerifierReport(
     date?: string;
   },
   cwd: string,
-): Omit<NewQualityLogEntry, 'date'> & { date?: string } {
+): { entry: Omit<NewQualityLogEntry, 'date'> & { date?: string }; payload: unknown; sourceBytes: string } {
   if (!isVerifierReportSkill(report.skill)) {
     throw new PrerequisiteError(
       `--verifier-report is not defined for skill "${report.skill}"`,
@@ -321,8 +441,10 @@ function entryFromVerifierReport(
     );
   }
   let json: unknown;
+  let sourceBytes: string;
   try {
-    json = JSON.parse(fs.readFileSync(reportPath, 'utf-8'));
+    sourceBytes = fs.readFileSync(reportPath, 'utf-8');
+    json = JSON.parse(sourceBytes);
   } catch {
     throw new PrerequisiteError(
       `Verifier report is not valid JSON: ${report.path}`,
@@ -342,11 +464,11 @@ function entryFromVerifierReport(
   const dimensionWarnings = Object.entries(payload.dimensions)
     .filter(([, d]) => d.result !== 'PASS')
     .map(([name, d]) => `${name}: ${d.rationale}`);
-  return {
+  return { payload, sourceBytes, entry: {
     skill: report.skill,
     result: planningVerdictToGateResult(payload.verdict),
     warnings: [...(payload.warnings ?? []), ...dimensionWarnings],
     verifier_verdict: payload.verdict,
     ...(report.date !== undefined ? { date: report.date } : {}),
-  };
+  } };
 }

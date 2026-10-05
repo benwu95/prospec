@@ -137,7 +137,7 @@ count the pre-graduation spec text.
 Run `prospec archive finalize <change-name>` (Bash; `--dry-run` first to preview). It executes the
 two writes that MUST come after the judgment work above:
 
-1. Copies the finalized `summary.md` (the Phase 2 record you placed in Phase 3 — the command refuses
+1. Refreshes the CLI-owned escalation history from metadata in both copies, retaining override reasons after PASS, then copies the finalized `summary.md` (the Phase 2 record you placed in Phase 3 — the command refuses
    while the file still lacks `## Review & Verify`) to
    `{{base_dir}}/specs/_archived-history/{YYYY-MM-DD}-{change-name}.md` — the **committed**
    spec-history audit trail. It lands in `_archived-history/` (drift-excluded via
@@ -187,6 +187,8 @@ Follow the **Harvest** definition in [`references/promotion-format.md`](referenc
 4. This is **non-fatal** (try/catch + log, like Feature Spec Sync / knowledge update) — a harvest failure never blocks archiving.
 
 Then point the user at `prospec-learn` for Score/Promote — auto-harvest only accumulates; nothing is promoted to `_playbook.md`/Constitution without explicit human approval.
+
+{{> escalation-guidance}}
 
 ## Output Contract
 

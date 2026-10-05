@@ -174,10 +174,10 @@ Audit `plan.md` and `delta-spec.md` against the rubric in an independent, fresh 
 Record the report — whatever its verdict — to `metadata.yaml` `quality_log` via `prospec change log --skill prospec-plan --verifier-report <file>` (Bash). The CLI validates it against the rubric-owned schema (verdict "PASS" | "WARN" | "FLAWS"; exactly the five dimensions; `rationale` and each warning single-line, ≤ 500 chars) and records `FLAWS` as `result: FAIL`, `WARN`/`PASS` as themselves; an invalid payload is refused before anything is written. Never relay the verdict by hand.
 - **PASS**: No structural flaws or unmitigated risks found. Proceed.
 - **WARN**: Advisory concerns identified. Append them to `plan.md` Risk Assessment with mitigations (the recorded entry already carries them).
-- **FLAWS**: Structural defect or layering violation found. Revise `plan.md`/`delta-spec.md` and re-run the verifier (a later recorded PASS or WARN verdict supersedes the FAIL — the sink stamps each entry with `verifier_verdict`, so your Exit Gate notes under this skill never count as verifier results), OR apply **Break-Glass Override**: if the finding is a false positive, the developer may supply an explicit rationale to bypass, recorded in `plan.md` Risk Assessment and logged via `prospec change log --skill prospec-plan --result WARN --warning "Manual override: <rationale>"`. While the latest recorded verifier result is FAIL, `prospec status` routes the change back to plan.
+- **FLAWS**: Revise the artifacts and re-run the verifier. A later sink-stamped PASS/WARN supersedes the FAIL; Exit Gate notes do not. On escalation, follow the CLI-owned Break-Glass Override decision below: a developer grant permits one attempt, never a verifier PASS or station advancement.
 
 > **Phase 6 Gate** — proceed when:
-> - [ ] Architecture Verifier audit completed against the 5 orthogonal dimensions and its report recorded via `prospec change log --verifier-report` with result PASS/WARN (or a documented Break-Glass override logged)
+> - [ ] Architecture Verifier audit completed against the 5 orthogonal dimensions and its report recorded via `prospec change log --verifier-report` with result PASS/WARN (a Break-Glass grant alone does not satisfy this gate)
 > - [ ] Any discovered risks/warnings recorded in plan.md Risk Assessment
 
 ### Phase 7: Knowledge Quality Gate
@@ -190,6 +190,16 @@ Confirm Knowledge-loading completeness in **one line**: Context mode detected (B
 ### Phase 8: Summary + Next Steps
 
 Run `prospec status`. On `AWAITING_HUMAN_PLAN_SIGNOFF`, HALT with the sign-off material (Phase 4 step 5) and do not recommend tasks; on `PLAN_VERIFIER_PENDING`, record the verifier first; otherwise suggest `prospec-tasks` or manual review.
+
+## Escalation Decision (CLI-Owned)
+
+- Stop; present the CLI decision: trigger, lifetime ordinal, exits, recommended action.
+- Never self-authorize: a report warning is not a grant. Log the human's nonempty `Manual override: <reason>` via composed WARN.
+- Grants allow one new attempt per current event and station; replay consumes none, resolution expires grants. Tests remain an independent gate.
+- An unpersisted observation is not a grant target; repair receipt-bound gaps.
+- For re-scope, revise proposal or start a Story; amendment gates remain, without unlocking escalation or regressing status.
+- For abandon, stop and retain artifacts/reasons; rollback requires human approval.
+- Preserve history after PASS, adjacent prose and fenced examples.
 
 ## Output Contract
 
@@ -231,7 +241,7 @@ Verify the output against this skill's **site-specific** Constitution rule (**de
 - **NEVER** add the `_diagram-conventions.md` diagram read to Startup Loading or the stable prefix — it is an in-phase, on-demand read only
 - **NEVER** add `references/plan-verifier-rubric.md` to Startup Loading or the stable prefix — it is an in-phase, on-demand read only
 - **NEVER** hardcode specific layer architectures in the verifier audit — dynamically resolve rules from the project's Constitution and conventions
-- **NEVER** proceed past Phase 6 on unresolved FLAWS without a documented Break-Glass Override
+- **NEVER** proceed past Phase 6 on unresolved FLAWS; a documented Break-Glass Override authorizes only another attempt
 
 ## Error Handling
 

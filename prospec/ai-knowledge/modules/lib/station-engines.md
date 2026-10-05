@@ -32,6 +32,11 @@
 
 ## Pitfalls
 
+- Delegation causal inputs come from `delegationAttemptInputs` in `delegation.ts`; consumed timestamps do not change an accepted attempt.
+
+- `escalation.ts` separates event anchors from causal attempts. Legacy events retain original positions and disclose incomplete history; only explicit event/station grants authorize new repeated-event attempts. `quality_log` is the ledger, with no independent counter. `captureFileInputs` fences missing versus empty files.
+- Review receipts use the metrics owner (`withReviewReceipt`, `reviewArtifactDigest`); verify uses `renderEvidenceSection` / `findEvidenceAttempt` with the shared marker prefix. An accepted replay cannot overwrite a later outcome. `upsertEscalationHistory` changes only one owned unfenced block, never neighboring prose.
+
 - **Decide, never re-derive policy.** `verify-grade` has NO WARN exemption (`not-adjudicated` included — each spends grade A's budget). `lessons-ledger` counts DISTINCT source changes and REFUSES a `retired` row (counters are its only evidence the pattern was real, so an unattended harvest cannot raise them; its playbook marker is case-sensitive and excludes an `UN-RETIRED` annotation, or a revived rule would vanish from the needs-review list).
 - `review-merge` **never infers identity from a location** — its (location, lens) fallback needs one id-less side, sees pre-round rows only, and drops any row it claims, moves or renames. `repro` and `evidence` are CUMULATIVE: only a round that SUPPLIES them overwrites, so a fix round cannot blank the reason a finding was raised.
 - **A rebuilt section deletes whatever sat below it unless the split hands that back** — `splitEvidenceSection` returns `after` and the renderer re-appends it. The boundary is an explicit **closing marker**, never a property of the content: two attempts to infer it ("the tail starts at the first line that is not a block") each left the forgery they were written to stop reachable, because a hand-written tail opens with a marker exactly as a real block does. Between the two markers is a CLI-owned region, and it behaves two ways on purpose: block BODIES are read back (that is the carry-forward mechanism, so editing one edits the recorded evidence), while anything else inside is dropped when the region is rebuilt. Content of your own belongs below the closing marker.

@@ -226,6 +226,17 @@ Entry Points, Dependencies, and Config Files have no per-language override — t
 
 #### Change Management Commands Breakdown
 
+
+##### Escalation and scoped retries
+
+`status --json`, `change log --json`, `review merge --json` and `verify record --json` expose structured outcomes. Mutating commands send refusals to stderr with exit status 1, including persisted versus observed events, partial-write flags and the original cause.
+
+The lifetime ledger is `quality_log`; non-default `workflow.max_station_retries` applies to every reader. At ordinal 2 or later, a pending event offers only re-scope, abandon and break-glass, recommending re-scope. Only an explicit composed WARN with a nonempty `Manual override: <reason>` authorizes one new attempt for the current event and station; report warnings and legacy unbound markers do not grant permission. Accepted replay does not consume a grant. Resolution expires unused grants, and a new event cannot reuse one. Tests remain independent.
+
+Re-scope means a developer-approved proposal change or new Story; scenario amendments retain reason/digest/lifecycle gates and cannot regress status or unlock escalation. Abandon means stopping while retaining artifacts and reasons; rollback requires a separate human decision. No abandon CLI is introduced.
+
+Review preserves artifact→metadata ordering; verify preserves metadata→evidence ordering. Receipt-bound repairs never append a second accepted verdict or consume another grant. Persistent-test refusal records the event before rechecking and splicing metrics; failed event writes leave metrics unchanged. Status is read-only, and verify/archive retain durable override reasons, event binding and usage after PASS.
+
 - **`prospec status`**
   - **Purpose**: Read-only deterministic routing for all active in-flight changes.
   - **Key Details**:
@@ -312,7 +323,7 @@ Entry Points, Dependencies, and Config Files have no per-language override — t
 - **`prospec change log --skill <station> (--result <PASS|WARN|FAIL> | --verifier-report <file> | --signoff <option>) [options]`**
   - **Purpose**: Append a structured `quality_log` entry in `metadata.yaml`.
   - **Options**: Supports `--warning <w>`, `--grade <g>`, `--dimension n=r`, `--criticals-found <n>` with canonical key ordering; free text is serialized as YAML data by the yaml library (quoted only when YAML requires it), so metacharacters cannot corrupt the file; this command writes YAML, not a Markdown table, so no table escaping applies. For `prospec-review`, `--criticals-found`, `--criticals-fixed`, and `--majors` are treated as expected-value audit inputs rather than direct writes: any mismatch against the CLI-owned counts recorded by `review merge` appends a `log_mismatch` warning and coerces the result to at least `WARN` without overwriting the recorded counts, and the appended close entry carries no count fields.
-  - **`--verifier-report <file>`** (plan/tasks stations): validates the Architecture/Task Verifier JSON report against the rubric-owned schema (verdict `PASS` | `WARN` | `FLAWS`, exactly the owning dimensions, single-line bounded `rationale`/`warnings`) and records it — `FLAWS` lands as `result: FAIL`, an invalid payload is refused before any write. For `prospec-plan` it also stamps `audited_option` with the schema-valid `candidates/decision.json` recommendation the verifier audited. Mutually exclusive with `--result` and the composed-entry fields. `prospec status` routes a station whose latest recorded verifier result is `FAIL` back to that station until a later verifier `PASS` or `WARN`, or a Break-Glass `--result WARN --warning "Manual override: …"`, supersedes it.
+  - **`--verifier-report <file>`** (plan/tasks stations): validates the Architecture/Task Verifier JSON report against the rubric-owned schema (verdict `PASS` | `WARN` | `FLAWS`, exactly the owning dimensions, single-line bounded `rationale`/`warnings`) and records it — `FLAWS` lands as `result: FAIL`, an invalid payload is refused before any write. For `prospec-plan` it also stamps `audited_option` with the schema-valid `candidates/decision.json` recommendation the verifier audited. Mutually exclusive with `--result` and the composed-entry fields. `prospec status` routes a station whose latest recorded verifier result is `FAIL` back to that station until a later verifier `PASS` or `WARN` supersedes it; a reasoned Break-Glass grant permits a retry of the pending event, never replaces a verifier verdict.
   - **`--signoff <option>`** (`--skill prospec-plan` only, on an explicit human instruction): records the human's plan sign-off. Refused — with nothing written — unless the latest plan verifier result is PASS/WARN, `candidates/decision.json` is schema-valid, the option equals its `recommended_option` and the latest plan verifier report's `audited_option` (a Break-Glass entry audited nothing) (to pick another option, revise the plan and decision and re-record the verifier first), and `prospec validate candidates` passes for the whole candidate set (so a non-hybrid option has a valid `candidates/<option>.json`). On acceptance it sets decision.json `graded_by: human` and appends a PASS entry stamped `signoff_option`; `--warning` adds the human's notes. Mutually exclusive with `--result`, `--verifier-report` and the composed-entry fields.
 
 - **`prospec change progress [--complete <task>] [--change <name>]`**
@@ -329,7 +340,7 @@ Entry Points, Dependencies, and Config Files have no per-language override — t
   - **Sinks**: `review merge` and `verify record` settle their station's tickets before every other refusal — writing nothing while any latest attempt is open or refused — then mark every live attempt consumed; their normal output always carries one delegation line.
   - **Limits**: it detects and preserves; it prevents nothing and restores nothing, and it guards against an accidental or buggy delegate, not a malicious one. It does not see ignored files (an ignored `prospec-report.json` included); `.prospec/` artifacts, tickets and checkpoints included (a delegate that edits its own ticket or another CLI record there can make its receipt pass); the repository's `.git/config`, hooks and `info/exclude` (a hook or command a delegate sets there, such as `core.fsmonitor` or a reference-transaction hook, runs in the CLI's own receive git calls and in every later git call); repository metadata under `.git` that no facet reads (`.git/shallow`, `info/grafts`, `info/attributes`); a process that outlives its delegate (one still running after `--spawn-failed` or after a newer attempt superseded it, or a background process it started), which can change the tree after the receipt; a change the delegate reverted before returning; content outside the project; or pushes to any remote (remote-tracking refs are not a facet) — while tags a `git fetch` auto-follows do change the refs facet. Delegations of several changes running at once in one repository are not isolated from one another.
 
-- **`prospec review merge --findings <file> [--round <n>] [--max-fix-induced-ratio <r>] [--max-rounds <n>] [--max-flips <n>] [--lenses <list>] [--change <name>]`**
+- **`prospec review merge --findings <file> [--round <n>] [--max-fix-induced-ratio <r>] [--max-rounds <n>] [--max-flips <n>] [--lenses <list>] [--json] [--change <name>]`**
   - **Purpose**: Merge review round JSON findings into cumulative `review.md` table.
   - **Escaping**: inside a table cell `|` is written as `\|` and a newline is flattened to a space; identity is the finding `id`, never the location text; the success output adds one line when at least one cell was escaped.
   - **Key Details**: Deduplicates by identity key, stamps each finding's `Origin` round, keeps maximum severity, preserves findings across rounds, records invoked lenses, and evaluates the circuit breakers (fix-induced ratio / oscillation flips / hard cap / persistent test failure) to emit an EscalationReport when tripped. On each merge, the CLI automatically writes or updates the round's `quality_log` counts entry (`criticals_found`, `criticals_fixed`, `majors`, `round`) in `metadata.yaml` (idempotent by round number). When the cumulative findings table has 0 rows (a clean review round), the CLI also automatically injects an artifact-language clean review sentence into `review.md`.
@@ -666,7 +677,7 @@ src/
 ├── services/     — Business logic (33 services)
 ├── lib/          — Pure utility functions (config, fs, logger, etc.)
 ├── types/        — Zod schemas + TypeScript types
-└── templates/    — Handlebars templates (78 .hbs files)
+└── templates/    — Handlebars templates (79 .hbs files)
     └── skills/   — 17 Skill templates + 31 reference templates
 ```
 

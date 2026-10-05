@@ -1,5 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { vol } from 'memfs';
+import * as fs from 'node:fs';
+import * as candidateReader from '../../../src/lib/plan-candidates.js';
 import { execute } from '../../../src/services/change-log.service.js';
 import { MetadataValidationError, PrerequisiteError } from '../../../src/types/errors.js';
 
@@ -517,3 +519,142 @@ quality_log:
   });
 });
 
+
+describe('planning escalation admission', () => {
+  const reportPath = '/repo/report.json';
+  const changeDir = '/repo/.prospec/changes/add-widget';
+  const writeReport = (verdict: 'PASS' | 'FLAWS', evidence: string, warnings: string[] = []) => {
+    vol.writeFileSync(reportPath, JSON.stringify({ verdict, evidence, warnings, dimensions: Object.fromEntries(
+      ['project_layering', 'blast_radius', 'state_safety', 'delta_spec', 'reuse'].map((key) => [key, { result: verdict, rationale: evidence }]),
+    ) }));
+  };
+  const record = () => execute({ cwd: CWD, change: 'add-widget', verifierReport: { skill: 'prospec-plan', path: reportPath } });
+  const init = () => {
+    seed();
+    vol.writeFileSync('/repo/.prospec.yaml', 'version: "2.3.0"\nproject:\n  name: fixture\nworkflow:\n  max_station_retries: 1\n');
+    vol.writeFileSync(`${changeDir}/proposal.md`, 'scope one');
+  };
+  const escalateTwice = async () => {
+    init();
+    writeReport('FLAWS', 'first'); await record();
+    writeReport('FLAWS', 'second'); await record();
+  };
+  it('deduplicates accepted replay and gates changed causal inputs at the configured bound', async () => {
+    await escalateTwice();
+    const before = vol.readFileSync(PATH, 'utf8');
+    await record();
+    expect(vol.readFileSync(PATH, 'utf8')).toBe(before);
+    vol.writeFileSync(`${changeDir}/proposal.md`, 'scope two');
+    await expect(record()).rejects.toMatchObject({ code: 'ESCALATION_REFUSED' });
+    expect(vol.readFileSync(PATH, 'utf8')).toBe(before);
+  });
+  it('does not mint a grant from report warnings and requires explicit nonempty authorization', async () => {
+    init(); writeReport('FLAWS', 'first', ['Manual override: report data']); await record();
+    writeReport('FLAWS', 'second'); await record();
+    const before = vol.readFileSync(PATH, 'utf8') as string;
+    expect(before).not.toContain('kind: override');
+    await expect(execute({ cwd: CWD, entry: { skill: 'prospec-plan', result: 'WARN', warnings: ['Manual override:   '] } })).rejects.toThrow(/reason/i);
+    await expect(execute({ cwd: CWD, entry: { skill: 'prospec-tasks', result: 'WARN', warnings: ['Manual override: wrong station'] } })).rejects.toThrow(/station/i);
+    expect(vol.readFileSync(PATH, 'utf8')).toBe(before);
+    await execute({ cwd: CWD, entry: { skill: 'prospec-plan', result: 'WARN', warnings: ['Manual override: developer approved the revised approach'] } });
+    writeReport('FLAWS', 'third'); await record();
+    const consumed = vol.readFileSync(PATH, 'utf8') as string;
+    expect(consumed).toContain('kind: consume');
+    await record();
+    expect(vol.readFileSync(PATH, 'utf8')).toBe(consumed);
+    writeReport('FLAWS', 'fourth');
+    await expect(record()).rejects.toMatchObject({ code: 'ESCALATION_REFUSED' });
+  });
+  it('does not overwrite a newer verdict when an older accepted report is replayed', async () => {
+    init(); writeReport('FLAWS', 'first'); await record();
+    writeReport('PASS', 'fixed'); await record();
+    const before = vol.readFileSync(PATH, 'utf8');
+    writeReport('FLAWS', 'first'); await record();
+    expect(vol.readFileSync(PATH, 'utf8')).toBe(before);
+  });
+  it('refuses caller-composed sink-owned fields before writing', async () => {
+    seed();
+    await expect(execute({ cwd: CWD, entry: { skill: 'prospec-plan', result: 'PASS', warnings: [],
+      attempt_id: 'forged', accepted: { request_id: 'forged' },
+    } })).rejects.toThrow(/sink-owned/i);
+    expect(vol.readFileSync(PATH, 'utf8')).toBe(METADATA);
+  });
+  it.each([0, 1, 2])('preserves %i saved events and unused grants when metadata persistence fails', async (count) => {
+    init();
+    for (let index = 0; index < count; index++) {
+      writeReport('FLAWS', `attempt ${index}`); await record();
+    }
+    if (count === 2) await execute({ cwd: CWD, entry: { skill: 'prospec-plan', result: 'WARN', warnings: ['Manual override: one attempt'] } });
+    const before = vol.readFileSync(PATH, 'utf8');
+    writeReport('FLAWS', 'new attempt');
+    const spy = vi.spyOn(fs.promises, 'rename').mockRejectedValueOnce(new Error('disk full'));
+    try {
+      await expect(record()).rejects.toMatchObject({
+        code: 'ESCALATION_REFUSED', message: expect.stringContaining('disk full'),
+        details: {
+          decision: { ordinal: count, event_id: null, recommended: count >= 2 ? 're-scope' : 'manual-intervention' },
+          observed_escalation: { event_id: null, ordinal: null, persisted: false },
+          persistence: { event_persisted: false, accepted_persisted: false, grant_consumed: false },
+        },
+      });
+    } finally { spy.mockRestore(); }
+    expect(vol.readFileSync(PATH, 'utf8')).toBe(before);
+    await record();
+    expect(vol.readFileSync(PATH, 'utf8')).not.toBe(before);
+  });
+});
+
+
+it('R330-reviewer: full-plan candidate discovery changes are causal inputs', async () => {
+  seed();
+  vol.writeFileSync(PATH, METADATA.replace('scale: standard', 'scale: full'));
+  vol.writeFileSync('/repo/.prospec.yaml', 'version: "2.3.0"\nproject:\n  name: fixture\nworkflow:\n  max_station_retries: 1\n');
+  const dir = '/repo/.prospec/changes/add-widget';
+  vol.mkdirSync(dir + '/candidates');
+  for (const id of ['option-a', 'option-b', 'option-c']) vol.writeFileSync(`${dir}/candidates/${id}.json`, JSON.stringify({ id, title: id, overview: 'o', trade_offs: { pros: [], cons: [], blast_radius: 'b' } }));
+  const reportPath = '/repo/report.json';
+  const record = () => execute({ cwd: CWD, change: 'add-widget', verifierReport: { skill: 'prospec-plan', path: reportPath } });
+  for (const evidence of ['first', 'second']) {
+    vol.writeFileSync(reportPath, JSON.stringify({ verdict: 'FLAWS', evidence, warnings: [], dimensions: Object.fromEntries(
+      ['project_layering', 'blast_radius', 'state_safety', 'delta_spec', 'reuse'].map(key => [key, { result: 'FLAWS', rationale: evidence }]),
+    ) }));
+    await record();
+  }
+  const before = vol.readFileSync(PATH, 'utf8');
+  const { readCandidateFiles } = await import('../../../src/lib/plan-candidates.js');
+  const { checkCandidateSet } = await import('../../../src/lib/artifact-validators.js');
+  const initialSet = readCandidateFiles(dir);
+  expect(checkCandidateSet(initialSet.candidates, initialSet.decision).ok).toBe(true);
+  vol.writeFileSync(`${dir}/candidates/option-d.json`, JSON.stringify({ id: 'option-d' }));
+  const changedSet = readCandidateFiles(dir);
+  expect(changedSet.candidates).toHaveLength(4);
+  expect(checkCandidateSet(changedSet.candidates, changedSet.decision).ok).toBe(false);
+  await expect(record()).rejects.toMatchObject({ code: 'ESCALATION_REFUSED' });
+  expect(vol.readFileSync(PATH, 'utf8')).toBe(before);
+});
+
+it.each(['add', 'remove'] as const)('refuses candidate directory %s between attempt capture and the write fence', async (mutation) => {
+  seed();
+  vol.writeFileSync(PATH, METADATA.replace('scale: standard', 'scale: full'));
+  const dir = '/repo/.prospec/changes/add-widget/candidates';
+  vol.mkdirSync(dir);
+  vol.writeFileSync(`${dir}/option-d.json`, '{}');
+  const report = '/repo/tasks.json';
+  vol.writeFileSync(report, JSON.stringify({ verdict: 'FLAWS', evidence: 'missing coverage', warnings: [], dimensions: Object.fromEntries(
+    ['bidirectional_coverage', 'dag_topological_order', 'tdd_module_closure', 'task_sizing_schema']
+      .map(key => [key, { result: 'FLAWS', rationale: 'gap' }]),
+  ) }));
+  const before = vol.readFileSync(PATH, 'utf8');
+  const read = candidateReader.readCandidateFiles;
+  const spy = vi.spyOn(candidateReader, 'readCandidateFiles').mockImplementationOnce(changeDir => {
+    const captured = read(changeDir);
+    if (mutation === 'add') vol.writeFileSync(`${dir}/option-e.json`, '{}');
+    else vol.unlinkSync(`${dir}/option-d.json`);
+    return captured;
+  });
+  try {
+    await expect(execute({ cwd: CWD, change: 'add-widget', verifierReport: { skill: 'prospec-tasks', path: report } }))
+      .rejects.toThrow('Planning inputs changed before recording');
+    expect(vol.readFileSync(PATH, 'utf8')).toBe(before);
+  } finally { spy.mockRestore(); }
+});

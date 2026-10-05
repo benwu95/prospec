@@ -851,3 +851,15 @@ describe('test-failure metrics in review.md (REQ-SERVICES-098, REQ-SERVICES-086,
     });
   });
 });
+
+describe('review attempt receipt', () => {
+  const receipt = { request_id: 'a'.repeat(64), attempt_id: `prospec-review:${'b'.repeat(64)}`, base_digest: 'c'.repeat(64), artifact_digest: 'd'.repeat(64) };
+  it('round-trips the receipt through the sole metrics writer, including refusal splices', () => {
+    const rendered = renderReviewDocument('', [], 'example', { round: 1, receipt });
+    expect(parseReviewMetricsStrict(rendered).receipt).toEqual(receipt);
+    expect(parseReviewMetricsStrict(replaceReviewMetrics(rendered, { consecutiveTestFailures: 1, testFailureAttemptIds: ['failed-1'] })).receipt).toEqual(receipt);
+  });
+  it('refuses incomplete or malformed receipts before mutation', () => {
+    expect(() => parseReviewMetricsStrict('<!-- prospec:review-metrics request_id="oops" -->')).toThrow(/receipt/);
+  });
+});

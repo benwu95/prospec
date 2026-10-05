@@ -962,7 +962,8 @@ describe('review-merge exemption WARN-first path — failure injection (REQ-SERV
       ]);
       await execute({ cwd: CWD, findingsPath: FINDINGS });
       const { metadata } = readChangeMetadata(METADATA, 'add-widget');
-      expect(metadata.quality_log).toHaveLength(1);
+      expect(metadata.quality_log?.filter(entry => !entry.accepted)).toHaveLength(1);
+      expect(metadata.quality_log?.filter(entry => entry.accepted)).toHaveLength(1);
       const entry = metadata.quality_log?.[0];
       expect(entry).toMatchObject({
         skill: 'prospec-review',
@@ -1005,7 +1006,8 @@ describe('review-merge exemption WARN-first path — failure injection (REQ-SERV
       expect(metaTwice).toBe(metaOnce);
 
       const { metadata } = readChangeMetadata(METADATA, 'add-widget');
-      expect(metadata.quality_log).toHaveLength(1);
+      expect(metadata.quality_log?.filter(entry => !entry.accepted)).toHaveLength(1);
+      expect(metadata.quality_log?.filter(entry => entry.accepted)).toHaveLength(1);
       expect(metadata.quality_log?.[0]?.round).toBe(1);
     });
 
@@ -1116,10 +1118,10 @@ describe('review-merge exemption WARN-first path — failure injection (REQ-SERV
       ).toBe(true);
       // Round 2 merge wrote its counts entry, which is present in metadata
       const { metadata: updatedMeta } = readChangeMetadata(METADATA, 'add-widget');
-      expect(updatedMeta.quality_log).toHaveLength(3); // round 1 counts, close 1, round 2 counts
+      expect(updatedMeta.quality_log?.filter(entry => !entry.accepted)).toHaveLength(3); // round 1 counts, close 1, round 2 counts
       expect(updatedMeta.quality_log?.[0]?.round).toBe(1);
-      expect(updatedMeta.quality_log?.[1]?.round).toBeUndefined();
-      expect(updatedMeta.quality_log?.[2]?.round).toBe(2);
+      expect(updatedMeta.quality_log?.filter(entry => !entry.accepted)[1]?.round).toBeUndefined();
+      expect(updatedMeta.quality_log?.filter(entry => !entry.accepted)[2]?.round).toBe(2);
     });
   });
 });
@@ -1216,4 +1218,234 @@ describe('a delegation failure entry is not a review round (REQ-SERVICES-120, T-
     const result = await execute({ cwd: CWD, findingsPath: FINDINGS });
     expect(result.round.roundNumber).toBe(1);
   });
+});
+
+describe('review causal attempt receipts', () => {
+  it('records one accepted attempt and replays without changing either file', async () => {
+    seed(round1);
+    await execute({ cwd: CWD, findingsPath: FINDINGS, round: 1 });
+    const before = [vol.readFileSync(METADATA, 'utf8'), vol.readFileSync(REVIEW, 'utf8')];
+    expect(readChangeMetadata(METADATA, 'add-widget').metadata.quality_log?.filter(e => e.accepted)).toHaveLength(1);
+    expect(await execute({ cwd: CWD, findingsPath: FINDINGS, round: 1 })).toMatchObject({ replay: true });
+    expect([vol.readFileSync(METADATA, 'utf8'), vol.readFileSync(REVIEW, 'utf8')]).toEqual(before);
+  });
+  it('recognizes older accepted input without replacing the newer artifact', async () => {
+    seed(round1);
+    await execute({ cwd: CWD, findingsPath: FINDINGS, round: 1 });
+    vol.writeFileSync(FINDINGS, JSON.stringify([{ ...round1[1], status: 'fixed', summary: 'new correction' }]));
+    await execute({ cwd: CWD, findingsPath: FINDINGS, round: 1 });
+    const before = [vol.readFileSync(METADATA, 'utf8'), vol.readFileSync(REVIEW, 'utf8')];
+    vol.writeFileSync(FINDINGS, JSON.stringify(round1));
+    expect(await execute({ cwd: CWD, findingsPath: FINDINGS, round: 1 })).toMatchObject({ replay: true });
+    expect([vol.readFileSync(METADATA, 'utf8'), vol.readFileSync(REVIEW, 'utf8')]).toEqual(before);
+  });
+});
+
+it('gates changed findings in the same round while admitting a byte-identical accepted replay', async () => {
+  seed(round1);
+  await execute({ cwd: CWD, findingsPath: FINDINGS, round: 1 });
+  const { doc } = readChangeMetadata(METADATA, 'add-widget');
+  for (const event_id of ['first', 'second']) doc.addIn(['quality_log'], doc.createNode({
+    skill: 'prospec-escalation', date: '2026-10-05', result: 'WARN', warnings: [],
+    escalation: { kind: 'trigger', station: 'prospec-review', event_id, trigger: 'oscillation' },
+  }));
+  await writeChangeMetadataDoc(METADATA, doc, 'add-widget');
+  const before = [vol.readFileSync(METADATA, 'utf8'), vol.readFileSync(REVIEW, 'utf8')];
+  expect(await execute({ cwd: CWD, findingsPath: FINDINGS, round: 1 })).toMatchObject({ replay: true });
+  vol.writeFileSync(FINDINGS, JSON.stringify([{ ...round1[1], status: 'fixed' }]));
+  await expect(execute({ cwd: CWD, findingsPath: FINDINGS, round: 1 })).rejects.toMatchObject({ code: 'ESCALATION_REFUSED' });
+  expect([vol.readFileSync(METADATA, 'utf8'), vol.readFileSync(REVIEW, 'utf8')]).toEqual(before);
+});
+
+async function reviewGrantFixture(): Promise<void> {
+  seed(round1);
+  const { doc } = readChangeMetadata(METADATA, 'add-widget');
+  doc.set('quality_log', doc.createNode([]));
+  for (const event_id of ['first', 'second']) doc.addIn(['quality_log'], doc.createNode({
+    skill: 'prospec-escalation', date: '2026-10-05', result: 'WARN', warnings: [],
+    escalation: { kind: 'trigger', station: 'prospec-review', event_id, trigger: 'oscillation' },
+  }));
+  doc.addIn(['quality_log'], doc.createNode({
+    skill: 'prospec-escalation', date: '2026-10-05', result: 'WARN', warnings: [],
+    escalation: { kind: 'override', station: 'prospec-review', event_id: 'second', grant_id: 'grant-1', reason: 'Inspect one correction' },
+  }));
+  await writeChangeMetadataDoc(METADATA, doc, 'add-widget');
+}
+
+describe('review accepted event and grant boundary', () => {
+  it('accepts and consumes together, and replay does not consume again', async () => {
+    await reviewGrantFixture();
+    await execute({ cwd: CWD, findingsPath: FINDINGS, round: 1 });
+    await execute({ cwd: CWD, findingsPath: FINDINGS, round: 1 });
+    const log = readChangeMetadata(METADATA, 'add-widget').metadata.quality_log!;
+    const accepted = log.filter(e => e.accepted);
+    const consumed = log.filter(e => e.escalation?.kind === 'consume');
+    expect(accepted).toHaveLength(1);
+    expect(consumed).toHaveLength(1);
+    expect(consumed[0]?.escalation).toMatchObject({ grant_id: 'grant-1', attempt_id: accepted[0]?.attempt_id });
+  });
+  it('repairs an artifact-only write using its receipt and still-live grant', async () => {
+    await reviewGrantFixture();
+    const before = vol.readFileSync(METADATA, 'utf8');
+    writes.failOn = p => p === METADATA;
+    await expect(execute({ cwd: CWD, findingsPath: FINDINGS, round: 1 })).rejects.toMatchObject({
+      details: { persistence: { artifact_persisted: true, accepted_persisted: false, grant_consumed: false } },
+    });
+    const artifact = vol.readFileSync(REVIEW, 'utf8');
+    expect(vol.readFileSync(METADATA, 'utf8')).toBe(before);
+    // A repair has no review write; failing that write must not break it.
+    writes.failOn = p => p === REVIEW;
+    await execute({ cwd: CWD, findingsPath: FINDINGS, round: 1 });
+    expect(vol.readFileSync(REVIEW, 'utf8')).toBe(artifact);
+    const log = readChangeMetadata(METADATA, 'add-widget').metadata.quality_log!;
+    expect(log.filter(e => e.accepted)).toHaveLength(1);
+    expect(log.filter(e => e.escalation?.kind === 'consume')).toHaveLength(1);
+  });
+  it('persists a trigger and projects lifetime priority from the same policy', async () => {
+    seed([{ id: 'critical', location: 'a:1', severity: 'critical', lens: 'correctness', summary: 'broken', repro: 'false' }]);
+    const result = await execute({ cwd: CWD, findingsPath: FINDINGS, round: 2, maxRounds: 1 });
+    expect(readChangeMetadata(METADATA, 'add-widget').metadata.quality_log?.some(e => e.escalation?.kind === 'trigger')).toBe(true);
+    expect(result.circuitBreaker?.escalationReport?.decision).toMatchObject({ ordinal: 1, event_id: 'review:2' });
+  });
+  it('refuses a concurrent artifact edit after the artifact write without consuming the grant', async () => {
+    await reviewGrantFixture();
+    const before = vol.readFileSync(METADATA, 'utf8');
+    writes.afterWrite = p => { if (p === REVIEW) vol.writeFileSync(REVIEW, 'concurrent prose\n'); };
+    await expect(execute({ cwd: CWD, findingsPath: FINDINGS, round: 1 })).rejects.toThrow(/changed/);
+    expect(vol.readFileSync(METADATA, 'utf8')).toBe(before);
+    expect(vol.readFileSync(REVIEW, 'utf8')).toBe('concurrent prose\n');
+  });
+});
+
+it('does not repair artifact-only acceptance after the grant is consumed elsewhere', async () => {
+  await reviewGrantFixture();
+  writes.failOn = p => p === METADATA;
+  await expect(execute({ cwd: CWD, findingsPath: FINDINGS })).rejects.toThrow('disk full');
+  const { doc } = readChangeMetadata(METADATA, 'add-widget');
+  doc.addIn(['quality_log'], doc.createNode({ skill: 'prospec-escalation', date: '2026-10-05', result: 'WARN', warnings: [],
+    escalation: { kind: 'consume', station: 'prospec-review', event_id: 'second', grant_id: 'grant-1', attempt_id: 'another-attempt' },
+  }));
+  await writeChangeMetadataDoc(METADATA, doc, 'add-widget');
+  const before = [vol.readFileSync(METADATA, 'utf8'), vol.readFileSync(REVIEW, 'utf8')];
+  await expect(execute({ cwd: CWD, findingsPath: FINDINGS })).rejects.toMatchObject({ code: 'ESCALATION_REFUSED' });
+  expect([vol.readFileSync(METADATA, 'utf8'), vol.readFileSync(REVIEW, 'utf8')]).toEqual(before);
+});
+
+it('rechecks actual proposal bytes after writing the artifact and before accepting metadata', async () => {
+  await reviewGrantFixture();
+  const before = vol.readFileSync(METADATA, 'utf8');
+  writes.afterWrite = p => { if (p === REVIEW) vol.writeFileSync(REVIEW.replace('review.md', 'proposal.md'), 'changed scope'); };
+  await expect(execute({ cwd: CWD, findingsPath: FINDINGS })).rejects.toMatchObject({
+    details: { persistence: { artifact_persisted: true, accepted_persisted: false, grant_consumed: false } },
+  });
+  expect(vol.readFileSync(METADATA, 'utf8')).toBe(before);
+});
+
+const TWO_FAILURES = '<!-- prospec:review-metrics round="1" test_failures="2" test_failure_ids="f1,f2" -->\n# Authored prose\n';
+async function persistentFixture(count: number, resolved: boolean): Promise<void> {
+  seed(round1, TWO_FAILURES, FAILED('f3'));
+  const { doc } = readChangeMetadata(METADATA, 'add-widget');
+  doc.set('quality_log', doc.createNode([]));
+  for (let i = 1; i <= count; i++) {
+    const common = { station: 'prospec-review', event_id: `old-${i}` };
+    doc.addIn(['quality_log'], doc.createNode({ skill: 'prospec-escalation', date: '2026-10-05', result: 'WARN', warnings: [], escalation: { ...common, kind: 'trigger', trigger: 'oscillation' } }));
+    if (resolved) doc.addIn(['quality_log'], doc.createNode({ skill: 'prospec-escalation', date: '2026-10-05', result: 'WARN', warnings: [], escalation: { ...common, kind: 'resolve' } }));
+  }
+  await writeChangeMetadataDoc(METADATA, doc, 'add-widget');
+}
+
+describe('persistent-test event before metrics', () => {
+  it.each([0, 1, 2].flatMap(count => [false, true].map(resolved => ({ count, resolved }))))('uses pre-write lifetime history on event failure: $count / resolved=$resolved', async ({ count, resolved }) => {
+    await persistentFixture(count, resolved);
+    const before = [vol.readFileSync(METADATA, 'utf8'), vol.readFileSync(REVIEW, 'utf8')];
+    writes.failOn = p => p === METADATA;
+    const err = await execute({ cwd: CWD, findingsPath: FINDINGS }).catch(e => e);
+    expect(err).toBeInstanceOf(TestGateError);
+    expect(err.cause?.message).toBe('disk full (injected)');
+    expect(err.escalation).toMatchObject({
+      decision: { ordinal: count, event_id: null, recommended: count >= 2 ? 're-scope' : 'manual-intervention' },
+      observed_escalation: { event_id: null, ordinal: null, persisted: false, trigger: 'persistent_test_failure' },
+      persistence: { event_persisted: false, metrics_persisted: false, grant_consumed: false },
+    });
+    expect(err.escalation.history.events).toHaveLength(count);
+    expect(err.escalation.history.pending === null).toBe(count === 0 || resolved);
+    expect(err.circuitBreaker.escalationReport.decision).toEqual(err.escalation.decision);
+    expect([vol.readFileSync(METADATA, 'utf8'), vol.readFileSync(REVIEW, 'utf8')]).toEqual(before);
+  });
+  it('keeps a concurrent review edit after the event lands and does not splice metrics into it', async () => {
+    await persistentFixture(0, false);
+    writes.afterWrite = p => { if (p === METADATA) vol.writeFileSync(REVIEW, '# Concurrent edit\n'); };
+    const err = await execute({ cwd: CWD, findingsPath: FINDINGS }).catch(e => e);
+    expect(err.escalation).toMatchObject({ persistence: { event_persisted: true, metrics_persisted: false } });
+    expect(vol.readFileSync(REVIEW, 'utf8')).toBe('# Concurrent edit\n');
+    expect(readChangeMetadata(METADATA, 'add-widget').metadata.quality_log?.filter(e => e.escalation?.kind === 'trigger')).toHaveLength(1);
+  });
+  it('repairs only missing metrics after their write fails, without a second event', async () => {
+    await persistentFixture(0, false);
+    writes.failOn = p => p === REVIEW;
+    const err = await execute({ cwd: CWD, findingsPath: FINDINGS }).catch(e => e);
+    expect(err.escalation).toMatchObject({ persistence: { event_persisted: true, metrics_persisted: false } });
+    expect(vol.readFileSync(REVIEW, 'utf8')).toBe(TWO_FAILURES);
+    const meta = vol.readFileSync(METADATA, 'utf8');
+    await expect(execute({ cwd: CWD, findingsPath: FINDINGS })).rejects.toBeInstanceOf(TestGateError);
+    expect(vol.readFileSync(METADATA, 'utf8')).toBe(meta);
+    expect(vol.readFileSync(REVIEW, 'utf8')).toContain('test_failures="3"');
+  });
+});
+
+it.each(['metadata', 'proposal', 'snapshot'])('rechecks %s after an escalation event and preserves a metrics-only refusal', async target => {
+  await persistentFixture(1, true);
+  writes.afterWrite = p => {
+    if (p !== METADATA) return;
+    if (target === 'metadata') vol.appendFileSync(METADATA, '# concurrent note\n');
+    if (target === 'proposal') vol.writeFileSync(REVIEW.replace('review.md', 'proposal.md'), 'changed scope');
+    if (target === 'snapshot') snapshot.digest = 'CHANGED';
+  };
+  const err = await execute({ cwd: CWD, findingsPath: FINDINGS }).catch(e => e);
+  expect(err.escalation).toMatchObject({ decision: { ordinal: 2, recommended: 're-scope' }, persistence: { event_persisted: true, metrics_persisted: false } });
+  expect(vol.readFileSync(REVIEW, 'utf8')).toBe(TWO_FAILURES);
+});
+
+it('a review grant never bypasses a red test gate or gets consumed on refusal', async () => {
+  await reviewGrantFixture();
+  vol.writeFileSync(METADATA, String(vol.readFileSync(METADATA, 'utf8')).replace(FRESH_GREEN, FAILED('red')));
+  await expect(execute({ cwd: CWD, findingsPath: FINDINGS })).rejects.toBeInstanceOf(TestGateError);
+  expect(readChangeMetadata(METADATA, 'add-widget').metadata.quality_log?.some(e => e.accepted || e.escalation?.kind === 'consume')).toBe(false);
+});
+
+
+it('R330-reviewer: repairs a new base receipt even when the same request has an older acceptance', async () => {
+  seed(round1);
+  await execute({ cwd: CWD, findingsPath: FINDINGS, round: 1 });
+  vol.appendFileSync(REVIEW, '\nAuthored follow-up note changes the causal base.\n');
+  writes.failOn = p => p === METADATA;
+  await expect(execute({ cwd: CWD, findingsPath: FINDINGS, round: 1 })).rejects.toMatchObject({
+    details: { persistence: { artifact_persisted: true, accepted_persisted: false } },
+  });
+  const artifact = String(vol.readFileSync(REVIEW, 'utf8'));
+  const { parseReviewMetricsStrict } = await import('../../../src/lib/review-merge.js');
+  const receipt = parseReviewMetricsStrict(artifact).receipt!;
+  const initial = readChangeMetadata(METADATA, 'add-widget').metadata.quality_log!.filter(e => e.accepted);
+  expect(initial).toHaveLength(1);
+  expect(initial[0]!.attempt_id).not.toBe(receipt.attempt_id);
+  await execute({ cwd: CWD, findingsPath: FINDINGS, round: 1 });
+  const repaired = readChangeMetadata(METADATA, 'add-widget').metadata.quality_log!.filter(e => e.accepted);
+  expect(repaired.map(e => e.attempt_id)).toContain(receipt.attempt_id);
+  expect(repaired).toHaveLength(2);
+  expect(vol.readFileSync(REVIEW, 'utf8')).toBe(artifact);
+});
+
+it('F330-R3-1: refuses a source-content change after the exemption WARN before recording acceptance', async () => {
+  seed(round1, undefined, '', NO_COMMAND);
+  snapshot.digest = 'reviewed-source';
+  writes.afterWrite = file => {
+    if (file === METADATA) snapshot.digest = 'concurrently-changed-source';
+  };
+  const outcome = await execute({ cwd: CWD, findingsPath: FINDINGS, round: 1 }).catch(error => error);
+  const log = readChangeMetadata(METADATA, 'add-widget').metadata.quality_log ?? [];
+  expect.soft(outcome).toBeInstanceOf(TestGateError);
+  expect.soft(outcome).toMatchObject({ warningRecorded: true });
+  expect.soft(log.filter(entry => entry.accepted)).toEqual([]);
+  expect.soft(log.filter(entry => entry.skill === TEST_GATE_PRODUCER)).toHaveLength(1);
+  expect(vol.existsSync(REVIEW)).toBe(false);
 });

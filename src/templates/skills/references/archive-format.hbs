@@ -129,3 +129,5 @@ When a change is archived, its `summary.md` is also copied to `{{base_dir}}/spec
 It lands in `_archived-history/` (not flat under `{{base_dir}}/specs/`) for two reasons: a flat copy clutters the spec root (which should hold only `product.md` + `features/`), and — because `_archived-history/` matches `ARCHIVED_EXCLUDES` (`**/_archived*`) — the drift checker skips it, so a summary's frozen REQ snapshot never trips the `req-references` check when one of those REQs is later removed.
 
 The spec file is identical to the archive summary — no additional formatting is applied.
+
+`prospec archive finalize` refreshes the owned Escalation History block in both summary copies from metadata. Preserve it, adjacent authored prose and fenced examples; later PASS never erases override reasons or usage.

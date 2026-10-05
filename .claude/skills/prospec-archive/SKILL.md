@@ -152,7 +152,7 @@ count the pre-graduation spec text.
 Run `prospec archive finalize <change-name>` (Bash; `--dry-run` first to preview). It executes the
 two writes that MUST come after the judgment work above:
 
-1. Copies the finalized `summary.md` (the Phase 2 record you placed in Phase 3 — the command refuses
+1. Refreshes the CLI-owned escalation history from metadata in both copies, retaining override reasons after PASS, then copies the finalized `summary.md` (the Phase 2 record you placed in Phase 3 — the command refuses
    while the file still lacks `## Review & Verify`) to
    `prospec/specs/_archived-history/{YYYY-MM-DD}-{change-name}.md` — the **committed**
    spec-history audit trail. It lands in `_archived-history/` (drift-excluded via
@@ -202,6 +202,16 @@ Follow the **Harvest** definition in [`references/promotion-format.md`](referenc
 4. This is **non-fatal** (try/catch + log, like Feature Spec Sync / knowledge update) — a harvest failure never blocks archiving.
 
 Then point the user at `prospec-learn` for Score/Promote — auto-harvest only accumulates; nothing is promoted to `_playbook.md`/Constitution without explicit human approval.
+
+## Escalation Decision (CLI-Owned)
+
+- Stop; present the CLI decision: trigger, lifetime ordinal, exits, recommended action.
+- Never self-authorize: a report warning is not a grant. Log the human's nonempty `Manual override: <reason>` via composed WARN.
+- Grants allow one new attempt per current event and station; replay consumes none, resolution expires grants. Tests remain an independent gate.
+- An unpersisted observation is not a grant target; repair receipt-bound gaps.
+- For re-scope, revise proposal or start a Story; amendment gates remain, without unlocking escalation or regressing status.
+- For abandon, stop and retain artifacts/reasons; rollback requires human approval.
+- Preserve history after PASS, adjacent prose and fenced examples.
 
 ## Output Contract
 

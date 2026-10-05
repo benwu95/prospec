@@ -120,10 +120,12 @@ export function registerChangeLogCommand(program: Command): void {
     .addOption(new Option('--criticals-found <n>', 'Expected review criticals surfaced this round (audited against CLI-owned counts)').argParser(parseCount))
     .addOption(new Option('--criticals-fixed <n>', 'Expected review criticals fixed this round (audited against CLI-owned counts)').argParser(parseCount))
     .addOption(new Option('--majors <n>', 'Expected review majors surfaced this round (audited against CLI-owned counts)').argParser(parseCount))
+    .option('--json', 'Emit the recorded outcome as JSON; refusals go to stderr with exit status 1')
     .option('--date <date>', 'Entry date (defaults to today)', parseDate)
     .option('--change <name>', 'Specify the change name')
     .action(
       async (options: {
+        json?: boolean;
         skill: string;
         result?: (typeof GATE_RESULTS)[number];
         verifierReport?: string;
@@ -181,9 +183,10 @@ export function registerChangeLogCommand(program: Command): void {
                   }
                 : {}),
           });
-          formatChangeLogOutput(result, logLevel);
+          if (options.json) process.stdout.write(JSON.stringify(result) + '\n');
+          else formatChangeLogOutput(result, logLevel);
         } catch (err) {
-          handleError(err, globalOpts.verbose ?? false);
+          handleError(err, globalOpts.verbose ?? false, options.json);
         }
       },
     );

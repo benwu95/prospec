@@ -13,8 +13,11 @@ import {
   latestFreshPlanSignoff,
   hasPlanSignoffAfterVerifier,
   isPlanSignoffEntry,
+  isReviewCloseEntry,
+  isReviewRoundCountsEntry,
 } from '../../../src/lib/change-metadata.js';
 import { MetadataValidationError, YamlParseError } from '../../../src/types/errors.js';
+import { planningFlawsStreak, reduceEscalationHistory } from '../../../src/lib/escalation.js';
 
 vi.mock('node:fs', async () => {
   const memfs = await import('memfs');
@@ -665,3 +668,55 @@ describe('plan verifier provenance and sign-off freshness (REQ-LIB-088)', () => 
   });
 });
 
+
+describe('escalation provenance', () => {
+  it('keeps ordinary close/count predicates separate from event and accepted receipts', () => {
+    expect(isReviewCloseEntry({ skill: 'prospec-review' })).toBe(true);
+    expect(isReviewRoundCountsEntry({ skill: 'prospec-review', round: 2 })).toBe(true);
+    for (const extra of [{ escalation: {} }, { accepted: {} }]) {
+      expect(isReviewCloseEntry({ skill: 'prospec-review', ...extra })).toBe(false);
+      expect(isReviewRoundCountsEntry({ skill: 'prospec-review', round: 2, ...extra })).toBe(false);
+    }
+  });
+  it('shares the configured legacy bound across result, streak and sign-off readers (R330-3)', () => {
+    const failed = { skill: 'prospec-plan', result: 'FAIL', verifier_verdict: 'FLAWS', warnings: [] };
+    const log = [failed, failed, { skill: 'prospec-plan', result: 'WARN', warnings: ['Manual override: old reason'] },
+      { skill: 'prospec-plan', result: 'PASS', warnings: [], signoff_option: 'option-a' as const }];
+    const history = reduceEscalationHistory(log, 2);
+    expect(history.events).toHaveLength(1);
+    expect(latestVerifierResult(log, 'prospec-plan', history)).toBe('FAIL');
+    expect(planningFlawsStreak(log, 'prospec-plan', history)).toBe(2);
+    expect(hasPlanSignoffAfterVerifier(log, history)).toBe(false);
+    const belowBound = reduceEscalationHistory(log, 3);
+    expect(latestVerifierResult(log, 'prospec-plan', belowBound)).toBe('WARN');
+  });
+  it('does not treat a blank manual marker as a verifier bypass', () => {
+    expect(verifierGateResultOf({ skill: 'prospec-plan', result: 'WARN', warnings: ['Manual override:   '] })).toBeNull();
+  });
+  it('excludes event grants from verifier results despite a reasoned warning', () => {
+    const entry = { skill: 'prospec-plan', result: 'WARN', warnings: ['Manual override: repair'],
+      escalation: { kind: 'override' as const, event_id: 'e1', station: 'prospec-plan' as const, grant_id: 'g1', reason: 'repair' } };
+    expect(verifierGateResultOf(entry)).toBeNull();
+  });
+});
+
+it('persists event and accepted identity through the sole metadata writer', async () => {
+  vol.fromJSON({ [PATH]: `${VALID}\n# authored tail\ncustom: keep\n` });
+  const { doc } = readChangeMetadata(PATH, 'add-widget');
+  appendQualityLogEntry(doc, {
+    skill: 'prospec-escalation', date: '2026-10-05', result: 'WARN', warnings: [],
+    escalation: { kind: 'trigger', event_id: 'review:1', station: 'prospec-review', trigger: 'oscillation' },
+  });
+  appendQualityLogEntry(doc, {
+    skill: 'prospec-review', date: '2026-10-05', result: 'PASS', warnings: [],
+    attempt_id: 'a1', accepted: { request_id: 'r1', artifact_digest: 'd1' },
+  });
+  await writeChangeMetadataDoc(PATH, doc, 'add-widget');
+  const text = vol.readFileSync(PATH, 'utf8') as string;
+  expect(text).toContain('# authored tail');
+  expect(text).toContain('custom: keep');
+  const { metadata } = readChangeMetadata(PATH, 'add-widget');
+  expect(metadata.quality_log?.at(-2)?.escalation?.event_id).toBe('review:1');
+  expect(metadata.quality_log?.at(-1)?.accepted?.request_id).toBe('r1');
+  expect(metadata.quality_log?.at(-1)?.attempt_id).toBe('a1');
+});

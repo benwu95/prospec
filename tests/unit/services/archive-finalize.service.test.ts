@@ -12,7 +12,8 @@ vi.mock('node:fs', async () => {
   return { ...memfs.fs, default: memfs.fs };
 });
 
-vi.mock('../../../src/lib/config.js', () => ({
+vi.mock('../../../src/lib/config.js', async original => ({
+  ...await original<typeof import('../../../src/lib/config.js')>(),
   readConfig: vi.fn().mockResolvedValue({ project: { name: 'demo' } }),
   resolveBasePaths: vi.fn().mockReturnValue({
     baseDir: '/repo/prospec',
@@ -421,4 +422,29 @@ describe('recountFeatureSpecCounters', () => {
     expect(recount.content).toContain('req_count: 1');
     expect(recount.changed).toBe(true);
   });
+});
+
+it('finalize refreshes durable history in both copies, preserving fenced markers and adjacent prose', async () => {
+  const quoted = '```md\n<!-- prospec:escalation-history -->\nexample\n<!-- prospec:escalation-history-end -->\n```\n';
+  seed(FINAL_SUMMARY + quoted + '\n<!-- prospec:escalation-history -->\nstale\n<!-- prospec:escalation-history-end -->\nAdjacent prose\n');
+  vol.writeFileSync(`${ARCHIVE_DIR}/metadata.yaml`, `status: archived
+quality_log:
+  - { skill: prospec-escalation, date: '2026-10-01', result: WARN, escalation: { kind: trigger, station: prospec-review, event_id: e1, trigger: oscillation } }
+  - { skill: prospec-escalation, date: '2026-10-01', result: WARN, escalation: { kind: override, station: prospec-review, event_id: e1, grant_id: g1, reason: inspected scope } }
+  - { skill: prospec-verify, date: '2026-10-02', result: PASS, grade: A }
+`);
+  const before = vol.readFileSync(`${ARCHIVE_DIR}/summary.md`, 'utf8');
+  const dry = await executeFinalize({ name: 'add-widget', cwd: CWD, dryRun: true });
+  expect(dry.planned).toContainEqual(expect.objectContaining({ action: 'update', target: '.prospec/archive/2026-07-30-add-widget/summary.md' }));
+  expect(vol.readFileSync(`${ARCHIVE_DIR}/summary.md`, 'utf8')).toBe(before);
+  await executeFinalize({ name: 'add-widget', cwd: CWD });
+  const summary = vol.readFileSync(`${ARCHIVE_DIR}/summary.md`, 'utf8');
+  expect(summary).toContain(quoted);
+  expect(summary).toContain('Adjacent prose\n');
+  expect(summary).toContain('inspected scope');
+  expect(summary).not.toContain('\nstale\n');
+  expect(vol.readFileSync(HISTORY, 'utf8')).toBe(summary);
+  await executeFinalize({ name: 'add-widget', cwd: CWD });
+  expect(vol.readFileSync(HISTORY, 'utf8')).toBe(summary);
+  expect(vol.readFileSync(`${ARCHIVE_DIR}/summary.md`, 'utf8')).toBe(summary);
 });

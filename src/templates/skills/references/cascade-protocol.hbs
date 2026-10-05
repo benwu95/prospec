@@ -38,7 +38,7 @@ Every station — whether reached via `prospec status` or by autonomous cascadin
 3. **Step 3 [EXEC]** — Execute the station per its `SKILL.md` and the references it loads on demand; loading a station never means its references arrived.
 {{!-- Single Source of Truth: Full oscillation breaker definition is owned by circuit-breaker.hbs (prospec-ff, prospec-review). Keep the core formula (FAIL → PASS → FAIL >= 2) inlined here. --}}
 4. **Step 4 [GATE]** — Run the station's machine verifiers. On FAIL, apply the Oscillation Breaker (stop if state flips FAIL → PASS → FAIL ≥ 2) — never loop unbounded.
-5. **Step 5 [NEXT]** — Run `prospec status` for the next station. When the route carries `code: ESCALATE_TO_HUMAN`, HALT immediately and emit an `EscalationReport` (`type: station_retry_limit_exceeded`) summarizing the failure streak and reasons — do NOT return to Step 1. When it carries `code: AWAITING_HUMAN_PLAN_SIGNOFF`, HALT and present the candidate summary, metrics table, in-session rationale and plan verifier report — it is not a failure, so emit no `EscalationReport`; after the human signs off, resume at Step 1. When it carries `code: KNOWLEDGE_INPUT_INVALID`, HALT and present the knowledge-sync input its reasons name (no `EscalationReport`); resume at Step 1 once it is repaired. Otherwise, return to Step 1.
+5. **Step 5 [NEXT]** — Run `prospec status` for the next station. When the route carries `code: ESCALATE_TO_HUMAN`, HALT immediately and emit the CLI-produced `EscalationReport` decision, including its persisted lifetime ordinal, trigger and reasons — do NOT return to Step 1. When it carries `code: AWAITING_HUMAN_PLAN_SIGNOFF`, HALT and present the candidate summary, metrics table, in-session rationale and plan verifier report — it is not a failure, so emit no `EscalationReport`; after the human signs off, resume at Step 1. When it carries `code: KNOWLEDGE_INPUT_INVALID`, HALT and present the knowledge-sync input its reasons name (no `EscalationReport`); resume at Step 1 once it is repaired. Otherwise, return to Step 1.
 
 ---
 
@@ -49,7 +49,7 @@ An autonomous transition to the next station occurs **only** when all preconditi
 | Current Station | Next Station | Transition Gate |
 |-----------------|--------------|-----------------|
 | **story** | `plan` — or `tasks` (`scale: quick`), or `promote` (`scale: backfill`) | `proposal.md` written with `## Stated Assumptions`; INVEST advisory check completed (recorded, never blocking). |
-| **plan** | `design` (proposal `ui_scope` full/partial) — otherwise `tasks` | Architecture Verifier PASS (or advisory WARN) on five orthogonal dimensions, recorded via `prospec change log --skill prospec-plan --verifier-report <file>` (or a documented Break-Glass override); a recorded FLAWS keeps `prospec status` on plan until a later PASS/WARN; under the opt-in pause a `scale: full` change also needs a human sign-off newer than that verifier result. |
+| **plan** | `design` (proposal `ui_scope` full/partial) — otherwise `tasks` | Architecture Verifier PASS (or advisory WARN) on five orthogonal dimensions, recorded via `prospec change log --skill prospec-plan --verifier-report <file>` (a Break-Glass grant alone never satisfies the verifier gate); a recorded FLAWS keeps `prospec status` on plan until a later PASS/WARN; under the opt-in pause a `scale: full` change also needs a human sign-off newer than that verifier result. |
 | **design** | `tasks` | `design-spec.md` + `interaction-spec.md` produced. |
 | **tasks** | `implement` | Task Contract Verifier PASS (or advisory WARN) on bidirectional coverage, DAG layering and TDD closure, recorded via `prospec change log --skill prospec-tasks --verifier-report <file>`; a recorded FLAWS keeps `prospec status` on tasks until a later PASS/WARN. |
 | **promote** | `review` | Promotion scaffold complete (`prospec validate promote-scaffold`) and `status: implemented` set — the backfill entry. |
@@ -92,3 +92,5 @@ When the pipeline completes final Verification with Grade S/A, reaching this bou
 
 - Developers may pass `--no-cascade` or invoke individual station skills (e.g. `prospec-plan`, `prospec-review`) at any point to step manually.
 - If execution is interrupted, running `prospec status` indicates the current node and suggested next step for seamless resumption.
+
+{{> escalation-guidance}}

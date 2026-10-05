@@ -1,6 +1,28 @@
+import type { EscalationDecision, EscalationFailureDetails } from '../../types/cascade.js';
+import type { EscalationHistory } from '../../types/change.js';
 import pc from 'picocolors';
-import { ProspecError, TestGateError } from '../../types/errors.js';
+import { EscalationError, ProspecError, TestGateError } from '../../types/errors.js';
 import { sanitizeTerminal } from './sanitize.js';
+
+/** Project the service's decision without deriving exits or retry eligibility. */
+export function formatEscalationDecision(decision: EscalationDecision): string[] {
+  return [
+    `ESCALATE_TO_HUMAN — ${sanitizeTerminal(decision.trigger)} · lifetime=${decision.ordinal} · event=${sanitizeTerminal(decision.event_id ?? 'unpersisted')} · station=${sanitizeTerminal(decision.station)}`,
+    ...decision.exits.map(exit => `  • ${sanitizeTerminal(exit.id)}${exit.id === decision.recommended ? ' (recommended)' : ''}: ${sanitizeTerminal(exit.description)}`),
+  ];
+}
+
+export function formatEscalationHistoryLines(history?: EscalationHistory): string[] {
+  if (!history || (history.events.length === 0 && history.grants.length === 0)) return [];
+  return [
+    `Escalation history: ${history.events.length} event(s), ${history.grants.length} override(s), ${history.completeness}`,
+    ...history.grants.map(grant => `  override: ${sanitizeTerminal(grant.reason)} · event=${sanitizeTerminal(grant.event_id ?? 'legacy-unbound')} · station=${sanitizeTerminal(grant.station)} · ${grant.legacy ? 'legacy, not authorization' : grant.consumed_by ? `consumed by ${sanitizeTerminal(grant.consumed_by)}` : grant.expired ? 'expired unused' : 'available for one attempt'}`),
+  ];
+}
+
+function escalationOf(error: unknown): EscalationFailureDetails | undefined {
+  return error instanceof EscalationError ? error.details : error instanceof TestGateError ? error.escalation : undefined;
+}
 
 /**
  * Highlight backtick-wrapped commands in suggestion text with cyan color.
@@ -37,9 +59,18 @@ export function formatProspecError(error: ProspecError): void {
     if (count !== undefined && threshold !== undefined) {
       lines.push(`   consecutive failed test attempts: ${count} / ${threshold}`);
     }
-    for (const opt of report.tradeoffOptions) lines.push(`     • ${sanitizeTerminal(opt)}`);
+    for (const opt of report.decision ? [] : report.tradeoffOptions) lines.push(`     • ${sanitizeTerminal(opt)}`);
     process.stderr.write(lines.join('\n') + '\n');
   }
+  const details = escalationOf(error);
+  const decision = details?.decision ?? report?.decision;
+  const lines = [
+    ...(decision ? formatEscalationDecision(decision) : []),
+    ...formatEscalationHistoryLines(details?.history),
+    ...(details ? [`Persistence: ${Object.entries(details.persistence).map(([key, value]) => `${key}=${value}`).join(' · ')}`] : []),
+    ...(details?.observed_escalation ? [`Observed escalation: ${details.observed_escalation.trigger} · persisted=false · event=null · ordinal=null`] : []),
+  ];
+  if (lines.length > 0) process.stderr.write(lines.join('\n') + '\n');
 }
 
 /**
@@ -74,7 +105,19 @@ export function formatGenericError(
 /**
  * Unified error handler — dispatches to the appropriate formatter.
  */
-export function handleError(error: unknown, verbose = false): void {
+export function handleError(error: unknown, verbose = false, json = false): void {
+  if (json) {
+    process.exitCode = 1;
+    process.stderr.write(JSON.stringify({ error: {
+      code: error instanceof ProspecError ? error.code : 'UNEXPECTED_ERROR',
+      message: error instanceof Error ? error.message : String(error),
+      ...(error instanceof ProspecError ? { suggestion: error.suggestion } : {}),
+      ...(escalationOf(error) ? { escalation: escalationOf(error) } : {}),
+      ...(error instanceof TestGateError ? { circuitBreaker: error.circuitBreaker, warningRecorded: error.warningRecorded } : {}),
+      ...(error instanceof Error && error.cause !== undefined ? { cause: error.cause instanceof Error ? error.cause.message : String(error.cause) } : {}),
+    } }) + '\n');
+    return;
+  }
   if (error instanceof ProspecError) {
     formatProspecError(error);
   } else {

@@ -382,3 +382,16 @@ describe('the section is delimited by its CLOSING marker', () => {
     expect(isUnsafeRawLine('## 2026-08-10 — grade S')).toBe(false);
   });
 });
+
+describe('attempt-bound evidence sections', () => {
+  it('binds an owned section, ignores fenced examples, and rejects duplicates or incomplete sections', async () => {
+    const { findEvidenceAttempt } = await import('../../../src/lib/delegated-evidence.js');
+    const id = `prospec-verify:${'a'.repeat(64)}`;
+    const section = renderEvidenceSection([{ key: 'tests', body: 'Observed' }], '## Grade', id);
+    expect(findEvidenceAttempt(section, id)).toEqual({ kind: 'present', section });
+    expect(findEvidenceAttempt(`\`\`\`\n${section}\n\`\`\`\n`, id)).toEqual({ kind: 'missing' });
+    expect(findEvidenceAttempt(`${section}\n${section}`, id).kind).toBe('conflict');
+    expect(findEvidenceAttempt(section.replace(EVIDENCE_SECTION_END_MARKER, ''), id).kind).toBe('conflict');
+    expect(findEvidenceAttempt('```unclosed\n', id).kind).toBe('conflict');
+  });
+});

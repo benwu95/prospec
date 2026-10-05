@@ -109,10 +109,12 @@ export function registerVerifyCommand(program: Command): void {
         .conflicts('dimensions'),
     )
     .option('--warning <text>', 'Budget-counted WARN detail (repeatable)', collect, [])
+    .option('--json', 'Emit the recorded outcome as JSON; refusals go to stderr with exit status 1')
     .option('--date <date>', 'Entry date (defaults to today)', parseDate)
     .option('--change <name>', 'Specify the change name')
     .action(
       async (options: {
+        json?: boolean;
         dimension: QualityDimension[];
         dimensions?: string;
         gradedBy?: DimensionGradedBy;
@@ -141,9 +143,10 @@ export function registerVerifyCommand(program: Command): void {
             warnings: options.warning,
             date: options.date,
           });
-          formatVerifyRecordOutput(result, logLevel);
+          if (options.json) process.stdout.write(JSON.stringify(result) + '\n');
+          else formatVerifyRecordOutput(result, logLevel);
         } catch (err) {
-          handleError(err, globalOpts.verbose ?? false);
+          handleError(err, globalOpts.verbose ?? false, options.json);
         }
       },
     );
