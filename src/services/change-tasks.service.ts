@@ -1,3 +1,4 @@
+import { requirePremise } from '../lib/premise.js';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { PrerequisiteError } from '../types/errors.js';
@@ -23,6 +24,7 @@ export interface ChangeTasksResult {
   createdFiles: string[];
   relatedModules: string[];
   legacyBaseline?: boolean;
+  premise?: import('../types/premise.js').PremiseAssessment;
 }
 
 /**
@@ -53,6 +55,7 @@ export async function execute(options: ChangeTasksOptions): Promise<ChangeTasksR
   // 3. Read metadata ONCE — validated at the boundary, and the Document keeps
   // comments/field order intact for the status write below. It comes first
   // because the scale it carries decides which prerequisites even apply.
+  const premise = requirePremise(changeDir, cwd);
   const metadataPath = path.join(changeDir, 'metadata.yaml');
   const meta = fs.existsSync(metadataPath)
     ? readChangeMetadata(metadataPath, changeName)
@@ -128,6 +131,7 @@ export async function execute(options: ChangeTasksOptions): Promise<ChangeTasksR
 
   // 6. Render tasks.md
   const tasksContent = renderTemplate('change/tasks.md.hbs', templateContext);
+  premise.recheck();
   await atomicWrite(tasksPath, tasksContent);
   createdFiles.push(`.prospec/changes/${changeName}/tasks.md`);
 
@@ -143,5 +147,6 @@ export async function execute(options: ChangeTasksOptions): Promise<ChangeTasksR
     createdFiles,
     relatedModules,
     legacyBaseline: legacyBaseline || undefined,
+    premise: premise.assessment,
   };
 }

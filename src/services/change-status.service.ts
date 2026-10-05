@@ -1,3 +1,4 @@
+import { requirePremise } from '../lib/premise.js';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import {
@@ -42,6 +43,7 @@ export interface ChangeStatusResult {
   changed: boolean;
   /** Present only on a real transition into `implemented`. */
   testGate?: TestGateOutcome;
+  premise?: import('../types/premise.js').PremiseAssessment;
 }
 
 /**
@@ -89,6 +91,8 @@ export async function execute(options: ChangeStatusOptions): Promise<ChangeStatu
       ),
     );
   }
+
+  const premise = requirePremise(path.dirname(metadataPath), cwd);
 
   // Gate C — `implemented` requires every code task checked, so the status
   // cannot be advanced past an unfinished implementation. Reuses change-progress
@@ -141,7 +145,8 @@ export async function execute(options: ChangeStatusOptions): Promise<ChangeStatu
     }
   }
 
+  premise.recheck();
   doc.set('status', options.to);
   await writeChangeMetadataDoc(metadataPath, doc, changeName);
-  return { changeName, from, to: options.to, changed: true, ...(testGate ? { testGate } : {}) };
+  return { changeName, from, to: options.to, changed: true, premise: premise.assessment, ...(testGate ? { testGate } : {}) };
 }

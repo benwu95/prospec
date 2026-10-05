@@ -53,6 +53,12 @@ Expand each space sequentially:
 - Does it require API or data structure changes?
 - Backward compatibility considerations?
 
+## Premise Check Handoff
+
+For a missing Why or `PREMISE_INCOMPLETE`, report a conversational premise-check: problem; original source and reference; evidence and result (reproduction: steps, expected/actual); withdrawal condition; verification status, checker and conclusion. Leave unknown facts pending; never invent benefits or withdrawal evidence. Verification preserves `ai-proposed`; user/third-party origin is not automatic verification. CLI validation is structural only.
+
+Do not write artifacts or metadata. Hand findings to `prospec-new-story` to update the same proposal, preserving status/scenarios (changed scenarios use acceptance amendment), or create a Story when none exists. Then `prospec validate proposal <change>` and `prospec status` resume the lifecycle.
+
 ## Constitution Checkpoint
 
 At each key decision point, proactively compare against the Constitution:

@@ -33,6 +33,8 @@
 
 ## Pitfalls
 
+- Status collects the shared premise assessment before routing. A blocked active change routes to explore after pending escalation has priority; archived remains terminal. Legacy and exempt decisions remain visible and do not certify evidence truth.
+
 - Status passes resolved retry configuration to the shared history reducer and provenance readers. Pending events route through the shared decision; resolved lifetime history and override usage remain visible without writing metadata. Non-retry human halts do not create events.
 
 - MCP resources are per-request reads, never cached; diagnostics go to stderr because stdout is the JSON-RPC channel (a contract test spies on `process.stdout.write`).

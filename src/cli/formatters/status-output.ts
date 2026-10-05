@@ -1,8 +1,9 @@
+import { formatPremiseNotice } from './premise-output.js';
 import { formatEscalationDecision, formatEscalationHistoryLines } from './error-output.js';
 import pc from 'picocolors';
 import type { LogLevel } from '../../types/config.js';
 import type { HumanHaltCode, StatusReport } from '../../types/status.js';
-import { isHumanHaltCode, STATION_SKILLS } from '../../types/status.js';
+import { isHumanHaltCode, ROUTE_TARGET_SKILLS } from '../../types/status.js';
 import { DRIFT_REPORT_FILENAME } from '../../types/drift-report.js';
 import { sanitizeTerminal } from './sanitize.js';
 
@@ -79,6 +80,7 @@ export function formatStatusOutput(report: StatusReport, logLevel: LogLevel): vo
     if (change.issue !== undefined) {
       console.log(`  issue:   ${sanitizeTerminal(change.issue)}`);
     }
+    for (const line of formatPremiseNotice(change.premise)) console.log(`  ${line}`);
     if (change.next === null) {
       if (isHumanHaltCode(change.code)) {
         const halt = HALT_LINES[change.code];
@@ -88,7 +90,7 @@ export function formatStatusOutput(report: StatusReport, logLevel: LogLevel): vo
         console.log(`  next:    ${pc.dim('— terminal (periodic prospec-learn)')}`);
       }
     } else {
-      console.log(`  next:    ${pc.cyan(STATION_SKILLS[change.next])}`);
+      console.log(`  next:    ${pc.cyan(ROUTE_TARGET_SKILLS[change.next])}`);
       // Identity first: it is the one target every host can act on — through its
       // own skill mechanism where it has one, through the fallback file where it
       // does not. The formatter states neither, because it cannot know which host

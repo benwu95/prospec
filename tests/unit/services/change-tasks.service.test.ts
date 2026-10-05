@@ -215,30 +215,16 @@ description: Add auth
     ).toBe('# Rendered Template Content\n');
   });
 
-  // L75 cond-expr#1 (metaDoc null) + L95 if#1 (metaDoc falsy → no status write):
-  // metadata.yaml absent → relatedModules defaults to [] and no metadata write happens.
-  it('should proceed with empty modules and no metadata write when metadata.yaml is missing', async () => {
+  it('refuses missing metadata rather than guessing legacy applicability', async () => {
     vol.fromJSON({
       '/project/.prospec.yaml': 'project:\n  name: test\n',
       '/project/.prospec/changes/no-meta/plan.md': '# Plan\n',
     });
-
-    const result = await execute({ change: 'no-meta', cwd: '/project' });
-
-    expect(result.relatedModules).toEqual([]);
-    expect(fs.existsSync('/project/.prospec/changes/no-meta/tasks.md')).toBe(true);
-    // No metadata.yaml existed and none must be created by this run.
-    expect(fs.existsSync('/project/.prospec/changes/no-meta/metadata.yaml')).toBe(false);
-    // Template context built from the empty-modules branch → related_modules undefined.
-    const ctx = vi.mocked(renderTemplate).mock.calls[0]![1] as {
-      change_name: string;
-      related_modules?: unknown;
-    };
-    expect(ctx.related_modules).toBeUndefined();
+    const before = vol.toJSON();
+    await expect(execute({ change: 'no-meta', cwd: '/project' })).rejects.toThrow('metadata.yaml is missing');
+    expect(vol.toJSON()).toEqual(before);
   });
 
-  // L83 cond-expr#0 + anonymous_1 (the .map callback): non-empty related_modules
-  // are mapped to { name } objects and surfaced both in the result and template context.
   it('should map non-empty related_modules into the result and template context', async () => {
     vol.fromJSON({
       '/project/.prospec.yaml': 'project:\n  name: test\n',
@@ -369,7 +355,7 @@ ${scale ? `scale: ${scale}\n` : ''}`;
     });
 
     await expect(execute({ change: 'light', cwd: '/project' })).rejects.toThrow(
-      /plan\.md does not exist/,
+      /metadata\.yaml is missing/,
     );
     expect(fs.existsSync(`${changeDir}/tasks.md`)).toBe(false);
   });

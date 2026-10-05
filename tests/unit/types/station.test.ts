@@ -360,6 +360,7 @@ describe('LessonInputSchema', () => {
 describe('VALIDATE_KINDS', () => {
   it('is the closed artifact-kind set the validate command grades', () => {
     expect(VALIDATE_KINDS).toEqual([
+      'proposal',
       'slug',
       'backfill-draft',
       'promote-scaffold',

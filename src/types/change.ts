@@ -540,6 +540,8 @@ const ChangeMetadataShape = {
    * Optional keeps existing metadata valid; new story scaffolds declare the contract.
    */
   acceptance: AcceptanceBaselineSchema.optional(),
+  // Missing declares a legacy change; malformed/unknown versions fail closed.
+  premise_version: z.literal(1).optional(),
 } as const;
 
 /** Strict view — no index signature, so tsc's excess-property check still

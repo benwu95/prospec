@@ -41,6 +41,8 @@
 
 ## Pitfalls
 
+- `premise-format.test.ts` renders the shared proposal mapping and checks the new-story/ff validation commands and explore handoff. Pair those predicates with physical template mutations and restore/rebundle after each probe.
+
 - `escalation-guidance.test.ts` scopes assertions to the shared rendered section, enumerates all six station consumers and kills deletion of each enforcement predicate. Keep source, bundle and deployment checks separate.
 
 - Assertions must be section-scoped AND structure-aware (PB-001) — a bare `toContain` over a whole document yields false-greens. Mutation-verify every new assertion.

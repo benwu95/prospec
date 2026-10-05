@@ -34,7 +34,7 @@ describe('frozen registries append-only (T16, REQ-TYPES-070, REQ-TYPES-086, REQ-
       'DELTA_SPEC_STALE',
     ];
 
-    expect([...WORKFLOW_REASON_CODES]).toEqual([...expectedRoutingCodes, ...expectedGateCodes]);
+    expect([...WORKFLOW_REASON_CODES]).toEqual([...expectedRoutingCodes, ...expectedGateCodes, 'PREMISE_INCOMPLETE']);
     expect(WORKFLOW_REASON_CODES).toContain('ESCALATE_TO_HUMAN');
     // Ensure no duplicates
     expect(new Set(WORKFLOW_REASON_CODES).size).toBe(WORKFLOW_REASON_CODES.length);

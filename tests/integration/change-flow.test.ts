@@ -1,3 +1,4 @@
+import { withVerifiedPremise } from '../helpers/premise.js';
 /**
  * Integration test: change management flow.
  *
@@ -26,7 +27,7 @@ vi.mock('../../src/lib/template.js', () => ({
       return 'name: test\nstatus: story\ncreated_at: "2026-01-01T00:00:00.000Z"\nrelated_modules: []\ndescription: Test\n';
     }
     if (templateName.includes('proposal')) {
-      return '# Proposal\n\n## User Story\n\n### US-1: Developer Story [P1]\n\n**Acceptance Scenarios:**\n- WHEN action occurs THEN result is expected\n';
+      return withVerifiedPremise('# Proposal\n\n## User Story\n\n### US-1: Developer Story [P1]\n\n**Acceptance Scenarios:**\n- WHEN action occurs THEN result is expected\n');
     }
     if (templateName.includes('plan.md')) {
       return '# Plan\n\n## Implementation Steps\n';

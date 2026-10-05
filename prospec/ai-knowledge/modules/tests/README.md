@@ -1,6 +1,6 @@
 # Verification Suite
 
-> 4-layer Vitest suite (fast-glob/git bypass memfs — 274 test files, 7,192 tests (unit 5209, contract 1625, integration 153, e2e 205)).
+> 4-layer Vitest suite (fast-glob/git bypass memfs — 281 test files, 7,274 tests (unit 5283, contract 1631, integration 153, e2e 207)).
 <!-- prospec:module-readme-format 2026-09-01 -->
 
 <!-- prospec:auto-start -->
@@ -45,6 +45,8 @@
 - Template/skill/service/CLI changes ripple to contract + E2E expectations; public README or website claims ripple to the section-scoped document contracts; a new station command needs a formatter unit test AND an E2E case.
 
 ## Pitfalls
+
+- Premise coverage spans schema/parser/contained-reader, read/write services, rendered contracts and `cli-premise` E2E. `helpers/premise.ts` explicitly authors verified fixtures for workflows advancing newly created stories; never make the production scaffold ready to repair fixtures. Refusal tests compare artifact bytes, and template mutation checks must prove the edit landed before judging failure.
 
 - Escalation fixtures pin lifetime chronology, same-round changed-input admission, source-content identity without context IDs, one-use grants, partial-write repair and persisted-versus-observed failures. Fault injection checks actual metadata/artifact bytes; history contracts preserve fenced examples and adjacent prose.
 

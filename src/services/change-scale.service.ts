@@ -1,3 +1,4 @@
+import { requirePremise } from '../lib/premise.js';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { forbiddenArtifacts, type ChangeScale } from '../types/change.js';
@@ -15,6 +16,7 @@ export interface ChangeScaleOptions {
 }
 
 export interface ChangeScaleResult {
+  premise?: import('../types/premise.js').PremiseAssessment;
   changeName: string;
   from?: ChangeScale;
   scale: ChangeScale;
@@ -45,6 +47,9 @@ export async function execute(options: ChangeScaleOptions): Promise<ChangeScaleR
     return { changeName, from, scale: options.scale, changed: false };
   }
 
+  const premise = metadata.status !== 'story' && (options.scale === 'standard' || options.scale === 'full')
+    ? requirePremise(changeDir, cwd, options.scale) : undefined;
+
   // Writing a scale whose contract forbids artifacts already on disk would mint a
   // change that is invalid the moment it is written: `validate promote-scaffold`
   // would FAIL and `prospec status` would route it at a station that must refuse
@@ -58,7 +63,8 @@ export async function execute(options: ChangeScaleOptions): Promise<ChangeScaleR
       `Remove ${conflicting.join(' and ')} first if the scale is right, or keep the current scale — the artifacts and the scale must agree`,
     );
   }
+  premise?.recheck();
   doc.set('scale', options.scale);
   await writeChangeMetadataDoc(metadataPath, doc, changeName);
-  return { changeName, ...(from !== undefined ? { from } : {}), scale: options.scale, changed: true };
+  return { changeName, ...(from !== undefined ? { from } : {}), scale: options.scale, changed: true, premise: premise?.assessment };
 }

@@ -672,7 +672,7 @@ src/
 ├── services/     — 業務邏輯（33 個 service）
 ├── lib/          — 純工具函式（config、fs、logger 等）
 ├── types/        — Zod schema + TypeScript 型別
-└── templates/    — Handlebars 範本（79 個 .hbs 檔案）
+└── templates/    — Handlebars 範本（80 個 .hbs 檔案）
     └── skills/   — 17 個 Skill 範本 + 31 個 reference 範本
 ```
 
@@ -687,3 +687,9 @@ src/
 - **TypeScript**：5.9
 
 ---
+
+## Proposal 前提檢查
+
+`prospec validate proposal <change> [--json]` 依 change 的 metadata 判定 proposal，而非接受任意檔案路徑。結果含 ready／blocked／legacy／exempt、findings、remedy 與結構驗證限制；blocked 回傳 exit 1。新的 standard/full 必須填妥問題、原始來源與參照、證據結果、撤回條件與驗證；reproduction 另需 steps／expected／actual。AI 原始來源在驗證後仍為 ai-proposed。Quick/backfill 豁免；缺版本欄位為 legacy，缺 metadata／未知版本拒絕。CLI 不查 tracker、不認證證據、不執行重現步驟。
+
+Status 以 PREMISE_INCOMPLETE 導回 explore；explore 不寫 artifacts，new-story 更新同一 proposal 並保留 status／scenarios。Plan/tasks、向前 status、verify record、archive（含 dry-run）共用判定；已過 story 升 standard/full 亦先檢查。拒絕發生於第一筆寫入前，既有 baseline、測試、sign-off 與 escalation gates 持續適用。

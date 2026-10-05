@@ -4,6 +4,7 @@ import { RELATED_MODULE_HALT_CONDITION } from '../../../src/lib/knowledge-sync.j
 import {
   SDD_STATIONS,
   STATION_SKILLS,
+  ROUTE_TARGET_SKILLS,
   WORKFLOW_REASON_CODES,
   isHumanHaltCode,
   PLAN_SIGNOFF_REMEDIES,
@@ -876,7 +877,7 @@ describe('resolveNextSkill — canonical station identity (REQ-LIB-059)', () => 
         const identity = resolveNextSkill(before.next);
         const after = routeChange(facts({ status, scale }));
         expect(after).toEqual(before);
-        expect(identity).toBe(before.next === null ? null : STATION_SKILLS[before.next]);
+        expect(identity).toBe(before.next === null ? null : ROUTE_TARGET_SKILLS[before.next]);
       }
     }
   });
@@ -886,7 +887,7 @@ describe('shared escalation routing', () => {
   const event = { event_id: 'e2', station: 'prospec-plan' as const, trigger: 'station_retry_limit_exceeded' as const, ordinal: 2, legacy: false };
   const history = { events: [{ ...event, event_id: 'e1', ordinal: 1 }, event], pending: event, grants: [], completeness: 'complete' as const };
   it('routes pending repeat history to the same CLI decision', () => {
-    const result = routeChange(facts({ status: 'plan', escalationHistory: history }));
+    const result = routeChange(facts({ status: 'plan', escalationHistory: history, premise: { state: 'blocked', findings: [], remedy: '', limitation: '' } }));
     expect(result.code).toBe('ESCALATE_TO_HUMAN');
     expect(result.escalation?.recommended).toBe('re-scope');
     expect(result.escalation?.ordinal).toBe(2);
@@ -903,5 +904,23 @@ describe('shared escalation routing', () => {
     const result = routeChange(facts({ status: 'plan', lastPlanVerifierResult: 'PASS', escalationHistory: { ...history, pending: null } }));
     expect(result.next).toBe('tasks');
     expect(result.escalationHistory?.events).toHaveLength(2);
+  });
+});
+
+describe('premise route target', () => {
+  const blocked = { state: 'blocked' as const, findings: ['verification pending'], remedy: 'Investigate then update proposal', limitation: 'Structural only' };
+  it.each(['story', 'plan', 'tasks', 'implemented', 'verified'] as const)('returns %s to exploration without regressing current', (status) => {
+    const before = facts({ status });
+    const route = routeChange({ ...before, premise: blocked });
+    expect(route).toMatchObject({ status, next: 'explore', code: 'PREMISE_INCOMPLETE' });
+    expect(route.current).toBe(routeChange(before).current);
+    expect(routeChange({ ...before, premise: { ...blocked, state: 'ready' } }).next).toBe(routeChange(before).next);
+  });
+  it('keeps archived terminal', () => {
+    expect(routeChange(facts({ status: 'archived', premise: blocked })).next).toBeNull();
+  });
+  it('resolves exploration skill and host path', () => {
+    expect(resolveNextSkill('explore')).toBe('prospec-explore');
+    expect(resolveNextSkillPath(['codex'], 'explore')).toContain('prospec-explore/SKILL.md');
   });
 });

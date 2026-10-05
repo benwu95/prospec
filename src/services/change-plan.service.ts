@@ -1,3 +1,4 @@
+import { requirePremise } from '../lib/premise.js';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { PrerequisiteError } from '../types/errors.js';
@@ -26,6 +27,7 @@ export interface ChangePlanResult {
   createdFiles: string[];
   relatedModules: string[];
   legacyBaseline?: boolean;
+  premise?: import('../types/premise.js').PremiseAssessment;
 }
 
 /**
@@ -56,6 +58,7 @@ export async function execute(options: ChangePlanOptions): Promise<ChangePlanRes
   // 3. Read metadata ONCE — validated at the boundary, and the Document keeps
   // comments/field order intact for the status write below. It comes first
   // because the scale it carries decides whether this station applies at all.
+  const premise = requirePremise(changeDir, cwd);
   const metadataPath = path.join(changeDir, 'metadata.yaml');
   const meta = fs.existsSync(metadataPath)
     ? readChangeMetadata(metadataPath, changeName)
@@ -128,6 +131,7 @@ export async function execute(options: ChangePlanOptions): Promise<ChangePlanRes
 
   // 6. Render plan.md
   const planContent = renderTemplate('change/plan.md.hbs', templateContext);
+  premise.recheck();
   await atomicWrite(planPath, planContent);
   createdFiles.push(`.prospec/changes/${changeName}/plan.md`);
 
@@ -149,5 +153,6 @@ export async function execute(options: ChangePlanOptions): Promise<ChangePlanRes
     createdFiles,
     relatedModules,
     legacyBaseline: legacyBaseline || undefined,
+    premise: premise.assessment,
   };
 }

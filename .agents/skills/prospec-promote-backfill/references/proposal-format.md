@@ -1,26 +1,49 @@
 # Proposal Format Reference
 
-This document defines the expected format for `proposal.md`, used by the **prospec-new-story** Skill.
+`prospec-new-story` authors `proposal.md` in this format.
 
 ---
 
 ## Standard Format
 
-### 1. Background (Why)
+### Premise (new standard/full changes)
 
-Briefly explain the motivation and problem context:
+One unfenced `## Premise`, ending at the next level-one/two heading, contains one `yaml` fenced mapping:
 
-```markdown
-## Background
+## Premise
 
-[1-3 sentences describing the problem, gap, or opportunity that motivates this change.]
+```yaml
+problem: ""
+source: ai-proposed
+source_ref: ""
+evidence:
+  kind: observation
+  ref: ""
+  result: ""
+withdrawal: ""
+verification:
+  status: pending
+  by: ""
+  conclusion: ""
 ```
 
----
+Keys and enum values stay English; narrative values follow this proposal's artifact language.
+- `problem`: observed need; `source`: original `user-observation`, `third-party-report`, or `ai-proposed`; `source_ref`: traceable input or investigation reference.
+- `evidence`: `kind: observation` with `ref` and `result`; `kind: reproduction` additionally requires substantive `steps`, `expected`, and `actual` strings. Bug reproduction shortens the interview, not this structure.
+- `withdrawal`: evidence that would invalidate the need; do not invent it merely to fill the field.
+- `verification`: `status: pending|verified`, `by`, and `conclusion`. Preserve the original source after verification. User/third-party origin alone does not mean verified.
+
+Required values must be substantive; blanks, placeholders and NEEDS CLARIFICATION remain blocked. Duplicate sections/keys/blocks, unknown keys, YAML aliases and unclosed fences are invalid. Fenced examples elsewhere do not satisfy the real section.
+
+New scaffolds declare `premise_version: 1` in CLI-owned metadata and remain pending until authored. `prospec validate proposal <change>` reads that metadata and the proposal together: new standard/full changes require ready; quick/backfill are exempt; absent version is legacy with a visible limitation. Unknown versions or unreadable metadata refuse rather than become legacy. Validation checks structure only, never source authenticity or evidence truth, and never runs reproduction steps. A blocked result returns to explore, then new-story updates the same proposal. All autonomous inferences still belong in Stated Assumptions.
+
+### 1. Background (Why)
+
+`## Background`: 1–3 sentences describing the sourced problem and motivation.
 
 ### 2. User Stories
 
-One or more INVEST-compliant User Stories, each with Priority and acceptance scenarios:
+Use independently developable, testable and deployable INVEST stories:
 
 ```markdown
 ## User Stories
@@ -33,146 +56,54 @@ So that [value].
 
 **Acceptance Scenarios:**
 
-- WHEN [condition], THEN [expected outcome]
-- WHEN [condition], THEN [expected outcome]
+- WHEN [condition], THEN [concrete, measurable outcome]
+- WHEN [condition], THEN [concrete, measurable outcome]
 
 **Independent Test:**
-[How to verify this story works in isolation]
+[How to verify this story in isolation]
 ```
 
 **Priority levels:** P0 (must-have), P1 (should-have), P2 (nice-to-have)
 
-**Guidelines:**
-- Each Story should be independently developable, testable, and deployable
-- If a Story has more than 5 acceptance scenarios, consider splitting it
-- Use concrete, measurable outcomes in WHEN/THEN (not vague descriptions)
-
-**Acceptance Scenarios Baseline & Amendment:**
-- Substantive acceptance scenarios in `User Stories` are frozen into metadata baseline via `prospec change story <name> --freeze-scenarios` upon completing proposal authoring.
-- If scenarios need to change later, amendment must be done via `prospec change story <name> --amend-scenarios --reason "<reason>" --expected-digest <sha256>`.
-- Never manually edit `metadata.yaml` or fabricate revision history.
-
----
+Freeze substantive scenarios via `prospec change story <name> --freeze-scenarios`. Later changes require `prospec change story <name> --amend-scenarios --reason "<reason>" --expected-digest <sha256>`; never hand-edit metadata or invent history.
 
 ### 3. Stated Assumptions
 
-Explicitly list any assumptions inferred during autonomous/Draft-First generation (e.g., derived change name, proposed scale, boundary conditions, defaults):
-
-```markdown
-## Stated Assumptions
-
-- [Assumption 1: e.g., Target scope and module boundaries inferred from keywords]
-- [Assumption 2: e.g., Scale selected as standard based on touched modules]
-- [Assumption 3: e.g., Default behavior or fallback mechanisms assumed]
-```
-
-**Guidelines:**
-- Every autonomous inference not confirmed in prior interaction MUST be listed here
-- Authored in the project's configured `artifact_language`
-- Enables one-pass human review without requiring multiple rounds of interview
-
----
+Under `## Stated Assumptions`, list assumptions in `artifact_language`, including inferred problem/value, name, scale, scope and defaults. Every autonomous inference not confirmed in prior interaction MUST be listed here for one-pass human review.
 
 ### 4. Edge Cases
 
-Known boundary conditions and error scenarios:
-
-```markdown
-## Edge Cases
-
-- [Edge case 1]: [Expected behavior]
-- [Edge case 2]: [Expected behavior]
-```
-
----
+`## Edge Cases`: boundary conditions and errors, each with its expected behavior.
 
 ### 5. Functional Requirements
 
-Numbered requirements for traceability (mapped to delta-spec REQ IDs later):
-
-```markdown
-## Functional Requirements
-
-- **FR-001**: [Requirement description]
-- **FR-002**: [Requirement description]
-```
-
----
+`## Functional Requirements`: numbered `FR-001...` behaviors, mapped to delta-spec REQs later.
 
 ### 6. Success Criteria
 
-Measurable indicators of completion:
-
-```markdown
-## Success Criteria
-
-- **SC-001**: [Measurable outcome]
-- **SC-002**: [Measurable outcome]
-```
-
----
+`## Success Criteria`: numbered `SC-001...` measurable completion criteria.
 
 ### 7. Related Modules
 
-List related modules based on keyword matching from `prospec/index.md`:
-
-```markdown
-## Related Modules
-
-- **module-name-1**: [Brief explanation of relevance]
-- **module-name-2**: [Brief explanation of relevance]
-```
-
----
+`## Related Modules`: each module's name and relevance, matched against `prospec/index.md` keywords.
 
 ### 8. Open Questions (Optional)
 
-Items that need clarification before or during implementation:
-
-```markdown
-## Open Questions
-
-- [ ] **NEEDS CLARIFICATION**: [Question or ambiguity]
-- [ ] **NEEDS CLARIFICATION**: [Question or ambiguity]
-```
-
----
+`## Open Questions`: unresolved questions marked `NEEDS CLARIFICATION`.
 
 ### 9. Constitution Check
 
-Quick verification against project principles:
-
-```markdown
-## Constitution Check
-
-- [ ] Reviewed against `prospec/CONSTITUTION.md`
-- [ ] No violations identified / Violations noted: [details]
-```
-
----
+`## Constitution Check`: record review against `prospec/CONSTITUTION.md` and any violations.
 
 ### 10. UI Scope (Optional)
 
-Indicate the extent of UI work in this Story. Used by the **prospec-design** Skill to determine the design workflow.
+Declare `## UI Scope` with `**Scope:** full | partial | none`, choosing one:
+- `full`: complete screens/pages, layout and interactions.
+- `partial`: changes to existing components.
+- `none`: CLI/backend only, no visual component.
 
-```markdown
-## UI Scope
-
-**Scope:** full | partial | none
-```
-
-| Option | When to Use |
-|--------|------------|
-| `full` | Story involves complete screens or pages with layout, components, and interactions |
-| `partial` | Story modifies existing UI elements (e.g., adding a button, tweaking a form) |
-| `none` | Story is backend-only, CLI-only, or has no visual component |
-
-**This section is optional.** If omitted, the design Skill will assume `full` and confirm with the user. Existing proposals without this section are unaffected.
-
----
+If omitted, design assumes full and confirms with the user; existing proposals are unaffected.
 
 ## File Length Guidelines
 
-- Keep under **150 lines**
-- If User Stories exceed 5, consider splitting into multiple proposals
-- Each Story should have 2-5 acceptance scenarios
+Keep under **150 lines**, with 2–5 acceptance scenarios per story. Consider splitting above five stories or five scenarios per story.

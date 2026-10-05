@@ -1,3 +1,4 @@
+import { formatPremiseNotice } from './premise-output.js';
 import pc from 'picocolors';
 import type { LogLevel } from '../../types/config.js';
 import type { ChangeScaleResult } from '../../services/change-scale.service.js';
@@ -10,6 +11,7 @@ export function formatChangeScaleOutput(
 ): void {
   if (logLevel === 'quiet') return;
 
+  for (const line of formatPremiseNotice(result.premise)) process.stdout.write(`${line}\n`);
   const changeName = sanitizeTerminal(result.changeName);
   if (!result.changed) {
     process.stdout.write(

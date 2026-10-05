@@ -8,11 +8,7 @@ description: "{{skill_description}} Triggers: {{trigger_words}}"
 
 ## Activation
 
-When triggered, briefly describe:
-- That you'll generate planning artifacts (Story → Plan → Tasks) and can autonomously cascade through implementation, review, and verification
-- A quick 3-question interview will be conducted first (or Draft-First inference if intent is clear)
-- The metadata status will progress through story → plan → tasks (`scale: quick` skips plan: story → tasks)
-- When cascading mode is active, execution continues until Verify Grade S/A is reached, halting for Tastemaker sign-off
+Briefly describe Story → Plan → Tasks (`quick`: Story → Tasks), Draft-First inference or a 3-question interview, and optional cascading through implementation/review/verify to Grade S/A, where Tastemaker sign-off halts execution.
 
 {{> language-policy}}
 
@@ -29,7 +25,7 @@ Evidence uses `snapshot-v2` / `repository-inputs-v2`: repository input content, 
 
 ## Entry Gate
 
-> Blocking precondition check before this skill runs. If any item FAILs, stop and tell the user what is missing — do not proceed.
+> Any failed precondition stops entry; report what is missing.
 
 - Constitution exists and is non-empty (ff runs the full story→plan→tasks chain).
 - ff starts a new change — no prior `quality_log` to read on first run.
@@ -44,25 +40,25 @@ Evidence uses `snapshot-v2` / `repository-inputs-v2`: repository input content, 
 
 ### Phase 1: Quick Interview (3 questions to converge)
 
-Collect: Core goal (one sentence), primary user, key acceptance criteria (3-5 points).
-Derive a kebab-case change name. STOP and ask the user to confirm it **and the optional tracker
-item in the same question** (accept "none"); await their reply before Phase 2. This is not a fourth interview question. Pass their free-form reference to `prospec change story --issue`; prospec judges nothing about its shape, calls no API, and whitespace and line breaks collapse to one space.
-Omit when declined; never invent one or infer it from the branch name.
+**Draft-First (default):** derive goal, user, ACs, name and scale; reuse supplied tracker references and prior decisions. Disclose unconfirmed inferences in Stated Assumptions. Investigate problem evidence; missing evidence returns to `prospec-explore`.
+
+**Interactive (`--interactive`):** ask at most three questions for missing inputs; include the change name and optional tracker item in the same question (accept "none", not a fourth interview question); never invent one or infer it from the branch. Prospec judges nothing about its shape, calls no tracker API, and whitespace and line breaks collapse to one space. Reproducible bugs may bypass deep interviews with complete reproduction evidence.
 
 > **Phase 1 Gate** — proceed when:
-> - [ ] change name (kebab-case) confirmed
-> - [ ] core goal, primary user, and 3-5 ACs collected
-> - [ ] tracker item asked for alongside the name — answered, or explicitly declined
+> - [ ] core goal, primary user, ACs and name are derived or supplied
+> - [ ] original problem source and evidence are recorded, or their absence is explicitly pending
+> - [ ] tracker item reused if supplied, otherwise omitted
 
 ### Phase 2: Story Generation
 
 | Step | Action |
 |------|--------|
-| Scaffold | Run `prospec change story [name] --description "<one-liner>" [--issue <ref>]` (Bash) — CLI scaffolds `.prospec/changes/[name]/` + `metadata.yaml`(status: story) + `proposal.md`. Pass `--issue` only when Phase 1 got a tracker item; the flag exists ONLY here, so a skipped answer cannot be amended later without rebuilding the change |
-| Scale | Run the complexity assessment from `prospec-new-story` Phase 3.5 (criteria table + quick veto). STOP. Ask the user to confirm the scale; do not proceed with this phase until a reply is received. Write it via `prospec change scale <scale>` (Bash). Quick → slim proposal form |
-| Populate | Read [`references/proposal-format.md`](references/proposal-format.md) on demand, then write User Story and ACs to that format |
-| Freeze | Once substantive acceptance scenarios are written, freeze baseline via `prospec change story [name] --freeze-scenarios` (Bash). Amend via `prospec change story [name] --amend-scenarios --reason "<text>" --expected-digest <sha256>`. Never hand-edit metadata.yaml |
-| Check | Site-specific Constitution check (this phase's rule: INVEST) — **advisory**: record any concern via `prospec change log --skill prospec-ff --result WARN --warning "<concern>"` and continue; never pause the Story on it (the same advisory contract as `prospec-new-story`; the authoritative INVEST audit is `prospec-verify`'s) |
+| Scaffold | Run `prospec change story [name] --description "<one-liner>" [--issue <ref>]` (Bash) — creates proposal + metadata (status: story). Pass `--issue` only for a supplied tracker item; this creation-only flag cannot amend an existing change |
+| Scale | Apply `prospec-new-story` Phase 3.5 (criteria + quick veto). Record Draft-First assumptions; interactive mode asks only for an undecided scale. Write via `prospec change scale <scale>` (Bash). Quick → slim proposal form |
+| Populate | Preserve original source independently of verification; use input or actual code investigation as traceable evidence. Read [`references/proposal-format.md`](references/proposal-format.md) on demand, then write User Story and ACs to that format |
+| Premise | Run `prospec validate proposal [name]`. New standard/full must be ready before planning; blocked returns to `prospec-explore`, then `prospec-new-story` updates the same proposal. Quick/backfill are exempt, legacy is explicitly admitted; structural PASS does not establish evidence truth |
+| Freeze | Freeze substantive acceptance scenarios via `prospec change story [name] --freeze-scenarios` (Bash). Amend via `prospec change story [name] --amend-scenarios --reason "<text>" --expected-digest <sha256>`. Never hand-edit metadata.yaml |
+| Check | INVEST is **advisory**: record concerns via `prospec change log --skill prospec-ff --result WARN --warning "<concern>"` and continue; never pause the Story. `prospec-verify` owns the authoritative audit |
 
 **Scale routing:** when `scale: quick` is confirmed, SKIP Phase 3 entirely — no plan.md, no
 delta-spec.md, and no module README loading (Phase 3's Layer 2 step; `{{base_dir}}/index.md` from Startup
@@ -72,7 +68,8 @@ Loading is still read). Status advances `story → tasks` directly
 
 > **Phase 2 Gate** — proceed when:
 > - [ ] `proposal.md` + `metadata.yaml`(status: story) created
-> - [ ] `metadata.scale` confirmed by user and written
+> - [ ] `metadata.scale` selected by Draft-First or supplied by the user and written
+> - [ ] Premise validation admits the change before continuing
 > - [ ] acceptance scenarios frozen via `prospec change story [name] --freeze-scenarios`
 > - [ ] advisory INVEST check run; any concern recorded to `quality_log` (never blocks)
 
@@ -124,7 +121,7 @@ Loading is still read). Status advances `story → tasks` directly
 
 ### Completion: Summary Report
 
-List all produced files and task statistics. If planning only, suggest `prospec-implement`. If cascading completed, present the Tastemaker summary for human sign-off.
+List files and task statistics; planning hands off to `prospec-implement`, cascading to human Tastemaker sign-off.
 
 {{> next-step-handoff}}
 
@@ -171,11 +168,11 @@ Verify the output against each phase's **site-specific** Constitution rule (INVE
 - **NEVER** advance past Phase 2 without freezing acceptance scenarios via `prospec change story [name] --freeze-scenarios`
 - **NEVER** discard completed phases on failure — error recovery is FF's core capability
 - **NEVER** skip Layer 2 knowledge loading for standard/full — Plan phase must load related module AI Knowledge (quick skips Plan and loads none)
-- **NEVER** skip Phase 3 without a `scale: quick` in metadata.yaml — confirmed by the user, or assigned by `prospec change auto-draft` from the drift check it drafted for; skipping plan is an explicit contract, not a shortcut
+- **NEVER** skip Phase 3 without a `scale: quick` in metadata.yaml — selected by Draft-First, supplied by the user, or assigned by `prospec change auto-draft`; skipping plan requires that explicit contract
 - **NEVER** take verbal shortcuts, bypass receipt gates, or fabricate mock payloads during fast-forward cascading — all subagent outputs must be physically verified
 - **NEVER** run `prospec change log --signoff`, or set `PROSPEC_PAUSE_AT` to skip a pause, without an explicit human instruction — both are the human's decision, not the agent's
 - **NEVER** relay a plan/tasks verifier verdict by hand — `prospec change log --skill <station> --verifier-report <file>` is the only sink; `prospec status` is the only transition authority the cascade consults
 - **NEVER** automatically commit, push, or archive during autonomous cascading without explicit human Tastemaker approval
 - **NEVER** continue cascading past a tripped circuit breaker or unresolved critical findings
 - **NEVER** use passive voice for confirmation wait points (e.g., "confirm before proceeding") — always use an active imperative ("STOP. Ask the user...").
-- **NEVER** proceed into Phase 2 without the user's explicit reply to the change name, nor proceed past the Scale step without the user's explicit reply to the scale.
+- **NEVER** treat clear intent as verified evidence; route a blocked premise to explore before advancing.

@@ -144,6 +144,7 @@ function ensureBuiltinPartials(): void {
     readTemplateSource('knowledge/_index-auto-block.hbs'),
   );
   Handlebars.registerPartial('escalation-guidance', readTemplateSource('skills/_escalation-guidance.hbs'));
+  Handlebars.registerPartial('premise', readTemplateSource('skills/_premise.hbs'));
   builtinPartialsRegistered = true;
 }
 

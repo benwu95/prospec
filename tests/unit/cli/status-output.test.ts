@@ -462,3 +462,10 @@ describe('status-output — human halt routes (REQ-CLI-056, REQ-CLI-039)', () =>
   });
 });
 
+
+it('discloses premise applicability and structural limitation', () => {
+  const change = ROUTED.changes[0]!;
+  formatStatusOutput({ ...ROUTED, changes: [{ ...change, premise: { state: 'legacy', findings: ['legacy: readiness unverified'], remedy: '', limitation: 'Structural validation only' } }] }, 'normal');
+  expect(output()).toContain('legacy: readiness unverified');
+  expect(output()).toContain('Structural validation only');
+});

@@ -11,6 +11,7 @@ modules:
     paths:
       - src/types
     keywords:
+      - premise
       - escalation
       - config
       - schema
@@ -57,7 +58,7 @@ modules:
       - MCP 契約
       - 模組分類
     rationale: Leaf module with zero internal deps — all others import from here
-    last_verified: 2026-10-05T07:00:39.819Z
+    last_verified: 2026-10-05T08:53:24.591Z
   - name: lib
     description: Shared stateless utilities — config, file I/O, Handlebars
       rendering, scanning, token accounting, the zero-LLM drift engine
@@ -69,6 +70,7 @@ modules:
     paths:
       - src/lib
     keywords:
+      - premise
       - escalation
       - fs
       - config
@@ -127,7 +129,7 @@ modules:
       - 漂移檢查
       - 知識讀取
     rationale: Foundational infrastructure shared across services and benchmark scripts
-    last_verified: 2026-10-05T07:00:39.819Z
+    last_verified: 2026-10-05T09:17:29.857Z
   - name: services
     description: Business logic — one `execute()` service per command — including
       shared-output agent invocation-guidance rendering — init / quickstart /
@@ -139,6 +141,7 @@ modules:
     paths:
       - src/services
     keywords:
+      - premise
       - escalation
       - init
       - knowledge
@@ -186,14 +189,15 @@ modules:
       - 漂移檢查
       - 真相層
     rationale: Isolates business logic from I/O layer, enables testability
-    last_verified: 2026-10-05T07:00:39.819Z
+    last_verified: 2026-10-05T08:53:24.591Z
   - name: cli
-    description: Thin CLI entry — 19 top-level Commander commands + 32 formatters
-      that parse → call one service → format output; the cli-first station
-      commands each add one command/formatter pair, never logic.
+    description: Thin CLI entry — 19 top-level Commander commands + shared
+      formatters that parse → call one service → format output; the cli-first
+      station commands each add one command/formatter pair, never logic.
     paths:
       - src/cli
     keywords:
+      - premise
       - escalation
       - commands
       - formatters
@@ -225,16 +229,17 @@ modules:
       - 終端
       - entry point
     rationale: "Thin I/O layer: no business logic, delegates to services"
-    last_verified: 2026-10-05T07:00:39.819Z
+    last_verified: 2026-10-05T08:53:24.591Z
   - name: templates
     description: Handlebars template library — 17 skills + host-labelled invocation
-      entry guidance, 9 shared partials, 31 references, 1 agent-config, 5
-      change, 15 init/knowledge (79 `.hbs` templates) — the source of every
+      entry guidance, 10 shared partials, 31 references, 1 agent-config, 5
+      change, 15 init/knowledge (80 `.hbs` templates) — the source of every
       generated skill, README, and index; every skill delegates its
       deterministic steps to the CLI behind the shared `_cli-probe` partial.
     paths:
       - src/templates
     keywords:
+      - premise
       - escalation
       - handlebars
       - auto-draft
@@ -274,16 +279,17 @@ modules:
       - 複雜度適配
       - CI 閘門
     rationale: Pure resources — no logic, consumed by lib/template.ts
-    last_verified: 2026-10-05T07:00:39.819Z
+    last_verified: 2026-10-05T09:17:29.857Z
   - name: tests
-    description: 4-layer test suite — 274 files, 7,192 tests (unit 5209 + contract
-      1625 + integration 153 + e2e 205). Validates every module — format and
+    description: 4-layer test suite — 281 files, 7,274 tests (unit 5283 + contract
+      1631 + integration 153 + e2e 207). Validates every module — format and
       public-document contracts, the cli-first probe + station-command
       contracts, the drift engine, token corpus, and the MCP protocol over
       in-memory transport.
     paths:
       - tests
     keywords:
+      - premise
       - escalation
       - vitest
       - memfs
@@ -318,4 +324,4 @@ modules:
       - 驗證
       - vitest
     rationale: Quality gate — validates all layers with pyramid coverage
-    last_verified: 2026-10-05T07:00:39.819Z
+    last_verified: 2026-10-05T09:17:29.857Z

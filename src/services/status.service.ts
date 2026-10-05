@@ -1,3 +1,4 @@
+import { readPremiseAssessment } from '../lib/premise.js';
 import { planningFlawsStreak, verifyBelowBarStreak, reduceEscalationHistory } from '../lib/escalation.js';
 export { planningFlawsStreak, verifyBelowBarStreak } from '../lib/escalation.js';
 import * as fs from 'node:fs';
@@ -37,7 +38,7 @@ import {
   type ChangeRouteError,
   type ChangeRouteFacts,
   type DriftSignal,
-  STATION_SKILLS,
+  ROUTE_TARGET_SKILLS,
   type StatusReport,
   type UiScope,
   type UnresolvedWarning,
@@ -136,7 +137,7 @@ export async function execute(options: StatusOptions = {}): Promise<StatusReport
           // — never fabricated — when the route is terminal or no agent is configured.
           const skillRoot = resolveSkillRoot(agentNames);
           if (skillRoot !== null) {
-            route.nextReferenceMap = projectStatusReferenceMap(STATION_SKILLS[route.next], {
+            route.nextReferenceMap = projectStatusReferenceMap(ROUTE_TARGET_SKILLS[route.next], {
               scale: facts.scale,
               uiScope: facts.uiScope,
               skillPath: skillRoot,
@@ -238,6 +239,7 @@ async function collectFacts(
 
   return {
     name,
+    premise: readPremiseAssessment(changeDir, cwd).assessment,
     status: metadata.status,
     scale: metadata.scale ?? 'standard',
     hasTasks: fs.existsSync(path.join(changeDir, 'tasks.md')),

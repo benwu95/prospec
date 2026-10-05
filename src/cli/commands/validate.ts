@@ -20,11 +20,12 @@ import { resolveLogLevel } from '../log-level.js';
 export function registerValidateCommand(program: Command): void {
   program
     .command('validate')
-    .description('Machine verdicts for artifact structure (slug / backfill-draft / promote-scaffold / design-spec / module-readme / candidates)')
+    .description('Machine verdicts for artifact structure (proposal / slug / backfill-draft / promote-scaffold / design-spec / module-readme / candidates)')
     .addArgument(new Argument('<kind>', 'Artifact kind').choices(VALIDATE_KINDS))
-    .argument('[target]', 'Slug/module name, an explicit artifact path, or (candidates) a change name')
+    .argument('[target]', 'Slug/module name, an explicit artifact path, or (proposal/candidates) a change name')
+    .option('--json', 'Emit the structural verdict and facts as JSON')
     .option('--change <name>', 'Change providing the default artifact path')
-    .action(async (kind: ValidateKind, target: string | undefined, options: { change?: string }) => {
+    .action(async (kind: ValidateKind, target: string | undefined, options: { change?: string; json?: boolean }) => {
       const globalOpts = program.opts<GlobalOptions>();
       const logLevel = resolveLogLevel(globalOpts);
       try {
@@ -36,7 +37,8 @@ export function registerValidateCommand(program: Command): void {
           change: options.change,
           quiet: globalOpts.quiet,
         });
-        formatValidateOutput(result, logLevel);
+        if (options.json) process.stdout.write(JSON.stringify(result, null, 2) + '\n');
+        else formatValidateOutput(result, logLevel);
         if (!result.ok) {
           process.exitCode = 1;
         }
