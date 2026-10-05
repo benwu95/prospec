@@ -318,7 +318,7 @@ Phase 6 of `/prospec-tasks` performs independent task contract and DAG dependenc
 - WHEN Phase 6 begins, THEN `prospec-tasks` loads `references/tasks-verifier-rubric.md` on-demand in-phase without placing it in Startup Loading
 - WHEN the environment supports subagents (`can_spawn_subagent: yes`), THEN an independent fresh-context Task Verifier subagent is spawned to audit `tasks.md` against `delta-spec.md` and `plan.md`
 - WHEN the environment does not support subagents, THEN verification degrades to a two-phase prompt isolation with clear notification to the developer
-- WHEN the verifier report passes receipt verification, THEN the station records it via `prospec change log --skill prospec-tasks --verifier-report <file>` — the CLI validates the payload against the rubric-owned schema, maps `FLAWS` to `result: FAIL`, and `prospec status` routes the change back to tasks until a PASS or a documented Break-Glass `--result WARN --warning "Manual override: …"` supersedes it
+- WHEN the verifier report passes receipt verification, THEN the station records it through change log --skill prospec-tasks --verifier-report; CLI validates the payload, maps FLAWS to FAIL and status supplies the next route or escalation decision; human overrides follow the CLI event-bound single-use policy of REQ-SERVICES-126
 - WHEN `/prospec-ff` executes Tasks phase verification, THEN it aligns with the same task verification gate and degradation policy
 - WHEN the verifier returns a report path or completion prose, THEN the station MUST apply the Physical Receipt Verification Protocol of its own `references/delegation-protocol.md` — a readable non-empty file valid against the rubric-owned report schema, a bounded wait — before progression, and NEVER fabricate a report or PASS; terminal failure follows the disclosed degraded path
 - WHEN the rubric's payload schema section renders its `verdict` and `dimensions` rows, THEN their vocabulary is projected from `PLANNING_VERDICTS` and `TASKS_VERIFIER_DIMENSIONS`, and the section states that `rationale` and each `warnings[]` item are single-line and bounded by the injected relayed `summary` ceiling
@@ -409,10 +409,11 @@ The services module provides Tastemaker delivery generation for autonomous casca
 #### REQ-TEMPLATES-192: Cascade Protocol, Circuit Breaker, and Project Test Runner References
 The template library includes skill references for cascading execution, circuit breakers, and project test runner adapters.
 - WHEN skills consult cascading references on demand, THEN `cascade-protocol.md`, `circuit-breaker.md`, and `project-test-runner.md` provide clear, verifiable rules for autonomous execution, runaway prevention, and ecosystem adaptation
-- WHEN `cascade-protocol.md` states the plan → tasks transition gate, THEN it requires Architecture Verifier PASS on five orthogonal dimensions (or a documented Break-Glass override), matching the rubric's dimension count
+- WHEN `cascade-protocol.md` states the plan → tasks transition gate, THEN it requires a recorded Architecture Verifier PASS or advisory WARN on five orthogonal dimensions; a Break-Glass grant alone permits one new attempt under REQ-SERVICES-126 and does not satisfy the verifier gate
 - WHEN `cascade-protocol.md` renders its Station Transition Gates table, THEN every station named is a member of `SDD_STATIONS`, `design` and `promote` have rows, `awaiting_signoff` does not appear, and the verify row states that a B/C/D grade is routed back to verify by `prospec status`
 - WHEN `cascade-protocol.md` lists scale-driven paths, THEN a `Scale: Backfill` trajectory `promote → review → verify → knowledge-update → Tastemaker sign-off` is present alongside quick/standard/full
 - WHEN cascading and breaker references describe their mechanisms, THEN they state station instructions and stopping conditions without promising model reliability or a monetary cost bound
+- WHEN cascade or breaker references present escalation exits, THEN they echo the CLI decision under REQ-TEMPLATES-244 and do not prescribe another round or self-authorized bypass
 
 ---
 
