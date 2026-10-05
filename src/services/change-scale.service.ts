@@ -42,12 +42,13 @@ export async function execute(options: ChangeScaleOptions): Promise<ChangeScaleR
   const metadataPath = path.join(changeDir, 'metadata.yaml');
   const { doc, metadata } = readChangeMetadata(metadataPath, changeName);
   const from = metadata.scale;
+  if (metadata.status === 'abandoned') throw new PrerequisiteError('Abandoned change is terminal', 'Create a new Story to retry');
 
   if (from === options.scale) {
     return { changeName, from, scale: options.scale, changed: false };
   }
 
-  const premise = metadata.status !== 'story' && (options.scale === 'standard' || options.scale === 'full')
+  const premise = metadata.status !== 'story' && (metadata.retry_of?.length || options.scale === 'standard' || options.scale === 'full')
     ? requirePremise(changeDir, cwd, options.scale) : undefined;
 
   // Writing a scale whose contract forbids artifacts already on disk would mint a

@@ -41,6 +41,7 @@ const toPosix = (p: string): string => p.replace(/\\/g, '/');
  * the subtraction is keyed on this constant instead of a hand-written twin.
  */
 export const ARCHIVE_NATIVE_GLOB = '.prospec/archive/**';
+export const ABANDONED_NATIVE_GLOB = '.prospec/abandoned/**';
 
 const relative = (cwd: string, absolute: string): string =>
   toPosix(path.relative(cwd, absolute)) || '.';
@@ -84,7 +85,7 @@ export function resolveLanguageScope(config: ProspecConfig, cwd: string): Langua
     // Change artifacts and their archived summaries: the owner's own change
     // narrative. `specs/_archived-history/` holds archive summaries derived from
     // those artifacts, so it follows them rather than the English `specs/features/`.
-    nativePaths: ['.prospec/changes/**', ARCHIVE_NATIVE_GLOB, underBase('specs/_archived-history/**')],
+    nativePaths: ['.prospec/changes/**', ARCHIVE_NATIVE_GLOB, ABANDONED_NATIVE_GLOB, underBase('specs/_archived-history/**')],
     trustZonePaths: [
       underBase('CONSTITUTION.md'),
       underBase('README.md'),

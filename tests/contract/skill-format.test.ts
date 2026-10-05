@@ -6685,6 +6685,7 @@ describe('Structured quality_log (issue #61)', () => {
         '## Light-scale artifact matrix',
         '## Gates (why some transitions are conditional)',
         '## Sourced premise admission',
+        '## Abandoned attempts',
         '## Stations without a status transition',
         '## What each gate checks (artifact ownership)',
         '## Provenance audit scope',

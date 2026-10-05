@@ -23,6 +23,8 @@
 
 ## Pitfalls
 
+- Successful archive/finalize and review-yield exclude abandoned and operation-marked incomplete entries via `lib/abandon-history.ts`. Abandonment retains artifacts without any spec or trust-zone writes; it is not successful graduation.
+
 - Archive reads the typed ledger independently of its lenient legacy metadata envelope. `generateSummary` requires the resolved retry bound; finalize refreshes the owned escalation-history block in both copies, preserving fenced examples and adjacent prose.
 
 - **Never blanks an authored REQ body** — only a `**Spec:**` block replaces one (ADDED may fall back to Description+AC); everything else survives byte-identical and returns in `pendingConvergence` (incl. REMOVED REQs whose active section stands). Not blanking ≠ not losing: when a block DOES replace a body, the `WHEN/THEN` bullets it omits return in `droppedBehavior` — a SET difference, never a count, over `-`/`*`/`N.` markers with optional `**WHEN**` emphasis (a continuation must still be INDENTED, or an unindented table row merges into the bullet and invents a drop).

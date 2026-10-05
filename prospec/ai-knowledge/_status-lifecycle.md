@@ -25,6 +25,8 @@ story → plan → tasks → implemented → verified → archived
 | `implemented` | `verified` | `prospec-verify` | grade **S or A** (no FAIL, ≤ 2 WARN); its machine dimensions (task completion, Knowledge, tests) are adjudicated by `prospec check`, not by the agent |
 | `verified` | `archived` | `prospec-archive` | only `verified` is archivable **and** affected-module Knowledge is synced before final review/tests/verify (S/A prompt confirms validated content; archive Entry Gate remains the backstop) |
 
+| any nonterminal | `abandoned` | `prospec change abandon` | work preservation completes before artifact movement; terminal metadata published last |
+
 ## Station order
 
 The stations `prospec status` routes between, in canonical order. Wider than the six statuses: `design` and `promote` own no status transition of their own — design sits between plan and tasks (only when `proposal.md` declares `ui_scope` full/partial), and `promote` is the backfill entry that lands at `implemented`. `SDD_STATIONS` in `types/status.ts` is the **executable copy**, pinned against this line by a contract test.
@@ -55,9 +57,15 @@ Which artifacts each scale's contract forbids. `SCALE_FORBIDDEN_ARTIFACTS` in `t
 
 ## Sourced premise admission
 
-New scaffolds declare `premise_version: 1` and a pending Premise in proposal.md. For active standard/full changes, the shared structural assessment routes blocked premises to `explore` with `PREMISE_INCOMPLETE`, after pending escalation decisions. `explore` is a route target, not a linear station or metadata status; completing the premise restores the existing route. Archived records remain terminal.
+New scaffolds declare `premise_version: 1` and a pending Premise in proposal.md. For active standard/full changes, the shared structural assessment routes blocked premises to `explore` with `PREMISE_INCOMPLETE`, after pending escalation decisions. `explore` is a route target, not a linear station or metadata status; completing the premise restores the existing route. Archived and abandoned records remain terminal.
 
-`validate proposal <change>` shares the assessment with status and the plan/tasks, forward status, verify-record and archive writers; refusal precedes their first write and inputs are rechecked. Changing a post-story scale to standard/full checks the target scale; story can change scale before authoring. Equal status/scale remains a no-op. Quick/backfill are exempt; absent version means legacy with a visible limitation, while missing metadata, unknown versions and unreadable inputs refuse. Evidence truth is not checked. Explore hands its findings to new-story, which edits the same proposal and preserves scenarios/status; changed scenarios use the existing amendment path.
+`validate proposal <change>` shares the assessment with status and the plan/tasks, forward status, verify-record and archive writers; refusal precedes their first write and inputs are rechecked. Changing a post-story scale to standard/full checks the target scale; story can change scale before authoring. Equal status/scale remains a no-op. After the retry linkage check below, quick/backfill are exempt; absent version means legacy with a visible limitation, while missing metadata, unknown versions and unreadable inputs refuse. Evidence truth is not checked. Explore hands its findings to new-story, which edits the same proposal and preserves scenarios/status; changed scenarios use the existing amendment path.
+
+## Abandoned attempts
+
+`prospec change abandon <name> --reason <text> [--overturned <field>]` owns the `abandoned` terminal branch from any nonterminal status. It saves project-scoped staged/unstaged patches and changed work bytes before moving the original artifacts to `.prospec/abandoned/YYYY-MM-DD-name`, then publishes terminal metadata last. Git work is retained; no rollback or tracker write is performed. Unsupported or unreadable inputs refuse; partial publication reports actual paths and moved/pending entries for manual reconciliation. An incomplete operation blocks its active source and is not successful history.
+
+`status` separates completed abandoned history from active routes; history alone leaves the project clean. Successful archive/finalize and review-yield exclude abandoned and incomplete entries. A new Story writes `retry_of` links to creation-time same-issue history and reports prior reasons; all scales require substantive Premise `retry_difference` before advancing. Quick/backfill accept a difference-only mapping. Legacy absent linkage stays readable; changed or unreadable linked records refuse. These are structural gates, not a guarantee that the retry succeeds.
 
 ## Stations without a status transition
 
@@ -87,6 +95,7 @@ Which statuses `review-provenance`, `test-provenance` and `delta-spec-provenance
 | `implemented` | Yes | review and the test run precede verify |
 | `verified` | Yes | S/A ends neither the audit nor the need to re-review — code edited afterwards would graduate requirements no review saw |
 | `archived` | No | unreachable rather than exempt: the bundle has left `.prospec/changes/`, so no collector enumerates it |
+| `abandoned` | No | terminal attempt retained separately from successful workflow provenance |
 
 Evidence identity is `snapshot-v2` / `repository-inputs-v2`: final tracked and non-ignored untracked
 file content, mode and symlink semantics; HEAD and staging are diagnostic only. Complete

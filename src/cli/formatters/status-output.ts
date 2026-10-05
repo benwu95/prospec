@@ -44,6 +44,10 @@ export function formatStatusJson(report: StatusReport): void {
 export function formatStatusOutput(report: StatusReport, logLevel: LogLevel): void {
   if (logLevel === 'quiet') return;
 
+  for (const attempt of report.abandoned ?? []) {
+    console.log(`Abandoned history: ${sanitizeTerminal(attempt.archive)} — ${sanitizeTerminal(attempt.reason)}`);
+  }
+
   if (report.clean) {
     console.log(`${pc.green('✓')} No in-progress changes — \`.prospec/changes/\` is clean`);
     if (report.drift) {

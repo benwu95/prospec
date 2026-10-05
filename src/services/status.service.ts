@@ -1,4 +1,5 @@
 import { readPremiseAssessment } from '../lib/premise.js';
+import { readAbandonHistory } from '../lib/abandon-history.js';
 import { planningFlawsStreak, verifyBelowBarStreak, reduceEscalationHistory } from '../lib/escalation.js';
 export { planningFlawsStreak, verifyBelowBarStreak } from '../lib/escalation.js';
 import * as fs from 'node:fs';
@@ -72,7 +73,8 @@ export async function execute(options: StatusOptions = {}): Promise<StatusReport
   const changesDir = path.resolve(cwd, '.prospec/changes');
 
   const changes: ChangeRoute[] = [];
-  const errors: ChangeRouteError[] = [];
+  const history = readAbandonHistory(cwd);
+  const errors: ChangeRouteError[] = history.errors.map(({ name, error }) => ({ name, error }));
 
   // The next station's skill path is resolved from the project's configured
   // agents (Station Transition Protocol). Read config ONCE here and thread it into
@@ -102,6 +104,7 @@ export async function execute(options: StatusOptions = {}): Promise<StatusReport
       .sort();
 
     for (const name of dirs) {
+      if (history.errors.some((entry) => entry.source === undefined || entry.source === name)) continue;
       const changeDir = path.join(changesDir, name);
       const metadataPath = path.join(changeDir, 'metadata.yaml');
       if (!fs.existsSync(metadataPath)) {
@@ -111,6 +114,10 @@ export async function execute(options: StatusOptions = {}): Promise<StatusReport
       try {
         const { metadata } = readChangeMetadata(metadataPath, name);
         if (metadata.status === 'archived') continue;
+        if (metadata.status === 'abandoned') {
+          errors.push({ name, error: 'Incomplete-location error: abandoned metadata remains in the active directory; inspect its source and archive artifacts' });
+          continue;
+        }
         const facts = await collectFacts(changeDir, name, metadata, cwd, config, pauseAtPlan);
         const route = routeChange(facts);
         if (
@@ -162,6 +169,7 @@ export async function execute(options: StatusOptions = {}): Promise<StatusReport
     clean: isClean,
     changes,
     errors,
+    ...(history.attempts.length > 0 ? { abandoned: history.attempts } : {}),
     ...(drift !== undefined ? { drift } : {}),
   };
 }

@@ -9,7 +9,7 @@
 
 ### [MUST] Language Policy
 
-**Description**: Change artifacts and their archived summaries — `.prospec/changes/**`, `.prospec/archive/**`, `prospec/specs/_archived-history/**` — are written in Traditional Chinese (Taiwan). The trust zone — `prospec/CONSTITUTION.md`, `prospec/README.md`, `prospec/index.md`, `prospec/specs/product.md`, `prospec/specs/features/**`, `prospec/ai-knowledge/**` — always remains in English, as do code, identifiers, technical terms, and git commit messages: it is technical reference read next to the code and cited in English, and is **explicitly NOT** subject to the Traditional Chinese (Taiwan) requirement. Named exceptions inside the trust zone, which MAY use Traditional Chinese (Taiwan):
+**Description**: Change artifacts and their archived summaries — `.prospec/changes/**`, `.prospec/archive/**`, `.prospec/abandoned/**`, `prospec/specs/_archived-history/**` — are written in Traditional Chinese (Taiwan). The trust zone — `prospec/CONSTITUTION.md`, `prospec/README.md`, `prospec/index.md`, `prospec/specs/product.md`, `prospec/specs/features/**`, `prospec/ai-knowledge/**` — always remains in English, as do code, identifiers, technical terms, and git commit messages: it is technical reference read next to the code and cited in English, and is **explicitly NOT** subject to the Traditional Chinese (Taiwan) requirement. Named exceptions inside the trust zone, which MAY use Traditional Chinese (Taiwan):
 
 - keyword data — the `aliases` in `prospec/ai-knowledge/module-map.yaml` and the Aliases column of `prospec/index.md` (native-language terms widen L1 keyword matching)
 - the `description` column of `prospec/ai-knowledge/_lessons-ledger.md` (each lesson — and its promotion provenance suffix — is quoted in the language of the original correction; every other column stays English)
@@ -22,7 +22,7 @@ Named exceptions inside the change-artifact zone, which stay **English** because
 
 **Rationale**: The project owner reviews their own change narrative in Traditional Chinese (Taiwan), reducing communication barriers; archive summaries are that narrative's committed copy, so they follow it rather than the English Feature Specs. The trust zone sits next to the code as technical reference (and is what reviewers cite in English), so keeping it — like code, terminology, and commit history — in English follows industry convention and matches its actual, review-endorsed state. This rule and the entry config are generated from one resolved path set (`lib/language-policy.ts`), so the two cannot drift into contradicting each other.
 
-**Verify**: stations: all; check: language-policy-drift; covers: Description matches generated text for configured language scope. Files under `.prospec/changes/**`, `.prospec/archive/**`, and `prospec/specs/_archived-history/**` are written in Traditional Chinese (Taiwan); `prospec/CONSTITUTION.md`, `prospec/README.md`, `prospec/index.md`, `prospec/specs/product.md`, `prospec/specs/features/**`, `prospec/ai-knowledge/**`, code, technical terms, and commit messages are in English. The named exceptions above are NOT violations — in either direction — and an audit does NOT flag the English trust zone as a Language-Policy violation (the zone is exempt).
+**Verify**: stations: all; check: language-policy-drift; covers: Description matches generated text for configured language scope. Files under `.prospec/changes/**`, `.prospec/archive/**`, `.prospec/abandoned/**`, and `prospec/specs/_archived-history/**` are written in Traditional Chinese (Taiwan); `prospec/CONSTITUTION.md`, `prospec/README.md`, `prospec/index.md`, `prospec/specs/product.md`, `prospec/specs/features/**`, `prospec/ai-knowledge/**`, code, technical terms, and commit messages are in English. The named exceptions above are NOT violations — in either direction — and an audit does NOT flag the English trust zone as a Language-Policy violation (the zone is exempt).
 
 ---
 ### [MUST] Atomic Commits and Format Requirements
@@ -121,7 +121,7 @@ The drift engine does **not** check count accuracy — a correct aggregate can m
 
 ## Constraints
 
-- [x] Change artifacts (`.prospec/changes/`, `.prospec/archive/`, `specs/_archived-history/`) are written in Traditional Chinese (Taiwan); the trust zone stays English (exempt, minus the named exceptions)
+- [x] Change artifacts (`.prospec/changes/`, `.prospec/archive/`, `.prospec/abandoned/`, `specs/_archived-history/`) are written in Traditional Chinese (Taiwan); the trust zone stays English (exempt, minus the named exceptions)
 - [x] Commits are atomic by feature; follow Conventional Commits; messages in English; bodies are bulleted lists; no AI co-authorship
 - [x] All changes MUST pass CI parity checks (`lint`, `typecheck`, `test:coverage`, `counts:check`, `agents:check`, `knowledge:check`, `prospec check --strict`) before merge
 - [x] User Stories satisfy INVEST — advisory (non-blocking) nudge at `/prospec-new-story`, authoritatively enforced by `/prospec-verify`'s audit

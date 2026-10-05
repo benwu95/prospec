@@ -61,6 +61,7 @@ export const STATUS_STATION: Record<ChangeRouteFacts['status'], SddStation> = {
   implemented: 'implement',
   verified: 'verify',
   archived: 'archive',
+  abandoned: 'archive',
 };
 
 /** Route one in-flight change to its next SDD station. Pure — no I/O. */
@@ -98,6 +99,7 @@ export function routeChange(facts: ChangeRouteFacts): ChangeRoute {
   if (
     forbidden.includes('plan.md') &&
     forbidden.includes('tasks.md') &&
+    facts.premise?.state !== 'blocked' &&
     isStatusBefore(facts.status, 'implemented')
   ) {
     return {
@@ -114,7 +116,7 @@ export function routeChange(facts: ChangeRouteFacts): ChangeRoute {
   }
 
   const history = facts.escalationHistory;
-  if (facts.status !== 'archived' && history?.pending != null) {
+  if (facts.status !== 'archived' && facts.status !== 'abandoned' && history?.pending != null) {
     const pending = history.pending;
     const decision = escalationDecision({
       event_id: pending.event_id, station: pending.station,
@@ -133,7 +135,7 @@ export function routeChange(facts: ChangeRouteFacts): ChangeRoute {
     };
   }
 
-  if (facts.status !== 'archived' && facts.premise?.state === 'blocked') {
+  if (facts.status !== 'archived' && facts.status !== 'abandoned' && facts.premise?.state === 'blocked') {
     return {
       ...base, next: 'explore', code: 'PREMISE_INCOMPLETE',
       blockingGates: facts.premise.findings,
@@ -440,6 +442,7 @@ export function routeChange(facts: ChangeRouteFacts): ChangeRoute {
       };
     }
 
+    case 'abandoned':
     case 'archived': {
       return {
         ...base,

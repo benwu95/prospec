@@ -11,15 +11,15 @@ function guidance(content: string): string {
   return match![1]!;
 }
 function assertContract(section: string): void {
-  expect(section).toMatch(/present the CLI decision.*ordinal.*recommended/s);
-  expect(section).toMatch(/never self-authorize/i);
-  expect(section).toMatch(/report warning.*not.*grant/i);
-  expect(section).toMatch(/one new attempt.*current event.*station/s);
-  expect(section).toMatch(/Tests remain an independent gate/);
-  expect(section).toMatch(/unpersisted observation.*not.*grant target/s);
-  expect(section).toMatch(/re-scope.*proposal.*amendment.*gates/s);
-  expect(section).toMatch(/abandon.*stop.*retain/s);
-  expect(section).not.toMatch(/prospec change abandon|automatically roll back|Progression may then proceed/);
+  expect(section).toMatch(/Present CLI trigger.*ordinal.*recommendation/s);
+  expect(section).toMatch(/Human.*composed WARN alone grants one event\/station attempt/s);
+  expect(section).toMatch(/observations\/report warnings grant nothing/);
+  expect(section).toMatch(/Replay consumes none; resolution expires grants/);
+  expect(section).toMatch(/Tests remain independent/);
+  expect(section).toMatch(/Re-scope retains amendment gates\/status without unlocking escalation/);
+  expect(section).toMatch(/prospec change abandon.*--reason/);
+  expect(section).toMatch(/preservation precedes movement and terminal metadata/);
+  expect(section).not.toMatch(/automatically roll back|Progression may then proceed/);
 }
 
 describe('CLI-owned escalation guidance', () => {
@@ -33,7 +33,9 @@ describe('CLI-owned escalation guidance', () => {
   });
   it('kills deletion of every enforcement predicate instead of merely matching a heading', () => {
     const section = guidance(renderTemplate('skills/prospec-review.hbs', {}));
-    for (const line of section.split('\n').filter(line => /present the CLI|self-authorize|report warning|one new attempt|Tests remain|unpersisted observation|re-scope|abandon/.test(line))) {
+    const predicates = section.split('\n').filter(line => /^- |^Run `prospec change abandon/.test(line));
+    expect(predicates).toHaveLength(4);
+    for (const line of predicates) {
       expect(() => assertContract(section.replace(line, ''))).toThrow();
     }
   });

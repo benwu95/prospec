@@ -1,6 +1,8 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
-import { AlreadyExistsError } from '../types/errors.js';
+import { AlreadyExistsError, PrerequisiteError } from '../types/errors.js';
+import type { AbandonedAttempt } from '../types/abandon.js';
+import { matchingAbandoned, readAbandonHistory } from '../lib/abandon-history.js';
 import { readConfig, resolveBasePaths } from '../lib/config.js';
 import { ensureDir, atomicWrite } from '../lib/fs-utils.js';
 import { renderTemplate } from '../lib/template.js';
@@ -51,6 +53,7 @@ export interface ChangeStoryResult {
   dryRun: boolean;
   relatedModules: RelatedModule[];
   description?: string;
+  priorAttempts?: AbandonedAttempt[];
 }
 
 /**
@@ -77,6 +80,12 @@ export async function execute(options: ChangeStoryOptions): Promise<ChangeStoryR
   if (fs.existsSync(changeDir)) {
     throw new AlreadyExistsError(`.prospec/changes/${changeName}`);
   }
+  const history = readAbandonHistory(cwd);
+  if (history.errors.length > 0) {
+    throw new PrerequisiteError(`Cannot resolve abandoned history: ${history.errors.map((entry) => `${entry.name}: ${entry.error}`).join('; ')}`,
+      'Inspect incomplete or unreadable archive entries before creating another attempt');
+  }
+  const priorAttempts = matchingAbandoned(history, options.issue);
 
   // 3. Explicit modules win over keyword auto-matching from index.md.
   // Keyed on the KEY's presence, not on the array being non-empty: a caller
@@ -100,6 +109,7 @@ export async function execute(options: ChangeStoryOptions): Promise<ChangeStoryR
     change_name: changeName,
     description: options.description,
     related_modules: relatedModules.length > 0 ? relatedModules : undefined,
+    prior_attempts: priorAttempts,
   };
 
   const createdFiles: string[] = [];
@@ -119,6 +129,7 @@ export async function execute(options: ChangeStoryOptions): Promise<ChangeStoryR
   const issue = normalizeIssueRef(options.issue);
   const metadata: NewChangeMetadata = {
     premise_version: 1,
+    retry_of: priorAttempts.map(({ archive, digest }) => ({ archive, digest })),
     name: changeName,
     created_at: new Date().toISOString(),
     status: 'story',
@@ -179,6 +190,7 @@ export async function execute(options: ChangeStoryOptions): Promise<ChangeStoryR
     relatedModules,
     dryRun: options.dryRun ?? false,
     description: options.description,
+    priorAttempts,
   };
 }
 

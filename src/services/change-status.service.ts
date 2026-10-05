@@ -68,7 +68,9 @@ export async function execute(options: ChangeStatusOptions): Promise<ChangeStatu
       `'${options.to}' is gate-owned and cannot be set via \`change status\``,
       options.to === 'verified'
         ? '`status: verified` is minted only by `prospec verify record` at grade S/A'
-        : '`status: archived` is minted only by `prospec archive`',
+        : options.to === 'abandoned'
+          ? '`status: abandoned` is minted only by `prospec change abandon`'
+          : '`status: archived` is minted only by `prospec archive`',
     );
   }
 

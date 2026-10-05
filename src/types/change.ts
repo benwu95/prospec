@@ -1,5 +1,6 @@
 import { createHash } from 'node:crypto';
 import { z } from 'zod';
+import { RetryLinkSchema, ABANDON_MANIFEST } from './abandon.js';
 
 /**
  * ChangeMetadata schema — validates metadata.yaml in change directories
@@ -8,7 +9,7 @@ import { z } from 'zod';
  * (canonical source: prospec/ai-knowledge/_status-lifecycle.md)
  */
 
-export const CHANGE_STATUSES = ['story', 'plan', 'tasks', 'implemented', 'verified', 'archived'] as const;
+export const CHANGE_STATUSES = ['story', 'plan', 'tasks', 'implemented', 'verified', 'archived', 'abandoned'] as const;
 
 /** Process weight per change (BL-004). Absent on existing metadata means `standard`.
  *  `backfill` is a promotion-time scale set only by `prospec-promote-backfill` (documents
@@ -542,6 +543,16 @@ const ChangeMetadataShape = {
   acceptance: AcceptanceBaselineSchema.optional(),
   // Missing declares a legacy change; malformed/unknown versions fail closed.
   premise_version: z.literal(1).optional(),
+  retry_of: z.array(RetryLinkSchema).optional(),
+  abandonment: z.object({
+    reason: z.string().refine((value) => value.trim().length > 0, 'reason must not be blank'),
+    at: z.string().min(1),
+    from_status: z.enum(CHANGE_STATUSES).exclude(['archived', 'abandoned']),
+    escalation: z.object({ trigger: z.enum(ESCALATION_TRIGGERS), ordinal: z.number().int().positive() }).nullable(),
+    overturned: z.array(z.object({ field: z.string().min(1), value: z.union([z.string(), z.number(), z.boolean(), z.null()]) })),
+    premise_note: z.string(),
+    manifest: z.literal(ABANDON_MANIFEST),
+  }).optional(),
 } as const;
 
 /** Strict view — no index signature, so tsc's excess-property check still
@@ -574,7 +585,7 @@ export type ChangeStatus = (typeof CHANGE_STATUSES)[number];
 /** Statuses a dedicated gate mints — never reachable via `change status`:
  *  `verified` is `prospec verify record`'s grade-S/A output and `archived` is
  *  `prospec archive`'s; a direct write would bypass the quality gate. */
-export const GATE_OWNED_STATUSES: readonly ChangeStatus[] = ['verified', 'archived'];
+export const GATE_OWNED_STATUSES: readonly ChangeStatus[] = ['verified', 'archived', 'abandoned'];
 
 /** The `<to>` values `prospec change status` accepts. */
 export const STATION_SETTABLE_STATUSES: readonly ChangeStatus[] = CHANGE_STATUSES.filter(

@@ -144,6 +144,8 @@ Define one or more INVEST User Stories (slim form when `scale: quick` — see Ph
 
 Follow `references/proposal-format.md` format with all sections from Phase 4. Keep every unconfirmed inference in Stated Assumptions, including inferred problem/value claims.
 
+Read previous abandoned reasons from `change story`; author Premise `retry_difference` with changed evidence or approach before validation, for all scales. The CLI owns linkage.
+
 Run `prospec validate proposal [name]` after editing. Blocked → `prospec-explore`, then resume on the same proposal. Ready/legacy/exempt may advance; pending is not a completed handoff. Applicability and structural-validation limits are defined in proposal-format.
 
 Once substantive acceptance scenarios have been authored, **freeze** the baseline:

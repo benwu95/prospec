@@ -54,7 +54,7 @@ afterEach(() => {
 
 describe('gitRead allowlist (REQ-LIB-090, REQ-TESTS-125)', () => {
   it('is the closed set of reading subcommands', () => {
-    expect([...GIT_READ_SUBCOMMANDS]).toEqual(['rev-parse', 'ls-files', 'for-each-ref', 'status', 'symbolic-ref', 'reflog']);
+    expect([...GIT_READ_SUBCOMMANDS]).toEqual(['rev-parse', 'ls-files', 'for-each-ref', 'status', 'symbolic-ref', 'reflog', 'diff']);
   });
 
   it.each(['commit', 'update-ref', 'config', 'cat-file', 'hash-object', 'checkout', 'stash', 'gc'])(
@@ -217,3 +217,21 @@ describe('gitSnapshot (REQ-LIB-090, REQ-LIB-091)', () => {
   });
 });
 
+
+describe('preservation Git reads', () => {
+  it('captures staged and unstaged binary patches separately', () => {
+    writeFileSync(path.join(repo, 'main.txt'), 'staged\n');
+    childProcess.execFileSync('git', ['add', 'main.txt'], { cwd: repo });
+    writeFileSync(path.join(repo, 'main.txt'), 'main\n');
+    const flags = ['--binary', '--full-index', '--no-ext-diff', '--no-textconv', '--no-renames'];
+    const staged = gitRead(repo, 'diff', [...flags, '--cached', 'HEAD', '--', '.']);
+    const unstaged = gitRead(repo, 'diff', [...flags, '--', '.']);
+    expect(staged).toContain('+staged');
+    expect(unstaged).toContain('-staged');
+    expect(execFileSync.mock.calls.at(-1)?.[2]).toMatchObject({ timeout: 30_000 });
+  });
+  it.each([['--output=lost'], ['--ext-diff'], ['--textconv'], ['HEAD'], ['--binary', '--', '.']])('refuses incomplete or writing diff invocation %j', (...args) => {
+    expect(() => gitRead(repo, 'diff', args)).toThrow(/read|diff/);
+    expect(execFileSync).not.toHaveBeenCalled();
+  });
+});

@@ -47,6 +47,8 @@
 
 ## Pitfalls
 
+- `abandoned` joins `CHANGE_STATUSES` and `GATE_OWNED_STATUSES`, but neither `SDD_STATIONS` nor provenance-audited statuses. Generic transitions cannot mint it; only the abandon service publishes it.
+
 - `DRIFT_CHECK_IDS`, `MCP_RESOURCE_URIS` and `drift-report`'s `knowledge_health` are FROZEN — extend additively, never reorder or remove.
 - The per-id comments are behavioral claims read as the registry's source of truth — keep them matching the evaluators (every provenance check's backfill exemption is draft-gated; a recorded non-zero exit is never exempt). A stale claim here has twice reopened a closed bypass.
 - `SKILL_DEFINITIONS`/`AGENT_CONFIGS` counts are asserted in contract tests — update the test (and `VALID_AGENTS`) too.

@@ -183,11 +183,18 @@ function readStash(cwd: string): RepoState['stash'] {
 export function captureRepoState(cwd: string): RepoState {
   return withFixedGitEnv(() => ({
     content: readContent(cwd),
+    ...captureGitState(cwd),
+  }));
+}
+
+/** Git facets for callers with their own content scope, through the same owners. */
+export function captureGitState(cwd: string): Omit<RepoState, 'content'> {
+  return {
     head: readHead(cwd),
     index: readIndex(cwd),
     refs: readRefs(cwd),
     stash: readStash(cwd),
-  }));
+  };
 }
 
 export function isUnreadable(value: RepoState[GitStateFacet]): value is { unreadable: string } {

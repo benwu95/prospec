@@ -1,6 +1,7 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { PrerequisiteError } from '../types/errors.js';
+import { excludesAbandonFromYield } from '../lib/abandon-history.js';
 import { normalizeStationName, SDD_STATIONS } from '../types/status.js';
 import {
   LessonInputSchema,
@@ -75,6 +76,7 @@ export async function scanArchivedReviews(
         (item.isSymbolicLink() &&
           (await fs.promises.stat(full).catch(() => undefined))?.isDirectory() === true);
       if (!isDir) continue;
+      if (excludesAbandonFromYield(full, dir)) continue;
       const reviewPath = path.join(full, 'review.md');
       if (fs.existsSync(reviewPath)) {
         const content = await fs.promises.readFile(reviewPath, 'utf-8');

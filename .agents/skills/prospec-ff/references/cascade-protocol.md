@@ -94,10 +94,10 @@ When the pipeline completes final Verification with Grade S/A, reaching this bou
 
 ## Escalation Decision (CLI-Owned)
 
-- Stop; present the CLI decision: trigger, lifetime ordinal, exits, recommended action.
-- Never self-authorize: a report warning is not a grant. Log the human's nonempty `Manual override: <reason>` via composed WARN.
-- Grants allow one new attempt per current event and station; replay consumes none, resolution expires grants. Tests remain an independent gate.
-- An unpersisted observation is not a grant target; repair receipt-bound gaps.
-- For re-scope, revise proposal or start a Story; amendment gates remain, without unlocking escalation or regressing status.
-- For abandon, stop and retain artifacts/reasons; rollback requires human approval.
-- Preserve history after PASS, adjacent prose and fenced examples.
+- Present CLI trigger, lifetime ordinal, exits/recommendation; stop.
+- Human `Manual override: <reason>` composed WARN alone grants one event/station attempt; observations/report warnings grant nothing. Replay consumes none; resolution expires grants. Tests remain independent.
+- Re-scope retains amendment gates/status without unlocking escalation. Preserve history, adjacent prose and fenced examples after PASS.
+
+### Abandon an attempt
+
+Run `prospec change abandon <name> --reason <text>`; retain `.prospec/abandoned/` artifacts. `--overturned <field>` identifies disproved leaves. Work preservation precedes movement and terminal metadata; inspect partial-failure paths. Every scale requires retry `retry_difference`.

@@ -42,6 +42,12 @@ export function formatChangeStoryOutput(
     }
   }
 
+  if (result.priorAttempts?.length) {
+    lines.push('', 'Previous abandoned attempts:');
+    for (const attempt of result.priorAttempts) lines.push(`  ${sanitizeTerminal(attempt.archive)}: ${sanitizeTerminal(attempt.reason)}`);
+    lines.push('Complete Premise.retry_difference with the new evidence or approach before advancing (all scales).');
+  }
+
   // 4. Next steps
   lines.push('');
   lines.push(
@@ -80,4 +86,3 @@ export function formatChangeAcceptanceOutput(
 
   process.stdout.write(lines.join('\n') + '\n');
 }
-

@@ -9,6 +9,7 @@
 
 | File | Purpose |
 |------|---------|
+| `_escalation-guidance.hbs` / `references/proposal-format.hbs` | CLI-owned abandon exit and same-issue retry difference before scale exemptions; lifecycle copies keep the separate terminal branch |
 | `knowledge/*.hbs` (6) | `module-readme`, `index.md` + `_index-auto-block`, `raw-scan.md` (incl. the `Directories Without Source Files` evidence block), `module-map.yaml`, `feature-map.yaml` |
 | `change/*.hbs` (5) | proposal / plan / delta-spec / tasks scaffolds, plus `auto-draft-proposal` (the drift-derived body `auto-draft.service` hands to `change-story.service`); metadata.yaml is serialized in `change-story.service`, not templated |
 | `init/*.hbs` (9) | `prospec.yaml`, readme, Constitution, conventions, status-lifecycle, `prospec-check.yml` CI drift gate |
@@ -39,6 +40,10 @@
 - `module-readme.hbs` / `index.md.hbs` changes affect ALL knowledge output — guard with `knowledge-format.test.ts`; `skills/**` ripple is covered in the sub-module.
 
 ## Pitfalls
+
+- Abandon guidance uses `.prospec/abandoned/`; successful archive remains separate. Entry configs inherit its artifact-language scope from `language-policy.ts`.
+
+- New-story/ff review abandoned reasons and author `retry_difference` before validation on every scale. CLI-owned `retry_of` records creation-time history; quick/backfill can use a difference-only Premise. Synchronize both lifecycle copies and refresh exact startup baselines without raising ceilings.
 
 - `_premise.hbs` is the shared pending proposal mapping. Proposal-format owns the contract; new-story/ff ground confirmed Why in traceable evidence, and explore hands missing evidence back to new-story to update the same proposal without resetting status or scenarios. `source` remains the original origin after verification. Interactive prompts ask only for missing decisions, reusing supplied name, scale and tracker inputs.
 
