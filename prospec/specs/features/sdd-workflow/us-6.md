@@ -17,6 +17,7 @@ so that `.prospec/changes/` stays clean, the SDD lifecycle closes correctly, and
 
 #### REQ-TYPES-010: ChangeStatus Archived Support
 `archived` is a valid ChangeStatus value.
+- WHEN the lifecycle type is read, THEN abandoned is also a valid terminal value, owned by the abandon command rather than successful archive.
 
 #### REQ-SERVICES-010: Archive Service (spec-history destination correction)
 

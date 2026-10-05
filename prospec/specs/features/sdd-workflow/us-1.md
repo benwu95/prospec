@@ -29,6 +29,7 @@ Generate a proposal.md in INVEST User Story format.
 - WHEN the caller supplies a `scale`, THEN it is written into `metadata.yaml` at creation, so a change whose scale is known up front needs no second command to record it
 - WHEN the caller asks for a dry run, THEN every resolution and validation still runs — the collision refusal and the metadata schema check included — and nothing is written; the result says `dryRun`, and its file list is what WOULD be written rather than a claim that it exists
 - WHEN a new proposal is scaffolded, THEN it includes a pending Premise skeleton under REQ-TYPES-111; the skill completes it under REQ-TEMPLATES-245 before planning when applicable.
+- WHEN a story is created, THEN the creator captures retry linkage and returns matching abandoned reasons under REQ-LIB-101, including when a supplied proposal body is written verbatim.
 
 #### REQ-CHNG-003: Auto-Identify Related Modules
 Identify related modules by keyword-matching against the root-level `{base_dir}/index.md`, taking the **bare** module name from the Module cell.
@@ -50,6 +51,7 @@ Track status via metadata.yaml, with `ai-knowledge/_status-lifecycle.md` as the 
 - WHEN reaching the S/A commit boundary, THEN final module-README Knowledge and factual-count sync precede final valid review/tests/verify, and a content-equivalent feature commit retains that evidence; archive remains the backstop that FAILs when unsynced, while Feature Specs remain archive-Phase-3.5-only
 - WHEN `prospec change auto-draft` creates a change, THEN its `scale` is assigned from the drift check that triggered it rather than confirmed by a user — a machine-assigned scale is as legal as a confirmed one, and the lifecycle document says so rather than stating a blanket "user-confirmed"
 - WHEN story scaffolding creates metadata, THEN it declares premise_version: 1 under REQ-TYPES-111; legacy records remain readable without that field.
+- WHEN change abandon completes under REQ-SERVICES-128, THEN status becomes terminal abandoned outside the successful graduation chain; generic status cannot set or revive it.
 
 #### REQ-CHNG-005: Prevent Duplicate Changes
 - WHEN change name already exists, THEN prompt and exit
@@ -68,6 +70,7 @@ Track status via metadata.yaml, with `ai-knowledge/_status-lifecycle.md` as the 
 - WHEN the reference documents field domains, THEN it points to the schema/`_status-lifecycle.md` rather than restating them (avoids the templates restatement-contract failure)
 - WHEN documenting acceptance metadata, THEN describe pending, frozen and late-capture states, revision identity and amendment audit fields by reference to the executable schema; never teach manual YAML serialization
 - WHEN describing quality_log entries, THEN the reference does not impose a one-entry-per-station cardinality
+- WHEN documenting abandonment and retry linkage, THEN the reference names the CLI-owned fields and their schema owner without teaching manual metadata mutation.
 
 ---
 
