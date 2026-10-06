@@ -19,6 +19,7 @@ import { captureGitState } from '../../../src/lib/repo-state.js';
 import { abandonDirFor } from '../../../src/lib/abandon-paths.js';
 import { gitIn, imageOf } from '../../helpers/git-fixture.js';
 import { premiseProposal } from '../../helpers/premise.js';
+import { ABANDON_GITLINKS, ABANDON_MANIFEST, PreservationGitlinksSchema, PreservationManifestSchema } from '../../../src/types/abandon.js';
 vi.setConfig({ testTimeout: 30_000 });
 let root: string;
 let dir: string;
@@ -192,4 +193,49 @@ it('review R1 refuses re-abandoning a partial publication across UTC days', asyn
   } finally {
     vi.useRealTimers();
   }
+});
+
+describe('abandon with submodules', () => {
+  const sources: string[] = [];
+  afterEach(() => { for (const src of sources.splice(0)) fs.rmSync(src, { recursive: true, force: true }); });
+  const addSubmodule = (): string => {
+    const src = fs.mkdtempSync(path.join(os.tmpdir(), 'abandon-sub-')); sources.push(src);
+    gitIn(src, 'init', '-q'); fs.writeFileSync(path.join(src, 'lib.txt'), 'v1'); gitIn(src, 'add', '.'); gitIn(src, 'commit', '-qm', 'v1');
+    fs.writeFileSync(path.join(src, 'lib.txt'), 'v2'); gitIn(src, 'commit', '-qam', 'v2');
+    gitIn(root, '-c', 'protocol.file.allow=always', 'submodule', 'add', '-q', src, 'vendor/shared'); gitIn(root, 'commit', '-qm', 'submodule');
+    return path.join(root, 'vendor/shared');
+  };
+  const record = (archiveDir: string) => PreservationGitlinksSchema.parse(JSON.parse(fs.readFileSync(path.join(archiveDir, ABANDON_GITLINKS), 'utf8')));
+
+  it('abandons with a clean submodule and keeps the manifest readable by its unchanged schema', async () => {
+    const sub = addSubmodule(); const head = gitIn(sub, 'rev-parse', 'HEAD');
+    const result = await execute(opts());
+    expect(record(result.archiveDir).entries).toEqual([{ path: 'vendor/shared', index: head, checkout: head }]);
+    expect(PreservationManifestSchema.safeParse(JSON.parse(fs.readFileSync(path.join(result.archiveDir, ABANDON_MANIFEST), 'utf8'))).success).toBe(true);
+    expect(readAbandonHistory(root).errors).toEqual([]);
+  });
+  it.each(['staged', 'checked out'] as const)('restores a %s pin upgrade from the record', async (how) => {
+    const sub = addSubmodule(); const original = gitIn(sub, 'rev-parse', 'HEAD');
+    gitIn(sub, 'checkout', '-q', 'HEAD~1'); const upgraded = gitIn(sub, 'rev-parse', 'HEAD');
+    if (how === 'staged') gitIn(root, 'add', 'vendor/shared');
+    const result = await execute(opts());
+    const [entry] = record(result.archiveDir).entries;
+    expect(entry).toEqual({ path: 'vendor/shared', index: how === 'staged' ? upgraded : original, checkout: upgraded });
+    gitIn(root, 'reset', '-q', '--', 'vendor/shared'); gitIn(sub, 'checkout', '-q', original);
+    gitIn(root, 'update-index', '--cacheinfo', `160000,${entry!.index},vendor/shared`);
+    gitIn(sub, 'checkout', '-q', entry!.checkout!);
+    expect(gitIn(root, 'ls-files', '-s', 'vendor/shared')).toContain(entry!.index);
+    expect(gitIn(sub, 'rev-parse', 'HEAD')).toBe(upgraded);
+  });
+  it('refuses a dirty submodule before moving artifacts', async () => {
+    const sub = addSubmodule(); fs.writeFileSync(path.join(sub, 'lib.txt'), 'edited');
+    const before = imageOf(dir);
+    await expect(execute(opts())).rejects.toThrow(/vendor\/shared/);
+    expect(imageOf(dir)).toEqual(before);
+    expect(fs.existsSync(abandonDirFor(root, 'x'))).toBe(false);
+  });
+  it('writes no gitlink record without submodules', async () => {
+    const result = await execute(opts());
+    expect(fs.existsSync(path.join(result.archiveDir, ABANDON_GITLINKS))).toBe(false);
+  });
 });

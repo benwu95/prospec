@@ -9,7 +9,7 @@ import type { ModuleMap } from '../../../src/types/module-map.js';
 import { evaluateKnowledgeHealth } from '../../../src/lib/drift-checker.js';
 import { parseYaml } from '../../../src/lib/yaml-utils.js';
 import { execute as stampKnowledge } from '../../../src/services/knowledge-verify.service.js';
-import { GIT_ID } from '../../helpers/git-fixture.js';
+import { GIT_ID, gitIn } from '../../helpers/git-fixture.js';
 
 vi.setConfig({ testTimeout: 30_000 });
 let root: string;
@@ -74,11 +74,9 @@ describe('unprovable inputs', () => {
     chmodSync(path.join(root, 'input.txt'), 0);
     expect(computeChangeState(root)).toMatchObject({ digest: null, reason: expect.stringMatching(/EACCES|permission/i) });
   });
-  it('refuses skipped sparse inputs and gitlinks', () => {
-    git('update-index', '--skip-worktree', 'input.txt'); expect(digest()).toBeNull();
-    git('update-index', '--no-skip-worktree', 'input.txt');
-    const head = git('rev-parse', 'HEAD').toString().trim();
-    git('update-index', '--add', '--cacheinfo', `160000,${head},module`); expect(digest()).toBeNull();
+  it('refuses skipped sparse inputs', () => {
+    git('update-index', '--skip-worktree', 'input.txt');
+    expect(computeChangeState(root)).toMatchObject({ digest: null, reason: expect.stringContaining('input.txt') });
   });
   it.skipIf(process.platform === 'win32')('refuses non-roundtrippable filename bytes from the worktree or index', () => {
     // Linux permits invalid UTF-8 in the worktree; macOS does not. Git's index
@@ -149,4 +147,154 @@ it('separates equivalent commit provenance from cross-UTC-day Knowledge freshnes
   await stampKnowledge({ cwd: root, modules: ['lib'], now: '2026-10-02T12:00:00Z' });
   expect(health().result.status).toBe('pass');
   expect(digest()).not.toBe(beforeCommit);
+});
+
+describe('gitlink inputs', () => {
+  const sources: string[] = [];
+  afterEach(() => { for (const dir of sources.splice(0)) rmSync(dir, { recursive: true, force: true }); });
+  const state = (cwd = root) => computeChangeState(cwd);
+  const source = (name: string): string => {
+    const dir = mkdtempSync(path.join(os.tmpdir(), `snapshot-${name}-`)); sources.push(dir);
+    gitIn(dir, 'init', '-q'); writeFileSync(path.join(dir, 'lib.txt'), 'v1'); gitIn(dir, 'add', '.'); gitIn(dir, 'commit', '-qm', 'v1');
+    writeFileSync(path.join(dir, 'lib.txt'), 'v2'); gitIn(dir, 'commit', '-qam', 'v2');
+    return dir;
+  };
+  const addSubmodule = (src: string, at: string, cwd = root): void => {
+    gitIn(cwd, '-c', 'protocol.file.allow=always', 'submodule', 'add', '-q', src, at);
+    gitIn(cwd, 'commit', '-qm', `add ${at}`);
+  };
+  const sub = (...parts: string[]) => path.join(root, 'vendor/shared', ...parts);
+
+  it('keeps the identity of a repository without gitlinks', () => {
+    expect(digest()).toBe('ec1ad9402094e613e89cc76adf76fb3c90f1ab7eb3791f5519bca9d959c24131');
+    expect(state().gitlinks ?? []).toEqual([]);
+  });
+
+  describe('with a submodule', () => {
+    beforeEach(() => addSubmodule(source('shared'), 'vendor/shared'));
+
+    it('captures a clean submodule and lists it', () => {
+      expect(digest()).toMatch(/^[a-f0-9]{64}$/);
+      expect(state().gitlinks).toEqual(['vendor/shared']);
+    });
+    it('changes identity with the checked-out commit and keeps it across staging and commit', () => {
+      const before = digest();
+      gitIn(sub(), 'checkout', '-q', 'HEAD~1'); const moved = digest();
+      expect(moved).toBeTruthy(); expect(moved).not.toBe(before);
+      git('add', 'vendor/shared'); expect(digest()).toBe(moved);
+      git('commit', '-qm', 'pin v1'); expect(digest()).toBe(moved);
+    });
+    it.each([
+      ['a tracked modification', () => writeFileSync(sub('lib.txt'), 'edited')],
+      ['an untracked file', () => writeFileSync(sub('new.txt'), 'x')],
+      ['an assume-unchanged entry', () => gitIn(sub(), 'update-index', '--assume-unchanged', 'lib.txt')],
+      ['a skip-worktree entry', () => gitIn(sub(), 'update-index', '--skip-worktree', 'lib.txt')],
+    ])('refuses %s naming the gitlink', (_name, dirty) => {
+      dirty();
+      expect(state()).toMatchObject({ digest: null, reason: expect.stringContaining('vendor/shared') });
+    });
+    it('ignores what the submodule ignores', () => {
+      writeFileSync(path.resolve(sub(), gitIn(sub(), 'rev-parse', '--git-path', 'info/exclude')), 'build/\n', { flag: 'a' });
+      const before = digest(); mkdirSync(sub('build')); writeFileSync(sub('build', 'out.txt'), 'x');
+      expect(digest()).toBe(before);
+    });
+    it('reports dirt the repository configuration would hide', () => {
+      git('config', 'submodule.vendor/shared.ignore', 'all'); git('config', 'diff.ignoreSubmodules', 'all');
+      gitIn(sub(), 'config', 'status.showUntrackedFiles', 'no');
+      writeFileSync(sub('new.txt'), 'x');
+      expect(digest()).toBeNull();
+    });
+    it('uses the recorded commit for an empty directory and refuses unrecorded content', () => {
+      const before = digest();
+      git('submodule', 'deinit', '-q', '-f', 'vendor/shared');
+      expect(digest()).toBe(before);
+      writeFileSync(sub('stray.txt'), 'x'); expect(digest()).toBeNull();
+    });
+    it('refuses a .git that resolves to the enclosing repository', () => {
+      git('submodule', 'deinit', '-q', '-f', 'vendor/shared');
+      mkdirSync(sub('.git')); expect(digest()).toBeNull();
+    });
+    it('follows the confirmed-deletion rule for an absent directory', () => {
+      const before = digest(); rmSync(sub(), { recursive: true, force: true });
+      const deleted = digest(); expect(deleted).toBeTruthy(); expect(deleted).not.toBe(before);
+      expect(state().gitlinks).toEqual(['vendor/shared']);
+    });
+    it('stays unprovable when configuration hides the deletion', () => {
+      git('config', 'submodule.vendor/shared.ignore', 'all');
+      rmSync(sub(), { recursive: true, force: true }); expect(digest()).toBeNull();
+    });
+    it('is not redirected by an inherited GIT_DIR', () => {
+      const before = digest(); const saved = process.env.GIT_DIR;
+      process.env.GIT_DIR = path.join(root, '.git');
+      try { expect(digest()).toBe(before); } finally {
+        if (saved === undefined) delete process.env.GIT_DIR; else process.env.GIT_DIR = saved;
+      }
+    });
+  });
+
+  it('checks nested submodules at their own level', () => {
+    const mid = source('mid');
+    gitIn(mid, '-c', 'protocol.file.allow=always', 'submodule', 'add', '-q', source('leaf'), 'leaf'); gitIn(mid, 'commit', '-qm', 'leaf');
+    addSubmodule(mid, 'mid');
+    gitIn(root, '-c', 'protocol.file.allow=always', 'submodule', 'update', '-q', '--init', '--recursive');
+    const before = digest(); expect(before).toBeTruthy();
+    gitIn(path.join(root, 'mid'), 'config', 'submodule.leaf.ignore', 'all');
+    gitIn(path.join(root, 'mid'), 'config', 'status.showUntrackedFiles', 'no');
+    writeFileSync(path.join(root, 'mid/leaf/new.txt'), 'x');
+    expect(state()).toMatchObject({ digest: null, reason: expect.stringContaining('mid') });
+    rmSync(path.join(root, 'mid/leaf/new.txt')); writeFileSync(path.join(root, 'mid/leaf/lib.txt'), 'edited');
+    expect(digest()).toBeNull();
+  });
+  const nest = (parent: string, child: string, at: string): void => {
+    gitIn(parent, '-c', 'protocol.file.allow=always', 'submodule', 'add', '-q', child, at); gitIn(parent, 'commit', '-qm', at);
+  };
+  it('refuses a nested pin moved under its parent\'s ignore setting', () => {
+    const mid = source('mid'); nest(mid, source('leaf'), 'leaf');
+    addSubmodule(mid, 'mid');
+    gitIn(root, '-c', 'protocol.file.allow=always', 'submodule', 'update', '-q', '--init', '--recursive');
+    expect(digest()).toBeTruthy();
+    gitIn(path.join(root, 'mid'), 'config', 'submodule.leaf.ignore', 'all');
+    gitIn(path.join(root, 'mid/leaf'), 'checkout', '-q', 'HEAD~1');
+    expect(digest()).toBeNull();
+  });
+  it('checks a third level its own parent\'s settings would hide', () => {
+    const leaf = source('leaf'); nest(leaf, source('deep'), 'deep');
+    const mid = source('mid'); nest(mid, leaf, 'leaf');
+    addSubmodule(mid, 'mid');
+    gitIn(root, '-c', 'protocol.file.allow=always', 'submodule', 'update', '-q', '--init', '--recursive');
+    expect(digest()).toBeTruthy();
+    gitIn(path.join(root, 'mid/leaf'), 'config', 'submodule.deep.ignore', 'all');
+    writeFileSync(path.join(root, 'mid/leaf/deep/lib.txt'), 'edited');
+    expect(digest()).toBeNull();
+  });
+  it('refuses what a nested submodule directory holds outside a checkout', () => {
+    const mid = source('mid'); nest(mid, source('leaf'), 'leaf');
+    addSubmodule(mid, 'mid');
+    gitIn(root, '-c', 'protocol.file.allow=always', 'submodule', 'update', '-q', '--init');
+    expect(digest()).toBeTruthy();
+    writeFileSync(path.join(root, 'mid/leaf/stray.txt'), 'x');
+    expect(state()).toMatchObject({ digest: null, reason: expect.stringContaining('outside a checkout: mid') });
+    rmSync(path.join(root, 'mid/leaf'), { recursive: true, force: true }); writeFileSync(path.join(root, 'mid/leaf'), 'file');
+    expect(state()).toMatchObject({ digest: null, reason: expect.stringContaining('mid') });
+  });
+  it('captures a gitlink without .gitmodules', () => {
+    const nested = path.join(root, 'nested'); mkdirSync(nested);
+    gitIn(nested, 'init', '-q'); writeFileSync(path.join(nested, 'f.txt'), 'x'); gitIn(nested, 'add', '.'); gitIn(nested, 'commit', '-qm', 'n');
+    git('add', 'nested');
+    expect(digest()).toBeTruthy(); expect(state().gitlinks).toEqual(['nested']);
+  });
+  it('resolves gitlinks relative to a project nested in its repository', () => {
+    mkdirSync(path.join(root, 'proj')); put('proj/file.txt', 'p'); git('add', '.'); git('commit', '-qm', 'proj');
+    addSubmodule(source('shared'), 'proj/vendor/shared');
+    const project = path.join(root, 'proj');
+    expect(state(project).gitlinks).toEqual(['vendor/shared']);
+    writeFileSync(path.join(project, 'vendor/shared/lib.txt'), 'edited');
+    expect(state(project)).toMatchObject({ digest: null, reason: expect.stringContaining('vendor/shared') });
+  });
+  it('leaves a gitlink under .prospec/ out of scope', () => {
+    mkdirSync(path.join(root, '.prospec'));
+    addSubmodule(source('shared'), '.prospec/vendor');
+    const before = digest(); expect(before).toBeTruthy(); expect(state().gitlinks ?? []).toEqual([]);
+    writeFileSync(path.join(root, '.prospec/vendor/lib.txt'), 'edited'); expect(digest()).toBe(before);
+  });
 });

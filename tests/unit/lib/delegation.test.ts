@@ -373,6 +373,19 @@ describe('delegation lifecycle (REQ-LIB-092)', () => {
     expect(readTickets(changeDir, 'settle')[0]!.ticket.state).toBe('consumed');
   });
 
+  it('issues no ticket, checkpoint or snapshot for a tree with a gitlink', async () => {
+    const nested = path.join(repo, 'vendor');
+    git('init', '-q', nested);
+    fs.writeFileSync(path.join(nested, 'f.txt'), 'x');
+    gitIn(nested, 'add', '.');
+    gitIn(nested, 'commit', '-qm', 'n');
+    git('add', 'vendor');
+    await expect(issueTicket({ cwd: repo, changeDir, key })).rejects.toThrow(/gitlink input .*vendor/);
+    expect(fs.existsSync(ticketFile('review-lens-a-1-1'))).toBe(false);
+    expect(fs.existsSync(checkpointDirOf(changeDir, 'review-lens-a-1-1'))).toBe(false);
+    expect(snapshotsOf('review-lens-a-1-1')).toEqual([]);
+  });
+
   it('refuses a mutation at receipt, keeps the snapshot and checkpoint, refuses the sink and any new attempt, and admits one after a manual recovery', async () => {
     const issued = await issueTicket({ cwd: repo, changeDir, key });
     git('checkout', '--', 'src/a.ts');

@@ -49,6 +49,7 @@ import type { FeatureMap } from '../types/feature-map.js';
 import { FINGERPRINT_VERSION, EVIDENCE_SCOPE } from '../types/change.js';
 import type { TestEvidenceFacts } from '../types/station.js';
 import { readChangeMetadata } from './change-metadata.js';
+import { gitRead, gitReadRecords } from './git-read.js';
 import { PrerequisiteError } from '../types/errors.js';
 import type { InputSnapshot } from '../types/drift-report.js';
 import { AGENT_CONFIGS, SKILL_DEFINITIONS } from '../types/skill.js';
@@ -1727,23 +1728,88 @@ function gitPaths(cwd: string, args: string[]): string[] {
   return decoded === '' ? [] : decoded.slice(0, -1).split('\0');
 }
 
-function inputFiles(cwd: string): string[] {
+interface IndexRecord { tag: string; mode: string; oid: string; stage: string; path: string }
+
+/** One `ls-files -t --stage` record (`-v` lowercases the tag of an assume-unchanged entry). */
+function parseIndexRecord(entry: string): IndexRecord {
+  const match = /^([A-Za-z]) (\d{6}) ([a-f0-9]+) (\d)\t([\s\S]+)$/.exec(entry);
+  if (!match) throw new Error('Unsupported Git index record');
+  return { tag: match[1]!, mode: match[2]!, oid: match[3]!, stage: match[4]!, path: match[5]! };
+}
+
+const GITLINK_MODE = '160000';
+
+interface InputFiles { files: string[]; gitlinks: Map<string, string> }
+
+function inputFiles(cwd: string): InputFiles {
   const paths = new Set<string>();
+  const gitlinks = new Map<string, string>();
   for (const entry of gitPaths(cwd, ['ls-files', '-z', '-t', '--stage', '--cached', '--others', '--exclude-standard'])) {
     let file: string;
     if (entry.startsWith('? ')) file = entry.slice(2);
     else {
-      const match = /^([A-Z]) (\d{6}) [a-f0-9]+ (\d)\t([\s\S]+)$/.exec(entry);
-      if (!match) throw new Error('Unsupported Git index record');
-      file = match[4]!;
+      const record = parseIndexRecord(entry);
+      file = record.path;
       if (!inEvidenceScope(file)) continue;
-      if (match[1] === 'S' || match[2] === '160000' || match[3] !== '0') {
-        throw new Error(`Unprovable sparse, gitlink or unmerged input: ${file}`);
-      }
+      if (record.tag === 'S' || record.stage !== '0') throw new Error(`Unprovable sparse or unmerged input: ${file}`);
+      if (record.mode === GITLINK_MODE) gitlinks.set(file, record.oid);
     }
     if (inEvidenceScope(file)) paths.add(file);
   }
-  return [...paths].sort((a, b) => Buffer.compare(Buffer.from(a), Buffer.from(b)));
+  return { files: [...paths].sort((a, b) => Buffer.compare(Buffer.from(a), Buffer.from(b))), gitlinks };
+}
+
+/**
+ * A submodule's own git sees changes its parent's status may hide: the ignore
+ * settings of each level are overridden on that level's command line only, so
+ * every nested gitlink is checked again at its own level. Index entries `status`
+ * cannot see through (assume-unchanged, skip-worktree, unmerged) are refused too.
+ */
+function assertSubmoduleClean(dir: string, label: string): void {
+  if (gitReadRecords(dir, 'status', ['--porcelain=v1', '-z', '--untracked-files=all', '--ignore-submodules=none']).length > 0) {
+    throw new Error(`Submodule has uncommitted changes: ${label}`);
+  }
+  for (const record of gitReadRecords(dir, 'ls-files', ['-z', '-v', '--stage']).map(parseIndexRecord)) {
+    if (record.tag !== 'H') throw new Error(`Submodule has an entry status cannot see: ${label}`);
+    if (record.mode !== GITLINK_MODE) continue;
+    const nested = path.join(dir, record.path);
+    try { lstatSync(nested); } catch (error) {
+      if ((error as NodeJS.ErrnoException).code === 'ENOENT') continue;
+      throw error;
+    }
+    if (!existsSync(path.join(nested, '.git'))) {
+      if (readdirSync(nested).length > 0) throw new Error(`Submodule directory holds content outside a checkout: ${label}`);
+      continue;
+    }
+    assertSubmoduleClean(nested, label);
+  }
+}
+
+/**
+ * The commit a gitlink directory has checked out, or null for an empty directory
+ * (a submodule that is not initialized). An absent directory surfaces as the
+ * `lstat` ENOENT so each caller applies its own deletion rule; every state whose
+ * content the commit does not determine throws, naming `label`.
+ */
+export function readSubmoduleCheckout(dir: string, label: string): string | null {
+  const stat = lstatSync(dir);
+  if (!stat.isDirectory()) throw new Error(`Unsupported submodule kind: ${label}`);
+  if (!existsSync(path.join(dir, '.git'))) {
+    if (readdirSync(dir).length > 0) throw new Error(`Submodule directory holds content outside a checkout: ${label}`);
+    return null;
+  }
+  const head = (): string => {
+    let lines: string[];
+    try { lines = gitRead(dir, 'rev-parse', ['--show-toplevel', '--verify', 'HEAD']).trim().split('\n'); }
+    catch { throw new Error(`Submodule HEAD cannot be read: ${label}`); }
+    // A `.git` git does not accept as a repository makes it resolve the enclosing one.
+    if (lines.length !== 2 || realpathSync(lines[0]!) !== realpathSync(dir)) throw new Error(`Submodule does not resolve to its own repository: ${label}`);
+    return lines[1]!;
+  };
+  const before = head();
+  assertSubmoduleClean(dir, label);
+  if (head() !== before) throw new Error(`Submodule HEAD changed during capture: ${label}`);
+  return before;
 }
 
 /** Porcelain v1 always emits repository-root paths; ls-files is cwd-relative.
@@ -1783,13 +1849,14 @@ export function workTreePaths(cwd: string): { changed: string[]; deleted: Set<st
   return { changed: [...changed].sort((a, b) => Buffer.compare(Buffer.from(a), Buffer.from(b))), deleted };
 }
 
-export type ChangeState = InputSnapshot;
+/** `gitlinks`: every in-scope gitlink the index lists, its directory present or not. */
+export type ChangeState = InputSnapshot & { gitlinks?: string[] };
 
 /** Hash the final represented files, never Git history/index/diff representation. */
 export function computeChangeState(cwd: string): ChangeState {
   try {
     cwd = realpathSync(cwd);
-    const files = inputFiles(cwd);
+    const { files, gitlinks } = inputFiles(cwd);
     const state = workTreePaths(cwd);
     const listed = new Set(files);
     const validateMembership = (candidate: ReturnType<typeof workTreePaths>): void => {
@@ -1812,9 +1879,16 @@ export function computeChangeState(cwd: string): ChangeState {
     frame(FINGERPRINT_VERSION); frame(EVIDENCE_SCOPE);
     for (const file of files) {
       const absolute = path.resolve(cwd, file);
+      const indexOid = gitlinks.get(file);
       let stat;
-      try { stat = lstatSync(absolute); }
-      catch (error) {
+      try {
+        if (indexOid !== undefined) {
+          const commit = readSubmoduleCheckout(absolute, file) ?? indexOid;
+          frame(file); frame('gitlink'); frame('commit'); frame(commit);
+          continue;
+        }
+        stat = lstatSync(absolute);
+      } catch (error) {
         if ((error as NodeJS.ErrnoException).code !== 'ENOENT' || !state.deleted.has(file)) throw error;
         // Confirm deletion against a second observation, not an index-dependent tombstone.
         const confirmed = workTreePaths(cwd);
@@ -1835,7 +1909,7 @@ export function computeChangeState(cwd: string): ChangeState {
         throw new Error(`Input changed during capture: ${file}`);
       }
     }
-    return { digest: hash.digest('hex'), clean: state.changed.length === 0 };
+    return { digest: hash.digest('hex'), clean: state.changed.length === 0, ...(gitlinks.size > 0 ? { gitlinks: [...gitlinks.keys()] } : {}) };
   } catch (error) {
     return { digest: null, clean: null, reason: error instanceof Error ? error.message : String(error) };
   }

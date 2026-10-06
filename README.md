@@ -4,7 +4,7 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg?style=flat-square)](LICENSE)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.9-blue?style=flat-square&logo=typescript)](https://www.typescriptlang.org/)
-[![Tests](https://img.shields.io/badge/tests-7481%20total-success?style=flat-square)](tests/)
+[![Tests](https://img.shields.io/badge/tests-7526%20total-success?style=flat-square)](tests/)
 [![Node](https://img.shields.io/badge/node-%3E%3D22.13-brightgreen?style=flat-square&logo=node.js)](https://nodejs.org/)
 [![pnpm](https://img.shields.io/badge/pnpm-%3E%3D11-orange?style=flat-square&logo=pnpm)](https://pnpm.io/)
 
@@ -519,7 +519,7 @@ The few command details a reader most often needs from here:
 
 - **`prospec validate <kind> <file>`** — validates one artifact against its schema; `<kind>` is one of
   `proposal`, `slug`, `backfill-draft`, `promote-scaffold`, `design-spec`, `module-readme`, `candidates`.
-- **`prospec change abandon <name> --reason <text> [--overturned <field>]`** — ends an attempt after preserving staged/unstaged binary patches and changed work bytes within the Prospec project root (excluding monorepo siblings). Original artifacts and reasons are retained in `.prospec/abandoned/`; partial failures report actual paths and moved/pending files for manual reconciliation. Unsupported Git inputs refuse; the command performs no rollback or tracker write. Same-issue new Stories report prior reasons and require Premise `retry_difference` on every scale.
+- **`prospec change abandon <name> --reason <text> [--overturned <field>]`** — ends an attempt after preserving staged/unstaged binary patches and changed work bytes within the Prospec project root (excluding monorepo siblings). Original artifacts and reasons are retained in `.prospec/abandoned/`; partial failures report actual paths and moved/pending files for manual reconciliation. Each submodule in the project is recorded in `preservation/gitlinks.json` (its path, the commit the index records and the commit checked out; no file means no submodule) so a pin upgrade can be restored while the submodule still holds those commits; a submodule with uncommitted content and other unsupported Git inputs refuse; the command performs no rollback or tracker write. Same-issue new Stories report prior reasons and require Premise `retry_difference` on every scale.
 - **`prospec change story <name> --freeze-scenarios` / `--amend-scenarios`** — freezes acceptance scenarios from `proposal.md` into `metadata.yaml` baseline (or appends a controlled revision with `--reason` and `--expected-digest`). Planning and tasks require a frozen baseline; legacy changes lacking baselines are admitted with disclosure (capped below grade S). Baseline modifications on verified/archived changes face terminal refusal. Note that baseline digests and verification context provide audit traceability, not sandbox or permission isolation.
 - **`prospec verify context --change <name>`** — writes deterministic `verify-context.json` combining spec, frozen baseline, proposal, code snapshot, and test attempt facts before grading; verified by `verify record` during per-REQ evaluation.
 - **`prospec change log --skill <skill> --verifier-report <file>`** — records a planning verifier's own
@@ -566,6 +566,8 @@ The few command details a reader most often needs from here:
   plus this working tree; see the change's `playbook-measurements.md` for per-station values.
 - **`prospec check --record-tests`** — records the suite run (`snapshot-v2` fingerprint over the
   `repository-inputs-v2` scope, `change-and-restore` detection) so verify 5/5 is a machine verdict.
+  A submodule counts as the commit it has checked out; uncommitted or non-ignored untracked content
+  inside it (test or build output included) makes the fingerprint unprovable until it is committed or ignored.
 - **CI gate** — `prospec check --strict` runs from `.github/workflows/prospec-check.yml`; the drift
   check's per-check contract, exit codes and JSON report shape are in the reference.
 
@@ -719,7 +721,7 @@ templates alongside). The layer-by-layer breakdown and the tech-stack list are i
 ## Testing
 
 ```bash
-# Run all tests (7481 total; 4 skipped)
+# Run all tests (7526 total; 4 skipped)
 pnpm test
 
 # Watch mode
@@ -732,8 +734,8 @@ pnpm run typecheck
 pnpm run lint
 ```
 
-**Test Coverage**: 7481 total tests (7477 passed; 4 skipped) across 4 categories:
-- Unit tests (types + lib + services + cli): 5463 tests
+**Test Coverage**: 7526 total tests (7522 passed; 4 skipped) across 4 categories:
+- Unit tests (types + lib + services + cli): 5508 tests
 - Contract tests (CLI output + Skill format): 1652 tests
 - Integration tests: 153 tests
 - E2E tests: 213 tests

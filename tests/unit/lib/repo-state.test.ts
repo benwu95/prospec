@@ -218,8 +218,33 @@ describe('unreadable facets (REQ-LIB-090)', () => {
     git('add', 'nested');
     const state = captureRepoState(repo);
     expect((state.index as { blockers: string[] }).blockers).toEqual(['gitlink']);
-    expect(state.content).toHaveProperty('unreadable');
+    expect(state.content).toEqual({ unreadable: expect.stringContaining('nested') });
     expect(isFullyReadable(state)).toBe(false);
+  });
+
+  it('keeps the content unreadable for a gitlink whose directory is gone', () => {
+    const nested = path.join(repo, 'nested');
+    execFileSync('git', ['init', '-q', nested], { stdio: 'pipe' });
+    writeFileSync(path.join(nested, 'f'), 'x');
+    gitIn(nested, 'add', 'f');
+    gitIn(nested, 'commit', '-qm', 'n');
+    git('add', 'nested');
+    git('commit', '-qm', 'gitlink');
+    rmSync(nested, { recursive: true, force: true });
+    expect(captureRepoState(repo).content).toHaveProperty('unreadable');
+  });
+
+  it('reads the content of a project whose gitlink lies outside its directory', () => {
+    const nested = path.join(repo, 'nested');
+    execFileSync('git', ['init', '-q', nested], { stdio: 'pipe' });
+    writeFileSync(path.join(nested, 'f'), 'x');
+    gitIn(nested, 'add', 'f');
+    gitIn(nested, 'commit', '-qm', 'n');
+    mkdirSync(path.join(repo, 'proj'));
+    put('proj/p.txt', 'p\n');
+    git('add', '.');
+    git('commit', '-qm', 'project beside a gitlink');
+    expect(captureRepoState(path.join(repo, 'proj')).content).toHaveProperty('digest');
   });
 
   it('returns every facet unreadable with its reason outside a repository', () => {

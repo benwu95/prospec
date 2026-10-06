@@ -223,14 +223,14 @@ describe('preservation Git reads', () => {
     writeFileSync(path.join(repo, 'main.txt'), 'staged\n');
     childProcess.execFileSync('git', ['add', 'main.txt'], { cwd: repo });
     writeFileSync(path.join(repo, 'main.txt'), 'main\n');
-    const flags = ['--binary', '--full-index', '--no-ext-diff', '--no-textconv', '--no-renames'];
+    const flags = ['--binary', '--full-index', '--no-ext-diff', '--no-textconv', '--no-renames', '--submodule=short'];
     const staged = gitRead(repo, 'diff', [...flags, '--cached', 'HEAD', '--', '.']);
     const unstaged = gitRead(repo, 'diff', [...flags, '--', '.']);
     expect(staged).toContain('+staged');
     expect(unstaged).toContain('-staged');
     expect(execFileSync.mock.calls.at(-1)?.[2]).toMatchObject({ timeout: 30_000 });
   });
-  it.each([['--output=lost'], ['--ext-diff'], ['--textconv'], ['HEAD'], ['--binary', '--', '.']])('refuses incomplete or writing diff invocation %j', (...args) => {
+  it.each([['--output=lost'], ['--ext-diff'], ['--textconv'], ['HEAD'], ['--binary', '--', '.'], ['--binary', '--full-index', '--no-ext-diff', '--no-textconv', '--no-renames', '--', '.']])('refuses incomplete or writing diff invocation %j', (...args) => {
     expect(() => gitRead(repo, 'diff', args)).toThrow(/read|diff/);
     expect(execFileSync).not.toHaveBeenCalled();
   });

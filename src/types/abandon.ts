@@ -25,8 +25,17 @@ export const PreservationManifestSchema = z.object({
 export type PreservationManifest = z.infer<typeof PreservationManifestSchema>;
 export type PreservationEntry = z.infer<typeof PreservationEntrySchema>;
 
+const objectId = z.string().regex(/^(?:[a-f0-9]{40}|[a-f0-9]{64})$/);
+/** Kept beside the manifest so readers of the unchanged manifest schema stay compatible. */
+export const PreservationGitlinksSchema = z.object({
+  version: z.literal(1),
+  entries: z.array(z.object({ path: z.string(), index: objectId, checkout: objectId.nullable() }).strict()),
+}).strict();
+export type PreservationGitlinks = z.infer<typeof PreservationGitlinksSchema>;
+
 export const ABANDON_OPERATION_FILE = 'abandon-operation.json';
 export const ABANDON_MANIFEST = 'preservation/manifest.json';
+export const ABANDON_GITLINKS = 'preservation/gitlinks.json';
 export const AbandonOperationSchema = z.object({
   version: z.literal(1), source: z.string(), source_digest: digest,
   phase: z.enum(['preserving', 'moving', 'publishing']),

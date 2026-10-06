@@ -4,7 +4,7 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg?style=flat-square)](LICENSE)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.9-blue?style=flat-square&logo=typescript)](https://www.typescriptlang.org/)
-[![測試](https://img.shields.io/badge/測試-7481%20總計-success?style=flat-square)](tests/)
+[![測試](https://img.shields.io/badge/測試-7526%20總計-success?style=flat-square)](tests/)
 [![Node](https://img.shields.io/badge/node-%3E%3D22.13-brightgreen?style=flat-square&logo=node.js)](https://nodejs.org/)
 [![pnpm](https://img.shields.io/badge/pnpm-%3E%3D11-orange?style=flat-square&logo=pnpm)](https://pnpm.io/)
 
@@ -498,7 +498,7 @@ check 與 token 量測）在 **[CLI 參考 — CLI 命令](./reference/cli-refer
 
 - **`prospec validate <kind> <file>`** — 依 schema 驗證單一工件；`<kind>` 為
   `proposal`、`slug`、`backfill-draft`、`promote-scaffold`、`design-spec`、`module-readme`、`candidates` 之一。
-- **`prospec change abandon <name> --reason <text> [--overturned <field>]`** — 先保存 Prospec 專案根目錄內的 staged／unstaged binary patches 與改動工作檔 bytes，再結束這次嘗試；不包含 monorepo 其他專案。原 artifacts 與理由保留於 `.prospec/abandoned/`；部分失敗列出實際路徑、已搬與待搬檔案，供人工核對恢復。不支援的 Git 輸入會拒絕；不還原工作樹、不寫入 tracker。同 issue 新 Story 會列出前次理由，所有 scale 都須填寫 Premise `retry_difference`。
+- **`prospec change abandon <name> --reason <text> [--overturned <field>]`** — 先保存 Prospec 專案根目錄內的 staged／unstaged binary patches 與改動工作檔 bytes，再結束這次嘗試；不包含 monorepo 其他專案。原 artifacts 與理由保留於 `.prospec/abandoned/`；部分失敗列出實際路徑、已搬與待搬檔案，供人工核對恢復。專案內每個 submodule 記錄於 `preservation/gitlinks.json`（路徑、index 記錄的 commit 與實際 checkout 的 commit；沒有此檔即沒有 submodule），只要 submodule 仍保有這些 commit，就能還原 pin 的升級；submodule 含未 commit 內容及其他不支援的 Git 輸入會拒絕；不還原工作樹、不寫入 tracker。同 issue 新 Story 會列出前次理由，所有 scale 都須填寫 Premise `retry_difference`。
 - **`prospec change story <name> --freeze-scenarios` / `--amend-scenarios`** — 將 `proposal.md` 的實質驗收場景凍結進 `metadata.yaml` 的基準（或以 `--reason` 與 `--expected-digest` 受控追加新修訂版）。進入 plan 與 tasks 均要求凍結基準；既有未凍結變更雖允許推進但會揭露限制（評級 S 不可達）。已 verified/archived 的變更執行凍結或修訂面臨終端拒絕。請注意基準 digest 與驗證上下文提供的是審計可追溯性，並非沙盒或權限隔離。
 - **`prospec verify context --change <name>`** — 在評級前寫出確定性的 `verify-context.json`，固定規格、凍結基準、提案、程式碼快照與測試事實；由 `verify record` 在逐 REQ 評定時核對。
 - **`prospec change log --skill <skill> --verifier-report <file>`** — 記錄 planning verifier 自己的
@@ -534,7 +534,8 @@ check 與 token 量測）在 **[CLI 參考 — CLI 命令](./reference/cli-refer
   1,107–6,368 tokens，全文為 8,965 tokens，減少 28%–88%（revision `3ade165b` 加上本次未 commit
   變更；計算方式為 `estimateTokens`）；逐站數字見 change 的 `playbook-measurements.md`。
 - **`prospec check --record-tests`** — 記錄測試執行（`snapshot-v2` fingerprint、`repository-inputs-v2`
-  範圍、`change-and-restore` 偵測），讓 verify 5/5 成為機器判定。
+  範圍、`change-and-restore` 偵測），讓 verify 5/5 成為機器判定。submodule 以其 checkout 的 commit 計入；
+  其中有未 commit 或未被 ignore 的未追蹤內容（含測試或 build 產物）時 fingerprint 無法證明，需先 commit 或 ignore。
 - **CI 閘門** — `prospec check --strict` 由 `.github/workflows/prospec-check.yml` 執行；drift check 的
   逐項契約、exit code 與 JSON 報告形狀見參考文件。
 
@@ -682,7 +683,7 @@ Prospec 採用 **Pragmatic Layered Architecture**（`cli → services → lib �
 ## 測試
 
 ```bash
-# 執行所有測試（共 7481 個；4 個略過）
+# 執行所有測試（共 7526 個；4 個略過）
 pnpm test
 
 # Watch 模式
@@ -695,8 +696,8 @@ pnpm run typecheck
 pnpm run lint
 ```
 
-**測試覆蓋率**：共 7481 個測試（7477 個通過；4 個略過），橫跨 4 大類：
-- Unit tests（types + lib + services + cli）：5463 tests
+**測試覆蓋率**：共 7526 個測試（7522 個通過；4 個略過），橫跨 4 大類：
+- Unit tests（types + lib + services + cli）：5508 tests
 - Contract tests（CLI 輸出 + Skill 格式）：1652 tests
 - Integration tests：153 tests
 - E2E tests：213 tests

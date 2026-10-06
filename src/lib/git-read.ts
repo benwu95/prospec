@@ -10,6 +10,8 @@
  * there would have to admit them. The delegation modules call this adapter for
  * their own reads and keep `drift-sources`' three read-only readers
  * (`computeChangeState`, `workTreePaths`, `gitProjectPrefix`) unchanged.
+ * `drift-sources` reads submodule repositories through this adapter, so those
+ * reads get the same fixed environment.
  */
 import { execFileSync } from 'node:child_process';
 import { realpathSync } from 'node:fs';
@@ -47,7 +49,8 @@ const SYMBOLIC_REF_READ_OPTIONS = new Set(['-q', '--short']);
 /** `reflog show` is `log -g`: of log's options only a format is admitted (`--output=<file>` writes). */
 const REFLOG_SHOW_OPTION = /^--format=/;
 const GIT_READ_MAX_BUFFER = 256 * 1024 * 1024;
-export const PRESERVATION_DIFF_FLAGS = ['--binary', '--full-index', '--no-ext-diff', '--no-textconv', '--no-renames'] as const;
+/** `--submodule=short` keeps a gitlink hunk applicable whatever the repository's `diff.submodule` says. */
+export const PRESERVATION_DIFF_FLAGS = ['--binary', '--full-index', '--no-ext-diff', '--no-textconv', '--no-renames', '--submodule=short'] as const;
 
 /** The inherited environment without the repository-selecting variables, plus `extra`. */
 export function fixedGitEnv(extra: Readonly<Record<string, string>> = {}): NodeJS.ProcessEnv {

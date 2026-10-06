@@ -64,6 +64,10 @@ export function contentDigest(cwd: string): RepoState['content'] {
   return withFixedGitEnv(() => {
     const state = computeChangeState(cwd);
     if (state.digest === null) return { unreadable: failureLine(state.reason ?? 'content digest unavailable') };
+    // The snapshot does not reproduce a submodule, so delegation does not cover its content.
+    if (state.gitlinks !== undefined && state.gitlinks.length > 0) {
+      return { unreadable: failureLine(`gitlink input is outside delegation coverage: ${state.gitlinks[0]}`) };
+    }
     const tokens = DELEGATION_REPORT_FILES.map((name) => reportToken(cwd, name));
     return { digest: sha256([state.digest, ...tokens].join('\0')) };
   });

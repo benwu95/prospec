@@ -2,8 +2,10 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import * as fs from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
+import { execFileSync } from 'node:child_process';
 import { gitIn } from '../../helpers/git-fixture.js';
 import { preflightWork } from '../../../src/lib/work-preservation.js';
+import { ABANDON_GITLINKS, PreservationGitlinksSchema, PreservationManifestSchema } from '../../../src/types/abandon.js';
 vi.mock('node:fs', async (importOriginal) => {
   const actual = await importOriginal<typeof import('node:fs')>();
   return { ...actual, readFileSync: vi.fn(actual.readFileSync) };
@@ -36,10 +38,14 @@ describe('preservation preflight', () => {
     expect(capture).toThrow(/assume|skip|sparse/i);
     expect(fs.existsSync(destination)).toBe(false);
   });
-  it('refuses conflicts and gitlinks', () => {
-    const oid = gitIn(root, 'rev-parse', 'HEAD:tracked').trim();
+  it('admits a gitlink and refuses an unmerged one', () => {
+    const oid = gitIn(root, 'rev-parse', 'HEAD');
     gitIn(root, 'update-index', '--add', '--cacheinfo', `160000,${oid},submodule`);
-    expect(capture).toThrow(/gitlink/i);
+    expect(capture().gitlinks).toEqual(new Map([['submodule', oid]]));
+    gitIn(root, 'update-index', '--force-remove', 'submodule');
+    const stages = [1, 2, 3].map((stage) => `160000 ${oid} ${stage}\tsubmodule`).join('\n');
+    execFileSync('git', ['update-index', '--index-info'], { cwd: root, input: `${stages}\n` });
+    expect(capture).toThrow(/unmerged/i);
   });
   it('refuses unborn HEAD', () => {
     gitIn(root, 'checkout', '--orphan', 'new');
@@ -153,4 +159,81 @@ it('fails closed on source read errors and unsafe parent links', async () => {
     fs.symlinkSync(outside, path.join(root, 'unsafe'));
     expect(() => preflightWork(root, path.join(root, 'unsafe/archive'))).toThrow(/Unsafe/);
   } finally { fs.rmSync(outside, { recursive: true, force: true }); }
+});
+
+describe('gitlink preservation', () => {
+  const sources: string[] = [];
+  afterEach(() => { for (const dir of sources.splice(0)) fs.rmSync(dir, { recursive: true, force: true }); });
+  const addSubmodule = (at: string): string => {
+    const src = fs.mkdtempSync(path.join(os.tmpdir(), 'preserve-sub-')); sources.push(src);
+    gitIn(src, 'init', '-q'); fs.writeFileSync(path.join(src, 'lib.txt'), 'v1'); gitIn(src, 'add', '.'); gitIn(src, 'commit', '-qm', 'v1');
+    fs.writeFileSync(path.join(src, 'lib.txt'), 'v2'); gitIn(src, 'commit', '-qam', 'v2');
+    gitIn(root, '-c', 'protocol.file.allow=always', 'submodule', 'add', '-q', src, at); gitIn(root, 'commit', '-qm', `add ${at}`);
+    return path.join(root, at);
+  };
+  const work = async () => (await import('../../../src/lib/work-preservation.js')).captureWork(root, destination, sourceDir);
+
+  it('records each pin and checkout and leaves the manifest shape unchanged', async () => {
+    const sub = addSubmodule('vendor/shared'); const head = gitIn(sub, 'rev-parse', 'HEAD');
+    gitIn(sub, 'checkout', '-q', 'HEAD~1'); const moved = gitIn(sub, 'rev-parse', 'HEAD');
+    const input = await work();
+    expect(input.gitlinks).toEqual([{ path: 'vendor/shared', index: head, checkout: moved }]);
+    expect(input.manifest.entries.map((e) => e.path)).not.toContain('vendor/shared');
+    expect(PreservationManifestSchema.parse(input.manifest)).toEqual(input.manifest);
+  });
+  it('records a null checkout for an empty or absent directory', async () => {
+    const sub = addSubmodule('vendor/shared'); const head = gitIn(sub, 'rev-parse', 'HEAD');
+    gitIn(root, 'submodule', 'deinit', '-q', '-f', 'vendor/shared');
+    expect((await work()).gitlinks).toEqual([{ path: 'vendor/shared', index: head, checkout: null }]);
+    fs.rmSync(sub, { recursive: true, force: true });
+    expect((await work()).gitlinks).toEqual([{ path: 'vendor/shared', index: head, checkout: null }]);
+  });
+  it('records the pin whatever the repository hides from its diff and status', async () => {
+    const sub = addSubmodule('vendor/shared');
+    gitIn(root, 'config', 'submodule.vendor/shared.ignore', 'all'); gitIn(root, 'config', 'diff.ignoreSubmodules', 'all');
+    gitIn(sub, 'checkout', '-q', 'HEAD~1');
+    expect((await work()).gitlinks[0]).toMatchObject({ checkout: gitIn(sub, 'rev-parse', 'HEAD') });
+  });
+  it('refuses a submodule with uncommitted content, naming it', async () => {
+    const sub = addSubmodule('vendor/shared'); fs.writeFileSync(path.join(sub, 'lib.txt'), 'edited');
+    await expect(work()).rejects.toThrow(/vendor\/shared/);
+  });
+  it('leaves gitlinks outside the project and inside the destination out of the capture', async () => {
+    addSubmodule('sibling');
+    fs.mkdirSync(path.join(root, 'app')); put('app/f.txt', 'f'); gitIn(root, 'add', 'app'); gitIn(root, 'commit', '-qm', 'app');
+    fs.writeFileSync(path.join(root, 'sibling/lib.txt'), 'edited');
+    const { captureWork } = await import('../../../src/lib/work-preservation.js');
+    const project = path.join(root, 'app'); const source = path.join(project, '.prospec/changes/x'); fs.mkdirSync(source, { recursive: true });
+    expect(captureWork(project, path.join(project, '.prospec/abandoned/x'), source).gitlinks).toEqual([]);
+    const oid = gitIn(root, 'rev-parse', 'HEAD');
+    gitIn(root, 'update-index', '--add', '--cacheinfo', `160000,${oid},app/.prospec/abandoned/x/inner`);
+    expect(captureWork(project, path.join(project, '.prospec/abandoned/x'), source).gitlinks).toEqual([]);
+  });
+  it('keeps the staged patch applicable under diff.submodule=diff', async () => {
+    const sub = addSubmodule('vendor/shared'); gitIn(sub, 'checkout', '-q', 'HEAD~1'); gitIn(root, 'add', 'vendor/shared');
+    gitIn(root, 'config', 'diff.submodule', 'diff');
+    const input = await work();
+    expect(input.staged.toString()).toContain('Subproject commit');
+    gitIn(root, 'reset', '-q', 'vendor/shared');
+    execFileSync('git', ['apply', '--cached'], { cwd: root, input: input.staged });
+    expect(gitIn(root, 'ls-files', '-s', 'vendor/shared')).toContain(gitIn(sub, 'rev-parse', 'HEAD'));
+  });
+  it('writes the gitlink record beside the manifest and covers a pin moved before publication', async () => {
+    const { persistWork, recheckWork } = await import('../../../src/lib/work-preservation.js');
+    const sub = addSubmodule('vendor/shared');
+    // Hidden from the patches, so only the gitlink record can notice the move.
+    gitIn(root, 'config', 'diff.ignoreSubmodules', 'all'); gitIn(root, 'config', 'submodule.vendor/shared.ignore', 'all');
+    const input = await work(); fs.mkdirSync(destination, { recursive: true }); await persistWork(input);
+    const record = PreservationGitlinksSchema.parse(JSON.parse(fs.readFileSync(path.join(destination, ABANDON_GITLINKS), 'utf8')));
+    expect(record.entries).toEqual(input.gitlinks);
+    gitIn(sub, 'checkout', '-q', 'HEAD~1');
+    expect(() => recheckWork(input)).toThrow(/changed/);
+  });
+});
+
+it('writes no gitlink record for a repository without gitlinks', async () => {
+  const { captureWork, persistWork } = await import('../../../src/lib/work-preservation.js');
+  put('tracked', 'changed');
+  const input = captureWork(root, destination, sourceDir); fs.mkdirSync(destination, { recursive: true }); await persistWork(input);
+  expect(fs.existsSync(path.join(destination, ABANDON_GITLINKS))).toBe(false);
 });
