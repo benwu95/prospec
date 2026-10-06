@@ -64,6 +64,9 @@ export function contentDigest(cwd: string): RepoState['content'] {
   return withFixedGitEnv(() => {
     const state = computeChangeState(cwd);
     if (state.digest === null) return { unreadable: failureLine(state.reason ?? 'content digest unavailable') };
+    // Provenance proves a gitlink by its commit (#352), but a delegation snapshot checks
+    // out no submodule files, so a delegate there would test a different tree.
+    if (state.gitlinks) return { unreadable: failureLine(`gitlink input cannot be reproduced in a delegation snapshot: ${state.gitlinks[0]}`) };
     const tokens = DELEGATION_REPORT_FILES.map((name) => reportToken(cwd, name));
     return { digest: sha256([state.digest, ...tokens].join('\0')) };
   });

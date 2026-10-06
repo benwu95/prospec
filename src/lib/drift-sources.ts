@@ -7,6 +7,7 @@ import { parseYaml } from './yaml-utils.js';
 import { parseDocument, isMap, isScalar } from 'yaml';
 import { DEFAULT_KNOWLEDGE_TOKEN_BUDGET, isShippedBudgetField, type ShippedBudgetField } from '../types/config.js';
 import { withoutFencedBlocks } from './markdown-fences.js';
+import { gitRead, gitReadRecords } from './git-read.js';
 import { mergeContent } from './content-merger.js';
 import { ARCHIVE_NATIVE_GLOB, ABANDONED_NATIVE_GLOB, compareLanguagePolicy, type LanguagePolicyComparison } from './language-policy.js';
 import type { LanguageScope } from '../types/constitution.js';
@@ -1727,23 +1728,65 @@ function gitPaths(cwd: string, args: string[]): string[] {
   return decoded === '' ? [] : decoded.slice(0, -1).split('\0');
 }
 
-function inputFiles(cwd: string): string[] {
+/** Effective inputs, plus the commit the index pins for each gitlink (submodule). */
+function inputFiles(cwd: string): { files: string[]; gitlinks: Map<string, string> } {
   const paths = new Set<string>();
+  const gitlinks = new Map<string, string>();
   for (const entry of gitPaths(cwd, ['ls-files', '-z', '-t', '--stage', '--cached', '--others', '--exclude-standard'])) {
     let file: string;
     if (entry.startsWith('? ')) file = entry.slice(2);
     else {
-      const match = /^([A-Z]) (\d{6}) [a-f0-9]+ (\d)\t([\s\S]+)$/.exec(entry);
+      const match = /^([A-Z]) (\d{6}) ([a-f0-9]+) (\d)\t([\s\S]+)$/.exec(entry);
       if (!match) throw new Error('Unsupported Git index record');
-      file = match[4]!;
+      file = match[5]!;
       if (!inEvidenceScope(file)) continue;
-      if (match[1] === 'S' || match[2] === '160000' || match[3] !== '0') {
-        throw new Error(`Unprovable sparse, gitlink or unmerged input: ${file}`);
+      if (match[1] === 'S' || match[4] !== '0') {
+        throw new Error(`Unprovable sparse or unmerged input: ${file}`);
       }
+      if (match[2] === '160000') gitlinks.set(file, match[3]!);
     }
     if (inEvidenceScope(file)) paths.add(file);
   }
-  return [...paths].sort((a, b) => Buffer.compare(Buffer.from(a), Buffer.from(b)));
+  return { files: [...paths].sort((a, b) => Buffer.compare(Buffer.from(a), Buffer.from(b))), gitlinks };
+}
+
+/** A gitlink's content is fixed by the commit it names, so that commit IS its
+ *  evidence identity (#352) — the submodule's files are not superproject inputs.
+ *  The checked-out commit wins over the index pin, so moving a submodule and then
+ *  staging or committing the move keeps one identity, like any other input; an
+ *  uninitialized (empty) checkout represents exactly its pin. Uncommitted work
+ *  inside the submodule is not represented by any commit, so it stays unprovable
+ *  rather than being certified under a hash that does not describe it (PB-013). */
+function gitlinkCommit(absolute: string, file: string, pinned: string): string {
+  if (!existsSync(path.join(absolute, '.git'))) {
+    if (readdirSync(absolute).length > 0) throw new Error(`Unprovable gitlink checkout: ${file}`);
+    return pinned;
+  }
+  // `gitRead` drops the repository-selecting env (an inherited GIT_DIR would point at
+  // the superproject), takes no optional locks and is bounded, so the read stays read-only.
+  const head = () => {
+    const commit = gitRead(absolute, 'rev-parse', ['--verify', 'HEAD^{commit}']).trim();
+    if (!/^[0-9a-f]{40}([0-9a-f]{24})?$/.test(commit)) throw new Error(`Unprovable gitlink checkout: ${file}`);
+    return commit;
+  };
+  const before = head();
+  // `status` stays silent about files an index flag hides (skip-worktree, sparse
+  // checkout, assume-unchanged), so those flags are refused like the superproject's;
+  // a nested gitlink gets the same proof recursively.
+  for (const record of gitReadRecords(absolute, 'ls-files', ['-z', '-t', '-v', '--stage'])) {
+    const match = /^([A-Za-z?]) (\d{6}) ([0-9a-f]+) \d\t([\s\S]+)$/.exec(record);
+    if (!match) throw new Error('Unsupported Git index record');
+    if (match[1] === 'S' || match[1] !== match[1]!.toUpperCase()) throw new Error(`Unprovable gitlink with hidden work: ${file}`);
+    if (match[2] === '160000') {
+      const nested = path.join(absolute, match[4]!);
+      if (existsSync(nested)) gitlinkCommit(nested, `${file}/${match[4]!}`, match[3]!);
+    }
+  }
+  if (gitRead(absolute, 'status', ['--porcelain=v1', '-z', '--untracked-files=normal', '--ignore-submodules=none']) !== '') {
+    throw new Error(`Unprovable gitlink with uncommitted changes: ${file}`);
+  }
+  if (head() !== before) throw new Error(`Input changed during capture: ${file}`);
+  return before;
 }
 
 /** Porcelain v1 always emits repository-root paths; ls-files is cwd-relative.
@@ -1789,7 +1832,7 @@ export type ChangeState = InputSnapshot;
 export function computeChangeState(cwd: string): ChangeState {
   try {
     cwd = realpathSync(cwd);
-    const files = inputFiles(cwd);
+    const { files, gitlinks } = inputFiles(cwd);
     const state = workTreePaths(cwd);
     const listed = new Set(files);
     const validateMembership = (candidate: ReturnType<typeof workTreePaths>): void => {
@@ -1822,6 +1865,11 @@ export function computeChangeState(cwd: string): ChangeState {
         if (!confirmed.deleted.has(file)) throw new Error(`Input disappeared during capture: ${file}`);
         continue;
       }
+      const pinned = gitlinks.get(file);
+      if (pinned !== undefined && stat.isDirectory()) {
+        frame(file); frame('gitlink'); frame(gitlinkCommit(absolute, file, pinned));
+        continue;
+      }
       if (!stat.isFile() && !stat.isSymbolicLink()) throw new Error(`Unsupported input kind: ${file}`);
       frame(file); frame(stat.isSymbolicLink() ? 'symlink' : 'regular');
       frame(stat.isSymbolicLink() ? 'link' : (stat.mode & 0o111) !== 0 ? 'executable' : 'plain');
@@ -1835,7 +1883,7 @@ export function computeChangeState(cwd: string): ChangeState {
         throw new Error(`Input changed during capture: ${file}`);
       }
     }
-    return { digest: hash.digest('hex'), clean: state.changed.length === 0 };
+    return { digest: hash.digest('hex'), clean: state.changed.length === 0, ...(gitlinks.size > 0 ? { gitlinks: [...gitlinks.keys()] } : {}) };
   } catch (error) {
     return { digest: null, clean: null, reason: error instanceof Error ? error.message : String(error) };
   }

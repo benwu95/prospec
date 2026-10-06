@@ -405,6 +405,8 @@ export interface InputSnapshot {
   clean: boolean | null;
   head?: string;
   reason?: string;
+  /** Gitlink (submodule) paths represented by their commit, never by their files. */
+  gitlinks?: string[];
 }
 
 /** Read-only adjudication and its observation-bound write precondition. */

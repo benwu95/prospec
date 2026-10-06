@@ -9,7 +9,10 @@
  * and include its writers (`--record-tests` and the like), so an allowlist placed
  * there would have to admit them. The delegation modules call this adapter for
  * their own reads and keep `drift-sources`' three read-only readers
- * (`computeChangeState`, `workTreePaths`, `gitProjectPrefix`) unchanged.
+ * (`computeChangeState`, `workTreePaths`, `gitProjectPrefix`) unchanged. The one
+ * `drift-sources` read that does come here is a gitlink's proof (`rev-parse`,
+ * `ls-files`, `status` inside the submodule): its cwd is another repository, so it
+ * needs exactly this fixed environment and bound.
  */
 import { execFileSync } from 'node:child_process';
 import { realpathSync } from 'node:fs';
