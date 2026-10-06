@@ -32,6 +32,10 @@ export const PLANNING_VERDICTS = ['PASS', 'WARN', 'FLAWS'] as const;
 export const CANDIDATE_IDS = ['option-a', 'option-b', 'option-c'] as const;
 export const PLAN_DECISION_OPTIONS = [...CANDIDATE_IDS, 'hybrid'] as const;
 export type PlanDecisionOption = (typeof PLAN_DECISION_OPTIONS)[number];
+/** What a plan sign-off may name: a candidate decision (full scale) or `plan` — the
+ *  reviewed plan version itself, for a scale that selects no candidate. */
+export const PLAN_SIGNOFF_OPTIONS = [...PLAN_DECISION_OPTIONS, 'plan'] as const;
+export type PlanSignoffOption = (typeof PLAN_SIGNOFF_OPTIONS)[number];
 
 /** Retry escalations only: sign-off and knowledge-input halts have other owners. */
 export const ESCALATION_TRIGGERS = [
@@ -217,10 +221,16 @@ const QualityLogEntryShape = {
    *  `candidates/decision.json` recommendation the verifier audited, which a later
    *  `--signoff` must match — so the recommended option cannot change after the audit. */
   audited_option: z.enum(PLAN_DECISION_OPTIONS).optional(),
+  /** Written ONLY by `prospec change log --verifier-report` for the plan station: the
+   *  `planVersionDigest` of the plan.md and delta-spec.md the verifier audited. */
+  audited_plan_digest: z.string().optional(),
   /** Written ONLY by `prospec change log --signoff`: the human's plan sign-off, the
-   *  provenance stamp that unlocks an opt-in plan pause. It is not a gate result, so
+   *  provenance stamp that unlocks a plan sign-off pause. It is not a gate result, so
    *  it neither counts as nor hides a verifier result or an unresolved WARN. */
-  signoff_option: z.enum(PLAN_DECISION_OPTIONS).optional(),
+  signoff_option: z.enum(PLAN_SIGNOFF_OPTIONS).optional(),
+  /** Written ONLY by `prospec change log --signoff`: the plan version signed off, so an
+   *  edit to plan.md or delta-spec.md afterwards stops the sign-off from counting. */
+  signoff_plan_digest: z.string().optional(),
   /** Lightweight verify identity fields (REQ-TYPES-103, REQ-SERVICES-087, REQ-CLI-029). */
   context_id: z.string().optional(),
   baseline_revision: z.number().int().positive().optional(),

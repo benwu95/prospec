@@ -9,7 +9,7 @@
 
 import type { CircuitBreakerState, EscalationFailureDetails } from './cascade.js';
 import type { AbandonFailureDetails } from './abandon.js';
-import { PAUSE_AT_ENV_VAR, PAUSE_AT_NONE, PAUSE_STATIONS } from './config.js';
+import { ALWAYS_ESCALATE_CATEGORIES, PAUSE_AT_ENV_VAR, PAUSE_AT_NONE, PAUSE_STATIONS } from './config.js';
 import { TEST_GATE_NOT_ADJUDICATED, testGateRemediation, type TestGateEntrance } from './station.js';
 
 export class ProspecError extends Error {
@@ -84,6 +84,17 @@ export class PauseAtInvalid extends ProspecError {
       `Valid station names: ${PAUSE_STATIONS.join(', ')} (comma-separated in ${PAUSE_AT_ENV_VAR}, a YAML list such as [${PAUSE_STATIONS[0]}] in workflow.pause_at); only on the human's instruction, set ${PAUSE_AT_ENV_VAR} to ${PAUSE_AT_NONE} (or an empty string) to disable pausing for this run`,
     );
     this.name = 'PauseAtInvalid';
+  }
+}
+
+export class AlwaysEscalateInvalid extends ProspecError {
+  constructor(value: string) {
+    super(
+      `Invalid escalation categories in .prospec.yaml workflow.always_escalate: ${value}`,
+      'ALWAYS_ESCALATE_INVALID',
+      `Use a YAML list of category names: ${ALWAYS_ESCALATE_CATEGORIES.join(', ')} (omit the key for all of them)`,
+    );
+    this.name = 'AlwaysEscalateInvalid';
   }
 }
 

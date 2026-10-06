@@ -3,7 +3,7 @@ import { renderMarkdownTable } from './markdown-table.js';
 import { PrerequisiteError } from '../types/errors.js';
 import { planningVerdictToGateResult } from '../types/station.js';
 import { createHash } from 'node:crypto';
-import { PLANNING_VERDICTS, ESCALATION_STATIONS, ESCALATION_TRIGGERS, type AcceptedAttempt, type GateResult, type PlanDecisionOption, type VerifyGrade, type EscalationHistory, type EscalationGrant, type EscalationRecord, type EscalationStation, type EscalationTrigger } from '../types/change.js';
+import { PLANNING_VERDICTS, ESCALATION_STATIONS, ESCALATION_TRIGGERS, type AcceptedAttempt, type GateResult, type ChangeScale, type PlanSignoffOption, type VerifyGrade, type EscalationHistory, type EscalationGrant, type EscalationRecord, type EscalationStation, type EscalationTrigger } from '../types/change.js';
 import { BREAK_GLASS_PREFIX } from '../types/status.js';
 import type { EscalationDecision, EscalationExit, EscalationFailureDetails, EscalationReport, PartialWriteOutcome } from '../types/cascade.js';
 
@@ -411,28 +411,52 @@ export function latestVerifierResult(
   return entry === null ? null : verifierGateResultOf(entry, history?.pending == null);
 }
 
+/** The plan version a verifier audits and a human signs: plan.md with delta-spec.md, an
+ *  absent file (null) kept distinct from an empty one. */
+export function planVersionDigest(plan: string | null, deltaSpec: string | null): string {
+  return canonicalDigest({ plan, deltaSpec });
+}
+
+/** What a sign-off is checked against: the change's scale and its current plan version. */
+export interface PlanSignoffContext {
+  scale: ChangeScale;
+  digest: string;
+}
+
 /**
  * The option of the latest plan sign-off that still counts, or null. A sign-off
  * counts only when it sits after the latest plan verifier result and that result is
  * PASS/WARN — judged by quality_log position, because `date` is day-granular and two
  * re-plans on one day would be indistinguishable. A later verifier entry supersedes it.
+ * Given `current`, a sign-off stamped with another plan version, or a `plan` sign-off
+ * at full scale (which signs a candidate option), does not count; an unstamped legacy
+ * sign-off is judged by position alone, and only while the latest verifier report is
+ * unstamped too — once the audited version is recorded, a sign-off must name it.
  */
 export function latestFreshPlanSignoff(
-  qualityLog: ReadonlyArray<ProvenanceEntry & { signoff_option?: PlanDecisionOption }> | undefined,
+  qualityLog: ReadonlyArray<ProvenanceEntry & { signoff_option?: PlanSignoffOption; signoff_plan_digest?: string; audited_plan_digest?: string }> | undefined,
   history?: EscalationHistory,
-): PlanDecisionOption | null {
+  current?: PlanSignoffContext,
+): PlanSignoffOption | null {
   if (qualityLog === undefined) return null;
-  let latestSignoff: PlanDecisionOption | null = null;
+  let latest: { option: PlanSignoffOption; digest?: string } | null = null;
   for (let i = qualityLog.length - 1; i >= 0; i--) {
     const entry = qualityLog[i];
     if (entry === undefined || entry.skill !== 'prospec-plan') continue;
-    if (latestSignoff === null && entry.signoff_option !== undefined) {
-      latestSignoff = entry.signoff_option;
+    if (latest === null && entry.signoff_option !== undefined) {
+      latest = { option: entry.signoff_option, ...(entry.signoff_plan_digest === undefined ? {} : { digest: entry.signoff_plan_digest }) };
       continue;
     }
     const result = verifierGateResultOf(entry, history?.pending == null);
     if (result === null) continue;
-    return latestSignoff !== null && result !== 'FAIL' ? latestSignoff : null;
+    if (latest === null || result === 'FAIL') return null;
+    if (current !== undefined) {
+      if (latest.digest === undefined
+        ? latestStampedVerifierEntry(qualityLog, 'prospec-plan')?.audited_plan_digest !== undefined
+        : latest.digest !== current.digest) return null;
+      if (current.scale === 'full' && latest.option === 'plan') return null;
+    }
+    return latest.option;
   }
   return null;
 }
@@ -440,8 +464,19 @@ export function latestFreshPlanSignoff(
 export function hasPlanSignoffAfterVerifier(
   qualityLog: Parameters<typeof latestFreshPlanSignoff>[0],
   history?: EscalationHistory,
+  current?: PlanSignoffContext,
 ): boolean {
-  return latestFreshPlanSignoff(qualityLog, history) !== null;
+  return latestFreshPlanSignoff(qualityLog, history, current) !== null;
+}
+
+/** Whether the current plan version differs from the one the latest plan verifier report
+ *  audited. A report recorded before the stamp existed proves nothing, so it reads false. */
+export function planChangedSinceVerifier(
+  qualityLog: ReadonlyArray<ProvenanceEntry & { audited_plan_digest?: string }> | undefined,
+  digest: string,
+): boolean {
+  const audited = latestStampedVerifierEntry(qualityLog, 'prospec-plan')?.audited_plan_digest;
+  return audited !== undefined && audited !== digest;
 }
 
 

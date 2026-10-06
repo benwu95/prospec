@@ -1,27 +1,30 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
-import { PLAN_DECISION_OPTIONS, type EscalationHistory, type NewQualityLogEntry, type GateResult, type PlanDecisionOption } from '../types/change.js';
+import { PLAN_SIGNOFF_OPTIONS, forbiddenArtifacts, type EscalationHistory, type NewQualityLogEntry, type GateResult, type PlanSignoffOption } from '../types/change.js';
 import { EscalationError, PrerequisiteError } from '../types/errors.js';
 import {
   VERIFIER_REPORT_SCHEMAS,
   isVerifierReportSkill,
   planningVerdictToGateResult,
+  type DecisionPayload,
 } from '../types/station.js';
-import { PLAN_SIGNOFF_REMEDIES } from '../types/status.js';
+import { PLAN_SIGNOFF_REMEDIES, PLAN_VERSION_SIGNOFF_REMEDIES } from '../types/status.js';
 import {
   readChangeMetadata,
   writeChangeMetadataDoc,
   appendQualityLogEntry,
   isReviewRoundCountsEntry,
+  capturePlanVersion,
   latestStampedVerifierEntry,
   latestVerifierEntry,
+  planVersionInputs,
   verifierGateResultOf,
 } from '../lib/change-metadata.js';
 import { atomicWrite, captureFileInputs } from '../lib/fs-utils.js';
 import { resolveConfigPath, resolveMaxStationRetries, validateConfig } from '../lib/config.js';
 import {
   admitEscalation, canonicalAttemptId, canonicalDigest, escalationTransitions, escalationFailureDetails, escalationDecision,
-  legacyEscalationRecords, manualOverrideReason, planningFlawsStreak, reduceEscalationHistory,
+  legacyEscalationRecords, manualOverrideReason, planningFlawsStreak, planVersionDigest, reduceEscalationHistory,
 } from '../lib/escalation.js';
 import { ESCALATION_STATIONS, type PlanningAttemptInputs } from '../types/change.js';
 import { BREAK_GLASS_PREFIX } from '../types/status.js';
@@ -48,10 +51,9 @@ export interface ChangeLogOptions {
    */
   verifierReport?: { skill: string; path: string; date?: string };
   /**
-   * A human's plan sign-off (`--signoff <option>`): refused unless the latest plan
-   * verifier result is PASS/WARN and the option is the recommendation plan.md and that
-   * verifier audited; on acceptance decision.json's `graded_by` becomes `human` and a
-   * PASS entry stamped `signoff_option` is appended. `notes` are the human's `--warning`s.
+   * A human's plan sign-off (`--signoff <option>`): a candidate option at full scale,
+   * `plan` at other scales; `recordSignoff` owns the acceptance rules. `notes` are the
+   * human's `--warning`s.
    */
   signoff?: { skill: string; option: string; notes?: string[]; date?: string };
 }
@@ -101,6 +103,14 @@ export async function execute(options: ChangeLogOptions): Promise<ChangeLogResul
   }
   // The stamp is provenance: it means "the sink validated a verifier report". A
   // composed entry claiming it would forge a verifier result for `prospec status`.
+  for (const stamp of ['audited_plan_digest', 'signoff_plan_digest'] as const) {
+    if (options.entry?.[stamp] !== undefined) {
+      throw new PrerequisiteError(
+        `A composed entry may not carry ${stamp} — that stamp is written only by the verifier-report and sign-off paths`,
+        'Drop the field; record the verifier report with `--verifier-report <file>` or the human sign-off with `--signoff`',
+      );
+    }
+  }
   if (options.entry?.verifier_verdict !== undefined || options.entry?.audited_option !== undefined) {
     throw new PrerequisiteError(
       'A composed entry may not carry verifier_verdict or audited_option — those stamps are written only from a validated --verifier-report',
@@ -239,12 +249,13 @@ export async function execute(options: ChangeLogOptions): Promise<ChangeLogResul
   let observedTrigger: 'station_retry_limit_exceeded' | undefined;
   if (verifiedReport !== undefined && options.verifierReport !== undefined) {
     const inputsSnapshot = captureFileInputs({
-      proposal: path.join(changeDir, 'proposal.md'), delta: path.join(changeDir, 'delta-spec.md'),
-      plan: path.join(changeDir, 'plan.md'), tasks: path.join(changeDir, 'tasks.md'),
+      proposal: path.join(changeDir, 'proposal.md'), ...planVersionInputs(changeDir), tasks: path.join(changeDir, 'tasks.md'),
       report: path.resolve(cwd, options.verifierReport.path),
     });
     if (inputsSnapshot.values.report !== verifiedReport.sourceBytes) throw new PrerequisiteError('Verifier report changed after validation', 'Re-run against stable inputs');
     const values = inputsSnapshot.values;
+    // The plan version this verifier audited — the same bytes the attempt identity covers.
+    if (composed.skill === 'prospec-plan') entry.audited_plan_digest = planVersionDigest(values.plan ?? null, values.delta ?? null);
     const candidateFiles = metadata.scale === 'full' ? readCandidateFiles(changeDir) : null;
     const candidateBytes = canonicalDigest(candidateFiles);
     const candidates = candidateFiles === null ? null : [...candidateFiles.candidates, ...(candidateFiles.decision ? [candidateFiles.decision] : [])].map(({ file, content: bytes }) => {
@@ -312,6 +323,9 @@ export async function execute(options: ChangeLogOptions): Promise<ChangeLogResul
  * Record a human plan sign-off. Every refusal precedes every write; decision.json is
  * written before the quality_log entry because the entry is what unlocks routing, so a
  * failure between the two leaves the change still paused and a re-run completes it.
+ * `plan` signs the audited plan version itself and touches no candidate file; a
+ * candidate option keeps the full-scale decision binding. Both bind the entry to the
+ * plan version the latest verifier report audited.
  */
 async function recordSignoff(
   signoff: NonNullable<ChangeLogOptions['signoff']>,
@@ -324,11 +338,11 @@ async function recordSignoff(
       'Only the plan station records a sign-off: pass `--skill prospec-plan`',
     );
   }
-  const option = PLAN_DECISION_OPTIONS.find((o) => o === signoff.option);
+  const option = PLAN_SIGNOFF_OPTIONS.find((o) => o === signoff.option);
   if (option === undefined) {
     throw new PrerequisiteError(
-      `--signoff option "${signoff.option}" is not one of: ${PLAN_DECISION_OPTIONS.join(', ')}`,
-      'Name the candidate id the human selected',
+      `--signoff option "${signoff.option}" is not one of: ${PLAN_SIGNOFF_OPTIONS.join(', ')}`,
+      'Name the candidate id the human selected, or `plan` for a scale that selects no candidate',
     );
   }
 
@@ -340,7 +354,25 @@ async function recordSignoff(
   );
   const changeDir = path.join(cwd, '.prospec', 'changes', changeName);
   const metadataPath = path.join(changeDir, 'metadata.yaml');
+  // Every refusal below reads this snapshot; the write re-checks it, so a verifier entry
+  // recorded concurrently is never overwritten by a sign-off judged without it.
+  const metadataSnapshot = captureFileInputs({ metadata: metadataPath });
   const { doc, metadata } = readChangeMetadata(metadataPath, changeName);
+  const scale = metadata.scale ?? 'standard';
+  if (forbiddenArtifacts(scale).includes('plan.md')) {
+    throw new PrerequisiteError(
+      `scale: ${scale} has no plan, so there is nothing to sign off — nothing was written`,
+      'A plan sign-off applies only to a scale whose contract includes plan.md',
+    );
+  }
+  if (option === 'plan' && scale === 'full') {
+    throw new PrerequisiteError(
+      'scale: full signs a candidate option, not the plan version — nothing was written',
+      'Sign off the candidates/decision.json `recommended_option` with `--signoff <option>`',
+    );
+  }
+  // The scale, not the option, decides the way out — the same text the router names.
+  const remedies = scale === 'full' ? PLAN_SIGNOFF_REMEDIES : PLAN_VERSION_SIGNOFF_REMEDIES;
 
   const configPath = resolveConfigPath(cwd);
   const config = captureFileInputs({ config: configPath }).values.config;
@@ -358,53 +390,84 @@ async function recordSignoff(
     );
   }
 
-  const files = readCandidateFiles(changeDir);
-  const set = checkCandidateSet(files.candidates, files.decision);
-  if (set.decision.state !== 'valid') {
-    throw new PrerequisiteError(
-      set.decision.state === 'absent'
-        ? `candidates/${DECISION_FILE} is missing — nothing was written`
-        : `candidates/${DECISION_FILE} failed validation (${set.decision.where}) — nothing was written`,
-      `To sign off: ${PLAN_SIGNOFF_REMEDIES}`,
-    );
-  }
-  const failures = set.findings.filter((f) => f.level === 'FAIL').map((f) => f.message);
-  if (failures.length > 0) {
-    throw new PrerequisiteError(
-      `The candidate set fails validation (${failures.join('; ')}) — nothing was written`,
-      'Fix the candidate files (`prospec validate candidates` lists every failure), re-record the plan verifier, then sign off',
-    );
-  }
-  const decision = set.decision.payload;
-  if (decision.recommended_option !== option) {
-    throw new PrerequisiteError(
-      `--signoff ${option} differs from decision.json recommended_option "${decision.recommended_option}" — plan.md and the plan verifier audited the recommendation`,
-      `To select ${option}: revise plan.md, delta-spec.md and decision.json for it, re-record the plan verifier (a newer verifier entry supersedes any earlier sign-off), then sign off`,
-    );
-  }
-
   // Bound to the latest verifier REPORT: a Break-Glass WARN after it overrides the
   // verdict but audited nothing, so it can never release a rewritten recommendation.
   const report = latestStampedVerifierEntry(metadata.quality_log, 'prospec-plan');
-  if (report?.audited_option !== option) {
+  let decision: DecisionPayload | null = null;
+  if (option === 'plan') {
+    if (report === null) {
+      throw new PrerequisiteError(
+        'No plan verifier report is recorded (only a Break-Glass override), so no plan version was audited — nothing was written',
+        `To sign off: ${remedies}`,
+      );
+    }
+  } else {
+    const files = readCandidateFiles(changeDir);
+    const set = checkCandidateSet(files.candidates, files.decision);
+    if (set.decision.state !== 'valid') {
+      throw new PrerequisiteError(
+        set.decision.state === 'absent'
+          ? `candidates/${DECISION_FILE} is missing — nothing was written`
+          : `candidates/${DECISION_FILE} failed validation (${set.decision.where}) — nothing was written`,
+        scale === 'full'
+          ? `To sign off: ${remedies}`
+          : `At scale: ${scale}, sign the audited plan version with \`--signoff plan\`; otherwise ${remedies}`,
+      );
+    }
+    const failures = set.findings.filter((f) => f.level === 'FAIL').map((f) => f.message);
+    if (failures.length > 0) {
+      throw new PrerequisiteError(
+        `The candidate set fails validation (${failures.join('; ')}) — nothing was written`,
+        'Fix the candidate files (`prospec validate candidates` lists every failure), re-record the plan verifier, then sign off',
+      );
+    }
+    decision = set.decision.payload;
+    if (decision.recommended_option !== option) {
+      throw new PrerequisiteError(
+        `--signoff ${option} differs from decision.json recommended_option "${decision.recommended_option}" — plan.md and the plan verifier audited the recommendation`,
+        `To select ${option}: revise plan.md, delta-spec.md and decision.json for it, re-record the plan verifier (a newer verifier entry supersedes any earlier sign-off), then sign off`,
+      );
+    }
+    if (report?.audited_option !== option) {
+      throw new PrerequisiteError(
+        report === null
+          ? 'No plan verifier report is recorded (only a Break-Glass override), so no recommendation was audited — nothing was written'
+          : report.audited_option === undefined
+            ? 'The latest plan verifier report stamps no audited recommendation (decision.json was absent or not schema-valid when it was recorded, or an older CLI recorded it) — nothing was written'
+            : `decision.json recommends ${option}, but the latest plan verifier report audited ${report.audited_option} — nothing was written`,
+        'Re-record the plan verifier report for the current plan.md and decision.json (`prospec change log --skill prospec-plan --verifier-report <file>`), then sign off',
+      );
+    }
+  }
+
+  // A report recorded before the stamp existed is accepted by position, so an in-flight
+  // change is never stranded on a report it cannot re-stamp.
+  const planVersion = capturePlanVersion(changeDir);
+  const digest = planVersion.digest;
+  if (report?.audited_plan_digest !== undefined && report.audited_plan_digest !== digest) {
     throw new PrerequisiteError(
-      report === null
-        ? 'No plan verifier report is recorded (only a Break-Glass override), so no recommendation was audited — nothing was written'
-        : report.audited_option === undefined
-          ? 'The latest plan verifier report stamps no audited recommendation (decision.json was absent or not schema-valid when it was recorded, or an older CLI recorded it) — nothing was written'
-          : `decision.json recommends ${option}, but the latest plan verifier report audited ${report.audited_option} — nothing was written`,
-      'Re-record the plan verifier report for the current plan.md and decision.json (`prospec change log --skill prospec-plan --verifier-report <file>`), then sign off',
+      'plan.md or delta-spec.md changed after the latest plan verifier report audited it — nothing was written',
+      'Run the plan verifier on the current plan and record its new report (`prospec change log --skill prospec-plan --verifier-report <file>`), then sign off',
+    );
+  }
+  if (!metadataSnapshot.recheck() || !planVersion.recheck()) {
+    throw new PrerequisiteError(
+      'metadata.yaml, plan.md or delta-spec.md changed before the sign-off was recorded — nothing was written',
+      'Re-run `prospec status`, then sign off against the current state',
     );
   }
 
-  const decisionPath = path.join(changeDir, CANDIDATES_DIR, DECISION_FILE);
-  await atomicWrite(decisionPath, `${JSON.stringify({ ...decision, graded_by: 'human' }, null, 2)}\n`);
+  if (decision !== null) {
+    const decisionPath = path.join(changeDir, CANDIDATES_DIR, DECISION_FILE);
+    await atomicWrite(decisionPath, `${JSON.stringify({ ...decision, graded_by: 'human' }, null, 2)}\n`);
+  }
   const entry: NewQualityLogEntry = {
     skill: 'prospec-plan',
     date: signoff.date ?? todayIso(),
     result: 'PASS',
     warnings: signoff.notes ?? [],
-    signoff_option: option satisfies PlanDecisionOption,
+    signoff_option: option satisfies PlanSignoffOption,
+    signoff_plan_digest: digest,
   };
   appendQualityLogEntry(doc, entry);
   await writeChangeMetadataDoc(metadataPath, doc, changeName);

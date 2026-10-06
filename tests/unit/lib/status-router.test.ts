@@ -8,6 +8,7 @@ import {
   WORKFLOW_REASON_CODES,
   isHumanHaltCode,
   PLAN_SIGNOFF_REMEDIES,
+  PLAN_VERSION_SIGNOFF_REMEDIES,
   type ChangeRouteFacts,
   type WorkflowReason,
 } from '../../../src/types/status.js';
@@ -52,6 +53,7 @@ function facts(overrides: Partial<ChangeRouteFacts> = {}): ChangeRouteFacts {
     maxStationRetries: 3,
     pauseAtPlan: false,
     planSignedOff: false,
+    planChangedSinceVerifier: false,
     ...overrides,
   };
 }
@@ -572,13 +574,37 @@ describe('status-router — opt-in plan sign-off pause (REQ-LIB-087)', () => {
     expect(route.reasons).toEqual(['status `plan` — next station per lifecycle order']);
   });
 
-  it('pause + a non-full scale → routing unchanged', () => {
-    for (const scale of ['standard', 'quick', 'backfill'] as const) {
+  it('pause + standard → HALT for a plan-version sign-off, not a candidate option', () => {
+    const route = routeChange(atPlan({ scale: 'standard' }));
+    expect(route.next).toBeNull();
+    expect(route.code).toBe('AWAITING_HUMAN_PLAN_SIGNOFF');
+    expect(route.blockingGates.join(' ')).toContain('--signoff plan');
+    expect(route.blockingGates.join(' ')).not.toContain('decision.json');
+    expect(route.reasons.join(' ')).toContain(PLAN_VERSION_SIGNOFF_REMEDIES);
+    expect(route.reasons.join(' ')).not.toContain(PLAN_SIGNOFF_REMEDIES);
+  });
+
+  it('pause + a scale without plan.md → routing unchanged', () => {
+    for (const scale of ['quick', 'backfill'] as const) {
       const paused = routeChange(atPlan({ scale }));
       const unpaused = routeChange(atPlan({ scale, pauseAtPlan: false }));
       expect(paused, scale).toEqual(unpaused);
       expect(paused.code, scale).not.toBe('AWAITING_HUMAN_PLAN_SIGNOFF');
     }
+  });
+
+  it('a plan changed since the verifier audit routes back to the verifier instead of asking the human', () => {
+    for (const scale of ['standard', 'full'] as const) {
+      const route = routeChange(atPlan({ scale, planChangedSinceVerifier: true }));
+      expect(route.next, scale).toBe('plan');
+      expect(route.code, scale).toBe('PLAN_VERIFIER_PENDING');
+      expect(route.reasons.join(' '), scale).toContain('changed after the plan verifier audited it');
+      expect(route.blockingGates.join(' '), scale).toContain('--verifier-report');
+    }
+    // without the pause the fact routes nothing
+    expect(routeChange(atPlan({ planChangedSinceVerifier: true, pauseAtPlan: false })).next).toBe('tasks');
+    // a sign-off that counts was checked against the current version, so it releases the pause
+    expect(routeChange(atPlan({ planChangedSinceVerifier: true, planSignedOff: true })).next).toBe('tasks');
   });
 
   it('a fresh sign-off releases the pause to tasks', () => {
@@ -719,11 +745,12 @@ describe('status-router — full status × scale matrix stays lifecycle-consiste
       for (const scale of CHANGE_SCALES) {
         for (const pauseAtPlan of [false, true]) {
           for (const planSignedOff of [false, true]) {
+           for (const planChangedSinceVerifier of [false, true]) {
             for (const lastPlanVerifierResult of [null, 'PASS', 'WARN', 'FAIL'] as const) {
               for (const streak of [0, 3]) {
                 for (const knowledgeSyncReasons of [[], [UNSYNCED], [INVALID]]) {
                   const route = routeChange(facts({
-                    status, scale, pauseAtPlan, planSignedOff, lastPlanVerifierResult,
+                    status, scale, pauseAtPlan, planSignedOff, planChangedSinceVerifier, lastPlanVerifierResult,
                     lastTasksVerifierResult: lastPlanVerifierResult,
                     planFlawsStreak: streak, tasksFlawsStreak: streak, verifyBelowBarStreak: streak,
                     lastVerifyGrade: streak > 0 ? 'C' : null, maxStationRetries: 3, knowledgeSyncReasons,
@@ -734,6 +761,7 @@ describe('status-router — full status × scale matrix stays lifecycle-consiste
                 }
               }
             }
+           }
           }
         }
       }

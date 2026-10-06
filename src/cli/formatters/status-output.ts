@@ -28,7 +28,7 @@ const HALT_LINES: Record<HumanHaltCode, { color: (s: string) => string; next: st
     color: pc.yellow,
     next: '— HALT (awaiting human plan sign-off)',
     action:
-      'present the candidates, metrics table, rationale and plan verifier report; the human signs off with `prospec change log --skill prospec-plan --signoff <option>`',
+      'present the sign-off material the plan skill names for this scale; the human signs off with `prospec change log --skill prospec-plan --signoff <option>` (full scale) or `--signoff plan` (other scales)',
   },
   KNOWLEDGE_INPUT_INVALID: {
     color: pc.red,

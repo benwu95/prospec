@@ -1,7 +1,7 @@
 {
   "version": 1,
   "captured_from_commit": "9d3f42d0771602228d727289a59a496fe1a06344",
-  "note": "Pre-migration inventory for the station reference map change. Captured by rendering every supported host through the THEN-CURRENT agent-sync owner (services/agent-sync.service.ts getSkillReferences + renderTemplate) in an isolated temp project, never from the new STATION_REFERENCES registry. `slot_text` additionally freezes, per rendered map slot, the exact prose that slot must reproduce: each string was verified to occur VERBATIM in the pre-migration deployed SKILL.md at the commit recorded above (`git show <commit>:.claude/skills/<skill>/SKILL.md` re-checks any row). Frozen on purpose: it is the independent expectation the registry-derived projections are compared against, so it is never regenerated from the code it guards. Re-captured 2026-09-27 on top of 527520f by the change isolate-detect-preserve-delegates (issue #280; REQ-TESTS-119 and REQ-TEMPLATES-232 as modified there): the one deliberate addition is `delegation-protocol.md`, the single definition of the Physical Receipt protocol and the delegation ticket flow, deployed to prospec-review, prospec-verify, prospec-plan, prospec-tasks and prospec-ff on every host and cited at each station's delegation site (verify: 2/5, dimension 6 and the Record sink). Every other row, `slot_text` and `mandatory_policies` included, stays the frozen independent expectation and was left byte-identical; `captured_from_commit` still names the pre-migration commit those frozen rows can be re-checked against, while the `delegation-protocol.md` rows exist only from base 527520f plus the change isolate-detect-preserve-delegates onward.",
+  "note": "Pre-migration inventory for the station reference map change. Captured by rendering every supported host through the THEN-CURRENT agent-sync owner (services/agent-sync.service.ts getSkillReferences + renderTemplate) in an isolated temp project, never from the new STATION_REFERENCES registry. `slot_text` additionally freezes, per rendered map slot, the exact prose that slot must reproduce: each string was verified to occur VERBATIM in the pre-migration deployed SKILL.md at the commit recorded above (`git show <commit>:.claude/skills/<skill>/SKILL.md` re-checks any row). Frozen on purpose: it is the independent expectation the registry-derived projections are compared against, so it is never regenerated from the code it guards. Re-captured 2026-09-27 on top of 527520f by the change isolate-detect-preserve-delegates (issue #280; REQ-TESTS-119 and REQ-TEMPLATES-232 as modified there): the one deliberate addition is `delegation-protocol.md`, the single definition of the Physical Receipt protocol and the delegation ticket flow, deployed to prospec-review, prospec-verify, prospec-plan, prospec-tasks and prospec-ff on every host and cited at each station's delegation site (verify: 2/5, dimension 6 and the Record sink). Every other row, `slot_text` and `mandatory_policies` included, stays the frozen independent expectation and was left byte-identical; `captured_from_commit` still names the pre-migration commit those frozen rows can be re-checked against, while the `delegation-protocol.md` rows exist only from base 527520f plus the change isolate-detect-preserve-delegates onward. Re-captured 2026-10-06 by the change bound-human-decisions (issue #334; REQ-TEMPLATES-247): the one deliberate addition is `human-decision.md`, the shared human-decision presentation contract with the plan sign-off material by scale and the delegation boundary, deployed to prospec-plan, prospec-ff and prospec-new-story on every host and cited at plan Phase 8, ff Phase 3 and new-story Phase 3.5. Every other row stays byte-identical.",
   "hosts": {
     "claude": {
       "skill_path": ".claude/skills",
@@ -30,6 +30,7 @@
           "circuit-breaker.md",
           "delegation-protocol.md",
           "delta-spec-format.md",
+          "human-decision.md",
           "metadata-format.md",
           "plan-format.md",
           "plan-verifier-rubric.md",
@@ -49,6 +50,7 @@
           "promotion-format.md"
         ],
         "prospec-new-story": [
+          "human-decision.md",
           "metadata-format.md",
           "proposal-format.md"
         ],
@@ -56,6 +58,7 @@
           "candidate-evaluation.md",
           "delegation-protocol.md",
           "delta-spec-format.md",
+          "human-decision.md",
           "plan-format.md",
           "plan-verifier-rubric.md"
         ],
@@ -115,6 +118,7 @@
           "circuit-breaker.md",
           "delegation-protocol.md",
           "delta-spec-format.md",
+          "human-decision.md",
           "metadata-format.md",
           "plan-format.md",
           "plan-verifier-rubric.md",
@@ -134,6 +138,7 @@
           "promotion-format.md"
         ],
         "prospec-new-story": [
+          "human-decision.md",
           "metadata-format.md",
           "proposal-format.md"
         ],
@@ -141,6 +146,7 @@
           "candidate-evaluation.md",
           "delegation-protocol.md",
           "delta-spec-format.md",
+          "human-decision.md",
           "plan-format.md",
           "plan-verifier-rubric.md"
         ],
@@ -200,6 +206,7 @@
           "circuit-breaker.md",
           "delegation-protocol.md",
           "delta-spec-format.md",
+          "human-decision.md",
           "metadata-format.md",
           "plan-format.md",
           "plan-verifier-rubric.md",
@@ -219,6 +226,7 @@
           "promotion-format.md"
         ],
         "prospec-new-story": [
+          "human-decision.md",
           "metadata-format.md",
           "proposal-format.md"
         ],
@@ -226,6 +234,7 @@
           "candidate-evaluation.md",
           "delegation-protocol.md",
           "delta-spec-format.md",
+          "human-decision.md",
           "plan-format.md",
           "plan-verifier-rubric.md"
         ],
@@ -285,6 +294,7 @@
           "circuit-breaker.md",
           "delegation-protocol.md",
           "delta-spec-format.md",
+          "human-decision.md",
           "metadata-format.md",
           "plan-format.md",
           "plan-verifier-rubric.md",
@@ -304,6 +314,7 @@
           "promotion-format.md"
         ],
         "prospec-new-story": [
+          "human-decision.md",
           "metadata-format.md",
           "proposal-format.md"
         ],
@@ -311,6 +322,7 @@
           "candidate-evaluation.md",
           "delegation-protocol.md",
           "delta-spec-format.md",
+          "human-decision.md",
           "plan-format.md",
           "plan-verifier-rubric.md"
         ],
@@ -402,7 +414,8 @@
         "plan-format.md",
         "delta-spec-format.md",
         "plan-verifier-rubric.md",
-        "delegation-protocol.md"
+        "delegation-protocol.md",
+        "human-decision.md"
       ],
       "Core Workflow > Phase 4: Tasks Generation": [
         "tasks-format.md",
@@ -455,6 +468,9 @@
       ],
       "Core Workflow > Phase 5: Write proposal.md": [
         "proposal-format.md"
+      ],
+      "Core Workflow > Phase 3.5: Complexity Assessment (Scale)": [
+        "human-decision.md"
       ]
     },
     "prospec-plan": {
@@ -478,6 +494,9 @@
       ],
       "NEVER": [
         "plan-verifier-rubric.md"
+      ],
+      "Core Workflow > Phase 8: Summary + Next Steps": [
+        "human-decision.md"
       ]
     },
     "prospec-promote-backfill": {

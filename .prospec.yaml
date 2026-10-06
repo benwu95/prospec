@@ -36,6 +36,9 @@ knowledge:
     # no Sweep could clear it. PASS here comes from widening the budget, NOT from
     # the knowledge getting smaller.
     demand_knowledge_per_file: 20000
+workflow:
+  # Every standard and full change confirms its direction after the plan verifier.
+  pause_at: [plan]
 artifact_language: Traditional Chinese (Taiwan)
 skill_triggers:
   prospec-explore:

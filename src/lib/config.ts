@@ -10,11 +10,13 @@ import {
   PAUSE_AT_ENV_VAR,
   PAUSE_AT_NONE,
   PAUSE_STATIONS,
+  ALWAYS_ESCALATE_CATEGORIES,
+  DEFAULT_ALWAYS_ESCALATE,
   isShippedBudgetField,
   isDefaultArtifactLanguage,
 } from '../types/config.js';
-import type { ProspecConfig, KnowledgeSizeBudget, PauseStation, TokenBudget } from '../types/config.js';
-import { ConfigNotFound, ConfigInvalid, PauseAtInvalid } from '../types/errors.js';
+import type { AlwaysEscalateCategory, ProspecConfig, KnowledgeSizeBudget, PauseStation, TokenBudget } from '../types/config.js';
+import { AlwaysEscalateInvalid, ConfigNotFound, ConfigInvalid, PauseAtInvalid } from '../types/errors.js';
 import { atomicWrite } from './fs-utils.js';
 import { parseYaml, parseYamlDocument, stringifyYamlDocument, mergeIntoDocument } from './yaml-utils.js';
 import { resolveProjectTestCommand } from './project-runner.js';
@@ -138,19 +140,27 @@ export function resolveMaxStationRetries(config?: ProspecConfig | null): number 
  * `PROSPEC_PAUSE_AT`, when set at all (the empty string included), decides alone, and
  * `none` means no pause like the empty string —
  * that is what lets a cloud or scheduled run opt out of a pause committed to
- * `.prospec.yaml`. Otherwise `workflow.pause_at` decides. An invalid value throws
- * rather than resolving to "no pause": a typo must never silently disable a pause.
+ * `.prospec.yaml`. Otherwise a verified `ai-proposed` Premise pauses at `plan`, and
+ * `workflow.pause_at` decides the rest. An invalid value throws rather than resolving
+ * to "no pause": a typo must never silently disable a pause.
  * Pure resolver — the environment is a parameter.
  */
 export function resolvePauseAt(
   config: Pick<ProspecConfig, 'workflow'> | null | undefined,
   env: Readonly<Record<string, string | undefined>>,
+  options: { aiProposedPremise?: boolean } = {},
 ): PauseStation[] {
   const fromEnv = env[PAUSE_AT_ENV_VAR];
   if (fromEnv !== undefined) {
     if (fromEnv.trim() === PAUSE_AT_NONE) return [];
     return validatePauseStations(fromEnv.split(','), PAUSE_AT_ENV_VAR, fromEnv);
   }
+  const stations = configuredPauseStations(config);
+  if (options.aiProposedPremise === true && !stations.includes('plan')) stations.push('plan');
+  return stations;
+}
+
+function configuredPauseStations(config: Pick<ProspecConfig, 'workflow'> | null | undefined): PauseStation[] {
   const fromConfig = config?.workflow?.pause_at;
   if (fromConfig === undefined) return [];
   const source = '.prospec.yaml workflow.pause_at';
@@ -160,7 +170,28 @@ export function resolvePauseAt(
   return validatePauseStations(fromConfig, source, JSON.stringify(fromConfig));
 }
 
-export interface PauseAtFallback {
+/**
+ * Resolve the decision categories a general delegation never decides (REQ-LIB-102):
+ * `workflow.always_escalate`, or every category when the key or the config is absent.
+ * An invalid value throws rather than narrowing the set silently.
+ */
+export function resolveAlwaysEscalate(
+  config: Pick<ProspecConfig, 'workflow'> | null | undefined,
+): AlwaysEscalateCategory[] {
+  const value = config?.workflow?.always_escalate;
+  if (value === undefined) return [...DEFAULT_ALWAYS_ESCALATE];
+  if (!Array.isArray(value)) throw new AlwaysEscalateInvalid(JSON.stringify(value));
+  const categories: AlwaysEscalateCategory[] = [];
+  for (const entry of value) {
+    if (typeof entry !== 'string' || !(ALWAYS_ESCALATE_CATEGORIES as readonly string[]).includes(entry)) {
+      throw new AlwaysEscalateInvalid(JSON.stringify(entry));
+    }
+    if (!categories.includes(entry as AlwaysEscalateCategory)) categories.push(entry as AlwaysEscalateCategory);
+  }
+  return categories;
+}
+
+export interface WorkflowFallback {
   setting: Pick<ProspecConfig, 'workflow'> | null;
   /** Why the pause is assumed rather than read (the file exists but is unreadable or
    *  not YAML), for the caller to disclose; null when the setting was read or is absent. */
@@ -168,14 +199,15 @@ export interface PauseAtFallback {
 }
 
 /**
- * The pause setting alone, from a `.prospec.yaml` that failed validation: a schema
- * error in an unrelated field must not silently disable a committed pause. An absent
- * file has no setting. A file that exists but cannot be read, or is not YAML at all,
- * cannot prove the pause off, so it resolves to every pause station (fail closed) and
- * says why; `PROSPEC_PAUSE_AT` still decides alone.
+ * The workflow settings alone (`pause_at`, `always_escalate`), from a `.prospec.yaml` that
+ * failed validation: a schema error in an unrelated field must not silently disable a
+ * committed pause or narrow the escalation categories. An absent file has no setting. A
+ * file that exists but cannot be read, or is not YAML at all, cannot prove the pause off,
+ * so it resolves to every pause station (fail closed) and says why; `PROSPEC_PAUSE_AT`
+ * still decides alone, and the categories keep their default.
  */
-export async function readPauseAtFallback(cwd?: string): Promise<PauseAtFallback> {
-  const assumed = (assumedBecause: string): PauseAtFallback => ({
+export async function readWorkflowFallback(cwd?: string): Promise<WorkflowFallback> {
+  const assumed = (assumedBecause: string): WorkflowFallback => ({
     setting: { workflow: { pause_at: [...PAUSE_STATIONS] } },
     assumedBecause,
   });
@@ -186,14 +218,24 @@ export async function readPauseAtFallback(cwd?: string): Promise<PauseAtFallback
     const code = (err as NodeJS.ErrnoException).code;
     return code === 'ENOENT' ? { setting: null, assumedBecause: null } : assumed(`cannot be read (${code ?? 'error'})`);
   }
-  let data: { workflow?: { pause_at?: unknown } } | null;
+  let data: { workflow?: { pause_at?: unknown; always_escalate?: unknown } } | null;
   try {
     data = parseYaml(raw);
   } catch {
     return assumed('is not parseable YAML');
   }
   const pauseAt = data?.workflow?.pause_at;
-  return { setting: pauseAt === undefined ? null : { workflow: { pause_at: pauseAt } }, assumedBecause: null };
+  const alwaysEscalate = data?.workflow?.always_escalate;
+  if (pauseAt === undefined && alwaysEscalate === undefined) return { setting: null, assumedBecause: null };
+  return {
+    setting: {
+      workflow: {
+        ...(pauseAt === undefined ? {} : { pause_at: pauseAt }),
+        ...(alwaysEscalate === undefined ? {} : { always_escalate: alwaysEscalate }),
+      },
+    },
+    assumedBecause: null,
+  };
 }
 
 function validatePauseStations(entries: readonly unknown[], source: string, raw: string): PauseStation[] {

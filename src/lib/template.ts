@@ -145,6 +145,7 @@ function ensureBuiltinPartials(): void {
   );
   Handlebars.registerPartial('escalation-guidance', readTemplateSource('skills/_escalation-guidance.hbs'));
   Handlebars.registerPartial('premise', readTemplateSource('skills/_premise.hbs'));
+  Handlebars.registerPartial('human-decision', readTemplateSource('skills/_human-decision.hbs'));
   builtinPartialsRegistered = true;
 }
 

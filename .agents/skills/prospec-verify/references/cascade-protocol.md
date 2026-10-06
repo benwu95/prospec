@@ -14,16 +14,18 @@ The cascading workflow dynamically adapts its trajectory based on `metadata.scal
 - **Review/Verify Light Execution**: Evaluates against `proposal.md` acceptance scenarios; delta-spec compliance (2/5) is `not-applicable`.
 
 ### 2. Scale: Standard (`scale: standard` or unset)
-- **Trajectory**: `story → plan → tasks → implement → review → verify → knowledge-update → Tastemaker Sign-off`
+- **Trajectory**: `story → plan → [plan sign-off, when paused] → tasks → implement → review → verify → knowledge-update → Tastemaker Sign-off`
 - **Linear Progression**: Each station advances immediately upon meeting its entry and exit gates.
 
 ### 3. Scale: Full (`scale: full`)
-- **Trajectory**: `story → plan (candidates + metrics) → [plan sign-off, opt-in] → tasks → implement → review → verify → knowledge-update → Tastemaker Sign-off`
-- **Candidate Selection**: In Phase 4 of Plan, generates orthogonal candidate architectures, measures them with `prospec validate candidates`, and selects in-session. Without the opt-in pause the cascade continues into tasks and NEVER asks the human to choose; with it (`workflow.pause_at: [plan]`, overridable per run by `PROSPEC_PAUSE_AT`, empty or `none` = no pause), `prospec status` holds the change for a human plan sign-off — NEVER set `PROSPEC_PAUSE_AT` to skip it without an explicit human instruction.
+- **Trajectory**: `story → plan (candidates + metrics) → [plan sign-off, when paused] → tasks → implement → review → verify → knowledge-update → Tastemaker Sign-off`
+- **Candidate Selection**: In Phase 4 of Plan, generates orthogonal candidate architectures, measures them with `prospec validate candidates`, and selects in-session. Without the pause the cascade continues into tasks and NEVER asks the human to choose.
 
 ### 4. Scale: Backfill (`scale: backfill`)
 - **Trajectory**: `promote → review → verify → knowledge-update → Tastemaker Sign-off`
 - **Entry, not a skip**: `prospec-promote-backfill` formalizes a reviewed `backfill-draft.md` and lands at `implemented`; plan and tasks are forbidden by contract, and `prospec status` never routes a backfill to them.
+
+On standard and full, the plan sign-off pause (by default for a verified `ai-proposed` Premise, or via `workflow.pause_at: [plan]`; `PROSPEC_PAUSE_AT` decides alone per run, empty or `none` = no pause) has `prospec status` hold the change for a human plan sign-off — NEVER set `PROSPEC_PAUSE_AT` to skip it without an explicit human instruction.
 
 A UI change (`proposal.md` `ui_scope` full/partial) inserts `design` between `plan` and `tasks` on the standard/full trajectory. Every next station above is what `prospec status` computes — the cascade consults it at each Step 5 [NEXT] and never keeps a route table of its own.
 
@@ -37,7 +39,7 @@ Every station — whether reached via `prospec status` or by autonomous cascadin
 2. **Step 2 [ENTRY]** — Check the station's Entry Gates; if any FAILs, stop and resolve it before acting.
 3. **Step 3 [EXEC]** — Execute the station per its `SKILL.md` and the references it loads on demand; loading a station never means its references arrived.
 4. **Step 4 [GATE]** — Run the station's machine verifiers. On FAIL, apply the Oscillation Breaker (stop if state flips FAIL → PASS → FAIL ≥ 2) — never loop unbounded.
-5. **Step 5 [NEXT]** — Run `prospec status` for the next station. When the route carries `code: ESCALATE_TO_HUMAN`, HALT immediately and emit the CLI-produced `EscalationReport` decision, including its persisted lifetime ordinal, trigger and reasons — do NOT return to Step 1. When it carries `code: AWAITING_HUMAN_PLAN_SIGNOFF`, HALT and present the candidate summary, metrics table, in-session rationale and plan verifier report — it is not a failure, so emit no `EscalationReport`; after the human signs off, resume at Step 1. When it carries `code: KNOWLEDGE_INPUT_INVALID`, HALT and present the knowledge-sync input its reasons name (no `EscalationReport`); resume at Step 1 once it is repaired. Otherwise, return to Step 1.
+5. **Step 5 [NEXT]** — Run `prospec status` for the next station. When the route carries `code: ESCALATE_TO_HUMAN`, HALT immediately and emit the CLI-produced `EscalationReport` decision, including its persisted lifetime ordinal, trigger and reasons — do NOT return to Step 1. When it carries `code: AWAITING_HUMAN_PLAN_SIGNOFF`, HALT and present the plan station's sign-off material for the change's scale — it is not a failure, so emit no `EscalationReport`; after the human signs off, resume at Step 1. When it carries `code: KNOWLEDGE_INPUT_INVALID`, HALT and present the knowledge-sync input its reasons name (no `EscalationReport`); resume at Step 1 once it is repaired. Otherwise, return to Step 1.
 
 ---
 
@@ -48,7 +50,7 @@ An autonomous transition to the next station occurs **only** when all preconditi
 | Current Station | Next Station | Transition Gate |
 |-----------------|--------------|-----------------|
 | **story** | `plan` — or `tasks` (`scale: quick`), or `promote` (`scale: backfill`) | `proposal.md` written with `## Stated Assumptions`; INVEST advisory check completed (recorded, never blocking). |
-| **plan** | `design` (proposal `ui_scope` full/partial) — otherwise `tasks` | Architecture Verifier PASS (or advisory WARN) on five orthogonal dimensions, recorded via `prospec change log --skill prospec-plan --verifier-report <file>` (a Break-Glass grant alone never satisfies the verifier gate); a recorded FLAWS keeps `prospec status` on plan until a later PASS/WARN; under the opt-in pause a `scale: full` change also needs a human sign-off newer than that verifier result. |
+| **plan** | `design` (proposal `ui_scope` full/partial) — otherwise `tasks` | Architecture Verifier PASS (or advisory WARN) on five orthogonal dimensions, recorded via `prospec change log --skill prospec-plan --verifier-report <file>` (a Break-Glass grant alone never satisfies the verifier gate); a recorded FLAWS keeps `prospec status` on plan until a later PASS/WARN; under the plan sign-off pause the change also needs a human sign-off that counts for its current plan. |
 | **design** | `tasks` | `design-spec.md` + `interaction-spec.md` produced. |
 | **tasks** | `implement` | Task Contract Verifier PASS (or advisory WARN) on bidirectional coverage, DAG layering and TDD closure, recorded via `prospec change log --skill prospec-tasks --verifier-report <file>`; a recorded FLAWS keeps `prospec status` on tasks until a later PASS/WARN. |
 | **promote** | `review` | Promotion scaffold complete (`prospec validate promote-scaffold`) and `status: implemented` set — the backfill entry. |
@@ -81,9 +83,11 @@ When the pipeline completes final Verification with Grade S/A, reaching this bou
    - The Agent **NEVER** automatically commits, pushes, or archives without explicit human approval.
    - Prompt the user to commit the change as a single atomic-by-feature commit folding implement, review, and verify fixes plus knowledge sync together (`feat: <description>`).
    - After the commit lands and before pushing, re-run the project's knowledge-sync mechanical gate if declared. Before re-verifying, inspect `knowledge-health`; if accurate Knowledge needs reconfirmation, stamp the modules and validate the changed inputs again. Commit equivalence preserves content evidence, while Knowledge freshness is assessed separately.
-4. **Sign-off Options for Developer** (the final delivery sign-off; the opt-in plan sign-off is a separate Step 5 loop-exit):
+4. **Sign-off Options for Developer** (the final delivery sign-off; the plan sign-off is a separate Step 5 loop-exit):
    - **Approve**: Run the git commit command and advance to `prospec-archive`.
    - **Steer / Adjust**: Request additional changes, refinements, or re-verification.
+
+**Presenting a human decision**: for each viable option, state its concrete reversal cost — what is redone if it proves wrong now, and after implementation. Cite the rule or evidence behind the recommendation, and give the strongest non-recommended option the condition under which it would be right. Draw on the gate's existing material rather than restating whole reports. A decision the human already stated is not asked again, and nothing here adds a question where the station decides autonomously.
 
 ---
 

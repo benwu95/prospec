@@ -15,7 +15,8 @@ import {
   TEST_GATE_PRODUCER,
   type TestGateEntrance,
 } from '../types/station.js';
-import { atomicWrite } from './fs-utils.js';
+import { atomicWrite, captureFileInputs } from './fs-utils.js';
+import { planVersionDigest } from './escalation.js';
 import { parseYamlDocument, stringifyYaml, stringifyYamlDocument } from './yaml-utils.js';
 import { collapseWhitespace } from './text-lines.js';
 
@@ -151,7 +152,7 @@ export async function writeChangeMetadataObject(
 /**
  * Build an entry object in canonical key order (skill → date → result → warnings →
  * grade → dimensions → criticals_found → criticals_fixed → majors → round → verifier_verdict →
- * audited_option → signoff_option → context_id → baseline_revision → coverage_summary).
+ * audited_option → audited_plan_digest → signoff_option → signoff_plan_digest → context_id → baseline_revision → coverage_summary).
  * Validated against NewQualityLogEntrySchema first.
  */
 export function buildOrderedQualityLogEntry(entry: NewQualityLogEntry): Record<string, unknown> {
@@ -170,7 +171,9 @@ export function buildOrderedQualityLogEntry(entry: NewQualityLogEntry): Record<s
   if (parsed.round !== undefined) ordered.round = parsed.round;
   if (parsed.verifier_verdict !== undefined) ordered.verifier_verdict = parsed.verifier_verdict;
   if (parsed.audited_option !== undefined) ordered.audited_option = parsed.audited_option;
+  if (parsed.audited_plan_digest !== undefined) ordered.audited_plan_digest = parsed.audited_plan_digest;
   if (parsed.signoff_option !== undefined) ordered.signoff_option = parsed.signoff_option;
+  if (parsed.signoff_plan_digest !== undefined) ordered.signoff_plan_digest = parsed.signoff_plan_digest;
   if (parsed.context_id !== undefined) ordered.context_id = parsed.context_id;
   if (parsed.baseline_revision !== undefined) ordered.baseline_revision = parsed.baseline_revision;
   if (parsed.coverage_summary !== undefined) ordered.coverage_summary = parsed.coverage_summary;
@@ -235,6 +238,17 @@ export function upsertReviewRoundEntry(doc: Document, entry: NewQualityLogEntry)
   doc.addIn(['quality_log'], node);
 }
 
+/** The files that make up the plan version a verifier audits and a human signs. */
+export function planVersionInputs(changeDir: string): { plan: string; delta: string } {
+  return { plan: path.join(changeDir, 'plan.md'), delta: path.join(changeDir, 'delta-spec.md') };
+}
+
+/** The current plan version and a recheck that it is still the one read. */
+export function capturePlanVersion(changeDir: string): { digest: string; recheck: () => boolean } {
+  const capture = captureFileInputs(planVersionInputs(changeDir));
+  return { digest: planVersionDigest(capture.values.plan ?? null, capture.values.delta ?? null), recheck: capture.recheck };
+}
+
 /** A plan sign-off written by `change log --signoff` — provenance, not a gate result. */
 export function isPlanSignoffEntry(entry: { skill?: string; signoff_option?: string; escalation?: unknown }): boolean {
   return entry.skill === 'prospec-plan' && entry.signoff_option !== undefined && entry.escalation === undefined;
@@ -245,6 +259,7 @@ export {
   isReviewCloseEntry, isReviewRoundCountsEntry,
   verifierGateResultOf, latestVerifierEntry, latestStampedVerifierEntry,
   latestVerifierResult, latestFreshPlanSignoff, hasPlanSignoffAfterVerifier,
+  planChangedSinceVerifier, planVersionDigest,
 } from './escalation.js';
 
 /** The one WARN line a test-gate exemption records: prefix, entrance, reason. */

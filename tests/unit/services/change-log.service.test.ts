@@ -2,7 +2,10 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { vol } from 'memfs';
 import * as fs from 'node:fs';
 import * as candidateReader from '../../../src/lib/plan-candidates.js';
+import * as fsUtils from '../../../src/lib/fs-utils.js';
+import { PLAN_VERSION_SIGNOFF_REMEDIES } from '../../../src/types/status.js';
 import { execute } from '../../../src/services/change-log.service.js';
+import { planVersionDigest } from '../../../src/lib/escalation.js';
 import { MetadataValidationError, PrerequisiteError } from '../../../src/types/errors.js';
 
 vi.mock('node:fs', async () => {
@@ -145,6 +148,32 @@ describe('change-log service — planning verifier report (REQ-SERVICES-109)', (
     seedDecision({ ...decision, graded_by: undefined });
     expect((await record()).entry.audited_option).toBeUndefined();
     await expect(execute({ cwd: CWD, entry: { skill: 'prospec-plan', result: 'PASS', warnings: [], audited_option: 'option-a' } })).rejects.toThrow(/may not carry verifier_verdict or audited_option/);
+  });
+
+  it('stamps a plan verifier entry with the plan version it audited, and only for the plan station', async () => {
+    seedReport(payload());
+    vol.writeFileSync('/repo/.prospec/changes/add-widget/plan.md', '# Plan\n');
+    vol.writeFileSync('/repo/.prospec/changes/add-widget/delta-spec.md', '# Delta\n');
+    const entry = (await record()).entry;
+    expect(entry.audited_plan_digest).toBe(planVersionDigest('# Plan\n', '# Delta\n'));
+    expect(vol.readFileSync(PATH, 'utf-8')).toContain(`audited_plan_digest: ${planVersionDigest('# Plan\n', '# Delta\n')}`);
+
+    const tasksPayload = {
+      verdict: 'PASS', evidence: 'audit text', warnings: [],
+      dimensions: Object.fromEntries(['bidirectional_coverage', 'dag_topological_order', 'tdd_module_closure', 'task_sizing_schema']
+        .map((d) => [d, { result: 'PASS', rationale: 'ok' }])),
+    };
+    vol.writeFileSync(REPORT, JSON.stringify(tasksPayload));
+    const tasksEntry = (await execute({ cwd: CWD, verifierReport: { skill: 'prospec-tasks', path: REPORT } })).entry;
+    expect(tasksEntry.audited_plan_digest).toBeUndefined();
+  });
+
+  it.each(['audited_plan_digest', 'signoff_plan_digest'])('refuses a composed entry forging %s', async (field) => {
+    seed();
+    await expect(
+      execute({ cwd: CWD, entry: { skill: 'prospec-plan', result: 'PASS', warnings: [], [field]: 'abc' } }),
+    ).rejects.toThrow(new RegExp(field));
+    unchanged();
   });
 
   it('maps FLAWS to FAIL and folds the payload warnings plus each non-PASS dimension rationale into warnings', async () => {
@@ -428,6 +457,8 @@ quality_log:
       result: 'PASS',
       warnings: ['looks right'],
       signoff_option: 'option-a',
+      // the fixture has neither file, and that absence is itself the signed version
+      signoff_plan_digest: planVersionDigest(null, null),
     });
     const written = JSON.parse(vol.readFileSync(`${DIR}/candidates/decision.json`, 'utf-8') as string);
     expect(written.graded_by).toBe('human');
@@ -487,6 +518,23 @@ quality_log:
     expect(snapshot()).toEqual(before);
   });
 
+  it('refuses a candidate sign-off when the plan changed after the verifier audited it', async () => {
+    seedPlan({
+      [PATH]: PLAN_METADATA.replace('    audited_option: option-a\n', `    audited_option: option-a\n    audited_plan_digest: ${planVersionDigest('# v1\n', null)}\n`),
+      [`${DIR}/plan.md`]: '# v2\n',
+    });
+    const before = snapshot();
+    await expect(execute({ cwd: CWD, signoff: { skill: 'prospec-plan', option: 'option-a' } })).rejects.toThrow(/plan\.md or delta-spec\.md changed after the latest plan verifier report/);
+    expect(snapshot()).toEqual(before);
+  });
+
+  it('refuses a plan-version sign-off at full scale, which signs a candidate option', async () => {
+    seedPlan();
+    const before = snapshot();
+    await expect(execute({ cwd: CWD, signoff: { skill: 'prospec-plan', option: 'plan' } })).rejects.toThrow(/scale: full signs a candidate option/);
+    expect(snapshot()).toEqual(before);
+  });
+
   it('names the remedies when the decision cannot be signed', async () => {
     seedPlan({ [`${DIR}/candidates/decision.json`]: null });
     await expect(execute({ cwd: CWD, signoff: { skill: 'prospec-plan', option: 'option-a' } })).rejects.toMatchObject({
@@ -519,6 +567,110 @@ quality_log:
   });
 });
 
+
+describe('change-log service — plan-version sign-off (REQ-SERVICES-117)', () => {
+  const DIR = '/repo/.prospec/changes/add-widget';
+  const PLAN = '# Plan\n';
+  const DELTA = '# Delta\n';
+  const V = planVersionDigest(PLAN, DELTA);
+  const verifier = (digest?: string) =>
+    `  - skill: prospec-plan\n    date: 2026-09-24\n    result: PASS\n    warnings: []\n    verifier_verdict: PASS\n` +
+    (digest === undefined ? '' : `    audited_plan_digest: ${digest}\n`);
+  const metadata = (log: string, scale = 'standard') =>
+    `name: add-widget\ncreated_at: 2026-07-13T09:51:00.000Z\nstatus: plan\nscale: ${scale}\nquality_log:\n${log}`;
+  const seedStandard = (log: string, scale?: string, plan = PLAN) =>
+    vol.fromJSON({ [PATH]: metadata(log, scale), [`${DIR}/plan.md`]: plan, [`${DIR}/delta-spec.md`]: DELTA });
+  const sign = (notes: string[] = []) =>
+    execute({ cwd: CWD, signoff: { skill: 'prospec-plan', option: 'plan', notes, date: '2026-09-25' } });
+
+  it('signs the audited plan version without any candidate file', async () => {
+    seedStandard(verifier(V));
+    const result = await sign(['change the retry bound to 2, then continue']);
+    expect(result.entry).toEqual({
+      skill: 'prospec-plan', date: '2026-09-25', result: 'PASS',
+      warnings: ['change the retry bound to 2, then continue'],
+      signoff_option: 'plan', signoff_plan_digest: V,
+    });
+    expect(vol.existsSync(`${DIR}/candidates`)).toBe(false);
+    expect(vol.readFileSync(PATH, 'utf-8')).toContain(`signoff_option: plan\n    signoff_plan_digest: ${V}`);
+  });
+
+  it('accepts a verifier report recorded before the plan-version stamp by position, and stamps the current version', async () => {
+    seedStandard(verifier());
+    expect((await sign()).entry.signoff_plan_digest).toBe(V);
+  });
+
+  const refusals: Array<[string, () => void, RegExp]> = [
+    ['a plan changed after the verifier audit', () => seedStandard(verifier(planVersionDigest('# Old\n', DELTA))), /changed after the latest plan verifier report audited it/],
+    ['only a Break-Glass override', () => seedStandard('  - skill: prospec-plan\n    date: 2026-09-24\n    result: WARN\n    warnings:\n      - "Manual override: verifier down"\n'), /No plan verifier report is recorded \(only a Break-Glass override\)/],
+    ['a latest verifier FAIL', () => seedStandard(verifier(V).replace('result: PASS', 'result: FAIL').replace('verifier_verdict: PASS', 'verifier_verdict: FLAWS')), /is FAIL/],
+    ['a scale without a plan', () => seedStandard(verifier(V), 'quick'), /scale: quick has no plan/],
+  ];
+  it.each(refusals)('refuses %s and writes nothing', async (_label, arrange, message) => {
+    arrange();
+    const before = vol.toJSON();
+    await expect(sign()).rejects.toThrow(message);
+    expect(vol.toJSON()).toEqual(before);
+  });
+
+  it('names recording a new verifier report for the current plan when the plan changed', async () => {
+    seedStandard(verifier(planVersionDigest('# Old\n', DELTA)));
+    await expect(sign()).rejects.toMatchObject({ suggestion: expect.stringMatching(/Run the plan verifier on the current plan and record its new report/) });
+  });
+
+  it('keeps the candidate rules for a candidate option at standard scale, with the plan-version remedy', async () => {
+    seedStandard(verifier(V));
+    const before = vol.toJSON();
+    await expect(execute({ cwd: CWD, signoff: { skill: 'prospec-plan', option: 'option-a' } })).rejects.toMatchObject({
+      message: expect.stringMatching(/decision\.json is missing/),
+      suggestion: expect.stringMatching(/^At scale: standard, sign the audited plan version with `--signoff plan`/),
+    });
+    await expect(execute({ cwd: CWD, signoff: { skill: 'prospec-plan', option: 'option-a' } })).rejects.toMatchObject({
+      suggestion: expect.stringContaining(PLAN_VERSION_SIGNOFF_REMEDIES),
+    });
+    expect(vol.toJSON()).toEqual(before);
+  });
+
+  it('refuses when the plan changes between the read and the write', async () => {
+    seedStandard(verifier(V));
+    const realCapture = fsUtils.captureFileInputs;
+    const capture = vi.spyOn(fsUtils, 'captureFileInputs').mockImplementation((paths) => {
+      const result = realCapture(paths);
+      if ('plan' in paths) vol.writeFileSync(`${DIR}/plan.md`, '# Plan, edited mid-sign-off\n');
+      return result;
+    });
+    try {
+      await expect(sign()).rejects.toThrow(/changed before the sign-off was recorded/);
+      expect(vol.readFileSync(PATH, 'utf-8')).not.toContain('signoff_option');
+    } finally {
+      capture.mockRestore();
+    }
+  });
+
+  it('refuses when quality_log changes between the read and the write', async () => {
+    seedStandard(verifier(V));
+    // race a concurrent verifier write against the sign-off's plan-version read
+    const original = vol.readFileSync(PATH, 'utf-8') as string;
+    const realCapture = fsUtils.captureFileInputs;
+    const capture = vi.spyOn(fsUtils, 'captureFileInputs').mockImplementation((paths) => {
+      const result = realCapture(paths);
+      if ('plan' in paths) vol.writeFileSync(PATH, `${original}  - skill: prospec-plan\n    date: 2026-09-25\n    result: FAIL\n    warnings: []\n    verifier_verdict: FLAWS\n`);
+      return result;
+    });
+    try {
+      await expect(sign()).rejects.toThrow(/changed before the sign-off was recorded/);
+      expect(vol.readFileSync(PATH, 'utf-8')).toContain('verifier_verdict: FLAWS');
+      expect(vol.readFileSync(PATH, 'utf-8')).not.toContain('signoff_option');
+    } finally {
+      capture.mockRestore();
+    }
+  });
+
+  it('names the plan-version remedy, not the candidate one, when there is nothing to sign', async () => {
+    seedStandard('  - skill: prospec-plan\n    date: 2026-09-24\n    result: WARN\n    warnings:\n      - "Manual override: verifier down"\n');
+    await expect(sign()).rejects.toMatchObject({ suggestion: expect.stringMatching(/current plan\.md and delta-spec\.md.*PROSPEC_PAUSE_AT/) });
+  });
+});
 
 describe('planning escalation admission', () => {
   const reportPath = '/repo/report.json';

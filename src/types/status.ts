@@ -128,6 +128,9 @@ export function isHumanHaltCode(code: WorkflowReasonCode): code is HumanHaltCode
  *  AWAITING reason and the `--signoff` refusal, so the two never disagree. */
 export const PLAN_SIGNOFF_REMEDIES = `record the plan verifier report after candidates/decision.json is written (re-running the Phase 4 candidate selection first when there is none), add \`graded_by\` to a legacy decision.json and re-record the plan verifier, or — only on the human's instruction — skip the pause for one run with ${PAUSE_AT_ENV_VAR} set to ${PAUSE_AT_NONE} or empty`;
 
+/** The same dead-end remedy for a scale that signs the plan version instead of a candidate. */
+export const PLAN_VERSION_SIGNOFF_REMEDIES = `record the plan verifier report for the current plan.md and delta-spec.md (a Break-Glass override audits nothing), or — only on the human's instruction — skip the pause for one run with ${PAUSE_AT_ENV_VAR} set to ${PAUSE_AT_NONE} or empty`;
+
 /**
  * The Break-Glass marker: a `WARN` quality_log entry whose warning opens with this
  * prefix is a documented manual override and supersedes a station's recorded
@@ -207,12 +210,16 @@ export interface ChangeRouteFacts {
   tasksFlawsStreak: number;
   /** Resolved maximum station retries bound. */
   maxStationRetries: number;
-  /** Whether the resolved pause stations (`PROSPEC_PAUSE_AT` / `workflow.pause_at`)
-   *  include `plan`. The router alone decides whether the scale is eligible. */
+  /** Whether this change's resolved pause stations (`PROSPEC_PAUSE_AT`, a verified
+   *  `ai-proposed` Premise, `workflow.pause_at`) include `plan`. The router alone
+   *  decides whether the scale is eligible. */
   pauseAtPlan: boolean;
-  /** Whether a plan sign-off sits after the latest plan verifier result (and
-   *  that result is PASS/WARN) — judged by quality_log position, not by date. */
+  /** Whether a plan sign-off counts: positioned after the latest PASS/WARN plan verifier
+   *  result, signed for the current plan version, and of a kind the scale accepts. */
   planSignedOff: boolean;
+  /** Whether the current plan version differs from the one the latest plan verifier
+   *  report audited (false when that report predates the stamp). */
+  planChangedSinceVerifier: boolean;
   /** The reasons affected-module Knowledge is not synced (`knowledgeSyncReasons`
    *  over `findUnsyncedModules`), computed only at `verified`; empty means synced. */
   knowledgeSyncReasons: WorkflowReason[];

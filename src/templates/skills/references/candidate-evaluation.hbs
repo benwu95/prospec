@@ -41,7 +41,7 @@ One entry per primary entry point, hops separated by `→`. Each hop starts with
 ### 3. Extensibility vs. Simplicity — judged
 - Does the option satisfy all current requirements without excessive coupling?
 - Is the balance between future adaptability and present simplicity well-calibrated (Simplicity First)?
-- This is the judgment the metrics cannot make; under the opt-in pause it is the human's call.
+- This is the judgment the metrics cannot make; under the plan sign-off pause it is the human's call.
 
 ---
 
@@ -111,9 +111,9 @@ Before consuming candidate proposals, apply the Physical Receipt Verification Pr
 
 After the plan verifier is recorded, run `prospec status`:
 - **No pause** (the route continues to the next station): select the recommended option in-session, keep `graded_by: in-session`, and continue to the next station. NEVER ask the human to choose.
-- **Pause** (`code: AWAITING_HUMAN_PLAN_SIGNOFF`): HALT and present the candidate summary, the metrics table, the in-session rationale, and the plan verifier report. The human signs off with `prospec change log --skill prospec-plan --signoff <option>`, which sets `graded_by: human`. NEVER run the sign-off without an explicit human instruction.
+- **Pause** (`code: AWAITING_HUMAN_PLAN_SIGNOFF`): HALT and present the sign-off material per [`human-decision.md`](human-decision.md). The human signs off with `prospec change log --skill prospec-plan --signoff <option>`, which sets `graded_by: human`. NEVER run the sign-off without an explicit human instruction.
 - **The human picks another option**: revise `plan.md`, `delta-spec.md`, and `decision.json` for it, re-record the plan verifier (a newer verifier entry supersedes any earlier sign-off), then the human signs off.
-- **`code: PLAN_VERIFIER_PENDING`**: record the plan verifier first — there is nothing to sign off yet.
+- **`code: PLAN_VERIFIER_PENDING`**: record a plan verifier report for the current plan first.
 
 The chosen architecture is reflected in `plan.md`'s Call Chain and Implementation Steps, with the trade-off rationale preserved in `plan.md` Technical Summary and Risk Assessment.
 

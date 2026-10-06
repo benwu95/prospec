@@ -1,4 +1,4 @@
-import { readPremiseAssessment } from '../lib/premise.js';
+import { isAiProposedPremise, readPremiseAssessment } from '../lib/premise.js';
 import { readAbandonHistory } from '../lib/abandon-history.js';
 import { planningFlawsStreak, verifyBelowBarStreak, reduceEscalationHistory } from '../lib/escalation.js';
 export { planningFlawsStreak, verifyBelowBarStreak } from '../lib/escalation.js';
@@ -7,6 +7,8 @@ import * as path from 'node:path';
 import {
   hasPlanSignoffAfterVerifier,
   isPlanSignoffEntry,
+  capturePlanVersion,
+  planChangedSinceVerifier,
   isReviewRoundCountsEntry,
   latestVerifierResult,
   normalizeIssueRef,
@@ -14,12 +16,13 @@ import {
 } from '../lib/change-metadata.js';
 import {
   readConfig,
-  readPauseAtFallback,
+  readWorkflowFallback,
+  resolveAlwaysEscalate,
   resolveBasePaths,
   resolveMaxStationRetries,
   resolvePauseAt,
 } from '../lib/config.js';
-import { PAUSE_AT_ENV_VAR, type ProspecConfig } from '../types/config.js';
+import { PAUSE_AT_ENV_VAR, type AlwaysEscalateCategory, type PauseStation, type ProspecConfig } from '../types/config.js';
 import { isDraftableFinding } from '../lib/draftable-findings.js';
 import { assessCurrentDrift } from '../lib/drift-assessment.js';
 import { EVIDENCE_SCOPE, FINGERPRINT_VERSION } from '../types/change.js';
@@ -84,11 +87,16 @@ export async function execute(options: StatusOptions = {}): Promise<StatusReport
   // Resolved once, outside the per-change try/catch: an invalid pause setting must
   // fail the whole command (clean state included) rather than route anything.
   const env = options.env ?? process.env;
-  const fallback = config === null ? await readPauseAtFallback(cwd) : null;
-  const pauseAtPlan = resolvePauseAt(config ?? fallback?.setting, env).includes('plan');
+  const fallback = config === null ? await readWorkflowFallback(cwd) : null;
+  const pauseSetting = config ?? fallback?.setting;
+  const configuredPause = resolvePauseAt(pauseSetting, env);
+  // An unreadable config cannot narrow the categories, so it keeps every one.
+  const alwaysEscalate = resolveAlwaysEscalate(pauseSetting);
+  const pauseFor = (aiProposedPremise: boolean): PauseStation[] =>
+    aiProposedPremise ? resolvePauseAt(pauseSetting, env, { aiProposedPremise }) : configuredPause;
   // Only disclosed when the assumption is what paused: an env override decides alone.
   const pauseAssumedBecause =
-    pauseAtPlan && env[PAUSE_AT_ENV_VAR] === undefined ? (fallback?.assumedBecause ?? null) : null;
+    configuredPause.includes('plan') && env[PAUSE_AT_ENV_VAR] === undefined ? (fallback?.assumedBecause ?? null) : null;
   const agentNames = config?.agents ?? [];
   // Resolves the project-file load points a station declares (the implement
   // station's conventions); null leaves them out rather than printing a token.
@@ -118,8 +126,11 @@ export async function execute(options: StatusOptions = {}): Promise<StatusReport
           errors.push({ name, error: 'Incomplete-location error: abandoned metadata remains in the active directory; inspect its source and archive artifacts' });
           continue;
         }
-        const facts = await collectFacts(changeDir, name, metadata, cwd, config, pauseAtPlan);
+        const facts = await collectFacts(changeDir, name, metadata, cwd, config, pauseFor);
         const route = routeChange(facts);
+        if (route.code === 'AWAITING_HUMAN_PLAN_SIGNOFF') {
+          route.reasons.push(...signoffReasons(facts, configuredPause, alwaysEscalate));
+        }
         if (
           pauseAssumedBecause !== null &&
           (route.code === 'AWAITING_HUMAN_PLAN_SIGNOFF' || route.code === 'PLAN_VERIFIER_PENDING')
@@ -234,7 +245,7 @@ async function collectFacts(
   metadata: ReturnType<typeof readChangeMetadata>['metadata'],
   cwd: string,
   config: ProspecConfig | null,
-  pauseAtPlan: boolean,
+  pauseFor: (aiProposedPremise: boolean) => PauseStation[],
 ): Promise<ChangeRouteFacts> {
   const issue = normalizeIssueRef(metadata.issue);
   const maxStationRetries = resolveMaxStationRetries(config);
@@ -245,11 +256,16 @@ async function collectFacts(
     .map(parseTaskLine)
     .filter((t): t is NonNullable<typeof t> => t !== null && t.kind === 'code');
 
+  const premise = readPremiseAssessment(changeDir, cwd).assessment;
+  const scale = metadata.scale ?? 'standard';
+  // The plan version is read only where a sign-off can matter; elsewhere no file is touched.
+  const planDigest = metadata.status === 'plan' ? capturePlanVersion(changeDir).digest : null;
+
   return {
     name,
-    premise: readPremiseAssessment(changeDir, cwd).assessment,
+    premise,
     status: metadata.status,
-    scale: metadata.scale ?? 'standard',
+    scale,
     hasTasks: fs.existsSync(path.join(changeDir, 'tasks.md')),
     hasDesignSpec: fs.existsSync(path.join(changeDir, 'design-spec.md')),
     uiScope: parseUiScope(await readFileIfExists(path.join(changeDir, 'proposal.md'))),
@@ -264,8 +280,10 @@ async function collectFacts(
     tasksFlawsStreak: planningFlawsStreak(metadata.quality_log, 'prospec-tasks', escalationHistory),
     maxStationRetries,
     escalationHistory,
-    pauseAtPlan,
-    planSignedOff: hasPlanSignoffAfterVerifier(metadata.quality_log, escalationHistory),
+    pauseAtPlan: pauseFor(isAiProposedPremise(premise)).includes('plan'),
+    planSignedOff: planDigest !== null &&
+      hasPlanSignoffAfterVerifier(metadata.quality_log, escalationHistory, { scale, digest: planDigest }),
+    planChangedSinceVerifier: planDigest !== null && planChangedSinceVerifier(metadata.quality_log, planDigest),
     unresolvedWarnings: unresolvedWarnings(metadata.quality_log),
     knowledgeSyncReasons:
       metadata.status === 'verified'
@@ -273,6 +291,25 @@ async function collectFacts(
         : [],
     ...(issue === undefined ? {} : { issue }),
   };
+}
+
+/** The decision context an AWAITING route carries: the categories no general delegation
+ *  decides, and — when the configured pause alone would not have paused — the cause. */
+function signoffReasons(
+  facts: ChangeRouteFacts,
+  configuredPause: readonly PauseStation[],
+  alwaysEscalate: readonly AlwaysEscalateCategory[],
+): string[] {
+  const reasons: string[] = [];
+  if (!configuredPause.includes('plan') && isAiProposedPremise(facts.premise)) {
+    reasons.push('the Premise source is ai-proposed, so the plan pause applies by default (only an explicit PROSPEC_PAUSE_AT releases it)');
+  }
+  reasons.push(
+    alwaysEscalate.length === 0
+      ? 'workflow.always_escalate: none configured'
+      : `workflow.always_escalate: ${alwaysEscalate.join(', ')} — a general delegation never decides these`,
+  );
+  return reasons;
 }
 
 /**

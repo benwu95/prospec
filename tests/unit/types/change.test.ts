@@ -1005,12 +1005,23 @@ describe('AcceptanceBaselineSchema & AcceptanceRevision (REQ-TYPES-103)', () => 
 describe('quality_log signoff_option stamp (REQ-TYPES-022)', () => {
   const base = { skill: 'prospec-plan', date: '2026-09-24', result: 'PASS' as const, warnings: [] };
 
-  it('is optional and limited to the plan decision options', () => {
+  it('is optional and limited to the plan decision options plus the plan-version sign-off', () => {
     expect(NewQualityLogEntrySchema.safeParse(base).success).toBe(true);
-    for (const option of ['option-a', 'option-b', 'option-c', 'hybrid']) {
+    for (const option of ['option-a', 'option-b', 'option-c', 'hybrid', 'plan']) {
       expect(NewQualityLogEntrySchema.safeParse({ ...base, signoff_option: option }).success, option).toBe(true);
     }
     expect(NewQualityLogEntrySchema.safeParse({ ...base, signoff_option: 'option-d' }).success).toBe(false);
+  });
+
+  it('keeps `plan` out of the audited decision vocabulary', () => {
+    expect(NewQualityLogEntrySchema.safeParse({ ...base, audited_option: 'plan' }).success).toBe(false);
+  });
+
+  it('accepts the plan-version digest stamps as optional strings', () => {
+    const digest = 'a'.repeat(64);
+    expect(NewQualityLogEntrySchema.safeParse({ ...base, signoff_option: 'plan', signoff_plan_digest: digest }).success).toBe(true);
+    expect(NewQualityLogEntrySchema.safeParse({ ...base, verifier_verdict: 'PASS', audited_plan_digest: digest }).success).toBe(true);
+    expect(NewQualityLogEntrySchema.safeParse({ ...base, signoff_plan_digest: 42 }).success).toBe(false);
   });
 });
 
