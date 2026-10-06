@@ -47,7 +47,9 @@ so that "review must precede verify" turns from process prose into a machine-che
 `computeChangeState(cwd)` owns the versioned effective-input snapshot; `computeChangeDigest` and `computeWorkingTreeClean` remain wrappers, while HEAD is optional Git trace and the clean tri-state is diagnostic only. `collectReviewProvenance` enumerates `.prospec/changes/*` with status, scale, recorded identity/version and `backfill_draft_present`; `evaluateReviewProvenance` is pure and uses `PROVENANCE_AUDITED_STATUSES`, with one repository snapshot compared against each change.
 - WHEN final effective input bytes, paths, supported file kinds and executable modes are identical, THEN `snapshot-v2` identity is identical across unstaged, staged, committed, amended and content-equivalent history states; HEAD, index representation, diff text, mtime and timestamps are not identity inputs
 - WHEN capturing inputs, THEN include tracked and non-ignored untracked final working-tree files, deduplicated by path, including source, scripts, tests, documents, manifests, lockfiles, `.prospec.yaml` and generated code; exclude only `.prospec/` and Prospec-owned report filename constants, with no blanket `.agents/`, `.claude/` or `dist/` exemption
-- WHEN a tracked file is confirmed deleted and repeat enumeration is consistent, THEN its final absence contributes no history-dependent tombstone, so committing the same deletion preserves identity; sparse missing paths, gitlinks, unsupported kinds and unreadable or racing captures are unprovable rather than empty inputs
+- WHEN a tracked file is confirmed deleted and repeat enumeration is consistent, THEN its final absence contributes no history-dependent tombstone, so committing the same deletion preserves identity; sparse missing paths, unsupported kinds and unreadable or racing captures are unprovable rather than empty inputs
+- WHEN the index lists a gitlink (mode `160000`) under the project directory outside `.prospec/`, THEN, unless the next rule makes the capture unprovable, it is captured as one length-framed path/`gitlink`/commit record: the submodule's checked-out HEAD when its directory holds a `.git` that git resolves as that directory's own repository, the index's commit when the directory is empty; an absent directory follows the confirmed-deletion rule, and a repository listing no such gitlink runs no additional git process and keeps its identity
+- WHEN a gitlink directory is non-empty without `.git`, is not a directory, resolves to another repository, has an unborn HEAD or changes HEAD during capture, or when it or any submodule nested in it reports a change or a non-ignored untracked file to `git status --ignore-submodules=none --untracked-files=all` run at its own level or has an index entry marked skip-worktree, assume-unchanged or unmerged, THEN the capture is unprovable with a reason naming the gitlink path
 - WHEN paths are enumerated, THEN use Git NUL-delimited bytes, lossless decoding checks, raw-byte ordering and length-framed path/kind/mode/content records under a domain-separated SHA-256; never newline-split, trim, unquote or locale-sort paths, and refuse byte paths that cannot round-trip through the string APIs
 - WHEN a regular file is captured, THEN hash its raw bytes including binary data and the supported executable bit; WHEN a symlink is captured, THEN hash the link target and require its resolved content to be represented in the snapshot, otherwise report unprovable
 - WHEN Git capture, file reading or consistency validation fails, THEN return a null identity with a specific reason and never current PASS; an unborn HEAD can have a valid file snapshot with absent HEAD trace, while a non-Git directory is unprovable
@@ -86,39 +88,5 @@ Existing check, verify, archive and status output explains evidence scope, actua
 - WHEN workflow preparation is documented, THEN order final Knowledge/count sync before final effective review/tests/verify and content-equivalent commit before archive; any later input edit requires the necessary revalidation
 - WHEN verify/archive/review/ff/cascade instructions, metadata/test-runner references, both root READMEs or lifecycle prose describe these rules, THEN keep them semantically consistent, edit the canonical sources and regenerate deployed assets through their existing owners; retain station progression and the human commit gate
 - WHEN repository-sourced paths, commands or reasons are formatted, THEN pass them through the existing terminal sanitization owner and preserve each command's exit-code and quiet-output contracts
-
----
-
-## US-7: metadata-completeness gate check [P1]
-
-As a maintainer who guards the archive gate,
-I want a machine-checkable `metadata-completeness` check that determines whether each change's metadata.yaml has complete fields and, for verified/archived ones, has a recorded verify S/A grade,
-so that incomplete or ungraded metadata cannot quietly enter the permanent record (the same protection level as "only archive verified").
-
-**Acceptance Scenarios:**
-- WHEN a change's metadata is missing any of `name`/`created_at`/`status`/`scale`, THEN report FAIL and list the missing items
-- WHEN a change is `status: verified`/`archived` but `quality_log` has no `prospec-verify` S/A grade, THEN report FAIL
-- WHEN a change is in-progress (story/plan/tasks/implemented), THEN do not apply the grade rule (no false-block)
-- WHEN metadata is empty/comment/null/non-mapping (parseYaml returns null without throwing), THEN report all fields missing, never crashing
-- WHEN there is no `.prospec/changes/`, THEN the check is `skipped` + reason (never a fake PASS)
-
-#### REQ-TYPES-055: Drift Report metadata-completeness Check Id
-`DRIFT_CHECK_IDS` appends `metadata-completeness` (the 10th frozen check id, FAIL-class; additive-only, does not touch the `knowledge_health` frozen contract). Failing to dispatch the corresponding evaluator in `runChecks` causes a compile failure (the `Record<DriftCheckId, CheckOutcome>` exhaustiveness guard).
-
-#### REQ-LIB-025: metadata-completeness Collector + Evaluator
-`collectMetadataCompleteness(cwd)` (I/O) enumerates `.prospec/changes/*` and reads metadata: it checks the existence of `REQUIRED_METADATA_FIELDS` (name/created_at/status/scale) + `hasVerifyGrade` for `GRADED_STATUSES` (verified/archived) ones — prioritizing the structured `grade ∈ {S,A}` of the `prospec-verify` entry, keeping the legacy `result ∈ {S,A}` fallback so that existing archived metadata still passes; `skill`/`grade`/`result` are **trimmed before comparison** (these rows come off raw YAML with no schema pass — an exact match on `"A "` would flip a genuinely verified change into a FAIL-class finding); a non-mapping parse (empty/comment/null) is treated as all fields missing, not a crash. `hasVerifyGrade` is timeline-aware: for `archived` status, any historical S/A entry suffices (backward compatible); for `verified` status, only the latest `prospec-verify` entry's grade is checked — a re-verify at B/C/D after a prior S/A returns false. Pure `evaluateMetadataCompleteness` emits a fail finding for each missing field and each missing grade; in-progress does not apply the grade rule. The `metadata-completeness` check id is unchanged.
-- WHEN a required field is missing, THEN fail listing the missing items; WHEN verified has the latest `prospec-verify` grade S/A or a legacy result S/A, THEN pass; WHEN verified has latest grade B/C/D despite historical S/A, THEN fail; WHEN archived has any historical S/A, THEN pass; WHEN verified has neither, THEN fail; in-progress is exempt from the grade
-- WHEN metadata is empty/null, THEN an all-fields-missing finding (does not deref null); no changes directory → skipped + reason; findings codepoint-sort
-
-#### REQ-SERVICES-063: check.service injects the metadata-completeness collector
-`check.service` injects `collectMetadataCompleteness` into `runChecks`, wired the same way as `collectReviewProvenance`; the pure check path stays read-only and deterministic.
-
-#### REQ-TEMPLATES-142: archive Entry Gate consumes metadata-completeness
-`prospec archive` reads the drift report's `metadata-completeness` and refuses on FAIL, so incomplete or ungraded metadata cannot enter the permanent record; the `--allow-incomplete` flag exempts this condition only, for pre-schema records. The `prospec-archive` Entry Gate defers to that CLI refusal in one line.
-- WHEN `metadata-completeness` is FAIL and `--allow-incomplete` is not set, THEN archive refuses; WHEN the flag is set, THEN a completeness FAIL alone no longer blocks
-
-#### REQ-TESTS-045: metadata-completeness engine tests
-`evaluateMetadataCompleteness` (pass / each field missing / verified-no-grade / in-progress-exempt / both-findings), `collectMetadataCompleteness` (changes-dir fixture: complete / stub / present-but-empty / verified-no-grade / verified-with-A / empty-null-comment / unparseable), `check.service` injection + skipped-never-PASS across all 16 checks (including knowledge-size, test-provenance, constitution-severity, artifact-language, spec-counters and delta-spec-provenance) — the S/A clause and the skill clause mutation-verified.
-- WHEN a check id is added to the registry, THEN the skipped-never-PASS assertion covers it too
 
 ---

@@ -1,7 +1,7 @@
 ---
 feature: drift-detection
 status: active
-last_updated: 2026-10-05
+last_updated: 2026-10-06
 story_count: 21
 req_count: 88
 ---
@@ -19,7 +19,8 @@ req_count: 88
 ## Slices
 
 - [US-1–US-4](./drift-detection/us-1.md)
-- [US-5–US-7](./drift-detection/us-5.md)
+- [US-5–US-6](./drift-detection/us-5.md)
+- [US-7: metadata-completeness gate check](./drift-detection/us-7.md)
 - [US-8: knowledge-size budget check](./drift-detection/us-8.md)
 - [US-9: test-provenance gate check](./drift-detection/us-9.md)
 - [US-10–US-13](./drift-detection/us-10.md)
@@ -62,6 +63,7 @@ _(None)_
 
 | Date | Change | Impact | Stories/REQs |
 |------|--------|--------|--------------|
+| 2026-10-06 | fingerprint-submodule-gitlinks | MODIFIED REQ-LIB-024 | REQ-LIB-024 |
 | 2026-10-05 | add-change-abandon | MODIFIED REQ-LIB-037 | REQ-LIB-037 |
 | 2026-10-04 | align-skill-guidance | Clarify proven-backfill applicability in review-provenance story context | US-6 |
 | 2026-09-28 | resolve-retired-bullet-refs | ADDED REQ-LIB-096; MODIFIED REQ-LIB-014; MODIFIED REQ-LIB-041 | REQ-LIB-096, REQ-LIB-014, REQ-LIB-041 |
