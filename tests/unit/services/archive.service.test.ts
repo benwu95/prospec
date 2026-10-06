@@ -2494,6 +2494,23 @@ describe('generateSummary — plan decision line (REQ-SERVICES-119)', () => {
     expect(content).toContain('- **Plan Decision**: option-b (graded_by: in-session)\n');
   });
 
+  it('names a plan-version sign-off of a change without candidates as graded_by: human', async () => {
+    vol.fromJSON({
+      '/archive/metadata.yaml': `status: verified\nquality_log:\n${verifier}${signoff.replace('option-b', 'plan')}    signoff_plan_digest: abc\n`,
+    });
+    const { content } = await generateSummary('/archive', 'feat-a', '2026-01-01', 3);
+    expect(content).toContain('- **Plan Decision**: plan (graded_by: human)\n');
+  });
+
+  it('never names a plan-version sign-off as the decision of a change that is now full scale', async () => {
+    vol.fromJSON({
+      '/archive/metadata.yaml': `status: verified\nscale: full\nquality_log:\n${verifier}${signoff.replace('option-b', 'plan')}`,
+      '/archive/candidates/decision.json': decision(),
+    });
+    const { content } = await generateSummary('/archive', 'feat-a', '2026-01-01', 3);
+    expect(content).toContain('- **Plan Decision**: option-b (graded_by: in-session)\n');
+  });
+
   it('treats a sign-off a later verifier entry superseded as absent', async () => {
     vol.fromJSON({
       '/archive/metadata.yaml': `status: verified\nquality_log:\n${verifier}${signoff}${verifier}`,

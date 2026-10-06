@@ -1,6 +1,6 @@
 # Verification Suite
 
-> 4-layer Vitest suite (fast-glob/git bypass memfs — 290 test files, 7,383 tests (unit 5383, contract 1635, integration 153, e2e 212)).
+> 4-layer Vitest suite (fast-glob/git bypass memfs — 290 test files, 7,481 tests (unit 5463, contract 1652, integration 153, e2e 213)).
 <!-- prospec:module-readme-format 2026-09-01 -->
 
 <!-- prospec:auto-start -->
@@ -49,7 +49,7 @@
 
 - Abandon suites pin directory isolation (same-named successful archive, unsafe/missing history root, linked-record recheck), opposing staged/unstaged patches, byte/mode/link/deletion preservation, nested project scope and failure phases. Retry tests cover legacy/all scales, linked-record changes, incomplete sources and direct writers; contract mutations delete the ordered retry handoff and preservation-before-metadata clause.
 
-- Premise coverage spans schema/parser/contained-reader, read/write services, rendered contracts and `cli-premise` E2E. `helpers/premise.ts` explicitly authors verified fixtures for workflows advancing newly created stories; never make the production scaffold ready to repair fixtures. Refusal tests compare artifact bytes, and template mutation checks must prove the edit landed before judging failure.
+- Premise coverage spans schema/parser/contained-reader, read/write services, rendered contracts and `cli-premise` E2E. `helpers/premise.ts` explicitly authors verified fixtures for workflows advancing newly created stories; never make the production scaffold ready to repair fixtures. Its default source is `ai-proposed`, which pauses a standard/full change at plan, so a fixture whose subject is not the pause passes `withVerifiedPremise(text, 'user-observation')`. Refusal tests compare artifact bytes, and template mutation checks must prove the edit landed before judging failure.
 
 - Escalation fixtures pin lifetime chronology, same-round changed-input admission, source-content identity without context IDs, one-use grants, partial-write repair and persisted-versus-observed failures. Fault injection checks actual metadata/artifact bytes; history contracts preserve fenced examples and adjacent prose.
 

@@ -167,7 +167,8 @@ describe('CLI E2E — station commands', () => {
         const changeDir = await initChange('ui-change');
         await fs.promises.writeFile(
           path.join(changeDir, 'proposal.md'),
-          withVerifiedPremise('# p\n\n## UI Scope\n\n**Scope:** full\n'),
+          // a user-observed Premise: the AI-proposed default pause is not this test's subject
+          withVerifiedPremise('# p\n\n## UI Scope\n\n**Scope:** full\n', 'user-observation'),
         );
         await runCli(['change', 'status', 'plan']);
         const change = await mapOf('ui-change');
@@ -943,7 +944,7 @@ describe('change log --verifier-report (REQ-CLI-053, issue #266)', () => {
     const proposalPath = path.join(tmpDir, '.prospec/changes/plan-me/proposal.md');
     await fs.promises.writeFile(
       proposalPath,
-      withVerifiedPremise('# Proposal: plan-me\n\n## User Story\n\n### US-1: Title [P1]\n\n**Acceptance Scenarios:**\n- WHEN action THEN result\n'),
+      withVerifiedPremise('# Proposal: plan-me\n\n## User Story\n\n### US-1: Title [P1]\n\n**Acceptance Scenarios:**\n- WHEN action THEN result\n', 'user-observation'),
     );
     await runCli(['change', 'story', 'plan-me', '--freeze-scenarios']);
     await runCli(['change', 'plan']);
@@ -1062,7 +1063,8 @@ describe('opt-in plan sign-off pause through the CLI (REQ-TESTS-124)', () => {
 
   it('pause → AWAITING HALT → human sign-off → tasks; an empty override never pauses', async () => {
     const dir = await initFullPlan();
-    expect((await routeOf()).next).toBe('tasks');
+    // the fixture's verified Premise is ai-proposed, so the plan pauses with no setting at all
+    expect((await routeOf()).code).toBe('AWAITING_HUMAN_PLAN_SIGNOFF');
 
     vi.stubEnv('PROSPEC_PAUSE_AT', 'plan');
     const paused = await routeOf();
@@ -1080,6 +1082,46 @@ describe('opt-in plan sign-off pause through the CLI (REQ-TESTS-124)', () => {
     const signed = await runCli(['change', 'log', '--skill', 'prospec-plan', '--signoff', 'option-a']);
     expect(signed.exitCode).toBe(0);
     expect(JSON.parse(fs.readFileSync(path.join(dir, 'candidates/decision.json'), 'utf-8')).graded_by).toBe('human');
+    expect((await routeOf()).next).toBe('tasks');
+
+    // an edit after the sign-off is an unaudited version: back to the verifier, not to the human
+    fs.appendFileSync(path.join(dir, 'plan.md'), '\nA late edit.\n');
+    expect((await routeOf()).code).toBe('PLAN_VERIFIER_PENDING');
+  });
+
+  it('standard: pause → `--signoff plan` without candidates → tasks; a plan edit needs a new verifier report first', async () => {
+    await runCli(['init', '--name', 'e2e', '--agents', 'claude']);
+    fs.appendFileSync(path.join(tmpDir, '.prospec.yaml'), 'workflow:\n  pause_at: [plan]\n');
+    await runCli(['change', 'story', 'steer', '--description', 'fixture']);
+    const dir = path.join(tmpDir, '.prospec/changes/steer');
+    fs.writeFileSync(
+      path.join(dir, 'proposal.md'),
+      withVerifiedPremise('# Proposal: steer\n\n## User Story\n\n### US-1: Title [P1]\n\n**Acceptance Scenarios:**\n- WHEN action THEN result\n', 'user-observation'),
+    );
+    await runCli(['change', 'story', 'steer', '--freeze-scenarios']);
+    await runCli(['change', 'plan']);
+    expect((await routeOf()).code).toBe('PLAN_VERIFIER_PENDING');
+    const report = path.join(tmpDir, 'plan-verifier.json');
+    fs.writeFileSync(report, JSON.stringify(planReport));
+    expect((await runCli(['change', 'log', '--skill', 'prospec-plan', '--verifier-report', report])).exitCode).toBe(0);
+    const paused = await routeOf();
+    expect(paused.code).toBe('AWAITING_HUMAN_PLAN_SIGNOFF');
+    expect((await runCli(['status'])).stdout).toContain('--signoff plan');
+
+    const signed = await runCli(['change', 'log', '--skill', 'prospec-plan', '--signoff', 'plan', '--warning', 'approved as summarized']);
+    expect(signed.exitCode).toBe(0);
+    expect(fs.existsSync(path.join(dir, 'candidates'))).toBe(false);
+    expect((await routeOf()).next).toBe('tasks');
+
+    fs.appendFileSync(path.join(dir, 'plan.md'), '\nChange the retry bound to 2.\n');
+    expect((await routeOf()).code).toBe('PLAN_VERIFIER_PENDING');
+    const stale = await runCli(['change', 'log', '--skill', 'prospec-plan', '--signoff', 'plan']);
+    expect(stale.exitCode).toBe(1);
+    expect(stale.stderr).toContain('changed after the latest plan verifier report');
+    fs.writeFileSync(report, JSON.stringify({ ...planReport, evidence: 'audit of the adjusted plan' }));
+    expect((await runCli(['change', 'log', '--skill', 'prospec-plan', '--verifier-report', report])).exitCode).toBe(0);
+    expect((await routeOf()).code).toBe('AWAITING_HUMAN_PLAN_SIGNOFF');
+    expect((await runCli(['change', 'log', '--skill', 'prospec-plan', '--signoff', 'plan'])).exitCode).toBe(0);
     expect((await routeOf()).next).toBe('tasks');
   });
 

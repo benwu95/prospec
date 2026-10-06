@@ -3,6 +3,8 @@ import { vol } from 'memfs';
 import { execute, verifyBelowBarStreak, planningFlawsStreak } from '../../../src/services/status.service.js';
 import { collectGitTimestamps } from '../../../src/lib/drift-sources.js';
 import type { ChangeRouteFacts } from '../../../src/types/status.js';
+import { planVersionDigest } from '../../../src/lib/escalation.js';
+import { premiseProposal, verifiedPremise } from '../../helpers/premise.js';
 
 vi.mock('node:fs', async () => {
   const memfs = await import('memfs');
@@ -801,7 +803,8 @@ describe('status.service — actionable skill path (REQ-SERVICES-092)', () => {
         status: 'plan',
       }),
     });
-    const report = await execute({ cwd: CWD });
+    // An unreadable config assumes the plan pause, so the run opts out explicitly.
+    const report = await execute({ cwd: CWD, env: { PROSPEC_PAUSE_AT: 'none' } });
     expect(report.changes[0]?.next).toBe('tasks');
     expect(report.changes[0]?.nextSkill).toBe('prospec-tasks');
     expect(report.changes[0]?.nextSkillPath).toBeUndefined();
@@ -1243,6 +1246,161 @@ describe('status.service — opt-in plan sign-off pause (REQ-SERVICES-116)', () 
     const before = vol.toJSON();
     await execute({ cwd: CWD, env: {} });
     expect(vol.toJSON()).toEqual(before);
+  });
+});
+
+describe('status.service — per-change plan pause and plan-version binding (REQ-SERVICES-116)', () => {
+  const CONFIG = 'project:\n  name: test\nagents:\n  - claude\n';
+  const PLAN = '# Plan v1\n';
+  const DELTA = '# Delta\n';
+  const V1 = planVersionDigest(PLAN, DELTA);
+  const verifier = (digest?: string) =>
+    '  - skill: prospec-plan\n    date: 2026-01-02\n    result: PASS\n    warnings: []\n    verifier_verdict: PASS\n' +
+    (digest === undefined ? '' : `    audited_plan_digest: ${digest}\n`);
+  const signoff = (option: string, digest?: string) =>
+    `  - skill: prospec-plan\n    date: 2026-01-03\n    result: PASS\n    warnings: []\n    signoff_option: ${option}\n` +
+    (digest === undefined ? '' : `    signoff_plan_digest: ${digest}\n`);
+  const change = (o: { scale?: string; source?: string; log: string; plan?: string; premise?: boolean; config?: string }) => ({
+    [`${CWD}/.prospec.yaml`]: o.config ?? CONFIG,
+    [`${CWD}/.prospec/changes/add-auth/metadata.yaml`]: metadataYaml({
+      name: 'add-auth',
+      status: 'plan',
+      scale: o.scale ?? 'standard',
+      extra: `quality_log:\n${o.log}` + (o.premise === false ? '' : 'premise_version: 1\n'),
+    }),
+    [`${CWD}/.prospec/changes/add-auth/proposal.md`]: premiseProposal({ ...verifiedPremise, source: o.source ?? 'ai-proposed' }),
+    [`${CWD}/.prospec/changes/add-auth/plan.md`]: o.plan ?? PLAN,
+    [`${CWD}/.prospec/changes/add-auth/delta-spec.md`]: DELTA,
+  });
+
+  it.each(['standard', 'full'])('pauses a %s change with a verified ai-proposed Premise and no pause configured', async (scale) => {
+    vol.fromJSON(change({ scale, log: verifier(V1) }));
+    const route = (await execute({ cwd: CWD, env: {} })).changes[0]!;
+    expect(routedFacts[0]?.pauseAtPlan).toBe(true);
+    expect(route.code).toBe('AWAITING_HUMAN_PLAN_SIGNOFF');
+    expect(route.reasons.join(' ')).toContain('Premise source is ai-proposed');
+    expect(route.reasons.join(' ')).toContain('re-scope, break-glass-override, breaking-change');
+  });
+
+  it.each(['user-observation', 'third-party-report'])('continues a %s Premise when no pause is configured', async (source) => {
+    vol.fromJSON(change({ source, log: verifier(V1) }));
+    const route = (await execute({ cwd: CWD, env: {} })).changes[0]!;
+    expect(routedFacts[0]?.pauseAtPlan).toBe(false);
+    expect(route.next).toBe('tasks');
+  });
+
+  it('never infers a source for a legacy change', async () => {
+    vol.fromJSON(change({ premise: false, log: verifier(V1) }));
+    expect((await execute({ cwd: CWD, env: {} })).changes[0]?.next).toBe('tasks');
+  });
+
+  it('lets an explicit PROSPEC_PAUSE_AT release the AI-proposed default', async () => {
+    for (const value of ['none', '']) {
+      routedFacts.length = 0;
+      vol.reset();
+      vol.fromJSON(change({ log: verifier(V1) }));
+      expect((await execute({ cwd: CWD, env: { PROSPEC_PAUSE_AT: value } })).changes[0]?.next, value).toBe('tasks');
+    }
+  });
+
+  it('names no AI cause when the config pause alone would pause', async () => {
+    vol.fromJSON(change({ config: `${CONFIG}workflow:\n  pause_at: [plan]\n`, log: verifier(V1) }));
+    const route = (await execute({ cwd: CWD, env: {} })).changes[0]!;
+    expect(route.code).toBe('AWAITING_HUMAN_PLAN_SIGNOFF');
+    expect(route.reasons.join(' ')).not.toContain('Premise source is ai-proposed');
+  });
+
+  it('releases the pause on a sign-off of the current version, and re-pauses after the plan changes', async () => {
+    vol.fromJSON(change({ log: verifier(V1) + signoff('plan', V1) }));
+    expect((await execute({ cwd: CWD, env: {} })).changes[0]?.next).toBe('tasks');
+    expect(routedFacts[0]).toMatchObject({ planSignedOff: true, planChangedSinceVerifier: false });
+
+    routedFacts.length = 0;
+    vol.reset();
+    vol.fromJSON(change({ log: verifier(V1) + signoff('plan', V1), plan: '# Plan v2\n' }));
+    const route = (await execute({ cwd: CWD, env: {} })).changes[0]!;
+    expect(routedFacts[0]).toMatchObject({ planSignedOff: false, planChangedSinceVerifier: true });
+    expect(route.code).toBe('PLAN_VERIFIER_PENDING');
+    expect(route.reasons.join(' ')).toContain('changed after the plan verifier audited it');
+  });
+
+  it('never lets a plan-version sign-off release a full-scale pause', async () => {
+    vol.fromJSON(change({ scale: 'full', log: verifier(V1) + signoff('plan', V1) }));
+    expect(routedFacts.length).toBe(0);
+    const route = (await execute({ cwd: CWD, env: {} })).changes[0]!;
+    expect(routedFacts[0]?.planSignedOff).toBe(false);
+    expect(route.code).toBe('AWAITING_HUMAN_PLAN_SIGNOFF');
+  });
+
+  it('rejects an invalid workflow.always_escalate before any route, clean state included', async () => {
+    vol.fromJSON(change({ config: `${CONFIG}workflow:\n  always_escalate: [rescope]\n`, log: verifier(V1) }));
+    await expect(execute({ cwd: CWD, env: {} })).rejects.toMatchObject({ code: 'ALWAYS_ESCALATE_INVALID' });
+    expect(routedFacts).toEqual([]);
+    vol.reset();
+    vol.fromJSON({ [`${CWD}/.prospec.yaml`]: `${CONFIG}workflow:\n  always_escalate: re-scope\n` });
+    await expect(execute({ cwd: CWD, env: {} })).rejects.toMatchObject({ code: 'ALWAYS_ESCALATE_INVALID' });
+  });
+
+  it('routes a pending ai-proposed Premise to explore — a sign-off cannot stand in for verification', async () => {
+    const files = change({ log: verifier(V1) });
+    files[`${CWD}/.prospec/changes/add-auth/proposal.md`] = premiseProposal({
+      ...verifiedPremise, verification: { ...verifiedPremise.verification, status: 'pending' },
+    });
+    vol.fromJSON(files);
+    const route = (await execute({ cwd: CWD, env: {} })).changes[0]!;
+    expect(route.code).toBe('PREMISE_INCOMPLETE');
+    expect(route.next).toBe('explore');
+  });
+
+  it('pauses a standard user-observation change when the config or the env opts in', async () => {
+    vol.fromJSON(change({ source: 'user-observation', config: `${CONFIG}workflow:\n  pause_at: [plan]\n`, log: verifier(V1) }));
+    expect((await execute({ cwd: CWD, env: {} })).changes[0]?.code).toBe('AWAITING_HUMAN_PLAN_SIGNOFF');
+    vol.reset();
+    vol.fromJSON(change({ source: 'user-observation', log: verifier(V1) }));
+    expect((await execute({ cwd: CWD, env: { PROSPEC_PAUSE_AT: 'plan' } })).changes[0]?.code).toBe('AWAITING_HUMAN_PLAN_SIGNOFF');
+  });
+
+  it('keeps every category when .prospec.yaml cannot be parsed, and says so when the list is empty', async () => {
+    vol.fromJSON(change({ config: 'project: [unclosed\n', log: verifier(V1) }));
+    expect((await execute({ cwd: CWD, env: {} })).changes[0]!.reasons.join(' ')).toContain(
+      're-scope, break-glass-override, breaking-change',
+    );
+    vol.reset();
+    vol.fromJSON(change({ config: `${CONFIG}workflow:\n  always_escalate: []\n`, log: verifier(V1) }));
+    expect((await execute({ cwd: CWD, env: {} })).changes[0]!.reasons.join(' ')).toContain('workflow.always_escalate: none configured');
+  });
+
+  it('still reads and validates always_escalate when another config field fails validation', async () => {
+    const invalidElsewhere = `${CONFIG}workflow:\n  max_station_retries: "3"\n`;
+    vol.fromJSON(change({ config: `${invalidElsewhere}  always_escalate: [rescope]\n`, log: verifier(V1) }));
+    await expect(execute({ cwd: CWD, env: {} })).rejects.toMatchObject({ code: 'ALWAYS_ESCALATE_INVALID' });
+    vol.reset();
+    vol.fromJSON(change({ config: `${invalidElsewhere}  always_escalate: [re-scope]\n`, log: verifier(V1) }));
+    const reasons = (await execute({ cwd: CWD, env: {} })).changes[0]!.reasons.join(' ');
+    expect(reasons).toContain('workflow.always_escalate: re-scope —');
+  });
+
+  it('never pauses a quick change at plan, even under a configured pause: its contract has no plan', async () => {
+    vol.fromJSON(change({ scale: 'quick', config: `${CONFIG}workflow:\n  pause_at: [plan]\n`, log: verifier(V1) }));
+    const route = (await execute({ cwd: CWD, env: {} })).changes[0]!;
+    expect(routedFacts[0]?.pauseAtPlan).toBe(true);
+    expect(route.code).not.toBe('AWAITING_HUMAN_PLAN_SIGNOFF');
+    expect(route.code).not.toBe('PLAN_VERIFIER_PENDING');
+    expect(route.next).toBe('tasks');
+  });
+
+  it.each(['quick', 'backfill'])('gives a %s change no AI-proposed default: its Premise is exempt and names no source', async (scale) => {
+    vol.fromJSON(change({ scale, log: verifier(V1) }));
+    const route = (await execute({ cwd: CWD, env: {} })).changes[0]!;
+    expect(route.premise?.state).toBe('exempt');
+    expect(routedFacts[0]?.pauseAtPlan).toBe(false);
+  });
+
+  it('names the configured categories on the AWAITING route', async () => {
+    vol.fromJSON(change({ config: `${CONFIG}workflow:\n  always_escalate: [breaking-change]\n`, log: verifier(V1) }));
+    const reasons = (await execute({ cwd: CWD, env: {} })).changes[0]!.reasons.join(' ');
+    expect(reasons).toContain('breaking-change');
+    expect(reasons).not.toContain('break-glass-override');
   });
 });
 

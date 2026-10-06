@@ -72,6 +72,7 @@ describe('status projection (REQ-SERVICES-111)', () => {
       'Phase 5: Generate delta-spec.md',
       'Phase 6: Architecture Verification',
       'Phase 6: Architecture Verification',
+      'Phase 8: Summary + Next Steps',
     ]);
   });
 

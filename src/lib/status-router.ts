@@ -4,7 +4,7 @@ import type {
   SddStation,
   RouteTarget,
 } from '../types/status.js';
-import { BREAK_GLASS_PREFIX, formatWorkflowReason, PLAN_SIGNOFF_REMEDIES, ROUTE_TARGET_SKILLS } from '../types/status.js';
+import { BREAK_GLASS_PREFIX, formatWorkflowReason, PLAN_SIGNOFF_REMEDIES, PLAN_VERSION_SIGNOFF_REMEDIES, ROUTE_TARGET_SKILLS } from '../types/status.js';
 import { forbiddenArtifacts, isStatusBefore } from '../types/change.js';
 import { AGENT_CONFIGS } from '../types/skill.js';
 import { RELATED_MODULE_HALT_CONDITION } from './knowledge-sync.js';
@@ -38,9 +38,10 @@ import { applicableGrant, escalationDecision } from './escalation.js';
  * - plan / tasks: the station's latest recorded verifier result (the
  *   `change log --verifier-report` sink) — a FAIL routes back to that station
  *   until a PASS or a Break-Glass WARN supersedes it.
- * - plan, opt-in pause: a `scale: full` change whose resolved pause stations
- *   include `plan` waits for a verifier result, then for a human sign-off newer
- *   than it, before any forward edge. The waiting code is not a failure.
+ * - plan, sign-off pause: a change whose scale has a plan and whose resolved pause
+ *   stations include `plan` waits for a verifier result of the current plan
+ *   version, then for a human sign-off that counts, before any forward edge. The
+ *   waiting code is not a failure.
  * - archive accepts only `verified` and re-confirms Knowledge sync; at `verified`,
  *   a `KNOWLEDGE_INPUT_INVALID` knowledge-sync reason (an input no station repairs)
  *   halts for a human, and only `KNOWLEDGE_UNSYNCED` reasons route to knowledge-update.
@@ -199,9 +200,11 @@ export function routeChange(facts: ChangeRouteFacts): ChangeRoute {
           ],
         };
       }
-      // The opt-in pause: judged only for `full`, and only after the FAIL branch, so a
-      // plan that failed its own audit is revised before a human is asked to sign it.
-      if (facts.scale === 'full' && facts.pauseAtPlan) {
+      // The pause applies to any scale whose contract has a plan — the same registry
+      // reading as design below — and only after the FAIL branch, so a plan that failed
+      // its own audit is revised before a human is asked to sign it.
+      const pauseApplies = facts.pauseAtPlan && !forbidden.includes('plan.md');
+      if (pauseApplies) {
         if (facts.lastPlanVerifierResult === null) {
           return {
             ...base,
@@ -211,22 +214,43 @@ export function routeChange(facts: ChangeRouteFacts): ChangeRoute {
               'Architecture Verifier PASS/WARN recorded via `prospec change log --skill prospec-plan --verifier-report <file>`',
             ],
             reasons: [
-              'scale: full with the plan sign-off pause enabled — no plan verifier result is recorded yet, so there is nothing for a human to sign off',
+              `scale: ${facts.scale} with the plan sign-off pause enabled — no plan verifier result is recorded yet, so there is nothing for a human to sign off`,
+            ],
+          };
+        }
+        if (!facts.planSignedOff && facts.planChangedSinceVerifier) {
+          return {
+            ...base,
+            next: 'plan',
+            code: 'PLAN_VERIFIER_PENDING',
+            blockingGates: [
+              'Architecture Verifier PASS/WARN for the current plan.md and delta-spec.md recorded via `prospec change log --skill prospec-plan --verifier-report <file>`',
+            ],
+            reasons: [
+              `scale: ${facts.scale} with the plan sign-off pause enabled — plan.md or delta-spec.md changed after the plan verifier audited it, so a sign-off would cover an unaudited version; record a new verifier report first`,
             ],
           };
         }
         if (!facts.planSignedOff) {
+          const full = facts.scale === 'full';
           return {
             ...base,
             next: null,
             code: 'AWAITING_HUMAN_PLAN_SIGNOFF',
             blockingGates: [
-              'human plan sign-off newer than the latest plan verifier result, recorded via `prospec change log --skill prospec-plan --signoff <option>` (the option must equal candidates/decision.json `recommended_option`)',
+              full
+                ? 'human plan sign-off newer than the latest plan verifier result, recorded via `prospec change log --skill prospec-plan --signoff <option>` (the option must equal candidates/decision.json `recommended_option`)'
+                : 'human sign-off of the audited plan version, newer than the latest plan verifier result, recorded via `prospec change log --skill prospec-plan --signoff plan`',
             ],
-            reasons: [
-              'scale: full with the plan sign-off pause enabled — HALT and present the candidate summary, metrics table, in-session rationale and plan verifier report for a human decision',
-              `no decision.json or plan verifier report to sign (e.g. after \`change scale full\`, or only a Break-Glass override)? ${PLAN_SIGNOFF_REMEDIES}`,
-            ],
+            reasons: full
+              ? [
+                  'scale: full with the plan sign-off pause enabled — HALT and present the candidate summary, metrics table, in-session rationale and plan verifier report for a human decision',
+                  `no decision.json or plan verifier report to sign (e.g. after \`change scale full\`, or only a Break-Glass override)? ${PLAN_SIGNOFF_REMEDIES}`,
+                ]
+              : [
+                  `scale: ${facts.scale} with the plan sign-off pause enabled — HALT and present the direction summary of the audited plan for a human decision`,
+                  `no plan verifier report to sign (only a Break-Glass override)? ${PLAN_VERSION_SIGNOFF_REMEDIES}`,
+                ],
           };
         }
       }
@@ -249,8 +273,8 @@ export function routeChange(facts: ChangeRouteFacts): ChangeRoute {
         };
       }
       const reasons = ['status `plan` — next station per lifecycle order'];
-      if (facts.scale === 'full' && facts.pauseAtPlan) {
-        reasons.push('plan sign-off recorded — the opt-in pause is released');
+      if (pauseApplies) {
+        reasons.push('plan sign-off recorded — the pause is released');
       }
       if (designApplies && facts.hasDesignSpec) {
         reasons.push('design-spec.md present — the design station has already run');

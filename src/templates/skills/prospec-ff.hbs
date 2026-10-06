@@ -82,13 +82,13 @@ Loading is still read). Status advances `story → tasks` directly
 | Station | Enter the `prospec-plan` station per the Station Transition Protocol and run its phases there: `prospec change plan` scaffold, plan/delta-spec authoring per [`references/plan-format.md`](references/plan-format.md) + [`references/delta-spec-format.md`](references/delta-spec-format.md) (full: the candidate selection with mechanical metrics), and the Architecture Verification ([`references/plan-verifier-rubric.md`](references/plan-verifier-rubric.md) for its dimensions and report schema). This table is the entry checklist, not a second copy of that flow |
 | Receipt | Apply the **Physical Receipt Verification Protocol** in [`references/delegation-protocol.md`](references/delegation-protocol.md) to the verifier report; never fabricate a mock report or a synthetic PASS (zero-mock) |
 | Verdict | Record the report via `prospec change log --skill prospec-plan --verifier-report <file>` — the CLI validates it against the rubric-owned schema (verdict {{planning_verdicts}}) and records `FLAWS` as `result: FAIL`; an invalid or missing report is refused, never worked around. Then run `prospec status`: a recorded FAIL routes back to plan until a later verifier PASS/WARN; Break-Glass grants permit a bounded retry, never supersede the verifier verdict |
-| Selection | (full) On `AWAITING_HUMAN_PLAN_SIGNOFF`, STOP after plan — present the candidate summary, metrics table, in-session rationale and plan verifier report, and do not generate tasks until the human signs off (`prospec change log --skill prospec-plan --signoff <option>`, never run without an explicit human instruction). Without the pause, keep the in-session selection (`graded_by: in-session`) and continue to Phase 4 — NEVER ask the human to choose |
+| Selection | On `AWAITING_HUMAN_PLAN_SIGNOFF`, STOP after plan — present the sign-off material for the change's scale per [`references/human-decision.md`](references/human-decision.md), and do not generate tasks until the human signs off (`--signoff`, never run without an explicit human instruction). Without the pause, (full) keep the in-session selection (`graded_by: in-session`) and continue to Phase 4 — NEVER ask the human to choose |
 
 > **Phase 3 Gate** — proceed when:
 > - [ ] (standard/full) `plan.md` + `delta-spec.md` created, status → `plan`
 > - [ ] (standard/full) Architecture Verifier report recorded via `prospec change log --verifier-report` with result PASS/WARN (a Break-Glass grant alone does not satisfy this gate)
 > - [ ] (quick) phase marked skipped per `scale: quick` — no plan artifacts produced
-> - [ ] (full) `prospec status` does not report `AWAITING_HUMAN_PLAN_SIGNOFF` — otherwise ff halts here
+> - [ ] (standard/full) `prospec status` does not report `AWAITING_HUMAN_PLAN_SIGNOFF` — otherwise ff halts here
 
 ### Phase 4: Tasks Generation
 

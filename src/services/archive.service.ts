@@ -48,7 +48,7 @@ export {
   whenThenBullets,
 };
 export type { BlockTerminator, Bullet, DeltaBlock, DeltaBlockTruncation };
-import { PLAN_DECISION_OPTIONS, type ChangeStatus, type PlanDecisionOption } from '../types/change.js';
+import { PLAN_SIGNOFF_OPTIONS, type ChangeStatus, type PlanSignoffOption } from '../types/change.js';
 import { parseDecision } from '../lib/artifact-validators.js';
 import { readCandidateFiles } from '../lib/plan-candidates.js';
 import type { ProspecConfig } from '../types/config.js';
@@ -399,24 +399,26 @@ export async function moveToArchive(
  * without a sign-off entry is not trusted. Every value is an enum, so nothing a file
  * carries can inject a line break into the committed history.
  */
-function resolvePlanDecisionLine(rawLog: unknown, archiveDir: string, history: EscalationHistory): string | undefined {
+function resolvePlanDecisionLine(rawLog: unknown, archiveDir: string, history: EscalationHistory, scale: unknown): string | undefined {
   const log = Array.isArray(rawLog)
     ? rawLog.flatMap((raw) => {
         if (raw === null || typeof raw !== 'object') return [];
         const e = raw as Record<string, unknown>;
         if (typeof e.skill !== 'string' || typeof e.result !== 'string') return [];
-        const option = PLAN_DECISION_OPTIONS.find((o) => o === e.signoff_option);
+        const option = PLAN_SIGNOFF_OPTIONS.find((o) => o === e.signoff_option);
         return [{
           skill: e.skill,
           result: e.result,
           warnings: Array.isArray(e.warnings) ? e.warnings.filter((w): w is string => typeof w === 'string') : [],
           ...(typeof e.verifier_verdict === 'string' ? { verifier_verdict: e.verifier_verdict } : {}),
-          ...(option === undefined ? {} : { signoff_option: option satisfies PlanDecisionOption }),
+          ...(option === undefined ? {} : { signoff_option: option satisfies PlanSignoffOption }),
         }];
       })
     : [];
   const signedOff = latestFreshPlanSignoff(log, history);
-  if (signedOff !== null) return `${signedOff} (graded_by: human)`;
+  // A full-scale decision is a candidate option; a plan-version sign-off left from an
+  // earlier scale is not one.
+  if (signedOff !== null && !(scale === 'full' && signedOff === 'plan')) return `${signedOff} (graded_by: human)`;
   const decision = parseDecision(readCandidateFiles(archiveDir).decision);
   return decision.state === 'valid' ? `${decision.payload.recommended_option} (graded_by: in-session)` : undefined;
 }
@@ -488,7 +490,7 @@ export async function generateSummary(
     // `- **Quality Grade**:` row below the real one. It also absorbs the lenient
     // read here (a non-string value reads as nothing registered).
     issue = normalizeIssueRef(meta.issue);
-    planDecision = resolvePlanDecisionLine(meta.quality_log, archiveDir, history);
+    planDecision = resolvePlanDecisionLine(meta.quality_log, archiveDir, history, meta.scale);
   }
 
   const today = new Date().toISOString().slice(0, 10);

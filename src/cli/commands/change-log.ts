@@ -1,7 +1,7 @@
 import { InvalidArgumentError, Option, type Command } from 'commander';
 import {
   GATE_RESULTS,
-  PLAN_DECISION_OPTIONS,
+  PLAN_SIGNOFF_OPTIONS,
   VERIFY_GRADES,
   DIMENSION_RESULTS,
   DIMENSION_ADJUDICATORS,
@@ -96,9 +96,9 @@ export function registerChangeLogCommand(program: Command): void {
     .addOption(
       new Option(
         '--signoff <option>',
-        'Human plan sign-off (prospec-plan only) — must equal candidates/decision.json recommended_option; --warning adds notes',
+        'Human plan sign-off (prospec-plan only) — full scale: the candidates/decision.json recommended_option; other scales: `plan`, the audited plan version; --warning adds notes',
       )
-        .choices(PLAN_DECISION_OPTIONS)
+        .choices(PLAN_SIGNOFF_OPTIONS)
         .conflicts(['result', 'verifierReport', 'grade', 'dimension', 'criticalsFound', 'criticalsFixed', 'majors']),
     )
     .addOption(

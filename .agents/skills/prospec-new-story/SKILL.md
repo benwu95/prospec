@@ -109,7 +109,7 @@ For an existing change returning from explore, retain its recorded scale. For a 
 **Flow:**
 1. Check relevant Feature Specs for existing REQ coverage.
 2. **Draft-First mode (default)**: Autonomously select scale based on criteria table; document reasoning in `## Stated Assumptions`; write via `prospec change scale quick|standard|full` (Bash) — never edit metadata.yaml by hand.
-3. **Interactive mode (`--interactive`)**: Reuse supplied decisions; only for missing input: present scale with criteria-based reasoning. STOP. Ask user to confirm or override. Write confirmed value via `prospec change scale quick|standard|full` (Bash) — never edit metadata.yaml by hand.
+3. **Interactive mode (`--interactive`)**: Reuse supplied decisions; only for missing input: present scale with criteria-based reasoning per [`references/human-decision.md`](references/human-decision.md). STOP. Ask user to confirm or override. Write confirmed value via `prospec change scale quick|standard|full` (Bash) — never edit metadata.yaml by hand.
 
 > **`scale: backfill` is not a new-story-time option.** It is a *promotion-time* scale set only by
 > `prospec-promote-backfill` when formalizing a reviewed `backfill-draft.md` (documenting existing

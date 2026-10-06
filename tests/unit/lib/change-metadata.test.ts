@@ -12,6 +12,8 @@ import {
   latestVerifierResult,
   latestFreshPlanSignoff,
   hasPlanSignoffAfterVerifier,
+  planChangedSinceVerifier,
+  planVersionDigest,
   isPlanSignoffEntry,
   isReviewCloseEntry,
   isReviewRoundCountsEntry,
@@ -609,12 +611,13 @@ describe('plan verifier provenance and sign-off freshness (REQ-LIB-088)', () => 
     warnings: [],
     verifier_verdict: verdict,
   });
-  const signoff = (option: 'option-a' | 'option-b' | 'hybrid') => ({
+  const signoff = (option: 'option-a' | 'option-b' | 'hybrid' | 'plan', digest?: string) => ({
     skill: 'prospec-plan',
     date: '2026-09-24',
     result: 'PASS',
     warnings: [],
     signoff_option: option,
+    ...(digest === undefined ? {} : { signoff_plan_digest: digest }),
   });
   const exitGate = { skill: 'prospec-plan', date: '2026-09-24', result: 'PASS', warnings: [] };
   const breakGlass = { skill: 'prospec-plan', date: '2026-09-24', result: 'WARN', warnings: ['Manual override: false positive'] };
@@ -652,10 +655,75 @@ describe('plan verifier provenance and sign-off freshness (REQ-LIB-088)', () => 
     expect(hasPlanSignoffAfterVerifier(undefined)).toBe(false);
   });
 
+  // REQ-LIB-088: version binding and scale eligibility on top of the positional rule.
+  it('binds a digest-stamped sign-off to the current plan version', () => {
+    const v1 = planVersionDigest('plan v1', 'delta v1');
+    const v2 = planVersionDigest('plan v2', 'delta v1');
+    const log = [verifier('PASS'), signoff('plan', v1)];
+    expect(latestFreshPlanSignoff(log, undefined, { scale: 'standard', digest: v1 })).toBe('plan');
+    expect(latestFreshPlanSignoff(log, undefined, { scale: 'standard', digest: v2 })).toBeNull();
+    expect(hasPlanSignoffAfterVerifier(log, undefined, { scale: 'standard', digest: v2 })).toBe(false);
+    // without `current` the positional rule alone decides (the archive summary's reading)
+    expect(latestFreshPlanSignoff(log)).toBe('plan');
+  });
+
+  it('judges a legacy sign-off without a digest by position alone', () => {
+    const current = { scale: 'full' as const, digest: planVersionDigest('p', 'd') };
+    expect(latestFreshPlanSignoff([verifier('PASS'), signoff('option-a')], undefined, current)).toBe('option-a');
+  });
+
+  it('never lets an unstamped sign-off pass once the verifier report it follows carries a plan version', () => {
+    const digest = planVersionDigest('p', 'd');
+    const stamped = { ...verifier('PASS'), audited_plan_digest: digest };
+    expect(latestFreshPlanSignoff([stamped, signoff('plan')], undefined, { scale: 'standard', digest })).toBeNull();
+    // a later Break-Glass override audited nothing, so the stamped report still decides
+    expect(latestFreshPlanSignoff([stamped, breakGlass, signoff('plan')], undefined, { scale: 'standard', digest })).toBeNull();
+    expect(latestFreshPlanSignoff([stamped, signoff('plan', digest)], undefined, { scale: 'standard', digest })).toBe('plan');
+  });
+
+  it('never lets a plan-version sign-off stand in for a full-scale option sign-off', () => {
+    const digest = planVersionDigest('p', 'd');
+    const log = [verifier('PASS'), signoff('plan', digest)];
+    expect(latestFreshPlanSignoff(log, undefined, { scale: 'full', digest })).toBeNull();
+    expect(latestFreshPlanSignoff([verifier('PASS'), signoff('option-a', digest)], undefined, { scale: 'standard', digest })).toBe('option-a');
+  });
+
+  it('planVersionDigest distinguishes plan from delta-spec bytes and an absent file from an empty one', () => {
+    expect(planVersionDigest('a', 'b')).toBe(planVersionDigest('a', 'b'));
+    expect(planVersionDigest('a', 'b')).not.toBe(planVersionDigest('b', 'a'));
+    expect(planVersionDigest('', null)).not.toBe(planVersionDigest('', ''));
+    expect(planVersionDigest('a', 'b')).toMatch(/^[0-9a-f]{64}$/);
+  });
+
+  it('planChangedSinceVerifier compares the latest verifier report stamp with the current version', () => {
+    const v1 = planVersionDigest('plan v1', 'd');
+    const v2 = planVersionDigest('plan v2', 'd');
+    const stamped = (digest: string) => ({ ...verifier('PASS'), audited_plan_digest: digest });
+    expect(planChangedSinceVerifier([stamped(v1)], v1)).toBe(false);
+    expect(planChangedSinceVerifier([stamped(v1)], v2)).toBe(true);
+    expect(planChangedSinceVerifier([stamped(v1), stamped(v2)], v2)).toBe(false);
+    // a report recorded before the stamp existed, or none at all, proves no change
+    expect(planChangedSinceVerifier([verifier('PASS')], v2)).toBe(false);
+    expect(planChangedSinceVerifier(undefined, v2)).toBe(false);
+    // a later Break-Glass override audited nothing, so the stamped report still decides
+    expect(planChangedSinceVerifier([stamped(v1), breakGlass], v2)).toBe(true);
+  });
+
   it('isPlanSignoffEntry recognizes only a stamped prospec-plan entry', () => {
     expect(isPlanSignoffEntry(signoff('option-a'))).toBe(true);
     expect(isPlanSignoffEntry(exitGate)).toBe(false);
     expect(isPlanSignoffEntry({ skill: 'prospec-tasks', signoff_option: 'option-a' })).toBe(false);
+  });
+
+  it('appendQualityLogEntry serializes both plan-digest stamps after their option stamps', async () => {
+    vol.fromJSON({ [PATH]: VALID });
+    const { doc } = readChangeMetadata(PATH, 'add-widget');
+    appendQualityLogEntry(doc, { skill: 'prospec-plan', date: '2026-09-24', result: 'PASS', warnings: [], audited_plan_digest: 'aa', verifier_verdict: 'PASS', audited_option: 'option-a' });
+    appendQualityLogEntry(doc, { skill: 'prospec-plan', date: '2026-09-24', result: 'PASS', warnings: [], signoff_plan_digest: 'bb', signoff_option: 'plan' });
+    await writeChangeMetadataDoc(PATH, doc, 'add-widget');
+    const written = vol.readFileSync(PATH, 'utf-8') as string;
+    expect(written).toMatch(/ {4}verifier_verdict: PASS\n {4}audited_option: option-a\n {4}audited_plan_digest: aa\n/);
+    expect(written).toMatch(/ {4}signoff_option: plan\n {4}signoff_plan_digest: bb\n/);
   });
 
   it('appendQualityLogEntry keeps signoff_option in the canonical serialization', async () => {

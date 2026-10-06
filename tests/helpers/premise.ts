@@ -13,8 +13,8 @@ export function premiseProposal(value: unknown = verifiedPremise): string {
 }
 
 /** Author evidence explicitly in fixtures whose subject is a later station. */
-export function withVerifiedPremise(proposal: string): string {
-  const section = premiseProposal().split('## Other')[0]!.split('## Premise')[1]!;
+export function withVerifiedPremise(proposal: string, source: string = verifiedPremise.source): string {
+  const section = premiseProposal({ ...verifiedPremise, source }).split('## Other')[0]!.split('## Premise')[1]!;
   const declaration = `## Premise${section}`;
   return proposal.includes('## Premise')
     ? proposal.replace(/## Premise[\s\S]*?(?=\n## |$)/, declaration)

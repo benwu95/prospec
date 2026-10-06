@@ -94,7 +94,7 @@ When `metadata.scale` is `full` (or requested by the user under `standard`), exe
    - When `can_spawn_subagent` is available, parallelize candidate generation (Subagent A, Subagent B).
    - **Receipt**: apply the Physical Receipt Verification Protocol in [`references/delegation-protocol.md`](references/delegation-protocol.md) (bounded wait, bounded re-spawn) to each `candidates/<id>.json` before selection; `prospec validate candidates` checks their schema.
    - In single-context environments (or on spawn failure/crash), degrade to sequential candidate generation in isolated prompts, and notify the developer of the degraded path.
-5. **Selection Paths** (after the Phase 6 verifier is recorded, per `prospec status`): without a pause, keep the in-session selection and continue — NEVER ask the human to choose; on `AWAITING_HUMAN_PLAN_SIGNOFF`, HALT and present the candidate summary, metrics table, in-session rationale and plan verifier report for the human's sign-off; if the human picks another option, revise plan.md, delta-spec.md and decision.json for it and re-record the verifier before the sign-off.
+5. **Selection Paths** (after the Phase 6 verifier is recorded, per `prospec status`): without a pause, keep the in-session selection and continue — NEVER ask the human to choose; on `AWAITING_HUMAN_PLAN_SIGNOFF`, HALT for the human's sign-off (Phase 8); if the human picks another option, revise plan.md, delta-spec.md and decision.json for it and re-record the verifier before the sign-off.
 6. **Record Trade-offs in `plan.md`**: Embed the metrics table and selection rationale in Technical Summary and record trade-off analysis / non-selected option summaries in Risk Assessment.
 
 Follow `references/plan-format.md` (read on demand at this step — not a Startup Loading item):
@@ -172,7 +172,7 @@ Confirm Knowledge-loading completeness in **one line**: Context mode detected (B
 
 ### Phase 8: Summary + Next Steps
 
-Run `prospec status`. On `AWAITING_HUMAN_PLAN_SIGNOFF`, HALT with the sign-off material (Phase 4 step 5) and do not recommend tasks; on `PLAN_VERIFIER_PENDING`, record the verifier first; otherwise suggest `prospec-tasks` or manual review.
+Run `prospec status`. On `AWAITING_HUMAN_PLAN_SIGNOFF`, HALT, present the sign-off material for the change's scale per [`references/human-decision.md`](references/human-decision.md), and do not recommend tasks; on `PLAN_VERIFIER_PENDING`, record the verifier first; otherwise suggest `prospec-tasks` or manual review.
 
 {{> escalation-guidance}}
 

@@ -7642,7 +7642,7 @@ describe('opt-in plan sign-off pause and autonomous selection (REQ-TEMPLATES-236
     const cascade = render('skills/references/cascade-protocol.hbs');
     const step5 = oneLine(cascade.split('\n').find((l) => l.includes('**Step 5 [NEXT]**')) ?? '');
     expect(step5).toMatch(/`code: ESCALATE_TO_HUMAN`, HALT immediately and emit the CLI-produced `EscalationReport`/);
-    expect(step5).toMatch(/`code: AWAITING_HUMAN_PLAN_SIGNOFF`, HALT and present the candidate summary, metrics table, in-session rationale and plan verifier report — it is not a failure, so emit no `EscalationReport`/);
+    expect(step5).toMatch(/`code: AWAITING_HUMAN_PLAN_SIGNOFF`, HALT and present the plan station's sign-off material for the change's scale — it is not a failure, so emit no `EscalationReport`/);
     // REQ-TEMPLATES-195 / #310: the third halt exits the loop too, without a report
     expect(step5).toMatch(/`code: KNOWLEDGE_INPUT_INVALID`, HALT and present the knowledge-sync input its reasons name \(no `EscalationReport`\)/);
     const table = sectionOf(cascade, '## Station Transition Gates');
@@ -7659,7 +7659,7 @@ describe('opt-in plan sign-off pause and autonomous selection (REQ-TEMPLATES-236
 
   it('plan Phase 8 HALTs on the pause instead of recommending tasks', () => {
     const phase8 = oneLine(sectionOf(render('skills/prospec-plan.hbs'), '### Phase 8: Summary + Next Steps'));
-    expect(phase8).toMatch(/On `AWAITING_HUMAN_PLAN_SIGNOFF`, HALT .* do not recommend tasks/);
+    expect(phase8).toMatch(/On `AWAITING_HUMAN_PLAN_SIGNOFF`, HALT, present the sign-off material for the change's scale per \[`references\/human-decision\.md`\]\(references\/human-decision\.md\), and do not recommend tasks/);
     expect(phase8).toMatch(/`PLAN_VERIFIER_PENDING`, record the verifier first/);
   });
 
@@ -7696,7 +7696,21 @@ describe('opt-in plan sign-off pause and autonomous selection (REQ-TEMPLATES-236
         expect(gates, needle).toContain(needle);
       }
       expect(gates).toMatch(/also after plan \(it does not generate tasks until the human signs off\)/);
+      // REQ-TEMPLATES-236: the precedence, the scales it covers and the version binding
+      expect(gates).toMatch(/`PROSPEC_PAUSE_AT` decides alone for a run when set[^.]*; unset, a verified `ai-proposed` Premise pauses at plan by default, and `.prospec.yaml` `workflow.pause_at` including `plan` pauses the rest/);
+      expect(gates).toMatch(/A paused `standard` or `full` change at `plan` with no verifier result — or whose plan\.md\/delta-spec\.md changed after the verifier report audited it — routes back to plan \(`PLAN_VERIFIER_PENDING`\)/);
+      expect(gates).toMatch(/\(full: a candidate option; standard: `plan`\) records a sign-off positioned after that verifier entry in `quality_log` and bound to the current plan version/);
+      expect(gates).toContain('Scales without a plan never pause.');
     }
+  });
+
+  it('cascade names the plan sign-off on the standard trajectory and the pause precedence for both scales; ff gates both', () => {
+    const cascade = render('skills/references/cascade-protocol.hbs');
+    expect(sectionOf(cascade, '### 2. Scale: Standard (`scale: standard` or unset)')).toContain('`story → plan → [plan sign-off, when paused] → tasks');
+    expect(oneLine(cascade)).toMatch(/On standard and full, the plan sign-off pause \(by default for a verified `ai-proposed` Premise, or via `workflow\.pause_at: \[plan\]`; `PROSPEC_PAUSE_AT` decides alone per run/);
+    expect(oneLine(sectionOf(render('skills/prospec-ff.hbs'), '### Phase 3: Plan Generation (skipped when `scale: quick`)'))).toContain(
+      '(standard/full) `prospec status` does not report `AWAITING_HUMAN_PLAN_SIGNOFF` — otherwise ff halts here',
+    );
   });
 
   it('archive-format carries the optional Plan Decision line and prospec-archive carries it over verbatim', () => {
@@ -7709,6 +7723,9 @@ describe('opt-in plan sign-off pause and autonomous selection (REQ-TEMPLATES-236
 
   it('metadata-format documents the sign-off stamp as provenance written only by --signoff', () => {
     const text = oneLine(render('skills/references/metadata-format.hbs'));
+    expect(text).toMatch(/\*\*`audited_option`\*\* \/ \*\*`audited_plan_digest`\*\* \(plan only\) are stamped by the same sink/);
+    expect(text).toMatch(/a candidate option \(`option-a` \| `option-b` \| `option-c` \| `hybrid`\) at full scale, `plan` otherwise — with \*\*`signoff_plan_digest`\*\*, the plan version signed/);
+    expect(text).toMatch(/releases the plan pause only while no later verifier entry follows it and the plan is unchanged/);
     expect(text).toMatch(/\*\*`signoff_option`\*\* \(plan only\) is written solely by `prospec change log --signoff`/);
     expect(text).toMatch(/neither counts as a verifier result nor hides an unresolved WARN/);
   });
@@ -7717,6 +7734,106 @@ describe('opt-in plan sign-off pause and autonomous selection (REQ-TEMPLATES-236
     const example = render('references/config-example.yaml.hbs');
     expect(example).toMatch(/^ {2}pause_at: \[\]$/m);
     expect(example).toContain('PROSPEC_PAUSE_AT');
+  });
+
+  it('config-example ships always_escalate with its default categories and the project-agnostic definition (REQ-TEMPLATES-236)', () => {
+    const example = render('references/config-example.yaml.hbs');
+    expect(example).toMatch(/^ {2}always_escalate: \[re-scope, break-glass-override, breaking-change\]$/m);
+    expect(oneLine(example)).toMatch(/`breaking-change` means taking back or narrowing behavior a # graduated requirement promises/);
+    expect(oneLine(example)).toMatch(/a change whose verified Premise is `ai-proposed` pauses at plan # regardless/);
+  });
+});
+
+describe('shared human-decision contract and delegation boundary (REQ-TEMPLATES-247/248)', () => {
+  const render = (tpl: string) => renderTemplate(tpl, TEMPLATE_CONTEXT);
+  const oneLine = (text: string) => text.replace(/\s+/g, ' ');
+  const REFERENCE = 'skills/references/human-decision.hbs';
+  const CONTRACT = 'state its concrete reversal cost';
+
+  it('defines the presentation contract once and expands it only in the reference and the Tastemaker presentation', () => {
+    const definers = Object.keys(BUNDLED_TEMPLATES).filter((k) => BUNDLED_TEMPLATES[k]!.includes(CONTRACT));
+    expect(definers).toEqual(['skills/_human-decision.hbs']);
+    const includers = Object.keys(BUNDLED_TEMPLATES).filter((k) => BUNDLED_TEMPLATES[k]!.includes('{{> human-decision}}')).sort();
+    expect(includers).toEqual(['skills/references/cascade-protocol.hbs', REFERENCE]);
+    const contract = oneLine(BUNDLED_TEMPLATES['skills/_human-decision.hbs']!);
+    expect(contract).toMatch(/for each viable option, state its concrete reversal cost/);
+    expect(contract).toMatch(/Cite the rule or evidence behind the recommendation/);
+    expect(contract).toMatch(/strongest non-recommended option the condition under which it would be right/);
+    expect(contract).toMatch(/A decision the human already stated is not asked again/);
+    expect(oneLine(sectionOf(render(REFERENCE), '## Presentation Contract'))).toContain(CONTRACT);
+    expect(oneLine(sectionOf(render('skills/references/cascade-protocol.hbs'), '## Tastemaker Presentation & Human Gate'))).toContain(CONTRACT);
+  });
+
+  it('the Tastemaker expansion goes red when the include is removed from the bundle (mutation)', () => {
+    const key = 'skills/references/cascade-protocol.hbs';
+    const original = BUNDLED_TEMPLATES[key]!;
+    const mutated = original.replace('{{> human-decision}}', '');
+    expect(mutated).not.toBe(original);
+    try {
+      BUNDLED_TEMPLATES[key] = mutated;
+      expect(oneLine(sectionOf(render(key), '## Tastemaker Presentation & Human Gate'))).not.toContain(CONTRACT);
+    } finally {
+      BUNDLED_TEMPLATES[key] = original;
+    }
+  });
+
+  it('gives a non-full plan sign-off exactly six summary points and no candidate requirement', () => {
+    const section = sectionOf(render(REFERENCE), '## Plan Sign-off by Scale');
+    const points = section.split('\n').filter((l) => /^\s+\d+\. \*\*/.test(l)).map((l) => l.match(/\*\*([^*]+)\*\*/)![1]);
+    expect(points).toEqual(['Purpose', 'Direction', 'Scope', 'Key assumptions', 'Strongest alternative', 'Reversal cost']);
+    const flatSection = oneLine(section);
+    expect(flatSection).toMatch(/\*\*other scales\*\* — present a direction summary drawn from the existing plan, at most six points/);
+    expect(flatSection).toMatch(/no candidate files or metrics are produced/);
+    expect(flatSection).toMatch(/\*\*full\*\* — present the candidate summary, the `prospec validate candidates` metrics table, the in-session rationale and the plan verifier report/);
+  });
+
+  it('routes each of the three human responses to its own next step', () => {
+    const lines = sectionOf(render(REFERENCE), '## Responses').split('\n').filter((l) => l.trimStart().startsWith('|'));
+    // header, separator, then one row per response
+    const rows = lines.slice(2).map((l) => splitTableRow(l).map((cell) => cell.trim()));
+    expect(rows.map((row) => row[0])).toEqual(['Approves', 'Adjusts named details', 'Rejects the direction or a key assumption']);
+    expect(rows[0]![1]).toMatch(/--signoff <option>` at full scale, `--signoff plan` otherwise/);
+    expect(rows[1]![1]).toMatch(/re-run the verifier and record its new report/);
+    expect(rows[2]![1]).toMatch(/Return to `prospec-explore`/);
+  });
+
+  it('bounds a general delegation by workflow.always_escalate while reusing a specific one', () => {
+    const boundary = oneLine(sectionOf(render(REFERENCE), '## Delegation Boundary'));
+    expect(boundary).toMatch(/A general delegation \("follow your recommendation"\) never decides a category in `.prospec.yaml` `workflow.always_escalate` \(an `AWAITING_HUMAN_PLAN_SIGNOFF` route lists those in force; `breaking-change` takes back or narrows behavior a graduated requirement promises\)/);
+    expect(boundary).toMatch(/a specific decision is reused, not asked again/);
+    expect(boundary).toMatch(/"Change X, then continue" authorizes the named change and the continuation once the plan is updated and the affected verification is recorded/);
+    expect(boundary).toMatch(/an answer too vague to define the change is clarified first/);
+    expect(boundary).toMatch(/The CLI checks those structured records; whether a conversation is a specific authorization is the skill's judgment/);
+    expect(boundary).toMatch(/Releasing the plan pause with `PROSPEC_PAUSE_AT` releases no other gate or delegation boundary/);
+    // the NEVER rule on setting the override stays with its three owners, not restated here
+    expect(boundary).not.toMatch(/NEVER/);
+  });
+
+  it('names no harness question tool or option-marker convention at any decision point', () => {
+    for (const tpl of ['skills/prospec-plan.hbs', 'skills/prospec-ff.hbs', 'skills/prospec-new-story.hbs', 'skills/references/cascade-protocol.hbs', 'skills/references/candidate-evaluation.hbs']) {
+      const lower = render(tpl).toLowerCase();
+      for (const name of ['askuserquestion', 'ask_user', 'request_user_input', '(recommended)']) {
+        expect(lower, `${tpl} names ${name}`).not.toContain(name);
+      }
+    }
+  });
+
+  it('names no harness question tool, option-marker convention, model or vendor', () => {
+    for (const tpl of [REFERENCE, 'skills/_human-decision.hbs']) {
+      const lower = render(tpl).toLowerCase();
+      for (const name of ['askuserquestion', 'ask_user', 'request_user_input', '(recommended)', 'claude', 'codex', 'copilot', 'antigravity', 'gemini', 'opus', 'sonnet', 'gpt']) {
+        expect(lower, `${tpl} names ${name}`).not.toContain(name);
+      }
+    }
+  });
+
+  it('loads the reference at each human decision point', () => {
+    const cite = '[`references/human-decision.md`](references/human-decision.md)';
+    expect(sectionOf(render('skills/prospec-plan.hbs'), '### Phase 8: Summary + Next Steps')).toContain(cite);
+    expect(sectionOf(render('skills/prospec-ff.hbs'), '### Phase 3: Plan Generation (skipped when `scale: quick`)')).toContain(cite);
+    expect(oneLine(sectionOf(render('skills/prospec-new-story.hbs'), '### Phase 3.5: Complexity Assessment (Scale)'))).toMatch(
+      /Interactive mode \(`--interactive`\)\*\*: Reuse supplied decisions; only for missing input: present scale with criteria-based reasoning per \[`references\/human-decision\.md`\]/,
+    );
   });
 });
 
@@ -9599,8 +9716,8 @@ describe('one verdict vocabulary, one station route (issue #266 — REQ-TEMPLATE
       codeTasksTotal: 1, codeTasksDone: 0, hasReviewProvenance: false, lastVerifyGrade: null,
       lastPlanVerifierResult: null, lastTasksVerifierResult: null, knowledgeSyncReasons: [],
       verifyBelowBarStreak: 0, planFlawsStreak: 0, tasksFlawsStreak: 0, maxStationRetries: 3,
-      // The opt-in pause is a loop-exit, not a routed station: parity is judged without it.
-      pauseAtPlan: false, planSignedOff: false, ...over,
+      // The plan pause is a loop-exit, not a routed station: parity is judged without it.
+      pauseAtPlan: false, planSignedOff: false, planChangedSinceVerifier: false, ...over,
     });
     const routed = (variants: Partial<ChangeRouteFacts>[]): Set<string> =>
       new Set(variants.map((v) => routeChange(facts(v)).next).filter((n): n is SddStation => n !== null));

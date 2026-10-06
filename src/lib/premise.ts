@@ -150,6 +150,12 @@ export function readPremiseAssessment(changeDir: string, root: string, targetSca
   }
 }
 
+/** Whether a verified Premise was proposed by the AI — the default plan-pause trigger.
+ *  Only a ready assessment names a source; legacy, exempt and blocked never infer one. */
+export function isAiProposedPremise(assessment: PremiseAssessment | undefined): boolean {
+  return assessment?.state === 'ready' && assessment.premise?.source === 'ai-proposed';
+}
+
 /** Admission used by every advancing writer, with the same decision as validate/status. */
 export function requirePremise(changeDir: string, root: string, targetScale?: ChangeScale): PremiseCapture {
   const captured = readPremiseAssessment(changeDir, root, targetScale);

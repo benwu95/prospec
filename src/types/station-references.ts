@@ -152,6 +152,7 @@ export const STATION_REFERENCES: Readonly<Record<string, StationReferenceEntry>>
     files: [
       { templateName: 'proposal-format.hbs', outputName: 'proposal-format.md', title: 'Proposal Format' },
       { templateName: 'metadata-format.hbs', outputName: 'metadata-format.md', title: 'Metadata (metadata.yaml) Format' },
+      { templateName: 'human-decision.hbs', outputName: 'human-decision.md', title: 'Human Decision' },
     ],
     uses: [
       {
@@ -177,6 +178,15 @@ export const STATION_REFERENCES: Readonly<Record<string, StationReferenceEntry>>
         target: { kind: 'reference', reference: 'proposal-format.md' },
         purpose: 'the section set proposal.md must carry',
         loading: 'in-phase',
+      },
+      {
+        id: 'phase-3-5-human-decision',
+        phase: 'Phase 3.5: Complexity Assessment (Scale)',
+        site: 'Core Workflow > Phase 3.5: Complexity Assessment (Scale)',
+        target: { kind: 'reference', reference: 'human-decision.md' },
+        purpose: 'how a scale question is presented to the human',
+        loading: 'in-phase',
+        conditionHint: 'interactive mode asks the human to confirm the scale',
       },
     ],
     slots: [
@@ -204,6 +214,7 @@ export const STATION_REFERENCES: Readonly<Record<string, StationReferenceEntry>>
       { templateName: 'plan-verifier-rubric.hbs', outputName: 'plan-verifier-rubric.md', title: 'Architecture Verifier Rubric' },
       { templateName: 'candidate-evaluation.hbs', outputName: 'candidate-evaluation.md', title: 'Candidate Architecture Evaluation' },
       { templateName: 'delegation-protocol.hbs', outputName: 'delegation-protocol.md', title: 'Delegation and Physical Receipt Protocol' },
+      { templateName: 'human-decision.hbs', outputName: 'human-decision.md', title: 'Human Decision' },
     ],
     uses: [
       {
@@ -257,6 +268,16 @@ export const STATION_REFERENCES: Readonly<Record<string, StationReferenceEntry>>
         target: { kind: 'reference', reference: 'delegation-protocol.md' },
         purpose: 'the receipt protocol and bounded wait for the verifier delegate',
         loading: 'in-phase',
+      },
+      {
+        id: 'phase-8-human-decision',
+        phase: 'Phase 8: Summary + Next Steps',
+        site: 'Core Workflow > Phase 8: Summary + Next Steps',
+        target: { kind: 'reference', reference: 'human-decision.md' },
+        purpose: 'the sign-off material by scale, the response paths and the delegation boundary',
+        loading: 'in-phase',
+        scales: ['standard', 'full'],
+        conditionHint: 'prospec status reports AWAITING_HUMAN_PLAN_SIGNOFF',
       },
     ],
     slots: [
@@ -427,6 +448,7 @@ export const STATION_REFERENCES: Readonly<Record<string, StationReferenceEntry>>
       { templateName: 'circuit-breaker.hbs', outputName: 'circuit-breaker.md', title: 'Circuit Breakers & Runaway Cost Protection' },
       { templateName: 'project-test-runner.hbs', outputName: 'project-test-runner.md', title: 'Project Test Runner & Ecosystem Adapter' },
       { templateName: 'delegation-protocol.hbs', outputName: 'delegation-protocol.md', title: 'Delegation and Physical Receipt Protocol' },
+      { templateName: 'human-decision.hbs', outputName: 'human-decision.md', title: 'Human Decision' },
     ],
     uses: [
       {
@@ -480,6 +502,16 @@ export const STATION_REFERENCES: Readonly<Record<string, StationReferenceEntry>>
         purpose: 'the receipt protocol and bounded wait for the verifier delegate',
         loading: 'in-phase',
         scales: ['standard', 'full'],
+      },
+      {
+        id: 'phase-3-human-decision',
+        phase: 'Phase 3: Plan Generation',
+        site: 'Core Workflow > Phase 3: Plan Generation (skipped when `scale: quick`)',
+        target: { kind: 'reference', reference: 'human-decision.md' },
+        purpose: 'the sign-off material by scale, the response paths and the delegation boundary',
+        loading: 'in-phase',
+        scales: ['standard', 'full'],
+        conditionHint: 'prospec status reports AWAITING_HUMAN_PLAN_SIGNOFF',
       },
       {
         id: 'phase-4-tasks-format',

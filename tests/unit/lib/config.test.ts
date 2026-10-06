@@ -2,8 +2,8 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { vol } from 'memfs';
-import { resolveConfigPath, readConfig, validateConfig, writeConfig, resolveBasePaths, isArtifactLanguageUnset, resolveKnowledgeTokenBudget, resolveTestCommand, resolveMaxStationRetries, resolvePauseAt } from '../../../src/lib/config.js';
-import { ConfigNotFound, ConfigInvalid, PauseAtInvalid } from '../../../src/types/errors.js';
+import { resolveConfigPath, readConfig, validateConfig, writeConfig, resolveBasePaths, isArtifactLanguageUnset, resolveKnowledgeTokenBudget, resolveTestCommand, resolveMaxStationRetries, resolvePauseAt, resolveAlwaysEscalate } from '../../../src/lib/config.js';
+import { ConfigNotFound, ConfigInvalid, PauseAtInvalid, AlwaysEscalateInvalid } from '../../../src/types/errors.js';
 import { DEFAULT_KNOWLEDGE_TOKEN_BUDGET, DEFAULT_MAX_STATION_RETRIES, ProspecConfigSchema, SHIPPED_BUDGET_FIELDS, isShippedBudgetField, type ProspecConfig } from '../../../src/types/config.js';
 
 vi.mock('node:fs', async () => {
@@ -454,6 +454,31 @@ describe('resolveMaxStationRetries (REQ-LIB-082, REQ-TESTS-122)', () => {
   });
 });
 
+describe('resolveAlwaysEscalate (REQ-LIB-102)', () => {
+  const withCategories = (always_escalate: unknown): ProspecConfig =>
+    ({ project: { name: 'p' }, workflow: { always_escalate } }) as ProspecConfig;
+
+  it('returns every category when the config or the key is absent', () => {
+    for (const config of [null, undefined, { project: { name: 'p' } } as ProspecConfig, { project: { name: 'p' }, workflow: {} } as ProspecConfig]) {
+      expect(resolveAlwaysEscalate(config)).toEqual(['re-scope', 'break-glass-override', 'breaking-change']);
+    }
+  });
+
+  it('returns the configured categories in first-seen order without duplicates; empty is valid', () => {
+    expect(resolveAlwaysEscalate(withCategories(['breaking-change', 're-scope', 'breaking-change']))).toEqual([
+      'breaking-change', 're-scope',
+    ]);
+    expect(resolveAlwaysEscalate(withCategories([]))).toEqual([]);
+  });
+
+  it.each([['scalar', 're-scope'], ['map', { a: 1 }], ['non-string', [1]], ['unknown name', ['rescope']], ['null', null]])(
+    'throws AlwaysEscalateInvalid for a %s',
+    (_name, value) => {
+      expect(() => resolveAlwaysEscalate(withCategories(value))).toThrow(AlwaysEscalateInvalid);
+    },
+  );
+});
+
 describe('resolvePauseAt (REQ-LIB-086)', () => {
   const withPause = (pause_at: unknown): ProspecConfig =>
     ({ project: { name: 'p' }, workflow: { pause_at } }) as ProspecConfig;
@@ -484,6 +509,23 @@ describe('resolvePauseAt (REQ-LIB-086)', () => {
     const run = () => resolvePauseAt(config, env === undefined ? {} : { PROSPEC_PAUSE_AT: env });
     if (expected === 'throws') expect(run).toThrow(PauseAtInvalid);
     else expect(run()).toEqual(expected);
+  });
+
+  // REQ-LIB-086: a verified ai-proposed Premise pauses at plan unless the env decides; an
+  // invalid config still throws, and a set env still never reads the config.
+  it.each(CROSS)('env $envName × config $configName × ai-proposed Premise', ({ env, config, expected }) => {
+    const run = () =>
+      resolvePauseAt(config, env === undefined ? {} : { PROSPEC_PAUSE_AT: env }, { aiProposedPremise: true });
+    const withPremise = env === undefined && expected !== 'throws' ? ['plan'] : expected;
+    if (withPremise === 'throws') expect(run).toThrow(PauseAtInvalid);
+    else expect(run()).toEqual(withPremise);
+  });
+
+  it('treats an absent or false Premise option exactly like the two-argument call', () => {
+    for (const config of [null, withPause([]), withPause(['plan'])]) {
+      expect(resolvePauseAt(config, {}, { aiProposedPremise: false })).toEqual(resolvePauseAt(config, {}));
+      expect(resolvePauseAt(config, {}, {})).toEqual(resolvePauseAt(config, {}));
+    }
   });
 
   it('resolves no pause when neither the env nor the config sets one', () => {
@@ -541,6 +583,13 @@ describe('resolvePauseAt (REQ-LIB-086)', () => {
       workflow: { pause_at: 'plan' },
     });
     expect(parsed.success).toBe(true);
+  });
+
+  it('keeps an absent or mistyped always_escalate from failing the whole config parse (REQ-TYPES-113)', () => {
+    for (const workflow of [{}, { always_escalate: 're-scope' }, { always_escalate: { a: 1 } }, { always_escalate: [1] }]) {
+      const parsed = ProspecConfigSchema.safeParse({ project: { name: 'p' }, tech_stack: { language: 'typescript' }, workflow });
+      expect(parsed.success, JSON.stringify(workflow)).toBe(true);
+    }
   });
 });
 

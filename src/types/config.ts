@@ -201,7 +201,10 @@ const WorkflowSchema = z
     max_station_retries: z.number().optional(),
     // Shape-agnostic on purpose: a mistyped value (a bare scalar, a map) must not
     // fail the whole config; `resolvePauseAt` validates it and names the bad value.
+    // Absent, it contributes no pause station; the resolver still decides per change.
     pause_at: z.unknown().optional(),
+    // Shape-agnostic for the same reason; `resolveAlwaysEscalate` validates it.
+    always_escalate: z.unknown().optional(),
   })
   .optional();
 
@@ -223,6 +226,16 @@ export const PAUSE_AT_ENV_VAR = 'PROSPEC_PAUSE_AT';
 /** `PROSPEC_PAUSE_AT` value that disables pausing like the empty string — the portable
  *  form, because Windows shells unset a variable assigned an empty value. */
 export const PAUSE_AT_NONE = 'none';
+
+/** Decision categories a general delegation ("follow your recommendation") never decides
+ *  (`workflow.always_escalate`); the skill judges whether a decision falls in one. Each is a
+ *  workflow decision with a project-agnostic meaning: `breaking-change` takes back or narrows
+ *  behavior a graduated requirement promises (a delta-spec REMOVED entry or Dropped bullet). */
+export const ALWAYS_ESCALATE_CATEGORIES = ['re-scope', 'break-glass-override', 'breaking-change'] as const;
+export type AlwaysEscalateCategory = (typeof ALWAYS_ESCALATE_CATEGORIES)[number];
+
+/** Categories in force when `.prospec.yaml` omits `workflow.always_escalate`. */
+export const DEFAULT_ALWAYS_ESCALATE: readonly AlwaysEscalateCategory[] = ALWAYS_ESCALATE_CATEGORIES;
 
 export const DEFAULT_BASE_DIR = 'prospec';
 

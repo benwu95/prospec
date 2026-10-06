@@ -249,7 +249,7 @@ Review 維持 artifact→metadata，verify 維持 metadata→evidence 的寫入�
     - 無任何進行中變更時，讀取 `prospec-report.json` 並回報其**狀態**：`--auto-draft` 會起草的 finding 數量，或該報告無法解析、或是對著不同的程式碼產生的（以 `change_digest` 比對）。無法信任的報告會如實回報，絕不當成「沒有漂移」。
     - 當站點恢復迴圈（verify below-bar、plan verifier flaws、tasks verifier flaws）達到 `workflow.max_station_retries`（預設 3）時，`status` 會路由至 `next: null` 並帶穩定代碼 `ESCALATE_TO_HUMAN`，印出 HALT 指引與失敗摘要，不再無限循環回原站。
     - 在 `verified`，`prospec-knowledge-update` 修不了的 knowledge-sync gap——非 canonical REQ id、無法解析的 `module-map.yaml`、module-map 未註冊、且沒有 ADDED REQ 以新模組引入的 `related_modules` 名稱——會路由至 `next: null` 並帶穩定代碼 `KNOWLEDGE_INPUT_INVALID`，印出 HALT 與每個 gap 的原因及修復方式，每個代碼一條 reason（各自保留自己的代碼）；stale 模組仍路由至 `prospec-knowledge-update`（`KNOWLEDGE_UNSYNCED`）。
-    - **Opt-in plan 簽核停頓**：解析出的停頓站含 `plan` 時——有設 `PROSPEC_PAUSE_AT`（即使為空；空值或 `none`＝不停）以它為準，否則看 `workflow.pause_at`——位於 `plan` 的 `scale: full` 變更若尚無 verifier 結果會導回 plan（`PLAN_VERIFIER_PENDING`），有 PASS/WARN verifier 結果後則路由至 `next: null` 並帶 `AWAITING_HUMAN_PLAN_SIGNOFF`，印出簽核 HALT 與 `--signoff` 指令，直到記錄晚於該 verifier 記錄的簽核為止。停頓只作用於路由：`status`、cascade 與 `prospec-ff` 會停下，手動執行的 `prospec change tasks` 不會被拒絕。停頓值無效時，`status`（含 `--json`）以 exit 1 結束，錯誤訊息指出來源、無效值與合法站名，且不輸出報告；即使沒有進行中的變更也一樣。非 archived 變更的 `next: null` 必帶 `ESCALATE_TO_HUMAN`、`AWAITING_HUMAN_PLAN_SIGNOFF` 或 `KNOWLEDGE_INPUT_INVALID`——請比對 `code`。
+    - **Plan 簽核停頓**：變更解析出的停頓站含 `plan` 時——有設 `PROSPEC_PAUSE_AT`（即使為空；空值或 `none`＝不停）以它為準，否則已驗證的 `ai-proposed` Premise 預設停頓，並加上 `workflow.pause_at`——位於 `plan` 的 `standard` 或 `full` 變更若尚無 verifier 結果，或 plan.md／delta-spec.md 在 verifier 審核後被修改，會導回 plan（`PLAN_VERIFIER_PENDING`），有 PASS/WARN verifier 結果後則路由至 `next: null` 並帶 `AWAITING_HUMAN_PLAN_SIGNOFF`，印出簽核 HALT 與 `--signoff` 指令（full：候選方案；standard：`plan`），直到記錄晚於該 verifier 記錄、且綁定目前 plan 版本的簽核為止。沒有 plan 的 scale 不會停頓。停頓只作用於路由：`status`、cascade 與 `prospec-ff` 會停下，手動執行的 `prospec change tasks` 不會被拒絕。停頓值無效時，`status`（含 `--json`）以 exit 1 結束，錯誤訊息指出來源、無效值與合法站名，且不輸出報告；即使沒有進行中的變更也一樣。非 archived 變更的 `next: null` 必帶 `ESCALATE_TO_HUMAN`、`AWAITING_HUMAN_PLAN_SIGNOFF` 或 `KNOWLEDGE_INPUT_INVALID`——請比對 `code`。
 
 - **`prospec change story <name> [options]`**
   - **核心用途**：建立新變更的目錄結構、`proposal.md` 骨架與 `metadata.yaml`（`status: story`），或凍結／受控修訂驗收場景基準。
@@ -321,8 +321,8 @@ Review 維持 artifact→metadata，verify 維持 metadata→evidence 的寫入�
 - **`prospec change log --skill <station> (--result <PASS|WARN|FAIL> | --verifier-report <file> | --signoff <option>) [options]`**
   - **核心用途**：在 `metadata.yaml` 追加一筆結構化的 `quality_log` 記錄。
   - **選項**：支援 `--warning <w>`、`--grade <g>`、`--dimension n=r`、`--criticals-found <n>` 等參數，欄位順序固定；自由文字由 yaml 函式庫以 YAML 資料序列化（僅在 YAML 語法需要時加引號），metacharacter 不會破壞檔案；此命令寫的是 YAML 而非 Markdown 表格，不做表格跳脫。針對 `prospec-review`，`--criticals-found`、`--criticals-fixed` 與 `--majors` 旗標僅作為期望值稽核輸入而非直寫：與 `review merge` 所記錄的 CLI 真值不符時會追加 `log_mismatch` 警告並將結果至少提升為 `WARN`（不覆寫已記錄之真值），且追加的關輪記錄本身不帶計數欄位。
-  - **`--verifier-report <file>`**（plan/tasks 站）：以 rubric 擁有的 schema 驗證 Architecture/Task Verifier 的 JSON 報告（verdict `PASS` | `WARN` | `FLAWS`、恰好該站的 dimensions、單行且有上限的 `rationale`/`warnings`）並記錄——`FLAWS` 落為 `result: FAIL`，無效 payload 在寫入前即被拒絕。對 `prospec-plan` 另以通過 schema 的 `candidates/decision.json` 推薦方案蓋上 `audited_option`（verifier 所稽核者）。與 `--result` 及組合式欄位互斥。`prospec status` 會把最新 verifier 結果為 `FAIL` 的站導回該站，直到後續 verifier `PASS`／`WARN`；Break-Glass `--result WARN --warning "Manual override: …"` 只授權有界重試，不取代 verifier verdict。
-  - **`--signoff <option>`**（僅限 `--skill prospec-plan`，且須有人類明確指示）：記錄人類的 plan 簽核。以下任一不成立即拒絕且不寫入任何檔案：最新 plan verifier 結果為 PASS/WARN、`candidates/decision.json` 通過 schema、option 等於其 `recommended_option` 與最新一筆 plan verifier 報告的 `audited_option`（Break-Glass 記錄未稽核任何方案）（要改選其他方案，須先修訂 plan 與 decision 並重新記錄 verifier）、整組候選通過 `prospec validate candidates`（因此非 hybrid 的 option 必有有效的 `candidates/<option>.json`）。接受後把 decision.json 的 `graded_by` 設為 `human`，並追加一筆帶 `signoff_option` 的 PASS 記錄；`--warning` 為人類備註。與 `--result`、`--verifier-report` 及組合式欄位互斥。
+  - **`--verifier-report <file>`**（plan/tasks 站）：以 rubric 擁有的 schema 驗證 Architecture/Task Verifier 的 JSON 報告（verdict `PASS` | `WARN` | `FLAWS`、恰好該站的 dimensions、單行且有上限的 `rationale`/`warnings`）並記錄——`FLAWS` 落為 `result: FAIL`，無效 payload 在寫入前即被拒絕。對 `prospec-plan` 另以通過 schema 的 `candidates/decision.json` 推薦方案蓋上 `audited_option`（verifier 所稽核者），並以其稽核的 plan.md＋delta-spec.md 版本蓋上 `audited_plan_digest`。與 `--result` 及組合式欄位互斥。`prospec status` 會把最新 verifier 結果為 `FAIL` 的站導回該站，直到後續 verifier `PASS`／`WARN`；Break-Glass `--result WARN --warning "Manual override: …"` 只授權有界重試，不取代 verifier verdict。
+  - **`--signoff <option>`**（僅限 `--skill prospec-plan`，且須有人類明確指示）：記錄人類的 plan 簽核——`scale: full` 簽候選方案，其他有 plan 的 scale 簽 `plan`（被審核的 plan 版本，不讀候選檔）。以下任一不成立即拒絕且不寫入任何檔案：該 scale 有 plan、最新 plan verifier 結果為 PASS/WARN、已記錄 plan verifier 報告（Break-Glass 記錄未稽核任何內容）且其標記的 plan.md＋delta-spec.md 版本就是目前版本、讀取到寫入之間沒有變動。簽候選方案時另須 `candidates/decision.json` 通過 schema、option 等於其 `recommended_option` 與最新報告的 `audited_option`（要改選其他方案，須先修訂 plan 與 decision 並重新記錄 verifier），且整組候選通過 `prospec validate candidates`（因此非 hybrid 的 option 必有有效的 `candidates/<option>.json`）；`scale: full` 不接受 `plan`。接受後，候選方案會把 decision.json 的 `graded_by` 設為 `human`，並追加一筆帶 `signoff_option` 與 `signoff_plan_digest` 的 PASS 記錄；`--warning` 為人類備註。與 `--result`、`--verifier-report` 及組合式欄位互斥。
 
 - **`prospec change progress [--complete <task>] [--change <name>]`**
   - **核心用途**：計算與更新 `tasks.md` 的任務進度。
@@ -619,7 +619,8 @@ Prospec 的核心設定檔為專案根目錄的 `.prospec.yaml`。這是客製�
 - **`skill_triggers`**：允許客製化修改觸發特定 AI Skill 的關鍵字（可加入母語觸發詞）。
 - **`skill_exclusions`**：與 `skill_triggers` 同形狀——以母語說明該 skill「不負責什麼」的短語；`prospec agent sync` 會渲染為 skill description 之後的 `Not for:` 子句（未設定即無此子句）。
 - **`workflow.max_station_retries`**：限制站點恢復迴圈（verify below-bar、plan verifier flaws、tasks verifier flaws）的連續失敗次數，達上限時 `status` 會停止循環並交接給人類（預設 3，常數 `DEFAULT_MAX_STATION_RETRIES`）。
-- **`workflow.pause_at`**：在哪些站之後停下等人簽核——目前只有 `plan`，且只對 `scale: full` 變更生效（預設不停）。環境變數 `PROSPEC_PAUSE_AT` 可逐次覆寫（逗號分隔；空值或 `none` 代表不停——Windows shell 會把空值變數移除，請用 `none`），讓本機 session 停下、雲端或排程 agent 仍全自動。值無效時會報錯，絕不靜默地不停；同理，`.prospec.yaml` 存在卻無法讀取或不是可解析的 YAML 時，會假定停頓（`prospec status` 會說明原因）直到檔案修好，而只是其他欄位驗證失敗時仍會讀取 `workflow.pause_at`。
+- **`workflow.pause_at`**：在哪些站之後停下等人簽核——目前只有 `plan`，對 `standard` 與 `full` 變更生效（預設不停；已驗證 Premise 為 `ai-proposed` 的變更無論如何都會停）。設定 `pause_at: [plan]` 可讓每個 standard 與 full 變更在 tasks 前確認方向。環境變數 `PROSPEC_PAUSE_AT` 逐次單獨決定（逗號分隔；空值或 `none` 代表不停——Windows shell 會把空值變數移除，請用 `none`），讓本機 session 停下、雲端或排程 agent 仍全自動。值無效時會報錯，絕不靜默地不停；同理，`.prospec.yaml` 存在卻無法讀取或不是可解析的 YAML 時，會假定停頓（`prospec status` 會說明原因）直到檔案修好，而只是其他欄位驗證失敗時仍會讀取 `workflow.pause_at`。
+- **`workflow.always_escalate`**：概括授權（「都照建議」）不能替你決定的決策類別——`re-scope`、`break-glass-override`、`breaking-change`（收回或縮小已畢業需求所承諾的行為）；省略代表三類全部，`[]` 代表不設。值無效時會報錯。`AWAITING_HUMAN_PLAN_SIGNOFF` 路由會列出目前生效的類別。
 
 `.prospec.yaml` 範例（每個欄位的完整逐欄註解參考，執行 `prospec config example`）：
 ```yaml
@@ -640,6 +641,7 @@ agents:
   - antigravity
 workflow:
   max_station_retries: 3
+  pause_at: [plan]
 knowledge:
   base_path: prospec/ai-knowledge
   strategy: domain
@@ -672,8 +674,8 @@ src/
 ├── services/     — 業務邏輯（33 個 service）
 ├── lib/          — 純工具函式（config、fs、logger 等）
 ├── types/        — Zod schema + TypeScript 型別
-└── templates/    — Handlebars 範本（80 個 .hbs 檔案）
-    └── skills/   — 17 個 Skill 範本 + 31 個 reference 範本
+└── templates/    — Handlebars 範本（82 個 .hbs 檔案）
+    └── skills/   — 17 個 Skill 範本 + 32 個 reference 範本
 ```
 
 ### Tech Stack

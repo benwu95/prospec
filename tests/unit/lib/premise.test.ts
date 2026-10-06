@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { assessPremise } from '../../../src/lib/premise.js';
+import { assessPremise, isAiProposedPremise } from '../../../src/lib/premise.js';
 import { premiseProposal, verifiedPremise } from '../../helpers/premise.js';
 
 const assess = (text: string | null) => assessPremise({ premise_version: 1, scale: 'standard' }, text);
@@ -50,5 +50,21 @@ describe('assessPremise', () => {
     const evidence = { kind: 'reproduction', ref: 'test', result: 'Confirmed', steps: 'Run CLI', expected: 'Source preserved', actual: 'Source replaced' };
     expect(assess(premiseProposal({ ...verifiedPremise, evidence })).state).toBe('ready');
     expect(assess(premiseProposal({ ...verifiedPremise, evidence: { ...evidence, steps: '' } })).state).toBe('blocked');
+  });
+});
+
+describe('isAiProposedPremise (REQ-LIB-086)', () => {
+  it('is true only for a ready assessment whose source is ai-proposed', () => {
+    expect(isAiProposedPremise(assess(premiseProposal()))).toBe(true);
+    for (const source of ['user-observation', 'third-party-report']) {
+      expect(isAiProposedPremise(assess(premiseProposal({ ...verifiedPremise, source }))), source).toBe(false);
+    }
+  });
+  it('never infers a source for pending, legacy or exempt assessments', () => {
+    const pending = { ...verifiedPremise, verification: { ...verifiedPremise.verification, status: 'pending' } };
+    expect(isAiProposedPremise(assess(premiseProposal(pending)))).toBe(false);
+    expect(isAiProposedPremise(assessPremise({}, premiseProposal()))).toBe(false);
+    expect(isAiProposedPremise(assessPremise({ premise_version: 1, scale: 'quick' }, premiseProposal()))).toBe(false);
+    expect(isAiProposedPremise(undefined)).toBe(false);
   });
 });

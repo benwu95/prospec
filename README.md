@@ -4,7 +4,7 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg?style=flat-square)](LICENSE)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.9-blue?style=flat-square&logo=typescript)](https://www.typescriptlang.org/)
-[![Tests](https://img.shields.io/badge/tests-7383%20total-success?style=flat-square)](tests/)
+[![Tests](https://img.shields.io/badge/tests-7481%20total-success?style=flat-square)](tests/)
 [![Node](https://img.shields.io/badge/node-%3E%3D22.13-brightgreen?style=flat-square&logo=node.js)](https://nodejs.org/)
 [![pnpm](https://img.shields.io/badge/pnpm-%3E%3D11-orange?style=flat-square&logo=pnpm)](https://pnpm.io/)
 
@@ -237,7 +237,7 @@ The agent picks up the request and runs prospec-ff:
                            → you approve the commit and archive ✓
 ```
 
-In `prospec-ff` cascading mode, the next station starts automatically as machine gates pass. The cascade pauses only for clarification, a failed gate or circuit breaker, and final Tastemaker sign-off — plus, if you opt in with `workflow.pause_at: [plan]`, a plan sign-off on `scale: full` changes, where you review the measured candidate architectures and sign off on the recommendation before any code is written (choosing another candidate sends the agent back to revise the plan and re-run its verifier first). The `PROSPEC_PAUSE_AT` environment variable overrides that per run (empty or `none` = no pause; use `none` on Windows, whose shells unset an empty variable), so cloud or scheduled agents can stay fully autonomous while your local sessions pause. Without the pause the agent selects a candidate itself and never stops to ask. At that boundary the agent presents the diff and evidence; it never commits, pushes, or archives without your explicit approval. Individual station Skills outside the cascade still end with a status-aware handoff, so you can drive the same flow one station at a time.
+In `prospec-ff` cascading mode, the next station starts automatically as machine gates pass. The cascade pauses only for clarification, a failed gate or circuit breaker, and final Tastemaker sign-off — plus a plan sign-off before any code is written, on `standard` and `full` changes alike, when you opt in with `workflow.pause_at: [plan]` or when the change's verified Premise was proposed by the AI (`source: ai-proposed`). A `full` change shows the measured candidate architectures and you sign off on the recommendation (choosing another candidate sends the agent back to revise the plan and re-run its verifier first); a `standard` change shows a short direction summary — purpose, direction, scope, key assumptions, the strongest alternative, and the cost of reversing — and you approve it, name the details to adjust, or send it back to exploration. The sign-off is bound to the audited plan version, so editing the plan before tasks are generated asks again. The `PROSPEC_PAUSE_AT` environment variable decides alone per run (empty or `none` = no pause; use `none` on Windows, whose shells unset an empty variable), so cloud or scheduled agents can stay fully autonomous while your local sessions pause; it releases only this pause. A general "follow your recommendation" never decides the categories in `workflow.always_escalate` (by default re-scoping, Break-Glass overrides, and breaking changes that take back behavior a graduated requirement promises), while a change you already named specifically is not asked again. Without the pause the agent selects a candidate itself and never stops to ask. At that boundary the agent presents the diff and evidence; it never commits, pushes, or archives without your explicit approval. Individual station Skills outside the cascade still end with a status-aware handoff, so you can drive the same flow one station at a time.
 
 Prefer to drive each step yourself? Run them explicitly:
 
@@ -525,8 +525,8 @@ The few command details a reader most often needs from here:
 - **`prospec change log --skill <skill> --verifier-report <file>`** — records a planning verifier's own
   report; a `FLAWS` verdict maps to `result: FAIL`. The gate is **per-change**: a sibling change's
   stale evidence never blocks this one. (`prospec status` is what prefixes its routing reason with a
-  `[CODE]` marker.) At a paused full-scale plan, `--skill prospec-plan --signoff <option>` records
-  the human's sign-off instead.
+  `[CODE]` marker.) At a paused plan, `--skill prospec-plan --signoff <option>` (full: a candidate
+  option; standard: `plan`) records the human's sign-off of the audited plan version instead.
 - **`prospec change delegate`** — review and verify ticket every delegate they spawn, the same way
   on every host. Issuing records the repository state (content, HEAD, index, local refs, stash), a
   checkpoint — byte copies of the uncommitted and untracked files and of the index, under the
@@ -591,6 +591,17 @@ The few command details a reader most often needs from here:
 are most likely to tune, with their shapes and defaults, are in
 **[CLI Reference — Configuration](./reference/cli-reference.md#configuration)**; the schema in
 `src/types/config.ts` is what actually validates the file.
+
+To have every `standard` and `full` change stop after the plan verifier for a direction sign-off
+before tasks are generated, set:
+
+```yaml
+workflow:
+  pause_at: [plan]
+```
+
+Without it, only a change whose verified Premise was proposed by the AI pauses there.
+`PROSPEC_PAUSE_AT` overrides both for one run (`none` = no pause).
 
 ## Advanced Workflows
 
@@ -708,7 +719,7 @@ templates alongside). The layer-by-layer breakdown and the tech-stack list are i
 ## Testing
 
 ```bash
-# Run all tests (7383 total; 4 skipped)
+# Run all tests (7481 total; 4 skipped)
 pnpm test
 
 # Watch mode
@@ -721,11 +732,11 @@ pnpm run typecheck
 pnpm run lint
 ```
 
-**Test Coverage**: 7383 total tests (7379 passed; 4 skipped) across 4 categories:
-- Unit tests (types + lib + services + cli): 5383 tests
-- Contract tests (CLI output + Skill format): 1635 tests
+**Test Coverage**: 7481 total tests (7477 passed; 4 skipped) across 4 categories:
+- Unit tests (types + lib + services + cli): 5463 tests
+- Contract tests (CLI output + Skill format): 1652 tests
 - Integration tests: 153 tests
-- E2E tests: 212 tests
+- E2E tests: 213 tests
 
 The suite includes a real `init` + `agent sync` generation contract (`tests/integration/skill-contract.test.ts`) asserting agent-specific reference paths, no dangling references, canonical convention docs, `base_dir`-relative spec paths, and `.agents` convergence.
 

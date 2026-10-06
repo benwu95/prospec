@@ -18,6 +18,7 @@ import {
   InvalidTransitionError,
   TestGateError,
   PauseAtInvalid,
+  AlwaysEscalateInvalid,
 } from '../../../src/types/errors.js';
 
 describe('ProspecError', () => {
@@ -340,3 +341,14 @@ describe('PauseAtInvalid (REQ-TYPES-105)', () => {
   });
 });
 
+describe('AlwaysEscalateInvalid (REQ-TYPES-113)', () => {
+  it('names the config source and the value and lists the valid categories', () => {
+    const err = new AlwaysEscalateInvalid('"rescope"');
+    expect(err).toBeInstanceOf(ProspecError);
+    expect(err.code).toBe('ALWAYS_ESCALATE_INVALID');
+    expect(err.name).toBe('AlwaysEscalateInvalid');
+    expect(err.message).toContain('.prospec.yaml workflow.always_escalate');
+    expect(err.message).toContain('"rescope"');
+    expect(err.suggestion).toContain('re-scope, break-glass-override, breaking-change');
+  });
+});

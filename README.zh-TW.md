@@ -4,7 +4,7 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg?style=flat-square)](LICENSE)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.9-blue?style=flat-square&logo=typescript)](https://www.typescriptlang.org/)
-[![測試](https://img.shields.io/badge/測試-7383%20總計-success?style=flat-square)](tests/)
+[![測試](https://img.shields.io/badge/測試-7481%20總計-success?style=flat-square)](tests/)
 [![Node](https://img.shields.io/badge/node-%3E%3D22.13-brightgreen?style=flat-square&logo=node.js)](https://nodejs.org/)
 [![pnpm](https://img.shields.io/badge/pnpm-%3E%3D11-orange?style=flat-square&logo=pnpm)](https://pnpm.io/)
 
@@ -237,7 +237,7 @@ Agent 接手需求並執行 prospec-ff：
                            → 你核准 commit 與 archive ✓
 ```
 
-在 `prospec-ff` cascading mode 中，machine gates 通過後會自動進入下一站。Cascade 只在需要釐清、gate 失敗或 circuit breaker，以及最後的 Tastemaker sign-off 停下——若以 `workflow.pause_at: [plan]` opt-in，`scale: full` 變更還會在 plan 後停下等你簽核，讓你在寫任何程式碼前審閱量測過的候選架構並簽核推薦方案（改選其他候選時，agent 會先修訂計畫並重跑 verifier）。環境變數 `PROSPEC_PAUSE_AT` 可逐次覆寫（空值或 `none`＝不停；Windows shell 會把空值變數移除，請用 `none`），讓雲端或排程 agent 保持全自動、本機 session 照樣停下。沒有停頓時，agent 會自行選定候選方案，絕不停下來詢問。到達該邊界時，Agent 會呈現 diff 與 evidence；未經你的明確核准，絕不 commit、push 或 archive。Cascade 之外的個別 station Skills 仍會以 status-aware handoff 結束，因此你也能逐站驅動同一條流程。
+在 `prospec-ff` cascading mode 中，machine gates 通過後會自動進入下一站。Cascade 只在需要釐清、gate 失敗或 circuit breaker，以及最後的 Tastemaker sign-off 停下——若以 `workflow.pause_at: [plan]` opt-in，或變更的已驗證 Premise 由 AI 提出（`source: ai-proposed`），`standard` 與 `full` 變更都會在寫任何程式碼前、plan 之後停下等你簽核。`full` 呈現量測過的候選架構，由你簽核推薦方案（改選其他候選時，agent 會先修訂計畫並重跑 verifier）；`standard` 呈現簡短的方向摘要——目的、方向、範圍、關鍵假設、最強替代方案與反轉成本——你可以同意、指定要調整的細節，或退回探索。簽核綁定被審核的 plan 版本，產生 tasks 前修改 plan 會再問一次。環境變數 `PROSPEC_PAUSE_AT` 逐次單獨決定（空值或 `none`＝不停；Windows shell 會把空值變數移除，請用 `none`），讓雲端或排程 agent 保持全自動、本機 session 照樣停下；它只解除這個停頓。「都照建議」這類概括授權不會替你決定 `workflow.always_escalate` 的類別（預設為縮小或改變範圍、Break-Glass override，以及收回已畢業需求所承諾行為的 breaking change），而你已具體指定的變更不會再問一次。沒有停頓時，agent 會自行選定候選方案，絕不停下來詢問。到達該邊界時，Agent 會呈現 diff 與 evidence；未經你的明確核准，絕不 commit、push 或 archive。Cascade 之外的個別 station Skills 仍會以 status-aware handoff 結束，因此你也能逐站驅動同一條流程。
 
 想自己逐步驅動？也可以明確執行：
 
@@ -503,8 +503,8 @@ check 與 token 量測）在 **[CLI 參考 — CLI 命令](./reference/cli-refer
 - **`prospec verify context --change <name>`** — 在評級前寫出確定性的 `verify-context.json`，固定規格、凍結基準、提案、程式碼快照與測試事實；由 `verify record` 在逐 REQ 評定時核對。
 - **`prospec change log --skill <skill> --verifier-report <file>`** — 記錄 planning verifier 自己的
   報告；`FLAWS` 對應 `result: FAIL`。此閘門是 **per-change**：sibling change 的過期證據不會擋住
-  這一個。（以 `[CODE]` 標示 CLI 自有判定的是 `prospec status` 的路由理由行。）在停頓中的 full-scale plan，
-  改以 `--skill prospec-plan --signoff <option>` 記錄人類的簽核。
+  這一個。（以 `[CODE]` 標示 CLI 自有判定的是 `prospec status` 的路由理由行。）在停頓中的 plan，
+  改以 `--skill prospec-plan --signoff <option>`（full：候選方案；standard：`plan`）記錄人類對被審核 plan 版本的簽核。
 - **`prospec change delegate`** — review 與 verify 為每個 spawn 的委派代理發票，在每個 host 上
   做法相同。發票時記錄 repository 狀態（內容、HEAD、index、本地 refs、stash）、一份 checkpoint
   ——未 commit 與未追蹤檔案及 index 的位元組副本，放在該 change 的 `.delegated/` 目錄下——並在
@@ -557,6 +557,15 @@ check 與 token 量測）在 **[CLI 參考 — CLI 命令](./reference/cli-refer
 `.prospec.yaml` 保存專案語言、agents、token 預算與測試命令。最常調整的鍵及其形狀與預設值見
 **[CLI 參考 — 設定](./reference/cli-reference.zh-TW.md#設定-configuration)**；真正驗證這個檔案的是
 `src/types/config.ts` 的 schema。
+
+若要讓每個 `standard` 與 `full` 變更在 plan verifier 之後、產生 tasks 之前停下確認方向，請設定：
+
+```yaml
+workflow:
+  pause_at: [plan]
+```
+
+未設定時，只有已驗證 Premise 由 AI 提出的變更會在那裡停下。`PROSPEC_PAUSE_AT` 可逐次覆寫兩者（`none`＝不停）。
 
 ## 進階工作流
 
@@ -673,7 +682,7 @@ Prospec 採用 **Pragmatic Layered Architecture**（`cli → services → lib �
 ## 測試
 
 ```bash
-# 執行所有測試（共 7383 個；4 個略過）
+# 執行所有測試（共 7481 個；4 個略過）
 pnpm test
 
 # Watch 模式
@@ -686,11 +695,11 @@ pnpm run typecheck
 pnpm run lint
 ```
 
-**測試覆蓋率**：共 7383 個測試（7379 個通過；4 個略過），橫跨 4 大類：
-- Unit tests（types + lib + services + cli）：5383 tests
-- Contract tests（CLI 輸出 + Skill 格式）：1635 tests
+**測試覆蓋率**：共 7481 個測試（7477 個通過；4 個略過），橫跨 4 大類：
+- Unit tests（types + lib + services + cli）：5463 tests
+- Contract tests（CLI 輸出 + Skill 格式）：1652 tests
 - Integration tests：153 tests
-- E2E tests：212 tests
+- E2E tests：213 tests
 
 測試套件內含真實 `init` + `agent sync` 生成契約（`tests/integration/skill-contract.test.ts`）：檢查 agent 專屬的 reference 路徑、無 dangling reference、canonical convention 文件、`base_dir` 相對的 spec 路徑，以及 antigravity/codex/copilot 收斂至 `.agents/skills` + `AGENTS.md`。
 

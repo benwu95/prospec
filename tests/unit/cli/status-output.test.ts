@@ -427,6 +427,7 @@ describe('status-output — human halt routes (REQ-CLI-056, REQ-CLI-039)', () =>
     const text = output();
     expect(text).toContain('HALT (awaiting human plan sign-off)');
     expect(text).toContain('prospec change log --skill prospec-plan --signoff <option>');
+    expect(text).toContain('--signoff plan');
     expect(text).not.toContain('invoke skill');
     expect(text).not.toContain('escalated to human');
     expect(text).not.toContain('terminal');

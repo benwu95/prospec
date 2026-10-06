@@ -315,6 +315,11 @@ describe('CLI Output Contract', () => {
       // the Example block itself carries a runnable sign-off, not only the prose
       const example = changeLog.slice(changeLog.indexOf('Example:'), changeLog.indexOf('Returns:'));
       expect(example).toMatch(/\$ prospec change log --skill prospec-plan --signoff option-a/);
+      // the plan-version sign-off of a scale without candidates is runnable from the help too
+      expect(example).toMatch(/\$ prospec change log --skill prospec-plan --signoff plan/);
+      expect(changeLog).toMatch(/at a paused plan, to record the human's sign-off .* at other scales it is `plan`, the plan version the latest verifier report audited/s);
+      const statusReturns = status.slice(status.indexOf('Returns:'));
+      expect(statusReturns).toMatch(/unset, a verified `ai-proposed` Premise pauses by default and `workflow\.pause_at` decides the rest/);
     });
 
     it('learn playbook help describes station selection, module ordering, fallback, and the advisory entry cap', async () => {
