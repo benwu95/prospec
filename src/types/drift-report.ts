@@ -405,7 +405,7 @@ export interface InputSnapshot {
   clean: boolean | null;
   head?: string;
   reason?: string;
-  /** Gitlink (submodule) paths represented by their commit, never by their files. */
+  /** Gitlink (submodule) paths, nested ones included, whose checkout files the digest hashes. */
   gitlinks?: string[];
 }
 

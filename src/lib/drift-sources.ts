@@ -7,7 +7,7 @@ import { parseYaml } from './yaml-utils.js';
 import { parseDocument, isMap, isScalar } from 'yaml';
 import { DEFAULT_KNOWLEDGE_TOKEN_BUDGET, isShippedBudgetField, type ShippedBudgetField } from '../types/config.js';
 import { withoutFencedBlocks } from './markdown-fences.js';
-import { gitRead, gitReadRecords } from './git-read.js';
+import { gitReadRecords } from './git-read.js';
 import { mergeContent } from './content-merger.js';
 import { ARCHIVE_NATIVE_GLOB, ABANDONED_NATIVE_GLOB, compareLanguagePolicy, type LanguagePolicyComparison } from './language-policy.js';
 import type { LanguageScope } from '../types/constitution.js';
@@ -1728,65 +1728,65 @@ function gitPaths(cwd: string, args: string[]): string[] {
   return decoded === '' ? [] : decoded.slice(0, -1).split('\0');
 }
 
-/** Effective inputs, plus the commit the index pins for each gitlink (submodule). */
-function inputFiles(cwd: string): { files: string[]; gitlinks: Map<string, string> } {
+/** One `ls-files -t --stage --cached --others` record: an untracked path, or an index
+ *  entry that must be a plain stage-0 entry the work tree holds. Shared by the
+ *  superproject and every submodule, so both refuse the same unprovable shapes. */
+function parseInputRecord(entry: string, label: (file: string) => string): { file: string; gitlink: boolean } {
+  if (entry.startsWith('? ')) return { file: entry.slice(2), gitlink: false };
+  const match = /^([A-Z]) (\d{6}) [a-f0-9]+ (\d)\t([\s\S]+)$/.exec(entry);
+  if (!match) throw new Error('Unsupported Git index record');
+  const file = match[4]!;
+  if (match[1] === 'S' || match[3] !== '0') throw new Error(`Unprovable sparse or unmerged input: ${label(file)}`);
+  return { file, gitlink: match[2] === '160000' };
+}
+
+const LS_INPUT_ARGS = ['-z', '-t', '--stage', '--cached', '--others', '--exclude-standard'];
+
+/** Effective superproject inputs and which of them are gitlinks (submodules). */
+function inputFiles(cwd: string): { files: string[]; gitlinks: Set<string> } {
   const paths = new Set<string>();
-  const gitlinks = new Map<string, string>();
-  for (const entry of gitPaths(cwd, ['ls-files', '-z', '-t', '--stage', '--cached', '--others', '--exclude-standard'])) {
-    let file: string;
-    if (entry.startsWith('? ')) file = entry.slice(2);
-    else {
-      const match = /^([A-Z]) (\d{6}) ([a-f0-9]+) (\d)\t([\s\S]+)$/.exec(entry);
-      if (!match) throw new Error('Unsupported Git index record');
-      file = match[5]!;
-      if (!inEvidenceScope(file)) continue;
-      if (match[1] === 'S' || match[4] !== '0') {
-        throw new Error(`Unprovable sparse or unmerged input: ${file}`);
-      }
-      if (match[2] === '160000') gitlinks.set(file, match[3]!);
-    }
-    if (inEvidenceScope(file)) paths.add(file);
+  const gitlinks = new Set<string>();
+  for (const entry of gitPaths(cwd, ['ls-files', ...LS_INPUT_ARGS])) {
+    const file = entry.startsWith('? ') ? entry.slice(2) : /\t([\s\S]+)$/.exec(entry)?.[1];
+    // Bookkeeping is out of scope before its index shape is judged.
+    if (file !== undefined && !inEvidenceScope(file)) continue;
+    const record = parseInputRecord(entry, (f) => f);
+    if (record.gitlink) gitlinks.add(record.file);
+    paths.add(record.file);
   }
   return { files: [...paths].sort((a, b) => Buffer.compare(Buffer.from(a), Buffer.from(b))), gitlinks };
 }
 
-/** A gitlink's content is fixed by the commit it names, so that commit IS its
- *  evidence identity (#352) — the submodule's files are not superproject inputs.
- *  The checked-out commit wins over the index pin, so moving a submodule and then
- *  staging or committing the move keeps one identity, like any other input; an
- *  uninitialized (empty) checkout represents exactly its pin. Uncommitted work
- *  inside the submodule is not represented by any commit, so it stays unprovable
- *  rather than being certified under a hash that does not describe it (PB-013). */
-function gitlinkCommit(absolute: string, file: string, pinned: string): string {
+/** One input of the snapshot under its superproject-relative key. A submodule's own
+ *  deletions are confirmed against its own index, not the superproject's status. */
+interface SnapshotEntry { key: string; absolute: string; gitlink?: 'checkout' | 'uninitialized'; deletedIn?: string }
+
+/** A gitlink is proven by the bytes its checkout holds, under `<gitlink>/<file>` and
+ *  by the superproject's own rules (#352) — never by the commit it names, which fixes
+ *  neither an uninitialized checkout, nor smudge or line-ending bytes, nor a nested
+ *  checkout. The submodule is read through `git-read` (fixed environment, no optional
+ *  locks, bounded), and its nested gitlinks are expanded the same way. */
+function expandGitlink(absolute: string, key: string): SnapshotEntry[] {
   if (!existsSync(path.join(absolute, '.git'))) {
-    if (readdirSync(absolute).length > 0) throw new Error(`Unprovable gitlink checkout: ${file}`);
-    return pinned;
+    if (readdirSync(absolute).length > 0) throw new Error(`Unprovable gitlink checkout: ${key}`);
+    return [{ key, absolute, gitlink: 'uninitialized' }];
   }
-  // `gitRead` drops the repository-selecting env (an inherited GIT_DIR would point at
-  // the superproject), takes no optional locks and is bounded, so the read stays read-only.
-  const head = () => {
-    const commit = gitRead(absolute, 'rev-parse', ['--verify', 'HEAD^{commit}']).trim();
-    if (!/^[0-9a-f]{40}([0-9a-f]{24})?$/.test(commit)) throw new Error(`Unprovable gitlink checkout: ${file}`);
-    return commit;
-  };
-  const before = head();
-  // `status` stays silent about files an index flag hides (skip-worktree, sparse
-  // checkout, assume-unchanged), so those flags are refused like the superproject's;
-  // a nested gitlink gets the same proof recursively.
-  for (const record of gitReadRecords(absolute, 'ls-files', ['-z', '-t', '-v', '--stage'])) {
-    const match = /^([A-Za-z?]) (\d{6}) ([0-9a-f]+) \d\t([\s\S]+)$/.exec(record);
-    if (!match) throw new Error('Unsupported Git index record');
-    if (match[1] === 'S' || match[1] !== match[1]!.toUpperCase()) throw new Error(`Unprovable gitlink with hidden work: ${file}`);
-    if (match[2] === '160000') {
-      const nested = path.join(absolute, match[4]!);
-      if (existsSync(nested)) gitlinkCommit(nested, `${file}/${match[4]!}`, match[3]!);
-    }
+  const entries: SnapshotEntry[] = [{ key, absolute, gitlink: 'checkout' }];
+  const seen = new Set<string>();
+  for (const record of gitReadRecords(absolute, 'ls-files', LS_INPUT_ARGS)) {
+    const { file, gitlink } = parseInputRecord(record, (f) => `${key}/${f}`);
+    if (seen.has(file)) continue;
+    seen.add(file);
+    const child = path.join(absolute, file);
+    if (gitlink && existsSync(child) && lstatSync(child).isDirectory()) entries.push(...expandGitlink(child, `${key}/${file}`));
+    else entries.push({ key: `${key}/${file}`, absolute: child, deletedIn: absolute });
   }
-  if (gitRead(absolute, 'status', ['--porcelain=v1', '-z', '--untracked-files=normal', '--ignore-submodules=none']) !== '') {
-    throw new Error(`Unprovable gitlink with uncommitted changes: ${file}`);
-  }
-  if (head() !== before) throw new Error(`Input changed during capture: ${file}`);
-  return before;
+  return entries;
+}
+
+/** Tracked files a repository's work tree no longer holds, from its own index. */
+function deletedInRepository(repository: string): Set<string> {
+  return new Set(gitReadRecords(repository, 'ls-files', ['-z', '--deleted']).map((file) => path.join(repository, file)));
 }
 
 /** Porcelain v1 always emits repository-root paths; ls-files is cwd-relative.
@@ -1845,7 +1845,20 @@ export function computeChangeState(cwd: string): ChangeState {
       }
     };
     validateMembership(state);
-    const represented = new Set(files.map((f) => path.resolve(cwd, f)));
+    const entries: SnapshotEntry[] = [];
+    for (const file of files) {
+      const absolute = path.resolve(cwd, file);
+      if (gitlinks.has(file) && existsSync(absolute) && lstatSync(absolute).isDirectory()) entries.push(...expandGitlink(absolute, file));
+      else entries.push({ key: file, absolute });
+    }
+    entries.sort((a, b) => Buffer.compare(Buffer.from(a.key), Buffer.from(b.key)));
+    const represented = new Set(entries.filter((entry) => entry.gitlink === undefined).map((entry) => entry.absolute));
+    const submoduleDeleted = new Map<string, Set<string>>();
+    const deletedIn = (repository: string): Set<string> => {
+      let deleted = submoduleDeleted.get(repository);
+      if (!deleted) submoduleDeleted.set(repository, deleted = deletedInRepository(repository));
+      return deleted;
+    };
     const hash = createHash('sha256');
     const frame = (data: string | Buffer) => {
       const bytes = typeof data === 'string' ? Buffer.from(data) : data;
@@ -1853,21 +1866,24 @@ export function computeChangeState(cwd: string): ChangeState {
       hash.update(length).update(bytes);
     };
     frame(FINGERPRINT_VERSION); frame(EVIDENCE_SCOPE);
-    for (const file of files) {
-      const absolute = path.resolve(cwd, file);
+    for (const { key: file, absolute, gitlink, deletedIn: repository } of entries) {
+      if (gitlink !== undefined) { frame(file); frame('gitlink'); frame(gitlink); continue; }
       let stat;
       try { stat = lstatSync(absolute); }
       catch (error) {
-        if ((error as NodeJS.ErrnoException).code !== 'ENOENT' || !state.deleted.has(file)) throw error;
+        if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error;
+        if (repository !== undefined) {
+          // Confirm against a second read of the submodule's own index.
+          if (!deletedIn(repository).has(absolute) || !deletedInRepository(repository).has(absolute)) {
+            throw new Error(`Input disappeared during capture: ${file}`);
+          }
+          continue;
+        }
+        if (!state.deleted.has(file)) throw error;
         // Confirm deletion against a second observation, not an index-dependent tombstone.
         const confirmed = workTreePaths(cwd);
         validateMembership(confirmed);
         if (!confirmed.deleted.has(file)) throw new Error(`Input disappeared during capture: ${file}`);
-        continue;
-      }
-      const pinned = gitlinks.get(file);
-      if (pinned !== undefined && stat.isDirectory()) {
-        frame(file); frame('gitlink'); frame(gitlinkCommit(absolute, file, pinned));
         continue;
       }
       if (!stat.isFile() && !stat.isSymbolicLink()) throw new Error(`Unsupported input kind: ${file}`);
@@ -1883,7 +1899,9 @@ export function computeChangeState(cwd: string): ChangeState {
         throw new Error(`Input changed during capture: ${file}`);
       }
     }
-    return { digest: hash.digest('hex'), clean: state.changed.length === 0, ...(gitlinks.size > 0 ? { gitlinks: [...gitlinks.keys()] } : {}) };
+    const gitlinkKeys = entries.filter((entry) => entry.gitlink !== undefined).map((entry) => entry.key);
+    for (const file of gitlinks) if (!gitlinkKeys.includes(file)) gitlinkKeys.push(file);
+    return { digest: hash.digest('hex'), clean: state.changed.length === 0, ...(gitlinkKeys.length > 0 ? { gitlinks: gitlinkKeys } : {}) };
   } catch (error) {
     return { digest: null, clean: null, reason: error instanceof Error ? error.message : String(error) };
   }
