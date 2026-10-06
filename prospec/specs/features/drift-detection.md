@@ -62,6 +62,7 @@ _(None)_
 
 | Date | Change | Impact | Stories/REQs |
 |------|--------|--------|--------------|
+| 2026-10-06 | hash-gitlink-contents | MODIFIED REQ-LIB-024 | REQ-LIB-024 |
 | 2026-10-06 | prove-gitlink-provenance | MODIFIED REQ-LIB-024 | REQ-LIB-024 |
 | 2026-10-05 | add-change-abandon | MODIFIED REQ-LIB-037 | REQ-LIB-037 |
 | 2026-10-04 | align-skill-guidance | Clarify proven-backfill applicability in review-provenance story context | US-6 |
