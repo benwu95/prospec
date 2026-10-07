@@ -719,7 +719,7 @@ templates alongside). The layer-by-layer breakdown and the tech-stack list are i
 ## Testing
 
 ```bash
-# Run all tests (7528 total; 4 skipped)
+# Run all tests (7528 total; 5 skipped)
 pnpm test
 
 # Watch mode
@@ -732,7 +732,7 @@ pnpm run typecheck
 pnpm run lint
 ```
 
-**Test Coverage**: 7528 total tests (7524 passed; 4 skipped) across 4 categories:
+**Test Coverage**: 7528 total tests (7523 passed; 5 skipped) across 4 categories:
 - Unit tests (types + lib + services + cli): 5510 tests
 - Contract tests (CLI output + Skill format): 1652 tests
 - Integration tests: 153 tests

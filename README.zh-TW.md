@@ -682,7 +682,7 @@ Prospec 採用 **Pragmatic Layered Architecture**（`cli → services → lib �
 ## 測試
 
 ```bash
-# 執行所有測試（共 7528 個；4 個略過）
+# 執行所有測試（共 7528 個；5 個略過）
 pnpm test
 
 # Watch 模式
@@ -695,7 +695,7 @@ pnpm run typecheck
 pnpm run lint
 ```
 
-**測試覆蓋率**：共 7528 個測試（7524 個通過；4 個略過），橫跨 4 大類：
+**測試覆蓋率**：共 7528 個測試（7523 個通過；5 個略過），橫跨 4 大類：
 - Unit tests（types + lib + services + cli）：5510 tests
 - Contract tests（CLI 輸出 + Skill 格式）：1652 tests
 - Integration tests：153 tests
