@@ -405,6 +405,8 @@ export interface InputSnapshot {
   clean: boolean | null;
   head?: string;
   reason?: string;
+  /** Gitlink (submodule) paths, nested ones included, whose checkout files the digest hashes. */
+  gitlinks?: string[];
 }
 
 /** Read-only adjudication and its observation-bound write precondition. */

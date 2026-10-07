@@ -1,9 +1,9 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { execFileSync } from 'node:child_process';
-import { chmodSync, mkdtempSync, mkdirSync, readFileSync, rmSync, symlinkSync, unlinkSync, writeFileSync } from 'node:fs';
+import { chmodSync, existsSync, mkdtempSync, mkdirSync, readFileSync, renameSync, rmSync, symlinkSync, unlinkSync, writeFileSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { changedPathsFromWorkTree, collectGitTimestamps, computeChangeState } from '../../../src/lib/drift-sources.js';
+import { changedPathsFromWorkTree, collectGitTimestamps, computeChangeState, gitlinkCheckoutState } from '../../../src/lib/drift-sources.js';
 
 import type { ModuleMap } from '../../../src/types/module-map.js';
 import { evaluateKnowledgeHealth } from '../../../src/lib/drift-checker.js';
@@ -36,6 +36,11 @@ describe('effective repository inputs', () => {
   it.each(['pnpm-lock.yaml', 'package-lock.json', 'yarn.lock', 'package.json', 'README.md'])(
     'includes %s', (file) => { put(file, 'one'); const before = digest(); put(file, 'two'); expect(digest()).not.toBe(before); },
   );
+  // Pinned from the pre-#352 implementation (main 4309e665): admitting gitlinks must
+  // leave every gitlink-free repository's identity byte-identical.
+  it('keeps the gitlink-free identity byte-identical to the pre-gitlink snapshot', () => {
+    expect(computeChangeState(root)).toEqual({ digest: 'ec1ad9402094e613e89cc76adf76fb3c90f1ab7eb3791f5519bca9d959c24131', clean: true });
+  });
   it('has one identity across staging, commit, amend and equivalent history', () => {
     put('input.txt', 'two'); const before = digest(); expect(before).toBeTruthy();
     git('add', '.'); expect(digest()).toBe(before);
@@ -74,11 +79,9 @@ describe('unprovable inputs', () => {
     chmodSync(path.join(root, 'input.txt'), 0);
     expect(computeChangeState(root)).toMatchObject({ digest: null, reason: expect.stringMatching(/EACCES|permission/i) });
   });
-  it('refuses skipped sparse inputs and gitlinks', () => {
-    git('update-index', '--skip-worktree', 'input.txt'); expect(digest()).toBeNull();
-    git('update-index', '--no-skip-worktree', 'input.txt');
-    const head = git('rev-parse', 'HEAD').toString().trim();
-    git('update-index', '--add', '--cacheinfo', `160000,${head},module`); expect(digest()).toBeNull();
+  it('refuses skipped sparse inputs', () => {
+    git('update-index', '--skip-worktree', 'input.txt');
+    expect(computeChangeState(root)).toMatchObject({ digest: null, reason: expect.stringContaining('sparse') });
   });
   it.skipIf(process.platform === 'win32')('refuses non-roundtrippable filename bytes from the worktree or index', () => {
     // Linux permits invalid UTF-8 in the worktree; macOS does not. Git's index
@@ -96,6 +99,160 @@ describe('unprovable inputs', () => {
       stdio: ['pipe', 'pipe', 'pipe'],
     });
     expect(computeChangeState(root)).toMatchObject({ digest: null, reason: expect.stringContaining('losslessly') });
+  });
+});
+
+// #352: a gitlink is proven by the bytes its checkout holds — the same rules as the
+// superproject's own files — never by the commit it names (R1-2, R2-1, R2-2).
+describe('gitlink (submodule) inputs', () => {
+  let upstream: string;
+  let nested: string;
+  const sub = (...args: string[]) => execFileSync('git', args, { cwd: path.join(root, 'module'), stdio: 'pipe' });
+  const inner = (...args: string[]) => execFileSync('git', args, { cwd: path.join(root, 'module/inner'), stdio: 'pipe' });
+  const commitIn = (cwd: string, file: string, bytes: string) => {
+    writeFileSync(path.join(cwd, file), bytes);
+    execFileSync('git', ['add', '.'], { cwd, stdio: 'pipe' });
+    execFileSync('git', [...GIT_ID, 'commit', '-qm', bytes], { cwd, stdio: 'pipe' });
+  };
+  const commitRoot = (message: string) => execFileSync('git', [...GIT_ID, 'commit', '-qm', message], { cwd: root, stdio: 'pipe' });
+  const nest = () => {
+    sub('-c', 'protocol.file.allow=always', 'submodule', 'add', '-q', nested, 'inner');
+    execFileSync('git', [...GIT_ID, 'commit', '-qm', 'nest'], { cwd: path.join(root, 'module'), stdio: 'pipe' });
+    git('add', 'module'); commitRoot('pin nest');
+  };
+  beforeEach(() => {
+    upstream = mkdtempSync(path.join(os.tmpdir(), 'snapshot-sub-'));
+    nested = mkdtempSync(path.join(os.tmpdir(), 'snapshot-nested-'));
+    execFileSync('git', ['init', '-q'], { cwd: upstream, stdio: 'pipe' });
+    commitIn(upstream, 'shared.md', 'v1'); commitIn(upstream, 'shared.md', 'v2');
+    execFileSync('git', ['init', '-q'], { cwd: nested, stdio: 'pipe' });
+    commitIn(nested, 'deep.md', 'deep-1'); commitIn(nested, 'deep.md', 'deep-2');
+    git('-c', 'protocol.file.allow=always', 'submodule', 'add', '-q', upstream, 'module');
+    commitRoot('add submodule');
+  });
+  afterEach(() => { rmSync(upstream, { recursive: true, force: true }); rmSync(nested, { recursive: true, force: true }); });
+
+  it('certifies a clean submodule and keeps one identity across moving, staging and committing its pin', () => {
+    const pinned = computeChangeState(root);
+    expect(pinned).toMatchObject({ digest: expect.any(String), clean: true, gitlinks: ['module'] });
+    sub('checkout', '-q', 'HEAD~1'); const moved = digest();
+    expect(moved).toBeTruthy(); expect(moved).not.toBe(pinned.digest);
+    git('add', 'module'); expect(digest()).toBe(moved);
+    commitRoot('move pin'); expect(digest()).toBe(moved);
+  });
+  it('hashes uncommitted and untracked work inside the submodule like superproject work', () => {
+    const clean = digest();
+    writeFileSync(path.join(root, 'module/shared.md'), 'local edit'); const edited = digest();
+    expect(edited).toBeTruthy(); expect(edited).not.toBe(clean);
+    writeFileSync(path.join(root, 'module/new.md'), 'untracked');
+    expect(digest()).toBeTruthy(); expect(digest()).not.toBe(edited);
+  });
+  it('separates an uninitialized checkout from the initialized one (R1-2)', () => {
+    const initialized = digest();
+    git('submodule', 'deinit', '-q', '-f', 'module'); const empty = digest();
+    expect(empty).toBeTruthy(); expect(empty).not.toBe(initialized);
+    // No files are present, so the pin it names does not enter the identity.
+    const head = git('rev-parse', 'HEAD:module').toString().trim();
+    const previous = execFileSync('git', ['rev-parse', `${head}~1`], { cwd: upstream, stdio: 'pipe' }).toString().trim();
+    git('update-index', '--cacheinfo', `160000,${previous},module`);
+    expect(digest()).toBe(empty);
+  });
+  it('marks an uninitialized gitlink, apart from no gitlink and from a checkout with no files', () => {
+    sub('rm', '-q', 'shared.md');
+    execFileSync('git', [...GIT_ID, 'commit', '-qm', 'empty'], { cwd: path.join(root, 'module'), stdio: 'pipe' });
+    git('add', 'module'); commitRoot('pin empty');
+    const emptyCheckout = digest();
+    git('submodule', 'deinit', '-q', '-f', 'module'); const uninitialized = digest();
+    expect(uninitialized).toBeTruthy(); expect(uninitialized).not.toBe(emptyCheckout);
+    git('rm', '-q', '--cached', 'module'); rmSync(path.join(root, 'module'), { recursive: true, force: true });
+    expect(digest()).toBeTruthy(); expect(digest()).not.toBe(uninitialized);
+  });
+  it('follows checkout bytes the commit does not fix (R2-1)', () => {
+    const clean = digest();
+    // A smudge filter or line-ending conversion changes bytes git status reports clean.
+    sub('update-index', '--assume-unchanged', 'shared.md');
+    writeFileSync(path.join(root, 'module/shared.md'), 'smudged');
+    expect(digest()).toBeTruthy(); expect(digest()).not.toBe(clean);
+  });
+  it('follows a nested submodule checkout (R2-2)', () => {
+    nest();
+    const pinned = computeChangeState(root);
+    expect(pinned).toMatchObject({ digest: expect.any(String), gitlinks: ['module', 'module/inner'] });
+    inner('checkout', '-q', 'HEAD~1');
+    expect(digest()).toBeTruthy(); expect(digest()).not.toBe(pinned.digest);
+  });
+  it.each([
+    ['skip-worktree', () => { sub('update-index', '--skip-worktree', 'shared.md'); }, 'module/shared.md'],
+    ['sparse-checkout', () => { sub('sparse-checkout', 'set', '--no-cone', '/nothing'); }, 'module/shared.md'],
+    ['unmerged', () => {
+      const blob = sub('hash-object', '-w', '--stdin').toString().trim();
+      execFileSync('git', ['update-index', '--index-info'], { cwd: path.join(root, 'module'), input: `100644 ${blob} 1\tconflict.md\n`, stdio: ['pipe', 'pipe', 'pipe'] });
+    }, 'module/conflict.md'],
+  ])('refuses a submodule %s entry by its superproject path', (_kind, arrange, file) => {
+    arrange();
+    expect(computeChangeState(root)).toMatchObject({ digest: null, reason: `Unprovable sparse or unmerged input: ${file}` });
+  });
+  it('refuses a skip-worktree entry of a nested submodule by its full path', () => {
+    nest();
+    inner('update-index', '--skip-worktree', 'deep.md');
+    expect(computeChangeState(root)).toMatchObject({ digest: null, reason: 'Unprovable sparse or unmerged input: module/inner/deep.md' });
+  });
+  it('refuses a non-empty gitlink directory that is not a checkout', () => {
+    git('submodule', 'deinit', '-q', '-f', 'module');
+    writeFileSync(path.join(root, 'module/stray.md'), 'not a checkout');
+    expect(computeChangeState(root)).toMatchObject({ digest: null, reason: 'Unprovable gitlink checkout: module' });
+  });
+  it('keeps a submodule deletion identical before and after it is committed', () => {
+    const clean = digest();
+    unlinkSync(path.join(root, 'module/shared.md')); const deleted = digest();
+    expect(deleted).toBeTruthy(); expect(deleted).not.toBe(clean);
+    sub('rm', '-q', '--cached', 'shared.md'); expect(digest()).toBe(deleted);
+    execFileSync('git', [...GIT_ID, 'commit', '-qm', 'drop'], { cwd: path.join(root, 'module'), stdio: 'pipe' });
+    expect(digest()).toBe(deleted);
+    git('add', 'module'); commitRoot('pin drop'); expect(digest()).toBe(deleted);
+  });
+  it('counts the submodule own .prospec files, which are not this project bookkeeping', () => {
+    const clean = digest();
+    mkdirSync(path.join(root, 'module/.prospec'));
+    writeFileSync(path.join(root, 'module/.prospec/notes.md'), 'theirs');
+    expect(digest()).toBeTruthy(); expect(digest()).not.toBe(clean);
+  });
+  it('classifies a gitlink path once for fingerprint and preservation alike', () => {
+    expect(gitlinkCheckoutState(root, 'module')).toBe('checkout');
+    expect(gitlinkCheckoutState(root, 'absent')).toBe('absent');
+    writeFileSync(path.join(root, 'plain'), 'file');
+    expect(gitlinkCheckoutState(root, 'plain')).toBe('other');
+    git('submodule', 'deinit', '-q', '-f', 'module');
+    expect(gitlinkCheckoutState(root, 'module')).toBe('uninitialized');
+    writeFileSync(path.join(root, 'module/stray.md'), 'stray');
+    expect(gitlinkCheckoutState(root, 'module')).toBe('stray');
+    mkdirSync(path.join(root, 'module/.git'));
+    expect(gitlinkCheckoutState(root, 'module')).toBe('stray');
+  });
+  // R4-1: the checkout is judged by directory identity, not by how the index spells it.
+  it.skipIf(!existsSync(os.tmpdir().toUpperCase()))('keeps a case-renamed submodule a checkout on a case-insensitive filesystem', () => {
+    const clean = computeChangeState(root).digest;
+    renameSync(path.join(root, 'module'), path.join(root, 'tmp-module')); renameSync(path.join(root, 'tmp-module'), path.join(root, 'MODULE'));
+    expect(gitlinkCheckoutState(root, 'module')).toBe('checkout');
+    expect(computeChangeState(root)).toMatchObject({ digest: clean });
+  });
+  // R4-2: a symlinked ancestor that stays inside the project is still not a real directory.
+  it.skipIf(process.platform === 'win32')('judges a gitlink behind an in-project symlinked ancestor as an ordinary input', () => {
+    git('-c', 'protocol.file.allow=always', 'submodule', 'add', '-q', upstream, 'lib/sub'); commitRoot('nested gitlink');
+    execFileSync('git', ['clone', '-q', upstream, path.join(root, 'vendor/lib/sub')], { stdio: 'pipe' });
+    rmSync(path.join(root, 'lib'), { recursive: true, force: true });
+    symlinkSync('vendor/lib', path.join(root, 'lib'));
+    expect(gitlinkCheckoutState(root, 'lib/sub')).toBe('other');
+  });
+  it('refuses a gitlink whose invalid .git would resolve the superproject', () => {
+    git('submodule', 'deinit', '-q', '-f', 'module');
+    mkdirSync(path.join(root, 'module/.git')); writeFileSync(path.join(root, 'module/work'), 'stray');
+    // Fails closed naming the path (Git itself may refuse first); it never recurses or certifies.
+    expect(computeChangeState(root)).toMatchObject({ digest: null, reason: expect.stringContaining('module') });
+  });
+  it.skipIf(process.platform === 'win32')('certifies a superproject symlink into a submodule file', () => {
+    symlinkSync('module/shared.md', path.join(root, 'link'));
+    expect(computeChangeState(root)).toMatchObject({ digest: expect.any(String) });
   });
 });
 

@@ -1,7 +1,7 @@
 ---
 feature: drift-detection
 status: active
-last_updated: 2026-10-05
+last_updated: 2026-10-06
 story_count: 21
 req_count: 88
 ---
@@ -62,6 +62,8 @@ _(None)_
 
 | Date | Change | Impact | Stories/REQs |
 |------|--------|--------|--------------|
+| 2026-10-06 | hash-gitlink-contents | MODIFIED REQ-LIB-024 | REQ-LIB-024 |
+| 2026-10-06 | prove-gitlink-provenance | MODIFIED REQ-LIB-024 | REQ-LIB-024 |
 | 2026-10-05 | add-change-abandon | MODIFIED REQ-LIB-037 | REQ-LIB-037 |
 | 2026-10-04 | align-skill-guidance | Clarify proven-backfill applicability in review-provenance story context | US-6 |
 | 2026-09-28 | resolve-retired-bullet-refs | ADDED REQ-LIB-096; MODIFIED REQ-LIB-014; MODIFIED REQ-LIB-041 | REQ-LIB-096, REQ-LIB-014, REQ-LIB-041 |

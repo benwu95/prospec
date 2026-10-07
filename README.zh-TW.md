@@ -4,7 +4,7 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg?style=flat-square)](LICENSE)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.9-blue?style=flat-square&logo=typescript)](https://www.typescriptlang.org/)
-[![測試](https://img.shields.io/badge/測試-7481%20總計-success?style=flat-square)](tests/)
+[![測試](https://img.shields.io/badge/測試-7528%20總計-success?style=flat-square)](tests/)
 [![Node](https://img.shields.io/badge/node-%3E%3D22.13-brightgreen?style=flat-square&logo=node.js)](https://nodejs.org/)
 [![pnpm](https://img.shields.io/badge/pnpm-%3E%3D11-orange?style=flat-square&logo=pnpm)](https://pnpm.io/)
 
@@ -498,7 +498,7 @@ check 與 token 量測）在 **[CLI 參考 — CLI 命令](./reference/cli-refer
 
 - **`prospec validate <kind> <file>`** — 依 schema 驗證單一工件；`<kind>` 為
   `proposal`、`slug`、`backfill-draft`、`promote-scaffold`、`design-spec`、`module-readme`、`candidates` 之一。
-- **`prospec change abandon <name> --reason <text> [--overturned <field>]`** — 先保存 Prospec 專案根目錄內的 staged／unstaged binary patches 與改動工作檔 bytes，再結束這次嘗試；不包含 monorepo 其他專案。原 artifacts 與理由保留於 `.prospec/abandoned/`；部分失敗列出實際路徑、已搬與待搬檔案，供人工核對恢復。不支援的 Git 輸入會拒絕；不還原工作樹、不寫入 tracker。同 issue 新 Story 會列出前次理由，所有 scale 都須填寫 Premise `retry_difference`。
+- **`prospec change abandon <name> --reason <text> [--overturned <field>]`** — 先保存 Prospec 專案根目錄內的 staged／unstaged binary patches 與改動工作檔 bytes，再結束這次嘗試；不包含 monorepo 其他專案。原 artifacts 與理由保留於 `.prospec/abandoned/`；部分失敗列出實際路徑、已搬與待搬檔案，供人工核對恢復。不支援的 Git 輸入會拒絕；不還原工作樹、不寫入 tracker。同 issue 新 Story 會列出前次理由，所有 scale 都須填寫 Premise `retry_difference`。 專案內乾淨的 submodule 會記錄在 `preservation/gitlinks.json`——路徑，以及 HEAD 記錄、index 記錄與 submodule 實際 checkout 的 commit（不存在或未初始化時為 null）——不會當成保存的檔案；submodule 內有未 commit、未追蹤、skip-worktree、assume-unchanged 或 unmerged 的工作，或 submodule 目錄非空卻沒有 `.git` 時會拒絕。還原記錄的 pin 需要該 commit 仍然存在：`git submodule deinit` 會保留 module 的 repository，但只存在於 detached HEAD 上的 commit，在 HEAD 移走、garbage collection 清掉之後就會遺失。
 - **`prospec change story <name> --freeze-scenarios` / `--amend-scenarios`** — 將 `proposal.md` 的實質驗收場景凍結進 `metadata.yaml` 的基準（或以 `--reason` 與 `--expected-digest` 受控追加新修訂版）。進入 plan 與 tasks 均要求凍結基準；既有未凍結變更雖允許推進但會揭露限制（評級 S 不可達）。已 verified/archived 的變更執行凍結或修訂面臨終端拒絕。請注意基準 digest 與驗證上下文提供的是審計可追溯性，並非沙盒或權限隔離。
 - **`prospec verify context --change <name>`** — 在評級前寫出確定性的 `verify-context.json`，固定規格、凍結基準、提案、程式碼快照與測試事實；由 `verify record` 在逐 REQ 評定時核對。
 - **`prospec change log --skill <skill> --verifier-report <file>`** — 記錄 planning verifier 自己的
@@ -520,7 +520,7 @@ check 與 token 量測）在 **[CLI 參考 — CLI 命令](./reference/cli-refer
   自己收件時的 git 呼叫中執行）、沒有任何面向讀取的 `.git` metadata（`.git/shallow`、
   `info/grafts`、`info/attributes`）、比委派代理存活更久的程序、委派代理在返回前自行復原的改動、
   專案以外的內容，以及推送到任何遠端——但 `git fetch` 自動跟隨的 tags 會改變 refs 面向。同一
-  repository 中多個 change 的委派彼此不隔離。
+  repository 中多個 change 的委派彼此不隔離。 含 git submodule 的 repository 不會發票，因為 snapshot 不會 checkout submodule 的檔案：review 與 verify 改在 session 內評定，verify 最高只能拿到 A。
 - **`prospec constitution show --station <s>`** — 印出單一站所需的 Constitution 切片：
   `## Principles` 以外的所有段落，加上 `**Verify**:` 行宣告 `stations: all`、列出本站或未宣告的規則。
   沒有可依據的宣告時 fail-open——stdout 印全文、stderr 印一行 `WARN`、exit 0。本 repository 的切片為
@@ -534,7 +534,7 @@ check 與 token 量測）在 **[CLI 參考 — CLI 命令](./reference/cli-refer
   1,107–6,368 tokens，全文為 8,965 tokens，減少 28%–88%（revision `3ade165b` 加上本次未 commit
   變更；計算方式為 `estimateTokens`）；逐站數字見 change 的 `playbook-measurements.md`。
 - **`prospec check --record-tests`** — 記錄測試執行（`snapshot-v2` fingerprint、`repository-inputs-v2`
-  範圍、`change-and-restore` 偵測），讓 verify 5/5 成為機器判定。
+  範圍、`change-and-restore` 偵測），讓 verify 5/5 成為機器判定。 git submodule 以其 checkout 的實際檔案計入 fingerprint，而不是它指向的 commit：在 submodule 內留下的測試或 build 產物會改變 fingerprint（請在 submodule 內 commit 或 ignore），submodule 內的 sparse 或 unmerged entry 則使輸入無法證明。
 - **CI 閘門** — `prospec check --strict` 由 `.github/workflows/prospec-check.yml` 執行；drift check 的
   逐項契約、exit code 與 JSON 報告形狀見參考文件。
 
@@ -682,7 +682,7 @@ Prospec 採用 **Pragmatic Layered Architecture**（`cli → services → lib �
 ## 測試
 
 ```bash
-# 執行所有測試（共 7481 個；4 個略過）
+# 執行所有測試（共 7528 個；5 個略過）
 pnpm test
 
 # Watch 模式
@@ -695,8 +695,8 @@ pnpm run typecheck
 pnpm run lint
 ```
 
-**測試覆蓋率**：共 7481 個測試（7477 個通過；4 個略過），橫跨 4 大類：
-- Unit tests（types + lib + services + cli）：5463 tests
+**測試覆蓋率**：共 7528 個測試（7523 個通過；5 個略過），橫跨 4 大類：
+- Unit tests（types + lib + services + cli）：5510 tests
 - Contract tests（CLI 輸出 + Skill 格式）：1652 tests
 - Integration tests：153 tests
 - E2E tests：213 tests

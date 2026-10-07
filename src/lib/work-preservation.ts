@@ -1,13 +1,59 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { PrerequisiteError } from '../types/errors.js';
-import type { PreservationEntry, PreservationManifest } from '../types/abandon.js';
+import { GitlinkPinsSchema, type GitlinkPin, type PreservationEntry, type PreservationManifest } from '../types/abandon.js';
 import type { RepoState } from '../types/delegation.js';
-import { gitRead, gitReadBuffer, gitReadRecords, PRESERVATION_DIFF_FLAGS, withFixedGitEnv } from './git-read.js';
-import { gitProjectPrefix } from './drift-sources.js';
+import { gitRead, gitReadBuffer, gitReadOptional, gitReadRecords, hiddenIndexShape, parseIndexRecord, PRESERVATION_DIFF_FLAGS, withFixedGitEnv } from './git-read.js';
+import { gitlinkCheckoutState, gitProjectPrefix } from './drift-sources.js';
 import { captureGitState, isUnreadable, sameRepoState, sha256 } from './repo-state.js';
 import { resolveContainedTarget } from './knowledge-reader.js';
 import { atomicWrite } from './fs-utils.js';
+
+/** A gitlink's checkout must hold only committed work: preservation records its pins,
+ *  never its files, so anything no commit holds would be lost (#352). The status read
+ *  fixes the untracked and submodule modes so no configuration hides work. */
+function assertCleanSubmodule(dir: string, label: string): void {
+  for (const record of gitReadRecords(dir, 'ls-files', ['-z', '-t', '-v', '--stage'])) {
+    const entry = parseIndexRecord(record);
+    if (hiddenIndexShape(entry) !== null) throw new Error(`gitlink ${label} holds hidden, sparse or unmerged work: ${entry.file}`);
+    if (entry.mode === '160000') judgeGitlink(dir, entry.file, `${label}/${entry.file}`);
+  }
+  if (gitReadRecords(dir, 'status', ['--porcelain=v1', '-z', '--untracked-files=all', '--ignore-submodules=none']).length > 0) {
+    throw new Error(`gitlink ${label} holds uncommitted or untracked work`);
+  }
+}
+
+/** The commit a gitlink path has checked out, or null when nothing there is its checkout
+ *  (absent, uninitialized, or an ordinary input such as a file, a symlink or a path behind
+ *  a symlinked ancestor, where Git never runs); judged by the fingerprint's own rule,
+ *  `gitlinkCheckoutState`. */
+function judgeGitlink(repository: string, file: string, label: string): string | null {
+  const state = gitlinkCheckoutState(repository, file);
+  if (state === 'stray') throw new Error(`gitlink ${label} is not its own checkout (stray files or an invalid .git)`);
+  if (state !== 'checkout') return null;
+  const dir = path.join(repository, file);
+  const commit = gitReadOptional(dir, 'rev-parse', ['--verify', '-q', 'HEAD^{commit}']);
+  if (!commit) throw new Error(`gitlink ${label} has no checked-out commit`);
+  assertCleanSubmodule(dir, label);
+  return commit;
+}
+
+/** Project paths (relative to the Git prefix) a gitlink judgment applies to: inside the
+ *  project, outside this operation's own destination. */
+function projectScope(root: string, gitPrefix: string, destination: string): (repoPath: string) => string | null {
+  const excluded = path.relative(root, destination).split(path.sep).join('/');
+  return (repoPath) => {
+    if (!repoPath.startsWith(gitPrefix)) return null;
+    const name = repoPath.slice(gitPrefix.length);
+    return name === excluded || name.startsWith(`${excluded}/`) ? null : name;
+  };
+}
+
+const HIDDEN_INPUT_REFUSALS = {
+  'assume-unchanged': 'assume-unchanged input cannot be preserved completely',
+  'skip-worktree': 'sparse/skip-worktree input cannot be preserved completely',
+  unmerged: 'conflicted/unmerged input cannot be preserved completely',
+} as const;
 
 /** Refuse inputs Git can hide from an ordinary status/diff capture. Writes nothing. */
 export function preflightWork(cwd: string, destination: string) {
@@ -16,23 +62,40 @@ export function preflightWork(cwd: string, destination: string) {
   if (!target.ok) throw new PrerequisiteError(`Unsafe preservation destination: ${destination}`, target.reason);
   try {
     gitRead(root, 'rev-parse', ['--verify', 'HEAD^{commit}']);
+    const gitPrefix = withFixedGitEnv(() => gitProjectPrefix(root));
+    const inScope = projectScope(root, gitPrefix, destination);
+    const gitlinks = new Map<string, { index: string; checkout: string | null }>();
     const records = gitReadRecords(root, 'ls-files', ['-z', '-t', '-v', '--stage', '--full-name', '--', ':/']);
     for (const record of records) {
-      const match = /^([A-Za-z?]) (\d{6}) [0-9a-f]+ (\d)\t/.exec(record);
-      if (!match) throw new Error('Unsupported Git index record');
-      if (match[1] !== match[1]!.toUpperCase()) throw new Error('assume-unchanged input cannot be preserved completely');
-      if (match[1] === 'S') throw new Error('sparse/skip-worktree input cannot be preserved completely');
-      if (match[2] === '160000') throw new Error('gitlink input cannot be preserved completely');
-      if (match[3] !== '0') throw new Error('conflicted/unmerged input cannot be preserved completely');
+      const entry = parseIndexRecord(record);
+      const hidden = hiddenIndexShape(entry);
+      if (hidden !== null) throw new Error(HIDDEN_INPUT_REFUSALS[hidden]);
+      if (entry.mode !== '160000') continue;
+      const name = inScope(entry.file);
+      if (name !== null) gitlinks.set(name, { index: entry.oid, checkout: judgeGitlink(root, name, name) });
     }
     const state = captureGitState(root);
     for (const facet of ['head', 'index', 'refs', 'stash'] as const) {
       if (isUnreadable(state[facet])) throw new Error(`${facet}: unreadable Git input`);
     }
-    return { root, gitPrefix: withFixedGitEnv(() => gitProjectPrefix(root)), state };
+    return { root, gitPrefix, state, gitlinks, inScope };
   } catch (error) {
-    throw new PrerequisiteError(`Cannot preserve work: ${error instanceof Error ? error.message : String(error)}`, 'Use a readable Git repository with HEAD and resolve unsupported inputs before abandoning');
+    throw new PrerequisiteError(`Cannot preserve work: ${error instanceof Error ? error.message : String(error)}`, 'Use a readable Git repository with HEAD, commit or remove work inside submodules, and resolve unsupported inputs before abandoning');
   }
+}
+
+/** HEAD's side of every changed project path, from status v2: its HEAD mode and object.
+ *  A path status does not list is unchanged, so HEAD holds what the index holds. */
+function headRecords(root: string, inScope: (repoPath: string) => string | null): Map<string, { mode: string; index: string; oid: string }> {
+  const found = new Map<string, { mode: string; index: string; oid: string }>();
+  for (const record of gitReadRecords(root, 'status', ['--porcelain=v2', '-z', '--untracked-files=no', '--no-renames', '--ignore-submodules=none'])) {
+    if (!record.startsWith('1 ')) continue;
+    const fields = record.split(' ');
+    const [, , , modeHead, modeIndex, , headOid] = fields;
+    const name = inScope(fields.slice(8).join(' '));
+    if (name !== null) found.set(name, { mode: modeHead!, index: modeIndex!, oid: headOid! });
+  }
+  return found;
 }
 
 function readEntry(root: string, name: string, blobs: Map<string, Buffer>): PreservationEntry {
@@ -86,6 +149,8 @@ export interface WorkCapture {
   sourceDir: string;
   sourceDigest: string;
   manifest: PreservationManifest;
+  /** Project-scoped gitlinks, recorded by their pins in `gitlinks.json` beside the manifest. */
+  gitlinks: GitlinkPin[];
   staged: Buffer;
   unstaged: Buffer;
   blobs: Map<string, Buffer>;
@@ -95,15 +160,37 @@ export interface WorkCapture {
 /** Complete in-memory capture before creating any preservation output. */
 export function captureWork(cwd: string, destination: string, sourceDir: string): WorkCapture {
   const context = preflightWork(cwd, destination);
-  const { root, gitPrefix } = context;
+  const { root, gitPrefix, inScope } = context;
   const excluded = path.relative(root, destination).split(path.sep).join('/');
+  const gitlinks: GitlinkPin[] = [];
+  try {
+    const heads = headRecords(root, inScope);
+    for (const [name, pins] of context.gitlinks) {
+      const head = heads.get(name);
+      // HEAD records a commit only under mode 160000; a file or tree there is no pin.
+      const headCommit = head === undefined ? pins.index : head.mode === '160000' ? head.oid : null;
+      gitlinks.push({ path: name, head_commit: headCommit, index_commit: pins.index, checkout_commit: pins.checkout });
+    }
+    for (const [name, head] of heads) {
+      // Removed from the index only (mode 000000); a gitlink the index now holds as a file
+      // or link is a typechange, preserved as that file.
+      if (context.gitlinks.has(name) || head.mode !== '160000' || head.index !== '000000') continue;
+      gitlinks.push({ path: name, head_commit: head.oid, index_commit: null, checkout_commit: judgeGitlink(root, name, name) });
+    }
+  } catch (error) {
+    throw new PrerequisiteError(`Cannot preserve work: ${error instanceof Error ? error.message : String(error)}`, 'Commit or remove work inside submodules before abandoning');
+  }
+  gitlinks.sort((a, b) => Buffer.compare(Buffer.from(a.path), Buffer.from(b.path)));
+  // Only an absent path or a directory is the gitlink itself; a file or symlink now at
+  // the path is an ordinary input the manifest preserves.
+  const gitlinkPaths = new Set(gitlinks.map((pin) => pin.path)
+    .filter((name) => gitlinkCheckoutState(root, name) !== 'other'));
   const paths = new Set<string>();
-  for (const record of gitReadRecords(root, 'status', ['--porcelain=v1', '-z', '--untracked-files=all', '--no-renames'])) {
+  for (const record of gitReadRecords(root, 'status', ['--porcelain=v1', '-z', '--untracked-files=all', '--no-renames', '--ignore-submodules=none'])) {
     if (record.length < 4) throw new Error('Incomplete Git status record');
-    const repoPath = record.slice(3);
-    if (!repoPath.startsWith(gitPrefix)) continue;
-    const name = repoPath.slice(gitPrefix.length);
-    if (name === excluded || name.startsWith(`${excluded}/`)) continue;
+    // A nested repository is listed as an untracked directory with a trailing slash.
+    const name = inScope(record.slice(3).replace(/\/$/, ''));
+    if (name === null || gitlinkPaths.has(name)) continue;
     paths.add(name);
   }
   const blobs = new Map<string, Buffer>();
@@ -116,8 +203,8 @@ export function captureWork(cwd: string, destination: string, sourceDir: string)
   const manifest: PreservationManifest = { version: 1, root, git_prefix: gitPrefix, head: head.commit,
     patches: { staged: sha256(staged), unstaged: sha256(unstaged) }, entries };
   const sourceDigest = artifactDigest(sourceDir, root);
-  const state: RepoState = { ...context.state, content: { digest: sha256(JSON.stringify([manifest, sourceDigest])) } };
-  return { root, destination, sourceDir, sourceDigest, manifest, staged, unstaged, blobs, state };
+  const state: RepoState = { ...context.state, content: { digest: sha256(JSON.stringify([manifest, gitlinks, sourceDigest])) } };
+  return { root, destination, sourceDir, sourceDigest, manifest, gitlinks, staged, unstaged, blobs, state };
 }
 
 /** Output goes only inside the exclusively claimed abandoned entry. */
@@ -127,6 +214,10 @@ export async function persistWork(input: WorkCapture): Promise<void> {
   outputs.set('staged.patch', input.staged);
   outputs.set('unstaged.patch', input.unstaged);
   outputs.set('manifest.json', Buffer.from(JSON.stringify(input.manifest, null, 2) + '\n'));
+  if (input.gitlinks.length > 0) {
+    const pins = GitlinkPinsSchema.parse({ version: 1, gitlinks: input.gitlinks });
+    outputs.set('gitlinks.json', Buffer.from(JSON.stringify(pins, null, 2) + '\n'));
+  }
   for (const [name, bytes] of outputs) {
     const file = path.join(dir, name);
     const target = resolveContainedTarget(file, input.root);

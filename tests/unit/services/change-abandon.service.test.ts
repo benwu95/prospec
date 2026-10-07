@@ -193,3 +193,26 @@ it('review R1 refuses re-abandoning a partial publication across UTC days', asyn
     vi.useRealTimers();
   }
 });
+
+// #352: a repository with a clean submodule abandons, recording its pins beside the manifest.
+it('abandons in a repository with a clean submodule and records its pins', async () => {
+  const upstream = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'abandon-sub-')));
+  try {
+    gitIn(upstream, 'init', '-q', '-b', 'main'); fs.writeFileSync(path.join(upstream, 'shared.md'), 'v1');
+    gitIn(upstream, 'add', '.'); gitIn(upstream, 'commit', '-qm', 'v1');
+    gitIn(root, '-c', 'protocol.file.allow=always', 'submodule', 'add', '-q', upstream, 'module');
+    gitIn(root, 'commit', '-qm', 'add submodule');
+    const pinned = gitIn(root, 'rev-parse', 'HEAD:module');
+    metadata({ status: 'implemented' });
+    const result = await execute(opts());
+    const { GitlinkPinsSchema } = await import('../../../src/types/abandon.js');
+    const pins = GitlinkPinsSchema.parse(JSON.parse(fs.readFileSync(path.join(result.archiveDir, 'preservation/gitlinks.json'), 'utf8')));
+    expect(pins.gitlinks).toEqual([{ path: 'module', head_commit: pinned, index_commit: pinned, checkout_commit: pinned }]);
+    expect(readAbandonHistory(root).attempts).toHaveLength(1);
+  } finally { fs.rmSync(upstream, { recursive: true, force: true }); }
+});
+
+it('writes no pin record when the repository holds no gitlink', async () => {
+  const result = await execute(opts());
+  expect(fs.existsSync(path.join(result.archiveDir, 'preservation/gitlinks.json'))).toBe(false);
+});

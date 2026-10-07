@@ -25,7 +25,7 @@ import {
 } from '../types/delegation.js';
 import { DRIFT_REPORT_FILENAME } from '../types/drift-report.js';
 import { computeChangeState, gitProjectPrefix } from './drift-sources.js';
-import { gitRead, gitReadOptional, gitReadRecords, withFixedGitEnv } from './git-read.js';
+import { gitRead, gitReadOptional, gitReadRecords, parseIndexRecord, withFixedGitEnv } from './git-read.js';
 
 /** The project-root reports `computeChangeState` excludes; the content facet covers them itself. */
 export const DELEGATION_REPORT_FILES = [DRIFT_REPORT_FILENAME] as const;
@@ -64,6 +64,9 @@ export function contentDigest(cwd: string): RepoState['content'] {
   return withFixedGitEnv(() => {
     const state = computeChangeState(cwd);
     if (state.digest === null) return { unreadable: failureLine(state.reason ?? 'content digest unavailable') };
+    // Provenance hashes a gitlink's checkout files (#352), but a delegation snapshot checks
+    // out no submodule files, so a delegate there would test a different tree.
+    if (state.gitlinks) return { unreadable: failureLine(`gitlink input cannot be reproduced in a delegation snapshot: ${state.gitlinks[0]}`) };
     const tokens = DELEGATION_REPORT_FILES.map((name) => reportToken(cwd, name));
     return { digest: sha256([state.digest, ...tokens].join('\0')) };
   });
@@ -141,11 +144,10 @@ function readIndex(cwd: string): RepoState['index'] {
     const records = gitReadRecords(cwd, 'ls-files', ['-z', '-t', '-v', '--stage', '--full-name', '--', ':/']);
     const blockers = new Set<IndexBlocker>();
     for (const record of records) {
-      const match = /^([A-Za-z?]) (\d{6}) [0-9a-f]+ (\d)\t/.exec(record);
-      if (!match) throw new Error('Unsupported Git index record');
-      if (match[3] !== '0') blockers.add('unmerged');
-      if (match[1]!.toUpperCase() === 'S') blockers.add('skip-worktree');
-      if (match[2] === '160000') blockers.add('gitlink');
+      const entry = parseIndexRecord(record);
+      if (entry.stage !== '0') blockers.add('unmerged');
+      if (entry.skipWorktree) blockers.add('skip-worktree');
+      if (entry.mode === '160000') blockers.add('gitlink');
     }
     return { digest: sha256(records.join('\0')), blockers: [...blockers].sort() };
   });

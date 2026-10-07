@@ -218,7 +218,7 @@ describe('unreadable facets (REQ-LIB-090)', () => {
     git('add', 'nested');
     const state = captureRepoState(repo);
     expect((state.index as { blockers: string[] }).blockers).toEqual(['gitlink']);
-    expect(state.content).toHaveProperty('unreadable');
+    expect(state.content).toEqual({ unreadable: 'gitlink input cannot be reproduced in a delegation snapshot: nested' });
     expect(isFullyReadable(state)).toBe(false);
   });
 
