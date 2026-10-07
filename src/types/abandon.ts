@@ -25,6 +25,15 @@ export const PreservationManifestSchema = z.object({
 export type PreservationManifest = z.infer<typeof PreservationManifestSchema>;
 export type PreservationEntry = z.infer<typeof PreservationEntrySchema>;
 
+/** A gitlink's pins, kept beside the manifest so the manifest schema older CLIs read is unchanged (#352). */
+const pin = z.string().regex(/^[a-f0-9]{40}([a-f0-9]{24})?$/).nullable();
+export const GitlinkPinSchema = z.object({
+  path: z.string(), head_commit: pin, index_commit: pin, checkout_commit: pin,
+}).strict();
+export const GitlinkPinsSchema = z.object({ version: z.literal(1), gitlinks: z.array(GitlinkPinSchema) }).strict();
+export type GitlinkPin = z.infer<typeof GitlinkPinSchema>;
+export const ABANDON_GITLINKS = 'preservation/gitlinks.json';
+
 export const ABANDON_OPERATION_FILE = 'abandon-operation.json';
 export const ABANDON_MANIFEST = 'preservation/manifest.json';
 export const AbandonOperationSchema = z.object({

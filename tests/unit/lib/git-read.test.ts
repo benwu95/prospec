@@ -11,7 +11,7 @@ vi.mock('node:child_process', async (importOriginal) => {
   return { ...actual, execFileSync: vi.fn(actual.execFileSync) };
 });
 
-const { GIT_READ_SUBCOMMANDS, GIT_SNAPSHOT_SUBCOMMANDS, SNAPSHOT_PREFIX, gitRead, gitReadOptional, gitReadRecords, gitSnapshot, snapshotRoot } = await import(
+const { GIT_READ_SUBCOMMANDS, GIT_SNAPSHOT_SUBCOMMANDS, SNAPSHOT_PREFIX, gitRead, gitReadOptional, gitReadRecords, gitSnapshot, hiddenIndexShape, parseIndexRecord, snapshotRoot } = await import(
   '../../../src/lib/git-read.js'
 );
 
@@ -223,7 +223,7 @@ describe('preservation Git reads', () => {
     writeFileSync(path.join(repo, 'main.txt'), 'staged\n');
     childProcess.execFileSync('git', ['add', 'main.txt'], { cwd: repo });
     writeFileSync(path.join(repo, 'main.txt'), 'main\n');
-    const flags = ['--binary', '--full-index', '--no-ext-diff', '--no-textconv', '--no-renames'];
+    const flags = ['--binary', '--full-index', '--no-ext-diff', '--no-textconv', '--no-renames', '--submodule=short', '--ignore-submodules=none'];
     const staged = gitRead(repo, 'diff', [...flags, '--cached', 'HEAD', '--', '.']);
     const unstaged = gitRead(repo, 'diff', [...flags, '--', '.']);
     expect(staged).toContain('+staged');
@@ -233,5 +233,25 @@ describe('preservation Git reads', () => {
   it.each([['--output=lost'], ['--ext-diff'], ['--textconv'], ['HEAD'], ['--binary', '--', '.']])('refuses incomplete or writing diff invocation %j', (...args) => {
     expect(() => gitRead(repo, 'diff', args)).toThrow(/read|diff/);
     expect(execFileSync).not.toHaveBeenCalled();
+  });
+});
+
+// R1-4: one index-record reading for the fingerprint, preservation and repository state.
+describe('index records', () => {
+  const oid = 'a'.repeat(40);
+  it('parses mode, object, stage and a path that holds tabs or newlines', () => {
+    expect(parseIndexRecord(`H 160000 ${oid} 0\tsub/with\ttab\nline`)).toEqual({
+      file: 'sub/with\ttab\nline', mode: '160000', oid, stage: '0', assumeUnchanged: false, skipWorktree: false,
+    });
+  });
+  it.each([
+    ['H', null], ['h', 'assume-unchanged'], ['S', 'skip-worktree'], ['s', 'assume-unchanged'],
+  ] as const)('judges tag %s as %s', (tag, shape) => {
+    expect(hiddenIndexShape(parseIndexRecord(`${tag} 100644 ${oid} 0\tfile`))).toBe(shape);
+  });
+  it('judges a non-zero stage unmerged and refuses an unreadable record', () => {
+    expect(hiddenIndexShape(parseIndexRecord(`M 100644 ${oid} 2\tfile`))).toBe('unmerged');
+    expect(() => parseIndexRecord(`? untracked`)).toThrow('Unsupported Git index record');
+    expect(() => parseIndexRecord(`H 100644 ${oid} 0 file`)).toThrow('Unsupported Git index record');
   });
 });

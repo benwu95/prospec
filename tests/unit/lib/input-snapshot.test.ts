@@ -1,9 +1,9 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { execFileSync } from 'node:child_process';
-import { chmodSync, mkdtempSync, mkdirSync, readFileSync, rmSync, symlinkSync, unlinkSync, writeFileSync } from 'node:fs';
+import { chmodSync, existsSync, mkdtempSync, mkdirSync, readFileSync, renameSync, rmSync, symlinkSync, unlinkSync, writeFileSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { changedPathsFromWorkTree, collectGitTimestamps, computeChangeState } from '../../../src/lib/drift-sources.js';
+import { changedPathsFromWorkTree, collectGitTimestamps, computeChangeState, gitlinkCheckoutState } from '../../../src/lib/drift-sources.js';
 
 import type { ModuleMap } from '../../../src/types/module-map.js';
 import { evaluateKnowledgeHealth } from '../../../src/lib/drift-checker.js';
@@ -216,6 +216,39 @@ describe('gitlink (submodule) inputs', () => {
     mkdirSync(path.join(root, 'module/.prospec'));
     writeFileSync(path.join(root, 'module/.prospec/notes.md'), 'theirs');
     expect(digest()).toBeTruthy(); expect(digest()).not.toBe(clean);
+  });
+  it('classifies a gitlink path once for fingerprint and preservation alike', () => {
+    expect(gitlinkCheckoutState(root, 'module')).toBe('checkout');
+    expect(gitlinkCheckoutState(root, 'absent')).toBe('absent');
+    writeFileSync(path.join(root, 'plain'), 'file');
+    expect(gitlinkCheckoutState(root, 'plain')).toBe('other');
+    git('submodule', 'deinit', '-q', '-f', 'module');
+    expect(gitlinkCheckoutState(root, 'module')).toBe('uninitialized');
+    writeFileSync(path.join(root, 'module/stray.md'), 'stray');
+    expect(gitlinkCheckoutState(root, 'module')).toBe('stray');
+    mkdirSync(path.join(root, 'module/.git'));
+    expect(gitlinkCheckoutState(root, 'module')).toBe('stray');
+  });
+  // R4-1: the checkout is judged by directory identity, not by how the index spells it.
+  it.skipIf(!existsSync(os.tmpdir().toUpperCase()))('keeps a case-renamed submodule a checkout on a case-insensitive filesystem', () => {
+    const clean = computeChangeState(root).digest;
+    renameSync(path.join(root, 'module'), path.join(root, 'tmp-module')); renameSync(path.join(root, 'tmp-module'), path.join(root, 'MODULE'));
+    expect(gitlinkCheckoutState(root, 'module')).toBe('checkout');
+    expect(computeChangeState(root)).toMatchObject({ digest: clean });
+  });
+  // R4-2: a symlinked ancestor that stays inside the project is still not a real directory.
+  it.skipIf(process.platform === 'win32')('judges a gitlink behind an in-project symlinked ancestor as an ordinary input', () => {
+    git('-c', 'protocol.file.allow=always', 'submodule', 'add', '-q', upstream, 'lib/sub'); commitRoot('nested gitlink');
+    execFileSync('git', ['clone', '-q', upstream, path.join(root, 'vendor/lib/sub')], { stdio: 'pipe' });
+    rmSync(path.join(root, 'lib'), { recursive: true, force: true });
+    symlinkSync('vendor/lib', path.join(root, 'lib'));
+    expect(gitlinkCheckoutState(root, 'lib/sub')).toBe('other');
+  });
+  it('refuses a gitlink whose invalid .git would resolve the superproject', () => {
+    git('submodule', 'deinit', '-q', '-f', 'module');
+    mkdirSync(path.join(root, 'module/.git')); writeFileSync(path.join(root, 'module/work'), 'stray');
+    // Fails closed naming the path (Git itself may refuse first); it never recurses or certifies.
+    expect(computeChangeState(root)).toMatchObject({ digest: null, reason: expect.stringContaining('module') });
   });
   it.skipIf(process.platform === 'win32')('certifies a superproject symlink into a submodule file', () => {
     symlinkSync('module/shared.md', path.join(root, 'link'));

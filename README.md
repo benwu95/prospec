@@ -4,7 +4,7 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg?style=flat-square)](LICENSE)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.9-blue?style=flat-square&logo=typescript)](https://www.typescriptlang.org/)
-[![Tests](https://img.shields.io/badge/tests-7481%20total-success?style=flat-square)](tests/)
+[![Tests](https://img.shields.io/badge/tests-7528%20total-success?style=flat-square)](tests/)
 [![Node](https://img.shields.io/badge/node-%3E%3D22.13-brightgreen?style=flat-square&logo=node.js)](https://nodejs.org/)
 [![pnpm](https://img.shields.io/badge/pnpm-%3E%3D11-orange?style=flat-square&logo=pnpm)](https://pnpm.io/)
 
@@ -519,7 +519,7 @@ The few command details a reader most often needs from here:
 
 - **`prospec validate <kind> <file>`** — validates one artifact against its schema; `<kind>` is one of
   `proposal`, `slug`, `backfill-draft`, `promote-scaffold`, `design-spec`, `module-readme`, `candidates`.
-- **`prospec change abandon <name> --reason <text> [--overturned <field>]`** — ends an attempt after preserving staged/unstaged binary patches and changed work bytes within the Prospec project root (excluding monorepo siblings). Original artifacts and reasons are retained in `.prospec/abandoned/`; partial failures report actual paths and moved/pending files for manual reconciliation. Unsupported Git inputs refuse; the command performs no rollback or tracker write. Same-issue new Stories report prior reasons and require Premise `retry_difference` on every scale.
+- **`prospec change abandon <name> --reason <text> [--overturned <field>]`** — ends an attempt after preserving staged/unstaged binary patches and changed work bytes within the Prospec project root (excluding monorepo siblings). Original artifacts and reasons are retained in `.prospec/abandoned/`; partial failures report actual paths and moved/pending files for manual reconciliation. Unsupported Git inputs refuse; the command performs no rollback or tracker write. Same-issue new Stories report prior reasons and require Premise `retry_difference` on every scale. A clean submodule inside the project is recorded in `preservation/gitlinks.json` — its path and the commits HEAD records, the index records and the submodule has checked out (null when absent or uninitialized) — never as preserved files; a submodule with uncommitted, untracked, skip-worktree, assume-unchanged or unmerged work, or a non-empty submodule directory without `.git`, refuses. Restoring a recorded pin needs that commit to still exist: `git submodule deinit` keeps the module's repository, but a commit reachable only from its detached HEAD is lost once that HEAD moves on and garbage collection prunes it.
 - **`prospec change story <name> --freeze-scenarios` / `--amend-scenarios`** — freezes acceptance scenarios from `proposal.md` into `metadata.yaml` baseline (or appends a controlled revision with `--reason` and `--expected-digest`). Planning and tasks require a frozen baseline; legacy changes lacking baselines are admitted with disclosure (capped below grade S). Baseline modifications on verified/archived changes face terminal refusal. Note that baseline digests and verification context provide audit traceability, not sandbox or permission isolation.
 - **`prospec verify context --change <name>`** — writes deterministic `verify-context.json` combining spec, frozen baseline, proposal, code snapshot, and test attempt facts before grading; verified by `verify record` during per-REQ evaluation.
 - **`prospec change log --skill <skill> --verifier-report <file>`** — records a planning verifier's own
@@ -547,7 +547,7 @@ The few command details a reader most often needs from here:
   `info/attributes`), a process that outlives its delegate, a change the delegate reverted before
   returning, content outside the project, or pushes to any remote — while tags a `git fetch`
   auto-follows do change the refs facet. Delegations of several changes in one repository are not
-  isolated from one another.
+  isolated from one another. A repository with a git submodule is issued no ticket, because a snapshot checks out no submodule files: review and verify grade in-session, which caps verify at grade A.
 - **`prospec constitution show --station <s>`** — prints the Constitution slice one station needs:
   every section outside `## Principles`, plus each rule whose `**Verify**:` line declares
   `stations: all`, names the station, or declares nothing. With no declarations to slice by it fails
@@ -565,7 +565,7 @@ The few command details a reader most often needs from here:
   for the full playbook (28%–88% less), measured with `estimateTokens` at revision `3ade165b`
   plus this working tree; see the change's `playbook-measurements.md` for per-station values.
 - **`prospec check --record-tests`** — records the suite run (`snapshot-v2` fingerprint over the
-  `repository-inputs-v2` scope, `change-and-restore` detection) so verify 5/5 is a machine verdict.
+  `repository-inputs-v2` scope, `change-and-restore` detection) so verify 5/5 is a machine verdict. A git submodule is fingerprinted by its checkout's actual files, not by the commit it names: test or build output left inside a submodule changes the fingerprint (commit or ignore it there), and a sparse or unmerged entry inside a submodule makes the inputs unprovable.
 - **CI gate** — `prospec check --strict` runs from `.github/workflows/prospec-check.yml`; the drift
   check's per-check contract, exit codes and JSON report shape are in the reference.
 
@@ -719,7 +719,7 @@ templates alongside). The layer-by-layer breakdown and the tech-stack list are i
 ## Testing
 
 ```bash
-# Run all tests (7481 total; 4 skipped)
+# Run all tests (7528 total; 4 skipped)
 pnpm test
 
 # Watch mode
@@ -732,8 +732,8 @@ pnpm run typecheck
 pnpm run lint
 ```
 
-**Test Coverage**: 7481 total tests (7477 passed; 4 skipped) across 4 categories:
-- Unit tests (types + lib + services + cli): 5463 tests
+**Test Coverage**: 7528 total tests (7524 passed; 4 skipped) across 4 categories:
+- Unit tests (types + lib + services + cli): 5510 tests
 - Contract tests (CLI output + Skill format): 1652 tests
 - Integration tests: 153 tests
 - E2E tests: 213 tests

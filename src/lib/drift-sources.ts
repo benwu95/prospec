@@ -7,7 +7,7 @@ import { parseYaml } from './yaml-utils.js';
 import { parseDocument, isMap, isScalar } from 'yaml';
 import { DEFAULT_KNOWLEDGE_TOKEN_BUDGET, isShippedBudgetField, type ShippedBudgetField } from '../types/config.js';
 import { withoutFencedBlocks } from './markdown-fences.js';
-import { gitReadRecords } from './git-read.js';
+import { gitReadOptional, gitReadRecords, hiddenIndexShape, parseIndexRecord } from './git-read.js';
 import { mergeContent } from './content-merger.js';
 import { ARCHIVE_NATIVE_GLOB, ABANDONED_NATIVE_GLOB, compareLanguagePolicy, type LanguagePolicyComparison } from './language-policy.js';
 import type { LanguageScope } from '../types/constitution.js';
@@ -1733,11 +1733,9 @@ function gitPaths(cwd: string, args: string[]): string[] {
  *  superproject and every submodule, so both refuse the same unprovable shapes. */
 function parseInputRecord(entry: string, label: (file: string) => string): { file: string; gitlink: boolean } {
   if (entry.startsWith('? ')) return { file: entry.slice(2), gitlink: false };
-  const match = /^([A-Z]) (\d{6}) [a-f0-9]+ (\d)\t([\s\S]+)$/.exec(entry);
-  if (!match) throw new Error('Unsupported Git index record');
-  const file = match[4]!;
-  if (match[1] === 'S' || match[3] !== '0') throw new Error(`Unprovable sparse or unmerged input: ${label(file)}`);
-  return { file, gitlink: match[2] === '160000' };
+  const record = parseIndexRecord(entry);
+  if (hiddenIndexShape(record) !== null) throw new Error(`Unprovable sparse or unmerged input: ${label(record.file)}`);
+  return { file: record.file, gitlink: record.mode === '160000' };
 }
 
 const LS_INPUT_ARGS = ['-z', '-t', '--stage', '--cached', '--others', '--exclude-standard'];
@@ -1766,22 +1764,61 @@ interface SnapshotEntry { key: string; absolute: string; gitlink?: 'checkout' | 
  *  neither an uninitialized checkout, nor smudge or line-ending bytes, nor a nested
  *  checkout. The submodule is read through `git-read` (fixed environment, no optional
  *  locks, bounded), and its nested gitlinks are expanded the same way. */
-function expandGitlink(absolute: string, key: string): SnapshotEntry[] {
-  if (!existsSync(path.join(absolute, '.git'))) {
-    if (readdirSync(absolute).length > 0) throw new Error(`Unprovable gitlink checkout: ${key}`);
-    return [{ key, absolute, gitlink: 'uninitialized' }];
-  }
+function expandGitlink(repository: string, file: string, key: string): SnapshotEntry[] {
+  const absolute = path.join(repository, file);
+  const state = gitlinkCheckoutState(repository, file);
+  // Not a checkout here: an ordinary input of the repository that lists it.
+  if (state === 'absent' || state === 'other') return [{ key, absolute, deletedIn: repository }];
+  if (state === 'stray') throw new Error(`Unprovable gitlink checkout: ${key}`);
+  if (state === 'uninitialized') return [{ key, absolute, gitlink: 'uninitialized' }];
   const entries: SnapshotEntry[] = [{ key, absolute, gitlink: 'checkout' }];
   const seen = new Set<string>();
   for (const record of gitReadRecords(absolute, 'ls-files', LS_INPUT_ARGS)) {
-    const { file, gitlink } = parseInputRecord(record, (f) => `${key}/${f}`);
-    if (seen.has(file)) continue;
-    seen.add(file);
-    const child = path.join(absolute, file);
-    if (gitlink && existsSync(child) && lstatSync(child).isDirectory()) entries.push(...expandGitlink(child, `${key}/${file}`));
-    else entries.push({ key: `${key}/${file}`, absolute: child, deletedIn: absolute });
+    const { file: child, gitlink } = parseInputRecord(record, (f) => `${key}/${f}`);
+    if (seen.has(child)) continue;
+    seen.add(child);
+    if (gitlink) entries.push(...expandGitlink(absolute, child, `${key}/${child}`));
+    else entries.push({ key: `${key}/${child}`, absolute: path.join(absolute, child), deletedIn: absolute });
   }
   return entries;
+}
+
+/** What a gitlink path in `repository` holds, judged once for the fingerprint and for
+ *  abandon's preservation alike (#352):
+ *  - `other` — the path, or an ancestor on the way to it, is not a real directory inside
+ *    the repository (a file, a symlink, a symlinked ancestor), so it is an ordinary input
+ *    and Git never runs there;
+ *  - `absent`, `uninitialized` (an empty directory — no Git may run in it or it would
+ *    reach the superproject), or `stray` (files no commit describes, or a `.git` that does
+ *    not make the directory its own repository);
+ *  - `checkout` — a repository whose top level is exactly this directory. */
+export function gitlinkCheckoutState(repository: string, file: string): 'absent' | 'other' | 'uninitialized' | 'stray' | 'checkout' {
+  const dir = path.join(repository, file);
+  // Every component from the repository down is lstat-ed, so a symlink anywhere on the
+  // way — escaping the project or not — makes the path an ordinary input.
+  let current = repository;
+  for (const part of file.split('/')) {
+    current = path.join(current, part);
+    let stat;
+    try { stat = lstatSync(current); } catch (error) {
+      if ((error as NodeJS.ErrnoException).code === 'ENOENT' || (error as NodeJS.ErrnoException).code === 'ENOTDIR') return 'absent';
+      throw error;
+    }
+    if (!stat.isDirectory()) return 'other';
+  }
+  if (!existsSync(path.join(dir, '.git'))) return readdirSync(dir).length === 0 ? 'uninitialized' : 'stray';
+  let top: string | null;
+  try { top = gitReadOptional(dir, 'rev-parse', ['--show-toplevel']); } catch { top = null; }
+  return top !== null && sameDirectory(top, dir) ? 'checkout' : 'stray';
+}
+
+/** Whether two paths name one directory, by identity rather than spelling: a
+ *  case-insensitive filesystem keeps the index's case in one and the disk's in the other. */
+function sameDirectory(a: string, b: string): boolean {
+  const [left, right] = [statSync(a, { bigint: true }), statSync(b, { bigint: true })];
+  // A filesystem reporting no inode numbers falls back to the native, case-resolving realpath.
+  if (left.ino === 0n || right.ino === 0n) return realpathSync.native(a) === realpathSync.native(b);
+  return left.dev === right.dev && left.ino === right.ino;
 }
 
 /** Tracked files a repository's work tree no longer holds, from its own index. */
@@ -1848,8 +1885,12 @@ export function computeChangeState(cwd: string): ChangeState {
     const entries: SnapshotEntry[] = [];
     for (const file of files) {
       const absolute = path.resolve(cwd, file);
-      if (gitlinks.has(file) && existsSync(absolute) && lstatSync(absolute).isDirectory()) entries.push(...expandGitlink(absolute, file));
-      else entries.push({ key: file, absolute });
+      if (gitlinks.has(file)) {
+        const expanded = expandGitlink(cwd, file, file);
+        // A gitlink path holding something other than a checkout stays a superproject input.
+        if (expanded.length === 1 && expanded[0]!.gitlink === undefined) entries.push({ key: file, absolute });
+        else entries.push(...expanded);
+      } else entries.push({ key: file, absolute });
     }
     entries.sort((a, b) => Buffer.compare(Buffer.from(a.key), Buffer.from(b.key)));
     const represented = new Set(entries.filter((entry) => entry.gitlink === undefined).map((entry) => entry.absolute));

@@ -50,7 +50,8 @@ const SYMBOLIC_REF_READ_OPTIONS = new Set(['-q', '--short']);
 /** `reflog show` is `log -g`: of log's options only a format is admitted (`--output=<file>` writes). */
 const REFLOG_SHOW_OPTION = /^--format=/;
 const GIT_READ_MAX_BUFFER = 256 * 1024 * 1024;
-export const PRESERVATION_DIFF_FLAGS = ['--binary', '--full-index', '--no-ext-diff', '--no-textconv', '--no-renames'] as const;
+/** A submodule change is always its short `Subproject commit` form, never hidden by an ignore setting. */
+export const PRESERVATION_DIFF_FLAGS = ['--binary', '--full-index', '--no-ext-diff', '--no-textconv', '--no-renames', '--submodule=short', '--ignore-submodules=none'] as const;
 
 /** The inherited environment without the repository-selecting variables, plus `extra`. */
 export function fixedGitEnv(extra: Readonly<Record<string, string>> = {}): NodeJS.ProcessEnv {
@@ -133,6 +134,27 @@ export function gitReadRecords(cwd: string, sub: GitReadSubcommand, args: readon
   if (!Buffer.from(decoded).equals(raw)) throw new Error('Git output cannot be represented losslessly');
   if (decoded !== '' && !decoded.endsWith('\0')) throw new Error('Incomplete NUL Git capture');
   return decoded === '' ? [] : decoded.slice(0, -1).split('\0');
+}
+
+/** One `ls-files -t [-v] --stage` index record. Under `-v` a lowercase tag marks an
+ *  assume-unchanged entry; tag `S` is skip-worktree. */
+export interface IndexRecord { file: string; mode: string; oid: string; stage: string; assumeUnchanged: boolean; skipWorktree: boolean }
+
+/** Parses an index record, the one reading shared by the fingerprint, preservation and
+ *  repository state, so all of them refuse the same unprovable shapes (#352). */
+export function parseIndexRecord(record: string): IndexRecord {
+  const match = /^([A-Za-z]) (\d{6}) ([0-9a-f]+) (\d)\t([\s\S]+)$/.exec(record);
+  if (!match) throw new Error('Unsupported Git index record');
+  const tag = match[1]!;
+  return { file: match[5]!, mode: match[2]!, oid: match[3]!, stage: match[4]!,
+    assumeUnchanged: tag !== tag.toUpperCase(), skipWorktree: tag.toUpperCase() === 'S' };
+}
+
+/** Why an index record's work-tree bytes are hidden from status and diff, or null. */
+export function hiddenIndexShape(record: IndexRecord): 'assume-unchanged' | 'skip-worktree' | 'unmerged' | null {
+  if (record.assumeUnchanged) return 'assume-unchanged';
+  if (record.skipWorktree) return 'skip-worktree';
+  return record.stage === '0' ? null : 'unmerged';
 }
 
 /** A git read whose exit status 1 means "absent" rather than "unreadable"; the output is trimmed. */
