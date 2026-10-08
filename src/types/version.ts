@@ -29,12 +29,12 @@ export const PROSPEC_VERSION: string = process.env.PROSPEC_VERSION || pkgVersion
  * introduced. Bump ONLY when a skill starts calling a CLI surface added in a
  * newer published version — never as a routine release chore or ahead of an
  * unfinished release. Unreleased command additions are exercised from source
- * while developing this repository. `2.3.0` is the release that
+ * while developing this repository. `2.4.0` is the release that
  * ships the command contract used by the current skills — `prospec-new-story`,
- * `prospec-plan`, `prospec-tasks` and `prospec-review` call `prospec constitution
- * show`, `prospec-plan` and `prospec-implement` call `prospec learn playbook`, and the
- * delegation protocol calls `prospec change delegate`, commands 2.2.x does not have —
- * so a lower floor would let a 2.2.x binary pass the probe and then die mid-station on
- * commander's unknown-command error.
+ * `prospec-explore` and `prospec-ff` call `prospec validate proposal`, and the
+ * escalation guidance shared by plan, tasks, ff, review, verify and archive calls
+ * `prospec change abandon`, surfaces 2.3.x does not have — so a lower floor would
+ * let a 2.3.x binary pass the probe and then die mid-station on commander's
+ * unknown-command error.
  */
-export const MINIMUM_CLI_VERSION = '2.3.0';
+export const MINIMUM_CLI_VERSION = '2.4.0';
