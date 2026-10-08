@@ -39,6 +39,7 @@
   - [Available Skills Inventory](#ai-skills)
   - [Quality Gates & Self-Improvement](#quality-gates--self-improvement)
   - [Right-Sized Process (Scale)](#right-sized-process-scale)
+  - [Sourced requirement premises](#sourced-requirement-premises)
 - [CLI Commands](#cli-commands) — full detail in [CLI Reference](./reference/cli-reference.md)
 - [Configuration](#configuration) — the keys you tune, in [CLI Reference](./reference/cli-reference.md#configuration)
 - [Advanced Workflows](#advanced-workflows)
@@ -506,6 +507,12 @@ the providers' documented prefix-caching semantics, not from a direct before/aft
 
 </details>
 
+### Sourced requirement premises
+
+New standard/full changes start with a pending `## Premise` in proposal.md and `premise_version: 1` in metadata. Record the problem, original source/reference, evidence/result, withdrawal condition and verification. `prospec validate proposal <change>` (or `--json`) checks readiness; `prospec status` routes incomplete premises to `prospec-explore`, then `prospec-new-story` updates the same proposal. Plan/tasks, forward status changes, verify recording and archive refuse before writing until ready; promoting a post-story change to standard/full checks the target scale too. Quick/backfill are exempt; metadata without the version remains legacy with a visible limitation. Missing metadata and unknown versions refuse.
+
+Verification never relabels an `ai-proposed` origin. Reproducible bugs use evidence with steps, expected/actual behavior and a conclusion; this can shorten the interview. CLI validation checks structure, not source authenticity or evidence truth, and runs no reproduction steps. Auto-drafts remain pending until their premise is investigated.
+
 ---
 
 ## CLI Commands
@@ -846,9 +853,3 @@ Prospec's unique contribution: **cli-first SDD with judgment-only Skills** — t
 [Back to top](#prospec)
 
 </div>
-
-### Sourced requirement premises
-
-New standard/full changes start with a pending `## Premise` in proposal.md and `premise_version: 1` in metadata. Record the problem, original source/reference, evidence/result, withdrawal condition and verification. `prospec validate proposal <change>` (or `--json`) checks readiness; `prospec status` routes incomplete premises to `prospec-explore`, then `prospec-new-story` updates the same proposal. Plan/tasks, forward status changes, verify recording and archive refuse before writing until ready; promoting a post-story change to standard/full checks the target scale too. Quick/backfill are exempt; metadata without the version remains legacy with a visible limitation. Missing metadata and unknown versions refuse.
-
-Verification never relabels an `ai-proposed` origin. Reproducible bugs use evidence with steps, expected/actual behavior and a conclusion; this can shorten the interview. CLI validation checks structure, not source authenticity or evidence truth, and runs no reproduction steps. Auto-drafts remain pending until their premise is investigated.

@@ -39,6 +39,7 @@
   - [17 個 Skills 清單](#ai-skills)
   - [品質閘門與自我改進](#品質閘門與自我改進)
   - [相稱流程 (Scale)](#相稱流程scale)
+  - [具來源的需求前提](#具來源的需求前提)
 - [CLI 命令](#cli-命令) — 完整細節見 [CLI 參考](./reference/cli-reference.zh-TW.md)
 - [設定 (Configuration)](#設定-configuration) — 最常調整的鍵見 [CLI 參考](./reference/cli-reference.zh-TW.md#設定-configuration)
 - [進階工作流](#進階工作流)
@@ -486,6 +487,12 @@ Prospec 生成 17 個 Skills —— 15 個涵蓋完整 SDD 生命週期，外加
 
 </details>
 
+### 具來源的需求前提
+
+新的 standard/full change 會在 proposal.md 產生 pending 的 `## Premise`，metadata 宣告 `premise_version: 1`。需記錄問題、原始來源與參照、證據及結果、撤回條件與驗證紀錄。`prospec validate proposal <change>`（可加 `--json`）檢查完整性；`prospec status` 將未完成的前提導向 `prospec-explore`，再由 `prospec-new-story` 更新同一份 proposal。Plan/tasks、向前 status 變更、verify record 與 archive 會在寫入前拒絕未完成的前提；已過 story 再升級 standard/full 時也會檢查目標 scale。Quick/backfill 豁免；沒有版本欄位的 metadata 保持 legacy 並揭露限制。缺少 metadata 或未知版本則拒絕。
+
+驗證不會把 `ai-proposed` 的原始來源改名。可重現 bug 需記錄步驟、預期／實際行為與結論，因此可縮短訪談。CLI 只檢查結構，不認證來源或證據真實性，也不執行重現步驟。Auto-draft 的前提會維持 pending，直到查證完成。
+
 ---
 
 ## CLI 命令
@@ -809,9 +816,3 @@ Prospec 的獨特貢獻：**cli-first SDD、Skills 只留判斷** — CLI 執行
 [回到頂端](#prospec)
 
 </div>
-
-### 具來源的需求前提
-
-新的 standard/full change 會在 proposal.md 產生 pending 的 `## Premise`，metadata 宣告 `premise_version: 1`。需記錄問題、原始來源與參照、證據及結果、撤回條件與驗證紀錄。`prospec validate proposal <change>`（可加 `--json`）檢查完整性；`prospec status` 將未完成的前提導向 `prospec-explore`，再由 `prospec-new-story` 更新同一份 proposal。Plan/tasks、向前 status 變更、verify record 與 archive 會在寫入前拒絕未完成的前提；已過 story 再升級 standard/full 時也會檢查目標 scale。Quick/backfill 豁免；沒有版本欄位的 metadata 保持 legacy 並揭露限制。缺少 metadata 或未知版本則拒絕。
-
-驗證不會把 `ai-proposed` 的原始來源改名。可重現 bug 需記錄步驟、預期／實際行為與結論，因此可縮短訪談。CLI 只檢查結構，不認證來源或證據真實性，也不執行重現步驟。Auto-draft 的前提會維持 pending，直到查證完成。
