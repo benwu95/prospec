@@ -3,9 +3,10 @@ import type {
   ChangeRouteFacts,
   SddStation,
   RouteTarget,
+  WorkflowReasonCode,
 } from '../types/status.js';
 import { BREAK_GLASS_PREFIX, formatWorkflowReason, PLAN_SIGNOFF_REMEDIES, PLAN_VERSION_SIGNOFF_REMEDIES, ROUTE_TARGET_SKILLS } from '../types/status.js';
-import { forbiddenArtifacts, isStatusBefore } from '../types/change.js';
+import { forbiddenArtifacts, isStatusBefore, type ChangeStatus } from '../types/change.js';
 import { AGENT_CONFIGS } from '../types/skill.js';
 import { RELATED_MODULE_HALT_CONDITION } from './knowledge-sync.js';
 import type { ValidAgent } from '../types/config.js';
@@ -17,6 +18,12 @@ import { applicableGrant, escalationDecision } from './escalation.js';
  * evaluates them). Every edge, gate and special path below is transcribed from
  * that file's tables; when the lifecycle doc changes, this router must change
  * with it.
+ *
+ * Every decision is a rule in `ROUTING_TABLE`: the global rules run first, then
+ * the branch for the change's status, and within a scope the first rule whose
+ * condition holds decides the route — so a rule's position IS its precedence.
+ * `prospec/ai-knowledge/modules/lib/routing-flow.md` draws the table (regenerate
+ * with `pnpm routing-flow`) and lists what a new decision must update.
  *
  * Encoded rules:
  * - `status` records the last COMPLETED station: story → current `story`,
@@ -65,9 +72,433 @@ export const STATUS_STATION: Record<ChangeRouteFacts['status'], SddStation> = {
   abandoned: 'archive',
 };
 
-/** Route one in-flight change to its next SDD station. Pure — no I/O. */
-export function routeChange(facts: ChangeRouteFacts): ChangeRoute {
+/** What every rule condition and builder reads — derived once per route. */
+export interface RouteContext {
+  facts: ChangeRouteFacts;
+  forbidden: readonly string[];
+  history: ChangeRouteFacts['escalationHistory'];
+  /** The plan sign-off pause applies: enabled, and the scale's contract has a plan. */
+  pauseApplies: boolean;
+  /** Design hangs off the plan station: ui_scope full/partial under a scale with a plan. */
+  designApplies: boolean;
+}
+
+/** One routing decision. `label` is its human reading of `when`, drawn on the routing diagram. */
+export interface RouteRule {
+  id: string;
+  label: string;
+  when: (c: RouteContext) => boolean;
+  code: WorkflowReasonCode;
+  /** A halt is declared statically (`null`); a dynamic target always resolves to a station. */
+  next: RouteTarget | null | { label: string; resolve: (c: RouteContext) => RouteTarget };
+  gates: (c: RouteContext) => readonly string[];
+  reasons: (c: RouteContext) => readonly string[];
+  extra?: (c: RouteContext) => Pick<ChangeRoute, 'escalation'>;
+}
+
+export interface RouteBranch {
+  statuses: readonly ChangeStatus[];
+  /** Reasons every route of this branch opens with. */
+  preamble?: (c: RouteContext) => readonly string[];
+  /** Ends with a rule whose `when` is `OTHERWISE`. */
+  rules: readonly RouteRule[];
+}
+
+export interface RoutingTable {
+  global: readonly RouteRule[];
+  branches: readonly RouteBranch[];
+}
+
+/** The unconditional condition that closes every branch. */
+export const OTHERWISE = (): boolean => true;
+
+const isTerminal = (status: ChangeStatus): boolean => status === 'archived' || status === 'abandoned';
+const hasPendingEscalation = (c: RouteContext): boolean => !isTerminal(c.facts.status) && c.history?.pending != null;
+const pendingGrant = (c: RouteContext) => applicableGrant(c.history!, c.history!.pending!.station);
+const pendingDecision = (c: RouteContext) => {
+  const pending = c.history!.pending!;
+  return escalationDecision({
+    event_id: pending.event_id, station: pending.station,
+    trigger: pending.trigger, ordinal: c.history!.events.length,
+  });
+};
+const pendingReason = (c: RouteContext): string =>
+  `${c.history!.pending!.trigger}: ${c.history!.events.length} lifetime escalation event(s); recommended: ${pendingDecision(c).recommended}`;
+// Streak escalation is the legacy bound: once a structured escalation history exists, it governs.
+const streakReached = (c: RouteContext, streak: number): boolean =>
+  c.history === undefined && streak >= c.facts.maxStationRetries;
+
+const PLAN_VERIFIER_GATE = `Architecture Verifier PASS/WARN recorded via \`prospec change log --skill prospec-plan --verifier-report <file>\` (or a documented Break-Glass \`--result WARN --warning "${BREAK_GLASS_PREFIX} …"\`)`;
+const TASKS_VERIFIER_GATE = `Task Verifier PASS/WARN recorded via \`prospec change log --skill prospec-tasks --verifier-report <file>\` (or a documented Break-Glass \`--result WARN --warning "${BREAK_GLASS_PREFIX} …"\`)`;
+const VERIFY_GATE = 'grade S or A required (no FAIL, ≤ 2 WARN); `prospec verify record` adjudicates machine dimensions from `prospec check` — follow its current assessment, refusal and remediation';
+const REVERIFY_GATE = 'a fresh grade S or A recorded by `prospec verify record` (no FAIL, ≤ 2 WARN)';
+
+const GLOBAL_RULES: readonly RouteRule[] = [
+  // A scale with neither a plan nor a task list has NO forward planning station:
+  // its lifecycle entry is the promotion itself, landing at `implemented`. Until
+  // it gets there the promotion is simply incomplete — routing such a change to
+  // plan or tasks names a station the CLI refuses.
+  {
+    id: 'promotion-incomplete',
+    label: 'scale has no plan and no task list,<br>premise not blocked,<br>status before implemented?',
+    when: (c) => c.forbidden.includes('plan.md') && c.forbidden.includes('tasks.md') &&
+      c.facts.premise?.state !== 'blocked' && isStatusBefore(c.facts.status, 'implemented'),
+    code: 'PROMOTION_INCOMPLETE',
+    next: 'promote',
+    gates: () => ['promotion scaffold complete — `prospec validate promote-scaffold` PASSes and `status: implemented` is set'],
+    reasons: (c) => [
+      `scale: ${c.facts.scale} — its contract has no plan and no task list, so the lifecycle entry is the promotion itself; \`status: ${c.facts.status}\` is before \`implemented\`, so that promotion has not landed`,
+    ],
+  },
+  {
+    id: 'escalation-granted',
+    label: 'non-terminal, escalation pending,<br>an applicable grant for the pending event (applicableGrant)?',
+    when: (c) => hasPendingEscalation(c) && pendingGrant(c) !== undefined,
+    code: 'LIFECYCLE_NEXT',
+    next: {
+      label: 'pending station',
+      resolve: (c) => c.history!.pending!.station.slice('prospec-'.length) as 'plan' | 'tasks' | 'review' | 'verify',
+    },
+    gates: () => ['One new accepted attempt is authorized; existing test and live-evidence gates still apply'],
+    reasons: (c) => [pendingReason(c)],
+    extra: (c) => ({ escalation: pendingDecision(c) }),
+  },
+  {
+    id: 'escalation-pending',
+    label: 'non-terminal, escalation pending?',
+    when: hasPendingEscalation,
+    code: 'ESCALATE_TO_HUMAN',
+    next: null,
+    gates: () => ['Present the CLI exits to the developer; a break-glass grant requires an explicit nonempty reason for this event and station'],
+    reasons: (c) => [pendingReason(c)],
+    extra: (c) => ({ escalation: pendingDecision(c) }),
+  },
+  {
+    id: 'premise-blocked',
+    label: 'non-terminal, premise blocked?',
+    when: (c) => !isTerminal(c.facts.status) && c.facts.premise?.state === 'blocked',
+    code: 'PREMISE_INCOMPLETE',
+    next: 'explore',
+    gates: (c) => c.facts.premise!.findings,
+    reasons: (c) => [c.facts.premise!.remedy, c.facts.premise!.limitation],
+  },
+];
+
+const STORY_BRANCH: RouteBranch = {
+  statuses: ['story'],
+  rules: [
+    // A scale that also forbids tasks.md already took the promotion rule, so
+    // forbidding plan.md here means exactly the quick skip.
+    {
+      id: 'quick-skips-plan',
+      label: 'scale has no plan?',
+      when: (c) => c.forbidden.includes('plan.md'),
+      code: 'QUICK_SKIPS_PLAN',
+      next: 'tasks',
+      gates: () => ['tasks.md created (decomposed directly from proposal.md)'],
+      reasons: (c) => [
+        `scale: ${c.facts.scale} — story → tasks is the single legal skip; no plan.md/delta-spec.md by contract (re-checked at the prospec-archive Entry Gate)`,
+      ],
+    },
+    {
+      id: 'story-next', label: 'otherwise', when: OTHERWISE, code: 'LIFECYCLE_NEXT', next: 'plan',
+      gates: () => ['plan.md + delta-spec.md created'],
+      reasons: () => ['status `story` — next station per lifecycle order'],
+    },
+  ],
+};
+
+const PLAN_BRANCH: RouteBranch = {
+  statuses: ['plan'],
+  rules: [
+    // The plan verifier's recorded FLAWS (result FAIL) outranks every forward
+    // edge, design included: a plan that failed its own audit is revised before
+    // anything is built on it. Superseded only by a later PASS or Break-Glass
+    // WARN — the service applies that reading, the router just trusts the fact.
+    {
+      id: 'plan-verifier-streak',
+      label: 'plan verifier FAIL,<br>no escalation history,<br>streak ≥ max retries?',
+      when: (c) => c.facts.lastPlanVerifierResult === 'FAIL' && streakReached(c, c.facts.planFlawsStreak),
+      code: 'ESCALATE_TO_HUMAN',
+      next: null,
+      gates: () => [PLAN_VERIFIER_GATE],
+      reasons: (c) => [
+        `the prospec-plan verifier has failed ${c.facts.planFlawsStreak} consecutive times (limit: ${c.facts.maxStationRetries}) — escalating to human; resolve repeated architecture verifier flaws`,
+      ],
+    },
+    {
+      id: 'plan-verifier-failed',
+      label: 'plan verifier FAIL?',
+      when: (c) => c.facts.lastPlanVerifierResult === 'FAIL',
+      code: 'PLAN_VERIFIER_FAILED',
+      next: 'plan',
+      gates: () => [PLAN_VERIFIER_GATE],
+      reasons: () => [
+        'the latest recorded prospec-plan verifier result is FAIL — revise plan.md/delta-spec.md and re-run the Architecture Verifier; the status stays `plan`',
+      ],
+    },
+    // The pause rules sit after the FAIL rules, so a plan that failed its own
+    // audit is revised before a human is asked to sign it.
+    {
+      id: 'pause-no-verifier',
+      label: 'sign-off pause applies (enabled, scale has a plan),<br>no verifier result?',
+      when: (c) => c.pauseApplies && c.facts.lastPlanVerifierResult === null,
+      code: 'PLAN_VERIFIER_PENDING',
+      next: 'plan',
+      gates: () => ['Architecture Verifier PASS/WARN recorded via `prospec change log --skill prospec-plan --verifier-report <file>`'],
+      reasons: (c) => [
+        `scale: ${c.facts.scale} with the plan sign-off pause enabled — no plan verifier result is recorded yet, so there is nothing for a human to sign off`,
+      ],
+    },
+    {
+      id: 'pause-plan-changed',
+      label: 'pause applies, not signed off,<br>plan changed since verifier?',
+      when: (c) => c.pauseApplies && !c.facts.planSignedOff && c.facts.planChangedSinceVerifier,
+      code: 'PLAN_VERIFIER_PENDING',
+      next: 'plan',
+      gates: () => ['Architecture Verifier PASS/WARN for the current plan.md and delta-spec.md recorded via `prospec change log --skill prospec-plan --verifier-report <file>`'],
+      reasons: (c) => [
+        `scale: ${c.facts.scale} with the plan sign-off pause enabled — plan.md or delta-spec.md changed after the plan verifier audited it, so a sign-off would cover an unaudited version; record a new verifier report first`,
+      ],
+    },
+    {
+      id: 'pause-awaiting-signoff',
+      label: 'pause applies, not signed off?',
+      when: (c) => c.pauseApplies && !c.facts.planSignedOff,
+      code: 'AWAITING_HUMAN_PLAN_SIGNOFF',
+      next: null,
+      gates: (c) => [
+        c.facts.scale === 'full'
+          ? 'human plan sign-off newer than the latest plan verifier result, recorded via `prospec change log --skill prospec-plan --signoff <option>` (the option must equal candidates/decision.json `recommended_option`)'
+          : 'human sign-off of the audited plan version, newer than the latest plan verifier result, recorded via `prospec change log --skill prospec-plan --signoff plan`',
+      ],
+      reasons: (c) => c.facts.scale === 'full'
+        ? [
+            'scale: full with the plan sign-off pause enabled — HALT and present the candidate summary, metrics table, in-session rationale and plan verifier report for a human decision',
+            `no decision.json or plan verifier report to sign (e.g. after \`change scale full\`, or only a Break-Glass override)? ${PLAN_SIGNOFF_REMEDIES}`,
+          ]
+        : [
+            `scale: ${c.facts.scale} with the plan sign-off pause enabled — HALT and present the direction summary of the audited plan for a human decision`,
+            `no plan verifier report to sign (only a Break-Glass override)? ${PLAN_VERSION_SIGNOFF_REMEDIES}`,
+          ],
+    },
+    // Reachable under a scale with no plan only via a manual `change status plan`;
+    // `designApplies` keys on the scale registry so design is never routed there.
+    {
+      id: 'design-required',
+      label: 'design applies (scale has a plan,<br>UI scope full/partial), no design spec?',
+      when: (c) => c.designApplies && !c.facts.hasDesignSpec,
+      code: 'DESIGN_REQUIRED',
+      next: 'design',
+      gates: () => ['design-spec.md + interaction-spec.md produced'],
+      reasons: (c) => [
+        `proposal ui_scope: ${c.facts.uiScope} — design sits between plan and tasks (owns no status transition; placed by workflow order)`,
+      ],
+    },
+    {
+      id: 'plan-next', label: 'otherwise', when: OTHERWISE, code: 'LIFECYCLE_NEXT', next: 'tasks',
+      gates: () => ['tasks.md created'],
+      reasons: (c) => [
+        'status `plan` — next station per lifecycle order',
+        ...(c.pauseApplies ? ['plan sign-off recorded — the pause is released'] : []),
+        ...(c.designApplies && c.facts.hasDesignSpec ? ['design-spec.md present — the design station has already run'] : []),
+      ],
+    },
+  ],
+};
+
+const TASKS_BRANCH: RouteBranch = {
+  statuses: ['tasks'],
+  rules: [
+    {
+      id: 'tasks-verifier-streak',
+      label: 'tasks verifier FAIL,<br>no escalation history,<br>streak ≥ max retries?',
+      when: (c) => c.facts.lastTasksVerifierResult === 'FAIL' && streakReached(c, c.facts.tasksFlawsStreak),
+      code: 'ESCALATE_TO_HUMAN',
+      next: null,
+      gates: () => [TASKS_VERIFIER_GATE],
+      reasons: (c) => [
+        `the prospec-tasks verifier has failed ${c.facts.tasksFlawsStreak} consecutive times (limit: ${c.facts.maxStationRetries}) — escalating to human; resolve repeated task verifier flaws`,
+      ],
+    },
+    {
+      id: 'tasks-verifier-failed',
+      label: 'tasks verifier FAIL?',
+      when: (c) => c.facts.lastTasksVerifierResult === 'FAIL',
+      code: 'TASKS_VERIFIER_FAILED',
+      next: 'tasks',
+      gates: () => [TASKS_VERIFIER_GATE],
+      reasons: () => [
+        'the latest recorded prospec-tasks verifier result is FAIL — revise tasks.md and re-run the Task Verifier; the status stays `tasks`',
+      ],
+    },
+    {
+      id: 'tasks-next', label: 'otherwise', when: OTHERWISE, code: 'LIFECYCLE_NEXT', next: 'implement',
+      // Honest gate state, never a vacuous pass: a missing tasks.md or an
+      // empty code-task set is surfaced instead of reading as "all done".
+      gates: (c) => [
+        !c.facts.hasTasks
+          ? 'tasks.md not found — prospec-tasks owns its creation'
+          : c.facts.codeTasksTotal === 0
+            ? 'no code tasks found in tasks.md — nothing measurable to complete'
+            : `\`prospec change status implemented\` refuses until all code-task checkboxes are complete — currently ${c.facts.codeTasksDone}/${c.facts.codeTasksTotal} ([M]/[V] tasks are reminders, not blockers)`,
+      ],
+      reasons: () => ['status `tasks` — next station per lifecycle order'],
+    },
+  ],
+};
+
+const IMPLEMENTED_BRANCH: RouteBranch = {
+  statuses: ['implemented'],
+  preamble: (c) => c.facts.scale === 'backfill'
+    ? ['scale: backfill — legal lifecycle entry at `implemented` (brownfield code pre-exists; no plan/tasks by design, not a skipped station)']
+    : [],
+  rules: [
+    {
+      id: 'review-pending',
+      label: 'no review provenance?',
+      when: (c) => !c.facts.hasReviewProvenance,
+      code: 'REVIEW_PENDING',
+      next: 'review',
+      gates: () => ['adversarial review completed and its baseline recorded (`prospec check --record-review`)'],
+      reasons: () => [
+        'review owns no status transition — placed by workflow order between implemented and verified (no review_provenance recorded yet)',
+      ],
+    },
+    {
+      id: 'verify-streak',
+      label: 'recorded grade below S/A,<br>no escalation history,<br>streak ≥ max retries?',
+      when: (c) => gradeBelowBar(c.facts.lastVerifyGrade) && streakReached(c, c.facts.verifyBelowBarStreak),
+      code: 'ESCALATE_TO_HUMAN',
+      next: null,
+      gates: () => [VERIFY_GATE],
+      reasons: (c) => [
+        `prospec-verify has produced below-bar grades ${c.facts.verifyBelowBarStreak} consecutive times (limit: ${c.facts.maxStationRetries}, latest: ${c.facts.lastVerifyGrade}) — escalating to human; fix the WARN/FAIL items and re-run prospec-verify`,
+      ],
+    },
+    {
+      id: 'verify-below-bar',
+      label: 'recorded grade below S/A?',
+      when: (c) => gradeBelowBar(c.facts.lastVerifyGrade),
+      code: 'VERIFY_GRADE_BELOW_BAR',
+      next: 'verify',
+      gates: () => [VERIFY_GATE],
+      reasons: (c) => [
+        `previous verify grade ${c.facts.lastVerifyGrade} did not advance the status — fix the WARN/FAIL items and re-run prospec-verify`,
+      ],
+    },
+    {
+      id: 'verify-pending', label: 'otherwise', when: OTHERWISE, code: 'VERIFY_PENDING', next: 'verify',
+      gates: () => [VERIFY_GATE],
+      reasons: () => ['review_provenance recorded — verify is the next station'],
+    },
+  ],
+};
+
+const VERIFIED_BRANCH: RouteBranch = {
+  statuses: ['verified'],
+  rules: [
+    // The persisted status never regresses, but the LATEST grade decides the
+    // route: a re-verify that landed B/C/D means the change is not archivable
+    // until a fresh S/A — say so here, not at the archive refusal.
+    {
+      id: 'reverify-streak',
+      label: 'latest grade below S/A,<br>no escalation history,<br>streak ≥ max retries?',
+      when: (c) => gradeBelowBar(c.facts.lastVerifyGrade) && streakReached(c, c.facts.verifyBelowBarStreak),
+      code: 'ESCALATE_TO_HUMAN',
+      next: null,
+      gates: () => [REVERIFY_GATE],
+      reasons: (c) => [
+        `status stays \`verified\` (forward-only) but prospec-verify has produced below-bar grades ${c.facts.verifyBelowBarStreak} consecutive times (limit: ${c.facts.maxStationRetries}, latest: ${c.facts.lastVerifyGrade}) — escalating to human; fix the WARN/FAIL items and re-run prospec-verify before archive`,
+      ],
+    },
+    {
+      id: 'reverify-below-bar',
+      label: 'latest grade below S/A?',
+      when: (c) => gradeBelowBar(c.facts.lastVerifyGrade),
+      code: 'VERIFY_GRADE_BELOW_BAR',
+      next: 'verify',
+      gates: () => [REVERIFY_GATE],
+      reasons: (c) => [
+        `status stays \`verified\` (forward-only) but the latest prospec-verify grade is ${c.facts.lastVerifyGrade} — fix the WARN/FAIL items and re-run prospec-verify before archive; \`prospec archive\` would refuse this change`,
+      ],
+    },
+    // Only KNOWLEDGE_UNSYNCED is knowledge-update's to repair; any other reason
+    // halts for a human rather than naming a station that cannot fix it. Each gap
+    // reason keeps its own code: the formatter prefixes every reason line with the
+    // route's code, which a co-listed KNOWLEDGE_UNSYNCED reason does not share.
+    {
+      id: 'knowledge-input-invalid',
+      label: 'a knowledge-sync reason<br>other than UNSYNCED?',
+      when: (c) => c.facts.knowledgeSyncReasons.some((r) => r.code !== 'KNOWLEDGE_UNSYNCED'),
+      code: 'KNOWLEDGE_INPUT_INVALID',
+      next: null,
+      gates: () => [
+        `knowledge-sync inputs repaired — every delta-spec REQ id canonical, module-map.yaml readable; resolve ${RELATED_MODULE_HALT_CONDITION}`,
+      ],
+      reasons: (c) => [
+        'status `verified` — a knowledge-sync input no station repairs blocks archive; prospec-knowledge-update cannot fix it, so repair it and re-run prospec status',
+        ...c.facts.knowledgeSyncReasons.map(formatWorkflowReason),
+      ],
+    },
+    {
+      id: 'knowledge-unsynced',
+      label: 'any knowledge-sync reason?',
+      when: (c) => c.facts.knowledgeSyncReasons.length > 0,
+      code: 'KNOWLEDGE_UNSYNCED',
+      next: 'knowledge-update',
+      gates: () => [
+        'affected-module Knowledge synced (module-map.yaml last_verified updated via `prospec knowledge verify` or prospec-knowledge-update)',
+      ],
+      reasons: (c) => [
+        'status `verified` — knowledge is not yet synced for affected modules; prospec-knowledge-update is the next station',
+        ...c.facts.knowledgeSyncReasons.map(formatWorkflowReason),
+      ],
+    },
+    {
+      id: 'verified-next', label: 'otherwise', when: OTHERWISE, code: 'LIFECYCLE_NEXT', next: 'archive',
+      gates: () => [
+        '`prospec archive` refuses unless the change is `verified`',
+        'affected-module Knowledge synced — `prospec archive` refuses otherwise (verify S/A commit prompt is the prevention; the archive Entry Gate is the backstop)',
+        // `verified` is inside PROVENANCE_AUDITED_STATUSES, so these are live gates
+        // on this edge, not just on the one before it. Equivalent commits keep
+        // repository-input evidence current. Declared, not
+        // evaluated: the router is I/O-free and never reads the drift report — the
+        // station CLI (`prospec archive`) is the adjudicator that refuses on them.
+        'review/test provenance current for the final inputs — `prospec archive` refuses on any FAIL (`prospec check` — re-record when inputs change; equivalent commits preserve evidence)',
+      ],
+      reasons: () => ['status `verified` — next station per lifecycle order'],
+    },
+  ],
+};
+
+const TERMINAL_BRANCH: RouteBranch = {
+  statuses: ['abandoned', 'archived'],
+  rules: [
+    {
+      id: 'terminal', label: 'otherwise', when: OTHERWISE, code: 'TERMINAL', next: null,
+      gates: () => [],
+      reasons: () => ['terminal — linear flow complete; periodic prospec-learn applies'],
+    },
+  ],
+};
+
+/** Every routing decision, in evaluation order. */
+export const ROUTING_TABLE: RoutingTable = {
+  global: GLOBAL_RULES,
+  branches: [STORY_BRANCH, PLAN_BRANCH, TASKS_BRANCH, IMPLEMENTED_BRANCH, VERIFIED_BRANCH, TERMINAL_BRANCH],
+};
+
+/** Route one change through any table of `ROUTING_TABLE`'s shape. Pure — no I/O. */
+export function routeWith(table: RoutingTable, facts: ChangeRouteFacts): ChangeRoute {
   const forbidden = forbiddenArtifacts(facts.scale);
+  const c: RouteContext = {
+    facts,
+    forbidden,
+    history: facts.escalationHistory,
+    pauseApplies: facts.pauseAtPlan && !forbidden.includes('plan.md'),
+    designApplies: (facts.uiScope === 'full' || facts.uiScope === 'partial') && !forbidden.includes('plan.md'),
+  };
 
   const base = {
     name: facts.name,
@@ -93,390 +524,30 @@ export function routeChange(facts: ChangeRouteFacts): ChangeRoute {
     ...(facts.escalationHistory === undefined ? {} : { escalationHistory: facts.escalationHistory }),
   } satisfies Omit<ChangeRoute, 'next' | 'code' | 'blockingGates' | 'reasons'>;
 
-  // A scale with neither a plan nor a task list has NO forward planning station:
-  // its lifecycle entry is the promotion itself, landing at `implemented`. Until
-  // it gets there the promotion is simply incomplete — routing such a change to
-  // plan or tasks names a station the CLI refuses.
-  if (
-    forbidden.includes('plan.md') &&
-    forbidden.includes('tasks.md') &&
-    facts.premise?.state !== 'blocked' &&
-    isStatusBefore(facts.status, 'implemented')
-  ) {
-    return {
-      ...base,
-      next: 'promote',
-      code: 'PROMOTION_INCOMPLETE',
-      blockingGates: [
-        'promotion scaffold complete — `prospec validate promote-scaffold` PASSes and `status: implemented` is set',
-      ],
-      reasons: [
-        `scale: ${facts.scale} — its contract has no plan and no task list, so the lifecycle entry is the promotion itself; \`status: ${facts.status}\` is before \`implemented\`, so that promotion has not landed`,
-      ],
-    };
+  // Fresh arrays every call: callers append to `reasons`, and a builder may hand
+  // back an array it does not own (the premise findings).
+  const fire = (rule: RouteRule, preamble: readonly string[]): ChangeRoute => ({
+    ...base,
+    ...rule.extra?.(c),
+    next: rule.next === null || typeof rule.next === 'string' ? rule.next : rule.next.resolve(c),
+    code: rule.code,
+    blockingGates: [...rule.gates(c)],
+    reasons: [...preamble, ...rule.reasons(c)],
+  });
+
+  const global = table.global.find((rule) => rule.when(c));
+  if (global !== undefined) return fire(global, []);
+  const branch = table.branches.find((b) => b.statuses.includes(facts.status));
+  const rule = branch?.rules.find((r) => r.when(c));
+  if (branch === undefined || rule === undefined) {
+    throw new Error(`routing table has no rule for status "${facts.status}"`);
   }
+  return fire(rule, branch.preamble?.(c) ?? []);
+}
 
-  const history = facts.escalationHistory;
-  if (facts.status !== 'archived' && facts.status !== 'abandoned' && history?.pending != null) {
-    const pending = history.pending;
-    const decision = escalationDecision({
-      event_id: pending.event_id, station: pending.station,
-      trigger: pending.trigger, ordinal: history.events.length,
-    });
-    const grant = applicableGrant(history, pending.station);
-    const station = pending.station.slice('prospec-'.length) as 'plan' | 'tasks' | 'review' | 'verify';
-    return {
-      ...base, escalation: decision,
-      next: grant === undefined ? null : station,
-      code: grant === undefined ? 'ESCALATE_TO_HUMAN' : 'LIFECYCLE_NEXT',
-      blockingGates: grant === undefined
-        ? ['Present the CLI exits to the developer; a break-glass grant requires an explicit nonempty reason for this event and station']
-        : ['One new accepted attempt is authorized; existing test and live-evidence gates still apply'],
-      reasons: [`${pending.trigger}: ${history.events.length} lifetime escalation event(s); recommended: ${decision.recommended}`],
-    };
-  }
-
-  if (facts.status !== 'archived' && facts.status !== 'abandoned' && facts.premise?.state === 'blocked') {
-    return {
-      ...base, next: 'explore', code: 'PREMISE_INCOMPLETE',
-      blockingGates: facts.premise.findings,
-      reasons: [facts.premise.remedy, facts.premise.limitation],
-    };
-  }
-
-  switch (facts.status) {
-    case 'story': {
-      // A scale that also forbids tasks.md already returned above, so forbidding
-      // plan.md here means exactly the quick skip — the second clause would be a
-      // tautology, and a condition that cannot fail pins nothing.
-      if (forbidden.includes('plan.md')) {
-        return {
-          ...base,
-          next: 'tasks',
-          code: 'QUICK_SKIPS_PLAN',
-          blockingGates: ['tasks.md created (decomposed directly from proposal.md)'],
-          reasons: [
-            `scale: ${facts.scale} — story → tasks is the single legal skip; no plan.md/delta-spec.md by contract (re-checked at the prospec-archive Entry Gate)`,
-          ],
-        };
-      }
-      return {
-        ...base,
-        next: 'plan',
-        code: 'LIFECYCLE_NEXT',
-        blockingGates: ['plan.md + delta-spec.md created'],
-        reasons: ['status `story` — next station per lifecycle order'],
-      };
-    }
-
-    case 'plan': {
-      // The plan verifier's recorded FLAWS (result FAIL) outranks every forward
-      // edge, design included: a plan that failed its own audit is revised before
-      // anything is built on it. Superseded only by a later PASS or Break-Glass
-      // WARN — the service applies that reading, the router just trusts the fact.
-      if (facts.lastPlanVerifierResult === 'FAIL') {
-        if (history === undefined && facts.planFlawsStreak >= facts.maxStationRetries) {
-          return {
-            ...base,
-            next: null,
-            code: 'ESCALATE_TO_HUMAN',
-            blockingGates: [
-              `Architecture Verifier PASS/WARN recorded via \`prospec change log --skill prospec-plan --verifier-report <file>\` (or a documented Break-Glass \`--result WARN --warning "${BREAK_GLASS_PREFIX} …"\`)`,
-            ],
-            reasons: [
-              `the prospec-plan verifier has failed ${facts.planFlawsStreak} consecutive times (limit: ${facts.maxStationRetries}) — escalating to human; resolve repeated architecture verifier flaws`,
-            ],
-          };
-        }
-        return {
-          ...base,
-          next: 'plan',
-          code: 'PLAN_VERIFIER_FAILED',
-          blockingGates: [
-            `Architecture Verifier PASS/WARN recorded via \`prospec change log --skill prospec-plan --verifier-report <file>\` (or a documented Break-Glass \`--result WARN --warning "${BREAK_GLASS_PREFIX} …"\`)`,
-          ],
-          reasons: [
-            'the latest recorded prospec-plan verifier result is FAIL — revise plan.md/delta-spec.md and re-run the Architecture Verifier; the status stays `plan`',
-          ],
-        };
-      }
-      // The pause applies to any scale whose contract has a plan — the same registry
-      // reading as design below — and only after the FAIL branch, so a plan that failed
-      // its own audit is revised before a human is asked to sign it.
-      const pauseApplies = facts.pauseAtPlan && !forbidden.includes('plan.md');
-      if (pauseApplies) {
-        if (facts.lastPlanVerifierResult === null) {
-          return {
-            ...base,
-            next: 'plan',
-            code: 'PLAN_VERIFIER_PENDING',
-            blockingGates: [
-              'Architecture Verifier PASS/WARN recorded via `prospec change log --skill prospec-plan --verifier-report <file>`',
-            ],
-            reasons: [
-              `scale: ${facts.scale} with the plan sign-off pause enabled — no plan verifier result is recorded yet, so there is nothing for a human to sign off`,
-            ],
-          };
-        }
-        if (!facts.planSignedOff && facts.planChangedSinceVerifier) {
-          return {
-            ...base,
-            next: 'plan',
-            code: 'PLAN_VERIFIER_PENDING',
-            blockingGates: [
-              'Architecture Verifier PASS/WARN for the current plan.md and delta-spec.md recorded via `prospec change log --skill prospec-plan --verifier-report <file>`',
-            ],
-            reasons: [
-              `scale: ${facts.scale} with the plan sign-off pause enabled — plan.md or delta-spec.md changed after the plan verifier audited it, so a sign-off would cover an unaudited version; record a new verifier report first`,
-            ],
-          };
-        }
-        if (!facts.planSignedOff) {
-          const full = facts.scale === 'full';
-          return {
-            ...base,
-            next: null,
-            code: 'AWAITING_HUMAN_PLAN_SIGNOFF',
-            blockingGates: [
-              full
-                ? 'human plan sign-off newer than the latest plan verifier result, recorded via `prospec change log --skill prospec-plan --signoff <option>` (the option must equal candidates/decision.json `recommended_option`)'
-                : 'human sign-off of the audited plan version, newer than the latest plan verifier result, recorded via `prospec change log --skill prospec-plan --signoff plan`',
-            ],
-            reasons: full
-              ? [
-                  'scale: full with the plan sign-off pause enabled — HALT and present the candidate summary, metrics table, in-session rationale and plan verifier report for a human decision',
-                  `no decision.json or plan verifier report to sign (e.g. after \`change scale full\`, or only a Break-Glass override)? ${PLAN_SIGNOFF_REMEDIES}`,
-                ]
-              : [
-                  `scale: ${facts.scale} with the plan sign-off pause enabled — HALT and present the direction summary of the audited plan for a human decision`,
-                  `no plan verifier report to sign (only a Break-Glass override)? ${PLAN_VERSION_SIGNOFF_REMEDIES}`,
-                ],
-          };
-        }
-      }
-      // Design hangs off the `plan` station, so a scale whose contract has no plan
-      // is never routed to it — the lifecycle states this for quick, and keying it
-      // on the registry rather than the scale name keeps the two from drifting.
-      // (Reachable at this status only via a manual `change status plan`.)
-      const designApplies =
-        (facts.uiScope === 'full' || facts.uiScope === 'partial') &&
-        !forbidden.includes('plan.md');
-      if (designApplies && !facts.hasDesignSpec) {
-        return {
-          ...base,
-          next: 'design',
-          code: 'DESIGN_REQUIRED',
-          blockingGates: ['design-spec.md + interaction-spec.md produced'],
-          reasons: [
-            `proposal ui_scope: ${facts.uiScope} — design sits between plan and tasks (owns no status transition; placed by workflow order)`,
-          ],
-        };
-      }
-      const reasons = ['status `plan` — next station per lifecycle order'];
-      if (pauseApplies) {
-        reasons.push('plan sign-off recorded — the pause is released');
-      }
-      if (designApplies && facts.hasDesignSpec) {
-        reasons.push('design-spec.md present — the design station has already run');
-      }
-      return {
-        ...base,
-        next: 'tasks',
-        code: 'LIFECYCLE_NEXT',
-        blockingGates: ['tasks.md created'],
-        reasons,
-      };
-    }
-
-    case 'tasks': {
-      if (facts.lastTasksVerifierResult === 'FAIL') {
-        if (history === undefined && facts.tasksFlawsStreak >= facts.maxStationRetries) {
-          return {
-            ...base,
-            next: null,
-            code: 'ESCALATE_TO_HUMAN',
-            blockingGates: [
-              `Task Verifier PASS/WARN recorded via \`prospec change log --skill prospec-tasks --verifier-report <file>\` (or a documented Break-Glass \`--result WARN --warning "${BREAK_GLASS_PREFIX} …"\`)`,
-            ],
-            reasons: [
-              `the prospec-tasks verifier has failed ${facts.tasksFlawsStreak} consecutive times (limit: ${facts.maxStationRetries}) — escalating to human; resolve repeated task verifier flaws`,
-            ],
-          };
-        }
-        return {
-          ...base,
-          next: 'tasks',
-          code: 'TASKS_VERIFIER_FAILED',
-          blockingGates: [
-            `Task Verifier PASS/WARN recorded via \`prospec change log --skill prospec-tasks --verifier-report <file>\` (or a documented Break-Glass \`--result WARN --warning "${BREAK_GLASS_PREFIX} …"\`)`,
-          ],
-          reasons: [
-            'the latest recorded prospec-tasks verifier result is FAIL — revise tasks.md and re-run the Task Verifier; the status stays `tasks`',
-          ],
-        };
-      }
-      // Honest gate state, never a vacuous pass: a missing tasks.md or an
-      // empty code-task set is surfaced instead of reading as "all done".
-      const gate = !facts.hasTasks
-        ? 'tasks.md not found — prospec-tasks owns its creation'
-        : facts.codeTasksTotal === 0
-          ? 'no code tasks found in tasks.md — nothing measurable to complete'
-          : `\`prospec change status implemented\` refuses until all code-task checkboxes are complete — currently ${facts.codeTasksDone}/${facts.codeTasksTotal} ([M]/[V] tasks are reminders, not blockers)`;
-      return {
-        ...base,
-        next: 'implement',
-        code: 'LIFECYCLE_NEXT',
-        blockingGates: [gate],
-        reasons: ['status `tasks` — next station per lifecycle order'],
-      };
-    }
-
-    case 'implemented': {
-      const reasons: string[] = [];
-      if (facts.scale === 'backfill') {
-        reasons.push(
-          'scale: backfill — legal lifecycle entry at `implemented` (brownfield code pre-exists; no plan/tasks by design, not a skipped station)',
-        );
-      }
-      if (!facts.hasReviewProvenance) {
-        reasons.push(
-          'review owns no status transition — placed by workflow order between implemented and verified (no review_provenance recorded yet)',
-        );
-        return {
-          ...base,
-          next: 'review',
-          code: 'REVIEW_PENDING',
-          blockingGates: [
-            'adversarial review completed and its baseline recorded (`prospec check --record-review`)',
-          ],
-          reasons,
-        };
-      }
-      const belowBar = gradeBelowBar(facts.lastVerifyGrade);
-      if (belowBar) {
-        if (history === undefined && facts.verifyBelowBarStreak >= facts.maxStationRetries) {
-          reasons.push(
-            `prospec-verify has produced below-bar grades ${facts.verifyBelowBarStreak} consecutive times (limit: ${facts.maxStationRetries}, latest: ${facts.lastVerifyGrade}) — escalating to human; fix the WARN/FAIL items and re-run prospec-verify`,
-          );
-          return {
-            ...base,
-            next: null,
-            code: 'ESCALATE_TO_HUMAN',
-            blockingGates: [
-              'grade S or A required (no FAIL, ≤ 2 WARN); `prospec verify record` adjudicates machine dimensions from `prospec check` — follow its current assessment, refusal and remediation',
-            ],
-            reasons,
-          };
-        }
-        reasons.push(
-          `previous verify grade ${facts.lastVerifyGrade} did not advance the status — fix the WARN/FAIL items and re-run prospec-verify`,
-        );
-      } else {
-        reasons.push('review_provenance recorded — verify is the next station');
-      }
-      return {
-        ...base,
-        next: 'verify',
-        code: belowBar ? 'VERIFY_GRADE_BELOW_BAR' : 'VERIFY_PENDING',
-        blockingGates: [
-          'grade S or A required (no FAIL, ≤ 2 WARN); `prospec verify record` adjudicates machine dimensions from `prospec check` — follow its current assessment, refusal and remediation',
-        ],
-        reasons,
-      };
-    }
-
-    case 'verified': {
-      // The persisted status never regresses, but the LATEST grade decides the
-      // route: a re-verify that landed B/C/D means the change is not archivable
-      // until a fresh S/A — say so here, not at the archive refusal.
-      if (gradeBelowBar(facts.lastVerifyGrade)) {
-        if (history === undefined && facts.verifyBelowBarStreak >= facts.maxStationRetries) {
-          return {
-            ...base,
-            next: null,
-            code: 'ESCALATE_TO_HUMAN',
-            blockingGates: [
-              'a fresh grade S or A recorded by `prospec verify record` (no FAIL, ≤ 2 WARN)',
-            ],
-            reasons: [
-              `status stays \`verified\` (forward-only) but prospec-verify has produced below-bar grades ${facts.verifyBelowBarStreak} consecutive times (limit: ${facts.maxStationRetries}, latest: ${facts.lastVerifyGrade}) — escalating to human; fix the WARN/FAIL items and re-run prospec-verify before archive`,
-            ],
-          };
-        }
-        return {
-          ...base,
-          next: 'verify',
-          code: 'VERIFY_GRADE_BELOW_BAR',
-          blockingGates: [
-            'a fresh grade S or A recorded by `prospec verify record` (no FAIL, ≤ 2 WARN)',
-          ],
-          reasons: [
-            `status stays \`verified\` (forward-only) but the latest prospec-verify grade is ${facts.lastVerifyGrade} — fix the WARN/FAIL items and re-run prospec-verify before archive; \`prospec archive\` would refuse this change`,
-          ],
-        };
-      }
-      // Each gap reason keeps its own code: the formatter prefixes every reason line
-      // with the route's code, which a co-listed KNOWLEDGE_UNSYNCED reason does not share.
-      const gapReasons = facts.knowledgeSyncReasons.map(formatWorkflowReason);
-      // Only KNOWLEDGE_UNSYNCED is knowledge-update's to repair; any other reason
-      // halts for a human rather than naming a station that cannot fix it.
-      if (facts.knowledgeSyncReasons.some((r) => r.code !== 'KNOWLEDGE_UNSYNCED')) {
-        return {
-          ...base,
-          next: null,
-          code: 'KNOWLEDGE_INPUT_INVALID',
-          blockingGates: [
-            `knowledge-sync inputs repaired — every delta-spec REQ id canonical, module-map.yaml readable; resolve ${RELATED_MODULE_HALT_CONDITION}`,
-          ],
-          reasons: [
-            'status `verified` — a knowledge-sync input no station repairs blocks archive; prospec-knowledge-update cannot fix it, so repair it and re-run prospec status',
-            ...gapReasons,
-          ],
-        };
-      }
-      if (facts.knowledgeSyncReasons.length > 0) {
-        return {
-          ...base,
-          next: 'knowledge-update',
-          code: 'KNOWLEDGE_UNSYNCED',
-          blockingGates: [
-            'affected-module Knowledge synced (module-map.yaml last_verified updated via `prospec knowledge verify` or prospec-knowledge-update)',
-          ],
-          reasons: [
-            'status `verified` — knowledge is not yet synced for affected modules; prospec-knowledge-update is the next station',
-            ...gapReasons,
-          ],
-        };
-      }
-      return {
-        ...base,
-        next: 'archive',
-        code: 'LIFECYCLE_NEXT',
-        blockingGates: [
-          '`prospec archive` refuses unless the change is `verified`',
-          'affected-module Knowledge synced — `prospec archive` refuses otherwise (verify S/A commit prompt is the prevention; the archive Entry Gate is the backstop)',
-          // `verified` is inside PROVENANCE_AUDITED_STATUSES, so these are live gates
-          // on this edge, not just on the one before it. Equivalent commits keep
-          // repository-input evidence current. Declared, not
-          // evaluated: the router is I/O-free and never reads the drift report — the
-          // station CLI (`prospec archive`) is the adjudicator that refuses on them.
-          'review/test provenance current for the final inputs — `prospec archive` refuses on any FAIL (`prospec check` — re-record when inputs change; equivalent commits preserve evidence)',
-        ],
-        reasons: ['status `verified` — next station per lifecycle order'],
-      };
-    }
-
-    case 'abandoned':
-    case 'archived': {
-      return {
-        ...base,
-        next: null,
-        code: 'TERMINAL',
-        blockingGates: [],
-        reasons: ['terminal — linear flow complete; periodic prospec-learn applies'],
-      };
-    }
-  }
+/** Route one in-flight change to its next SDD station. Pure — no I/O. */
+export function routeChange(facts: ChangeRouteFacts): ChangeRoute {
+  return routeWith(ROUTING_TABLE, facts);
 }
 
 /**

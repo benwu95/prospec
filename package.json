@@ -30,6 +30,8 @@
     "bundle": "npx tsx scripts/bundle.ts",
     "agents:check": "npx tsx scripts/check-agent-sync.ts",
     "knowledge:check": "npx tsx scripts/check-knowledge-sync.ts",
+    "routing-flow": "npx tsx scripts/routing-flow.ts",
+    "routing-flow:check": "vitest run tests/contract/routing-flow.test.ts",
     "cli": "npx tsx src/cli/index.ts"
   },
   "keywords": [
