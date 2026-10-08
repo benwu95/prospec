@@ -226,14 +226,18 @@ tests/
 > non-source ancestor, and both lists are ordered by file volume — a cap keeps the biggest, not the
 > alphabetically first.
 
-- `tests/fixtures/` — 635 files: `.md`, `.yaml`, `.json`, `.txt`
-- `prospec/` — 328 files: `.md`, `.yaml`
+- `tests/fixtures/spec-sync-corpus/` — 594 files: `.md`, `.yaml`, `.json`, `.txt`
+- `prospec/` — 330 files: `.md`, `.yaml`
+- `tests/fixtures/workflow-eval/` — 17 files: `.json`
+- `tests/fixtures/token-corpus/` — 13 files: `.md`, `.yaml`
 - `planning/` — 10 files: `.md`
+- `tests/fixtures/lessons-harvest/` — 6 files: `.md`, `.yaml`
 - `reference/` — 2 files: `.md`
+- `tests/fixtures/legacy-metadata/` — 2 files: `.yaml`
 
 ## File Stats
 
 | Metric | Value |
 |--------|-------|
-| Total files | 1627 |
+| Total files | 1636 |
 | Scan depth | 10 |
