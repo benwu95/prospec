@@ -98,6 +98,15 @@ authoritative merged-PR set: a busy release may exceed the list limit, and merge
 ancestry. Note the direct commits too so the notes do not silently omit work. Record the previous
 version's test count from that release's notes or the current `README.md`; the notes report the delta.
 
+Identify first-time contributors among the authors of that PR set. An author is first-time when every
+PR of theirs merged to `main` is in this release:
+
+```bash
+gh pr list --state merged --base main --author <login> --json number -q '.[].number'
+```
+
+Each one gets a line in the notes' New Contributors section (see the format below).
+
 ### 2. Audit and update the release-owned surfaces (manual, no script exists)
 
 > If a `chore: bump version to X.Y.Z` commit is already on `main` (the bump often lands ahead of
@@ -238,6 +247,10 @@ only when it genuinely has no content:
 10. `## ⬆️ Upgrade notes` — numbered downstream steps: re-run the installer (`install.sh` /
     `install.ps1`, which pull `releases/latest`), run `prospec check`, plus any migration caveats
     (state "no config change required" when true).
+11. `## New Contributors` — the closing section, in GitHub's standard form and without an emoji,
+    one line per first-time contributor found in step 1:
+    `* @<login> made their first contribution in https://github.com/benwu95/prospec/pull/<n>`.
+    (Only when the release has a first-time contributor.)
 
 Keep the emoji headers consistent: `✨ 🐛 🔧 🔁 🧪 📊 ⬆️`. Every claim (counts, coverage, PR
 numbers, file stats) must be real — derive them in step 1, never invent.
