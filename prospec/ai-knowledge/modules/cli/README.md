@@ -47,7 +47,7 @@
 
 ## Pitfalls
 
-- Abandon human output names the dedicated abandoned destination; its JSON preserves the `archiveDir` key with the same actual path.
+- Abandon human output names the dedicated abandoned destination; its JSON preserves the `archiveDir` key with the same actual path and adds `preservedFileCount`. Normal output reports the captured count, unrestored work tree and human restoration decision using preservation/version control; quiet remains silent.
 
 - Human abandon/history/retry output sanitizes file-derived values. JSON preserves typed partial phase/path/entry details on stderr with exit 1; the tracker summary is local text, never a network write.
 

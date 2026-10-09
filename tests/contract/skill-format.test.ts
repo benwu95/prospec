@@ -3216,7 +3216,7 @@ describe('Skill Format Contract', () => {
       );
       expect(flow.length).toBeGreaterThan(0);
       expect(flow).toContain('independent verifier');
-      expect(flow).toMatch(/existence/i);
+      expect(flow).toMatch(/run its `repro` and read cited code/);
       expect(flow).toContain('working tree');
       expect(flow).toMatch(/re-?run.*test|pnpm test/i);
       expect(flow).toMatch(/3 rounds|maximum 5|hard cap/i);
@@ -7476,7 +7476,7 @@ describe('Delegated payload contract (issue #142 E)', () => {
   it('review states that a critical carries a repro and is confirmed by running it', () => {
     const review = renderTemplate('skills/prospec-review.hbs', TEMPLATE_CONTEXT);
     const loop = sectionOf(review, '### The Loop');
-    expect(flat(loop)).toMatch(/running its `repro`/);
+    expect(flat(loop)).toMatch(/run its `repro`/);
     const persistence = sectionOf(review, '### Persistence');
     expect(flat(persistence)).toMatch(/Every `critical` needs a `repro`/);
     expect(flat(persistence)).toMatch(/evidence never travels back/);
@@ -7654,9 +7654,9 @@ describe('opt-in plan sign-off pause and autonomous selection (REQ-TEMPLATES-236
     const cascade = render('skills/references/cascade-protocol.hbs');
     const step5 = oneLine(cascade.split('\n').find((l) => l.includes('**Step 5 [NEXT]**')) ?? '');
     expect(step5).toMatch(/`code: ESCALATE_TO_HUMAN`, HALT immediately and emit the CLI-produced `EscalationReport`/);
-    expect(step5).toMatch(/`code: AWAITING_HUMAN_PLAN_SIGNOFF`, HALT and present the plan station's sign-off material for the change's scale — it is not a failure, so emit no `EscalationReport`/);
+    expect(step5).toMatch(/`code: AWAITING_HUMAN_PLAN_SIGNOFF`: HALT; present scale-specific plan sign-off material, no `EscalationReport` \(not a failure\)/);
     // REQ-TEMPLATES-195 / #310: the third halt exits the loop too, without a report
-    expect(step5).toMatch(/`code: KNOWLEDGE_INPUT_INVALID`, HALT and present the knowledge-sync input its reasons name \(no `EscalationReport`\)/);
+    expect(step5).toMatch(/`code: KNOWLEDGE_INPUT_INVALID`: HALT; present the named invalid knowledge-sync input, no `EscalationReport`; resume Step 1 after repair/);
     const table = sectionOf(cascade, '## Station Transition Gates');
     expect(table).not.toMatch(/\|\s*`?AWAITING_HUMAN_PLAN_SIGNOFF`?\s*\|/);
     expect(table).not.toContain('KNOWLEDGE_INPUT_INVALID');
@@ -9089,8 +9089,8 @@ describe('split and trim references contract (REQ-TEMPLATES-215~220, REQ-AGNT-04
         const loop = sectionOf(content, '### The Loop');
         expect(loop).toMatch(/ticket every delegate before its spawn and receive its payload the moment it returns — before any fix/);
         expect(loop).toMatch(/ReviewFindingsInputSchema/);
-        const criticalVerifierStep = loop.match(/\n2\. For each reported \*\*critical\*\*[\s\S]*?(?=\n3\. Apply)/)?.[0] ?? '';
-        expect(criticalVerifierStep).toMatch(/ticket it under its verifier role per the delegation protocol and receive its payload before acting/);
+        const criticalVerifierStep = loop.match(/\n2\. For each \*\*critical\*\*[\s\S]*?(?=\n3\. Apply)/)?.[0] ?? '';
+        expect(criticalVerifierStep).toMatch(/ticket it under its verifier role and receive before acting, per delegation protocol/);
         expect(criticalVerifierStep).toMatch(/terminal verifier failure.*unresolved.*escalate/i);
         expect(criticalVerifierStep).toMatch(/never.*(mock|dummy|synthetic)/i);
         expect(sectionOf(content, '### Persistence')).toMatch(/to the payload path its ticket assigns/);

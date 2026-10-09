@@ -320,7 +320,8 @@ Review 維持 artifact→metadata，verify 維持 metadata→evidence 的寫入�
   - **`implemented` 的測試閘門**：除了所有 code task 已勾選，變更還需要一筆 fresh green `test_attempt`——最新 attempt 以 exit 0 通過、與其 `test_provenance` 連結、且對應目前 snapshot。缺失、過期（stale）、執行中或失敗的證據會被拒絕（exit 1）並印出補救指令 `prospec check --record-tests --change <name>`，metadata 不變。兩種明確豁免會以 `tests: not-adjudicated` WARN 放行（producer `prospec-test-gate`，依入口與原因去重，與 status 同一次 metadata 寫入）：無可解析的測試命令，或已證明的 backfill（存在 `backfill-draft.md`）。已知的非零失敗絕不豁免；單靠 `scale: backfill` 不會帶來任何放寬。
 
 - **`prospec change abandon <name> --reason <text> [--overturned <field>]`**
-  - **核心用途**：先保存 Prospec 專案根目錄內的 staged／unstaged binary patches 與改動工作檔 bytes，再結束這次嘗試；不包含 monorepo 其他專案。原 artifacts 與理由保留於 `.prospec/abandoned/`；部分失敗列出實際路徑、已搬與待搬檔案，供人工核對恢復。
+  - **核心用途**：先保存 Prospec 專案根目錄內的 staged／unstaged binary patches 與改動工作檔 bytes，再結束這次嘗試；不包含 monorepo 其他專案。原 artifacts 與理由採用首個可用的 `.prospec/abandoned/YYYY-MM-DD-name/`，同日重複依序使用 `-2`、`-3` 等後綴；incomplete attempt 仍阻擋重試，配置競態會拒絕且不覆寫。部分失敗列出實際路徑、已搬與待搬檔案，供人工核對恢復。
+  - **成功輸出**：一般輸出呈現保存數；JSON 新增 `preservedFileCount`，計算 captured manifest entries（含刪除／symlink，排除 gitlink pins），不是目前 dirty files 數量，零也不代表工作樹乾淨。Quiet 維持無輸出。工作樹未還原：檢查 preservation 資料，由人類決定保留工作或使用版本控制還原。Agent 必須取得明確還原授權，並沿用已給的決定；單獨反套 unstaged patch 不等於完整 rollback。
   - **極限**：不支援的 Git 輸入會拒絕；不還原工作樹、不寫入 tracker。同 issue 新 Story 會列出前次理由，所有 scale 都須填寫 Premise `retry_difference`。
   - **Submodule**：專案內乾淨的 submodule 會記錄在 `preservation/gitlinks.json`——路徑，以及 HEAD 記錄、index 記錄與 submodule 實際 checkout 的 commit（不存在或未初始化時為 null）——不會當成保存的檔案；submodule 內有未 commit、未追蹤、skip-worktree、assume-unchanged 或 unmerged 的工作，或 submodule 目錄非空卻沒有 `.git` 時會拒絕。還原記錄的 pin 需要該 commit 仍然存在：`git submodule deinit` 會保留 module 的 repository，但只存在於 detached HEAD 上的 commit，在 HEAD 移走、garbage collection 清掉之後就會遺失。
 

@@ -61,6 +61,8 @@ export interface ChangeAbandonResult {
   archiveDir: string;
   preservationDir: string;
   projectRoot: string;
+  /** Captured manifest entries, excluding gitlink pins; not the live dirty-file count. */
+  preservedFileCount: number;
   gitPrefix: string;
   reason: string;
   issue?: string;

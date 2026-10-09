@@ -1,6 +1,6 @@
 # Circuit Breakers & Runaway Cost Protection Reference
 
-This document defines the **Circuit Breaker & Escalation Protocol** used by `prospec-review` — the CLI evaluates it on every `prospec review merge` — and by autonomous cascading (`prospec-ff`).
+**Circuit Breaker & Escalation Protocol** for `prospec-review` (evaluated on every `prospec review merge`) and autonomous `prospec-ff`.
 
 ---
 
@@ -20,7 +20,7 @@ This document defines the **Circuit Breaker & Escalation Protocol** used by `pro
 ### 3. Fix-Induced Defect Ratio
 - **Mechanism**: In round `R > 1` of the current review loop, the CLI computes `fix_induced_ratio` as the proportion of active (non-dismissed) findings whose `origin_round` is later than this loop's first round (newly surfaced findings).
 - **Rule**: Trip when `fix_induced_ratio` exceeds the threshold (default **0.5** / 50%); the ratio does not establish causation.
-- **Action**: Trip the circuit breaker immediately and present the CLI-generated `EscalationReport`; its persisted lifetime ordinal takes priority over the trigger when choosing exits.
+- **Action**: Trip immediately; present the CLI `EscalationReport`. Its lifetime ordinal takes priority over trigger for exits.
 
 ### 4. Early-Stop Conditions & Regression Pin Gate
 - **Zero Delta**: A fix round resolves 0 new criticals compared to the prior round.
@@ -36,16 +36,18 @@ This document defines the **Circuit Breaker & Escalation Protocol** used by `pro
 
 ## Escalation Protocol (Human Hand-off)
 
-Present the CLI-generated `EscalationReport` and its Trade-off Options for Developer; do not manufacture an exit list.
+Present the CLI `EscalationReport` and its Trade-off Options for Developer; never invent exits.
 
 - **Trigger**: [oscillation | max_rounds_exceeded | unrecoverable_critical | persistent_test_failure | fix_induced_threshold_exceeded | station_retry_limit_exceeded]
 
 ## Escalation Decision (CLI-Owned)
 
-- Present CLI trigger, lifetime ordinal, exits/recommendation; stop.
-- Human `Manual override: <reason>` composed WARN alone grants one event/station attempt; observations/report warnings grant nothing. Replay consumes none; resolution expires grants. Tests remain independent.
-- Re-scope retains amendment gates/status without unlocking escalation. Preserve history, adjacent prose and fenced examples after PASS.
+- Present CLI trigger/lifetime ordinal/exits/recommendation; stop.
+- Only human `Manual override: <reason>` composed WARN grants one event/station attempt; observations/report warnings grant none. Replay consumes none; resolution expires grants; tests independent.
+- Re-scope keeps amendment gates/status, no unlock. After PASS retain history/adjacent prose/fences.
 
 ### Abandon an attempt
 
-Run `prospec change abandon <name> --reason <text>`; retain `.prospec/abandoned/` artifacts. `--overturned <field>` identifies disproved leaves. Work preservation precedes movement and terminal metadata; inspect partial-failure paths. Every scale requires retry `retry_difference`.
+Run `prospec change abandon <name> --reason <text>`; retain `.prospec/abandoned/`. `--overturned <field>`: disproved leaves. Save work → move → terminal metadata; inspect partial failures. Every scale: retry `retry_difference`.
+
+Report preservedFileCount (manifest entries, no gitlink pins); work tree not restored. Ask human: keep or restore via preservation/version control. Restore only with explicit authorization; reuse prior decision.

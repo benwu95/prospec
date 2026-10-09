@@ -60,7 +60,7 @@ Never lower it to make a probe pass — that lets an older binary without those 
 # Watch mode (recompile on change)
 pnpm run dev
 
-# Run all tests (7552 total; 5 skipped)
+# Run all tests (7568 total; 4 skipped)
 pnpm test
 
 # Run tests in watch mode
@@ -94,11 +94,11 @@ pnpm knowledge:check
 
 ## Testing
 
-**Test Coverage**: 7552 total tests (7547 passed; 5 skipped) across 4 categories:
-- Unit tests (types + lib + services + cli): 5528 tests
-- Contract tests (CLI output + Skill format): 1658 tests
+**Test Coverage**: 7568 total tests (7564 passed; 4 skipped) across 4 categories:
+- Unit tests (types + lib + services + cli): 5538 tests
+- Contract tests (CLI output + Skill format): 1662 tests
 - Integration tests: 153 tests
-- E2E tests: 213 tests
+- E2E tests: 215 tests
 
 The suite includes a real `init` + `agent sync` generation contract (`tests/integration/skill-contract.test.ts`) asserting agent-specific reference paths, no dangling references, canonical convention docs, `base_dir`-relative spec paths, and `.agents` convergence.
 

@@ -380,13 +380,15 @@ WARN items are deployment risks — recommend resolving before `prospec-archive`
 
 ## Escalation Decision (CLI-Owned)
 
-- Present CLI trigger, lifetime ordinal, exits/recommendation; stop.
-- Human `Manual override: <reason>` composed WARN alone grants one event/station attempt; observations/report warnings grant nothing. Replay consumes none; resolution expires grants. Tests remain independent.
-- Re-scope retains amendment gates/status without unlocking escalation. Preserve history, adjacent prose and fenced examples after PASS.
+- Present CLI trigger/lifetime ordinal/exits/recommendation; stop.
+- Only human `Manual override: <reason>` composed WARN grants one event/station attempt; observations/report warnings grant none. Replay consumes none; resolution expires grants; tests independent.
+- Re-scope keeps amendment gates/status, no unlock. After PASS retain history/adjacent prose/fences.
 
 ### Abandon an attempt
 
-Run `prospec change abandon <name> --reason <text>`; retain `.prospec/abandoned/` artifacts. `--overturned <field>` identifies disproved leaves. Work preservation precedes movement and terminal metadata; inspect partial-failure paths. Every scale requires retry `retry_difference`.
+Run `prospec change abandon <name> --reason <text>`; retain `.prospec/abandoned/`. `--overturned <field>`: disproved leaves. Save work → move → terminal metadata; inspect partial failures. Every scale: retry `retry_difference`.
+
+Report preservedFileCount (manifest entries, no gitlink pins); work tree not restored. Ask human: keep or restore via preservation/version control. Restore only with explicit authorization; reuse prior decision.
 
 ## Output Contract
 

@@ -55,7 +55,7 @@ Also: `auto-draft.ts` (drift-drafting options/result, incl. the `created | skipp
 
 ## Pitfalls
 
-- Abandon JSON retains `retry_of[].archive` as an entry ID relative to `.prospec/abandoned/`; result/error `archiveDir` is the actual abandoned destination, not a successful archive path.
+- Abandon JSON retains `retry_of[].archive` as an entry ID relative to `.prospec/abandoned/`; result/error `archiveDir` is the actual abandoned destination, not a successful archive path. `preservedFileCount` counts captured manifest entries, including deletions/symlinks and excluding gitlink pins; it is not a live dirty-file count.
 
 - `abandoned` is terminal and gate-owned; it is not a station. Missing `retry_of` is legacy, while new creators write an explicit array. Keep light-scale `retry_difference` admission ahead of exemptions.
 

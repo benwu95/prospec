@@ -1,6 +1,6 @@
 # Verification Suite
 
-> 4-layer Vitest suite (fast-glob/git bypass memfs — 295 test files, 7,552 tests (unit 5528, contract 1658, integration 153, e2e 213)).
+> 4-layer Vitest suite (fast-glob/git bypass memfs — 296 test files, 7,568 tests (unit 5538, contract 1662, integration 153, e2e 215)).
 <!-- prospec:module-readme-format 2026-09-01 -->
 
 <!-- prospec:auto-start -->
@@ -47,7 +47,9 @@
 
 ## Pitfalls
 
-- Abandon suites pin directory isolation (same-named successful archive, unsafe/missing history root, linked-record recheck), opposing staged/unstaged patches, byte/mode/link/deletion preservation, nested project scope and failure phases. Retry tests cover legacy/all scales, linked-record changes, incomplete sources and direct writers; contract mutations delete the ordered retry handoff and preservation-before-metadata clause.
+- The rendered metadata reference independently pins preservation without restoration, human choice and explicit authorization within its abandonment section; deletion and relocation mutations must fail.
+
+- Abandon suites pin directory isolation (same-named successful archive, unsafe/missing history root, linked-record recheck), opposing staged/unstaged patches, byte/mode/link/deletion preservation, nested project scope and failure phases. Retry tests cover legacy/all scales, linked-record changes, incomplete sources and direct writers; Contracts cover all eight escalation-partial consumers; deleting each count/state/decision/authorization clause or relocating it outside the abandon section must fail. Path tests pin suffix gaps, one UTC date and unsafe/error refusal; real-Git tests retain three same-name histories, retry links and bytes, pin claim races and count boundaries (including zero and excluded gitlinks).
 
 - Premise coverage spans schema/parser/contained-reader, read/write services, rendered contracts and `cli-premise` E2E. `helpers/premise.ts` explicitly authors verified fixtures for workflows advancing newly created stories; never make the production scaffold ready to repair fixtures. Its default source is `ai-proposed`, which pauses a standard/full change at plan, so a fixture whose subject is not the pause passes `withVerifiedPremise(text, 'user-observation')`. Refusal tests compare artifact bytes, and template mutation checks must prove the edit landed before judging failure.
 
