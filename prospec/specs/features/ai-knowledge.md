@@ -1,7 +1,7 @@
 ---
 feature: ai-knowledge
 status: active
-last_updated: 2026-10-04
+last_updated: 2026-10-09
 story_count: 15
 req_count: 73
 ---
@@ -60,7 +60,7 @@ The validate service resolves a module README through realpath-contained `readMo
 `prospec validate module-readme <module>` is a thin CLI adapter over the validate service and existing validate formatter.
 - WHEN the command is invoked, THEN it accepts the shared `module-readme` kind and a module name, prints PASS or source-anchored findings, and exits non-zero for invalid format
 - WHEN Module README format validation is added, THEN `prospec check`, its report schema, and existing check IDs remain unchanged
-- WHEN the public validate-kind list changes, THEN `README.md` and `README.zh-TW.md` list `module-readme` in equivalent user-facing documentation
+- WHEN the public validate-kind list changes, THEN both CLI references list `module-readme` in equivalent user-facing documentation
 
 ---
 
@@ -83,7 +83,7 @@ The test suite proves the Module README format contract at every boundary using 
 - WHEN template and service tests run, THEN they prove marker placement and Core order on both authorities — the generator template's adjacent form and the canonical convention skeleton's blank-line-only separation — plus applicable new-skeleton placeholders, byte-identical preservation of an existing README and its user content, and realpath-contained validation reads for outward and in-root symlinks
 - WHEN canonical-doc drift tests run, THEN a user registry is accepted while a generated convention edit fails
 - WHEN an in-memory MCP module resource is read, THEN its raw Markdown includes the date marker and registered extension verbatim with linked sub-modules; no structured or filtered MCP response is introduced
-- WHEN public validate documentation is tested, THEN the English and Traditional Chinese root README entries both include the new kind
+- WHEN public validate documentation is tested, THEN both CLI references' validate entries include the new kind
 - WHEN upgrade contract tests run, THEN canonical format refresh preserves a registered convention user block and refuses to treat a marker-less legacy convention as disposable whole-file canonical content
 
 ---
@@ -131,6 +131,7 @@ The test suite proves the Module README format contract at every boundary using 
 
 | Date | Change | Impact | Stories/REQs |
 |------|--------|--------|-------------|
+| 2026-10-09 | slim-readme-into-docs | MODIFIED REQ-CLI-050; MODIFIED REQ-TESTS-110 | REQ-CLI-050, REQ-TESTS-110 |
 | 2026-10-04 | align-knowledge-verdict | MODIFIED REQ-TEMPLATES-207 | REQ-TEMPLATES-207 |
 | 2026-10-04 | align-skill-guidance | MODIFIED REQ-KNOW-004; MODIFIED REQ-KNOW-013; MODIFIED REQ-KNOW-016 | REQ-KNOW-004, REQ-KNOW-013, REQ-KNOW-016 |
 | 2026-10-04 | reassess-canonical-claims | MODIFIED REQ-TEMPLATES-162 | REQ-TEMPLATES-162 |

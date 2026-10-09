@@ -95,7 +95,7 @@ Govern: shared rules carry a TTL and source; on expiry, conflict, or a Staleness
 - WHEN no active declaration exists and station plus modules is requested, THEN stdout is byte-identical to the original modules-only output for the same file and modules, including ordering and newlines, while stderr emits one fallback warning
 - WHEN unknown declaration tokens or oversized entries are reported, THEN stderr names the entry id and unknown tokens or measured tokens and the 300-token limit; warnings do not change exit status or truncate stdout
 - WHEN modules-only or id-only mode runs, THEN its stdout remains byte-identical to the legacy output; new diagnostics are confined to stderr
-- WHEN reference/cli-reference.md, reference/cli-reference.zh-TW.md, README.md and README.zh-TW.md are read, THEN all document station-selected bodies, complete active catalogs, module sorting, id lookup, legacy fallback and the advisory 300-token entry limit; numeric savings claims cite actual measurements
+- WHEN both CLI references are read, THEN both document station-selected bodies, complete active catalogs, module sorting, id lookup, legacy fallback and the advisory 300-token entry limit; numeric savings claims cite actual measurements
 
 - WHEN `--modules lib,cli` runs against this project's playbook, THEN the number of catalog lines equals the number of active entries and no retired entry appears
 - WHEN `--id PB-007` runs, THEN only that entry's text is printed; an unknown id exits 1

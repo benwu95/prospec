@@ -1,7 +1,7 @@
 ---
 feature: standalone-binary
 status: active
-last_updated: 2026-09-05
+last_updated: 2026-10-09
 story_count: 2
 req_count: 10
 ---
@@ -52,8 +52,9 @@ To solve the problem that a standalone binary has no `package.json` from which t
 - WHEN running in an unpackaged environment (local development), THEN the version number can still be read from `package.json` via fallback.
 
 #### REQ-DOCS-001: Standalone Binary Installation Documentation
-Adjust the installation and execution instructions, including the English README.md and the Chinese README.zh-TW.md in the root directory, as well as the website installation instruction pages under the docs/ directory, to provide users with clear guidance for installing and launching the standalone binary. Public installation and execution documentation stays aligned with the supported delivery paths, frozen public registries, and current host-aware workflow before a release is published.
-- WHEN viewing README.md and README.zh-TW.md, THEN a one-click installation script, standalone binary download, and npx/devDependency options have been added, and the global npm install has been removed.
+Adjust the installation and execution instructions — the root READMEs, the bilingual getting-started guide and the website installation pages — to provide users with clear guidance for installing and launching the standalone binary. Public installation and execution documentation stays aligned with the supported delivery paths, frozen public registries, and current host-aware workflow before a release is published.
+- WHEN viewing either root README, THEN the one-click installation script is shown and the remaining installation paths are one link away
+- WHEN viewing the getting-started guide in either language, THEN the one-click installation script, version pinning, standalone binary download, and npx/devDependency options are documented, and a global npm install is not offered
 - WHEN visiting the docs/ website, THEN the installation instructions on the relevant pages are synchronously adjusted to the one-click installation script.
 - WHEN the standalone binary path is documented, THEN Node.js is explicitly optional; Node.js requirements apply only to npx, devDependency, or source-development paths
 - WHEN a Skill is named in shared public prose, THEN its bare `prospec-<name>` identity is used and host-specific explicit invocation syntax is explained separately
@@ -140,6 +141,7 @@ _(None)_
 
 | Date | Change | Impact | Stories/REQs |
 |------|--------|--------|-------------|
+| 2026-10-09 | slim-readme-into-docs | MODIFIED REQ-DOCS-001 | REQ-DOCS-001 |
 | 2026-09-01 | refresh-v2-documentation | MODIFIED REQ-DOCS-001 | REQ-DOCS-001 |
 | 2026-08-29 | lazy-load-cli-startup | ADDED REQ-CLI-045; ADDED REQ-CLI-046 | REQ-CLI-045, REQ-CLI-046 |
 | 2026-07-07 | compile-standalone-binary | Implement standalone binary compilation and publish pipeline | US-1, REQ-CLI-001, REQ-LIB-066, REQ-TYPES-001, REQ-DOCS-001 |

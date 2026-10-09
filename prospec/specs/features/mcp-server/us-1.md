@@ -50,9 +50,8 @@ Five kinds of read-only resources: `knowledge://index`, `knowledge://module/{nam
 - WHEN inspecting `templates/` and existing services, THEN there is no reference to the mcp server whatsoever (structural guarantee)
 - WHEN the server is unavailable, THEN all existing tests and behavior are unchanged
 
-#### REQ-MCP-008: Bilingual README feature section and registration guide
-**Scenarios:**
-- WHEN reading the root README (Chinese/English), THEN both contain a `prospec mcp serve` feature section and registration guides for each agent
+#### REQ-MCP-008: Bilingual MCP feature section and registration guide
+- WHEN reading both CLI references, THEN both contain a `prospec mcp serve` feature section and registration guides for each agent
 - WHEN the guide claims any behavior, THEN it corresponds to already-implemented behavior; unimplemented parts use deliberate-exclusion wording
 
 ---
