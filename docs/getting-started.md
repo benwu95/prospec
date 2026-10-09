@@ -1,4 +1,5 @@
 # Getting Started
+[Documentation](./README.md) • [繁體中文](./getting-started.zh-TW.md)
 
 This page covers what the [README Quickstart](../README.md#quickstart) leaves out: every installation option, what the bootstrap commands expand to, and driving each station yourself. Its [prerequisites](../README.md#prerequisites) apply here too.
 

@@ -1,4 +1,5 @@
 # AI Skills and the Workflow
+[Documentation](../README.md) • [繁體中文](./workflow.zh-TW.md)
 
 Prospec generates 17 Skills — 15 guide AI through the full SDD lifecycle, plus two periodic finishers: `prospec-quickstart` (onboarding) and `prospec-upgrade` (version upgrade):
 

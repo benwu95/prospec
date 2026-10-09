@@ -1,4 +1,5 @@
 # 升級 Prospec
+[文件](../README.zh-TW.md) • [English](./upgrading.md)
 
 當發布新版 prospec 時，先更新執行檔：
 

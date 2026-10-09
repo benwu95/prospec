@@ -1,7 +1,8 @@
 # Prospec 文件
+[English](./README.md)
 
-[根 README](../README.zh-TW.md) 說明 Prospec 是什麼，以及跑出第一個變更的最短路徑。
-這裡依你想做的事分類，收錄詳細內容。[English](./README.md)
+[README](../README.zh-TW.md) 說明 Prospec 是什麼，以及跑出第一個變更的最短路徑。
+這裡依你想做的事分類，收錄詳細內容。
 
 ## 教學
 

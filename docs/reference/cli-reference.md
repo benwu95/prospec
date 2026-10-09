@@ -1,8 +1,9 @@
 # Prospec CLI Reference
+[Documentation](../README.md) • [繁體中文](./cli-reference.zh-TW.md)
 
 > The command, configuration, layout and architecture detail for
-> [prospec](../../README.md). The root README and the [docs pages](../README.md) keep the onboarding and guides;
-> this file keeps the reference tables. [繁體中文](./cli-reference.zh-TW.md)
+> [prospec](../../README.md). The README and the [docs pages](../README.md) keep the onboarding and guides;
+> this file keeps the reference tables.
 
 ## Contents
 

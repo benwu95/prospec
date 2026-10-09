@@ -1,7 +1,8 @@
 # Prospec Documentation
+[繁體中文](./README.zh-TW.md)
 
-The [root README](../README.md) covers what Prospec is and the shortest path to a first change.
-These pages hold the detail, grouped by what you are trying to do. [繁體中文](./README.zh-TW.md)
+The [README](../README.md) covers what Prospec is and the shortest path to a first change.
+These pages hold the detail, grouped by what you are trying to do.
 
 ## Tutorial
 

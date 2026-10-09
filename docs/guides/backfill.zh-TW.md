@@ -1,4 +1,5 @@
 # Backfill：把既有程式碼納進信任區
+[文件](../README.zh-TW.md) • [English](./backfill.md)
 
 Brownfield 專案累積了大量「沒有 Feature Spec 描述」的行為。**Backfill** 是一條一等、雙 skill 的流程：從程式碼反向萃取這些行為，並把它 graduate 進規格信任區（`prospec/specs/features/`）—— 而且**從不手寫信任區**（archive 維持唯一寫入者）。
 
