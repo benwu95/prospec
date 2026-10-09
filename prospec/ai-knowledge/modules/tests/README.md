@@ -1,6 +1,6 @@
 # Verification Suite
 
-> 4-layer Vitest suite (fast-glob/git bypass memfs — 294 test files, 7,556 tests (unit 5537, contract 1653, integration 153, e2e 213)).
+> 4-layer Vitest suite (fast-glob/git bypass memfs — 295 test files, 7,552 tests (unit 5528, contract 1658, integration 153, e2e 213)).
 <!-- prospec:module-readme-format 2026-09-01 -->
 
 <!-- prospec:auto-start -->
@@ -38,12 +38,12 @@
 4. **Add an E2E case** — most cases run in-process: add to the matching `tests/e2e/cli-*.test.ts` using the shared `runCli` helper (no build needed, runs against `src`). Only genuinely subprocess-bound behavior goes in `cli-subprocess-smoke.test.ts` (spawns `dist/cli/index.js` — run `pnpm build` first).
 5. **Run one layer** — `pnpm vitest run tests/{unit|contract|integration|e2e}/`.
 6. **Measure coverage** — `pnpm test:coverage --testTimeout=30000` (see Pitfalls).
-7. **Change a delegated-receipt rule** — edit `delegation-protocol.hbs` and its section-scoped predicate in `skill-format.test.ts`; the nine pointer surfaces must keep only a link (a negative guard refuses re-inlined steps, ticket-flow invariants and detection limits anywhere in them), the protocol must render the same for every host, the user-facing descriptions (both READMEs, both CLI references) claim detection and preservation only, and every physical, bounded-wait, degradation, zero-mock, pointer, claim and downstream-neutral predicate needs a killing mutation. The delegation lib suites run real git in temp repos, each judgment condition has its own killing mutation, and the e2e suite pins that every `change delegate` mode leaves `.git` and the five facets byte-identical under a read-only `.git`.
+7. **Change a delegated-receipt rule** — edit `delegation-protocol.hbs` and its section-scoped predicate in `skill-format.test.ts`; the nine pointer surfaces must keep only a link (a negative guard refuses re-inlined steps, ticket-flow invariants and detection limits anywhere in them), the protocol must render the same for every host, the user-facing descriptions (both CLI references) claim detection and preservation only, and every physical, bounded-wait, degradation, zero-mock, pointer, claim and downstream-neutral predicate needs a killing mutation. The delegation lib suites run real git in temp repos, each judgment condition has its own killing mutation, and the e2e suite pins that every `change delegate` mode leaves `.git` and the five facets byte-identical under a read-only `.git`.
 8. **Add a machine-owned documentation count** — register each narrowly anchored target in `scripts/counts/registry.ts`, add completeness coverage in `counts-registry.test.ts`, then run `pnpm counts` and `pnpm counts:check`.
 
 ## Ripple Effects
 
-- Template/skill/service/CLI changes ripple to contract + E2E expectations; public README or website claims ripple to the section-scoped document contracts; a new station command needs a formatter unit test AND an E2E case.
+- Template/skill/service/CLI changes ripple to contract + E2E expectations; public README, `docs/` page or website claims ripple to the section-scoped document contracts; a new station command needs a formatter unit test AND an E2E case.
 
 ## Pitfalls
 

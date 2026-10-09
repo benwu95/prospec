@@ -136,7 +136,8 @@ actual release surfaces:
   they still identify the prior release or depict behavior that the new release changed. A prior
   change may have explicitly deferred this work to release time. Do not relabel a stale image with
   new alt text; update both, preferably in a separate atomic docs commit before the version bump.
-- `README.md`, `README.zh-TW.md`, `docs/index.html`, and `docs/i18n.js` → remove any genuine
+- `README.md`, `README.zh-TW.md`, `docs/guides/upgrading.md`, `docs/guides/upgrading.zh-TW.md`,
+  `docs/index.html`, and `docs/i18n.js` → remove any genuine
   pre-release label that is no longer true while preserving historical upgrade guidance.
 
 Do **not** globally replace the old version or require a bare search for it to return zero: a release

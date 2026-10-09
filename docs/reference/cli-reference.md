@@ -1,8 +1,8 @@
 # Prospec CLI Reference
 
-> The exhaustive command, configuration, layout and architecture detail for
-> [prospec](../README.md). The root README keeps the onboarding narrative; this file
-> keeps the reference tables. [繁體中文](./cli-reference.zh-TW.md)
+> The command, configuration, layout and architecture detail for
+> [prospec](../../README.md). The root README and the [docs pages](../README.md) keep the onboarding and guides;
+> this file keeps the reference tables. [繁體中文](./cli-reference.zh-TW.md)
 
 ## Contents
 
@@ -233,7 +233,7 @@ Entry Points, Dependencies, and Config Files have no per-language override — t
 
 The lifetime ledger is `quality_log`; non-default `workflow.max_station_retries` applies to every reader. At ordinal 2 or later, a pending event offers only re-scope, abandon and break-glass, recommending re-scope. Only an explicit composed WARN with a nonempty `Manual override: <reason>` authorizes one new attempt for the current event and station; report warnings and legacy unbound markers do not grant permission. Accepted replay does not consume a grant. Resolution expires unused grants, and a new event cannot reuse one. Tests remain independent.
 
-Re-scope means a developer-approved proposal change or new Story; scenario amendments retain reason/digest/lifecycle gates and cannot regress status or unlock escalation. Abandon means stopping while retaining artifacts and reasons; rollback requires a separate human decision. No abandon CLI is introduced.
+Re-scope means a developer-approved proposal change or new Story; scenario amendments retain reason/digest/lifecycle gates and cannot regress status or unlock escalation. Abandon means stopping while retaining artifacts and reasons; rollback requires a separate human decision.
 
 Review preserves artifact→metadata ordering; verify preserves metadata→evidence ordering. Receipt-bound repairs never append a second accepted verdict or consume another grant. Persistent-test refusal records the event before rechecking and splicing metrics; failed event writes leave metrics unchanged. Status is read-only, and verify/archive retain durable override reasons, event binding and usage after PASS.
 
@@ -320,11 +320,17 @@ Review preserves artifact→metadata ordering; verify preserves metadata→evide
   - **Purpose**: Forward-only lifecycle state advancement (refuses illegal jumps and lists valid targets).
   - **Test gate on `implemented`**: besides every code task being checked, the change needs a fresh green `test_attempt` — the latest attempt passed with exit 0, linked to its `test_provenance`, against the current snapshot. Missing, stale, running or failing evidence is refused (exit 1) with the remediation `prospec check --record-tests --change <name>`, metadata untouched. Two explicit exemptions advance with a `tests: not-adjudicated` WARN (producer `prospec-test-gate`, deduplicated per entrance and reason, written in the same metadata write as the status): no resolvable test command, or a proven backfill (`backfill-draft.md` present). A known non-zero failure is never exempt; `scale: backfill` alone buys nothing.
 
+- **`prospec change abandon <name> --reason <text> [--overturned <field>]`**
+  - **Purpose**: Ends an attempt after preserving staged/unstaged binary patches and changed work bytes within the Prospec project root (excluding monorepo siblings). Original artifacts and reasons are retained in `.prospec/abandoned/`; partial failures report actual paths and moved/pending files for manual reconciliation.
+  - **Limits**: Unsupported Git inputs refuse; the command performs no rollback or tracker write. Same-issue new Stories report prior reasons and require Premise `retry_difference` on every scale.
+  - **Submodules**: A clean submodule inside the project is recorded in `preservation/gitlinks.json` — its path and the commits HEAD records, the index records and the submodule has checked out (null when absent or uninitialized) — never as preserved files; a submodule with uncommitted, untracked, skip-worktree, assume-unchanged or unmerged work, or a non-empty submodule directory without `.git`, refuses. Restoring a recorded pin needs that commit to still exist: `git submodule deinit` keeps the module's repository, but a commit reachable only from its detached HEAD is lost once that HEAD moves on and garbage collection prunes it.
+
 - **`prospec change log --skill <station> (--result <PASS|WARN|FAIL> | --verifier-report <file> | --signoff <option>) [options]`**
   - **Purpose**: Append a structured `quality_log` entry in `metadata.yaml`.
   - **Options**: Supports `--warning <w>`, `--grade <g>`, `--dimension n=r`, `--criticals-found <n>` with canonical key ordering; free text is serialized as YAML data by the yaml library (quoted only when YAML requires it), so metacharacters cannot corrupt the file; this command writes YAML, not a Markdown table, so no table escaping applies. For `prospec-review`, `--criticals-found`, `--criticals-fixed`, and `--majors` are treated as expected-value audit inputs rather than direct writes: any mismatch against the CLI-owned counts recorded by `review merge` appends a `log_mismatch` warning and coerces the result to at least `WARN` without overwriting the recorded counts, and the appended close entry carries no count fields.
   - **`--verifier-report <file>`** (plan/tasks stations): validates the Architecture/Task Verifier JSON report against the rubric-owned schema (verdict `PASS` | `WARN` | `FLAWS`, exactly the owning dimensions, single-line bounded `rationale`/`warnings`) and records it — `FLAWS` lands as `result: FAIL`, an invalid payload is refused before any write. For `prospec-plan` it also stamps `audited_option` with the schema-valid `candidates/decision.json` recommendation the verifier audited, and `audited_plan_digest` with the plan.md + delta-spec.md version it audited. Mutually exclusive with `--result` and the composed-entry fields. `prospec status` routes a station whose latest recorded verifier result is `FAIL` back to that station until a later verifier `PASS` or `WARN` supersedes it; a reasoned Break-Glass grant permits a retry of the pending event, never replaces a verifier verdict.
   - **`--signoff <option>`** (`--skill prospec-plan` only, on an explicit human instruction): records the human's plan sign-off — a candidate option at `scale: full`, `plan` (the audited plan version, no candidate files read) at other scales with a plan. Refused — with nothing written — unless the scale has a plan, the latest plan verifier result is PASS/WARN, a plan verifier report is recorded (a Break-Glass entry audited nothing) and the plan.md + delta-spec.md version it stamped is the current one, and nothing changed between the read and the write. A candidate option additionally needs a schema-valid `candidates/decision.json` whose `recommended_option` equals it and the latest report's `audited_option` (to pick another option, revise the plan and decision and re-record the verifier first), and a passing `prospec validate candidates` for the whole set (so a non-hybrid option has a valid `candidates/<option>.json`); `plan` is refused at `scale: full`. On acceptance a candidate option sets decision.json `graded_by: human`, and a PASS entry stamped `signoff_option` and `signoff_plan_digest` is appended; `--warning` adds the human's notes. Mutually exclusive with `--result`, `--verifier-report` and the composed-entry fields.
+  - **Gate scope**: the gate is **per-change** — a sibling change's stale evidence never blocks this one. (`prospec status` is what prefixes its routing reason with a `[CODE]` marker.)
 
 - **`prospec change progress [--complete <task>] [--change <name>]`**
   - **Purpose**: Track and update code-task progress in `tasks.md`.
@@ -339,6 +345,7 @@ Review preserves artifact→metadata ordering; verify preserves metadata→evide
   - **`--spawn-failed`**: ends an open or refused ticket — first appending a `prospec-delegation` WARN — and refuses while any facet differs from the pre-spawn state; `--accept-current-tree`, passed only on an explicit human instruction, ends it anyway together with every refused sibling and every sibling that returned with an unreadable facet, keeps each one's checkpoint and prints its path, and is refused while another delegate may still be running.
   - **Sinks**: `review merge` and `verify record` settle their station's tickets before every other refusal — writing nothing while any latest attempt is open or refused — then mark every live attempt consumed; their normal output always carries one delegation line.
   - **Limits**: it detects and preserves; it prevents nothing and restores nothing, and it guards against an accidental or buggy delegate, not a malicious one. It does not see ignored files (an ignored `prospec-report.json` included); `.prospec/` artifacts, tickets and checkpoints included (a delegate that edits its own ticket or another CLI record there can make its receipt pass); the repository's `.git/config`, hooks and `info/exclude` (a hook or command a delegate sets there, such as `core.fsmonitor` or a reference-transaction hook, runs in the CLI's own receive git calls and in every later git call); repository metadata under `.git` that no facet reads (`.git/shallow`, `info/grafts`, `info/attributes`); a process that outlives its delegate (one still running after `--spawn-failed` or after a newer attempt superseded it, or a background process it started), which can change the tree after the receipt; a change the delegate reverted before returning; content outside the project; or pushes to any remote (remote-tracking refs are not a facet) — while tags a `git fetch` auto-follows do change the refs facet. Delegations of several changes running at once in one repository are not isolated from one another.
+  - **Submodules**: a repository with a git submodule is issued no ticket, because a snapshot checks out no submodule files: review and verify grade in-session, which caps verify at grade A.
 
 - **`prospec review merge --findings <file> [--round <n>] [--max-fix-induced-ratio <r>] [--max-rounds <n>] [--max-flips <n>] [--lenses <list>] [--json] [--change <name>]`**
   - **Purpose**: Merge review round JSON findings into cumulative `review.md` table.
@@ -375,7 +382,7 @@ Review preserves artifact→metadata ordering; verify preserves metadata→evide
   - **Key Details**: Evaluates `freq ≥ 3 ∧ modules ≥ 2` promotion rule for playbook promotion and checks playbook TTL validity.
 
 - **`prospec learn playbook --station <s> [--modules <m,…>] | --modules <m,…> | --id <PB-NNN>`**
-  - **Purpose**: Plan and implement load station-selected playbook bodies at Startup Loading; `/prospec-learn` still reads the full file.
+  - **Purpose**: Plan and implement load station-selected playbook bodies at Startup Loading; `prospec-learn` still reads the full file.
   - **Key Details**: Station mode prints one catalog line per active entry — id, title, kind, modules (or `modules: undeclared`), TTL — and full text only for entries whose `Stations` line names the station or `all`. It recognizes SDD station names and Skill aliases. `--modules` only sorts module matches first within station mode; it never decides which bodies load. If no active entry declares `Stations`, station mode warns and falls back to legacy module selection. `--modules` alone retains legacy module selection and `relevance: module-match`; `--id` prints one entry and exits 1 on an unknown id. Retired entries never appear. An unknown declared station warns on stderr. An entry exceeding the 300-token advisory cap warns on stderr, with no stdout truncation. A missing `_playbook.md` prints one line and exits 0; an unreadable file or path outside the knowledge directory exits 1 naming the reason.
   - **Measured scope**: On this repository, actual CLI stdout across all 10 stations is 1,107–6,368 `estimateTokens` versus 8,965 for the full playbook, a 28%–88% reduction (revision `3ade165b` plus this working tree). The change's `playbook-measurements.md` records commands, each station's tokens and selected ids.
 
@@ -429,7 +436,7 @@ Claude Code:
 claude mcp add project-name -- prospec mcp serve --cwd /path/to/project
 ```
 
-Other agents — the same command in the agent's JSON MCP config:
+Other agents, Copilot and Codex included, take the same command in their own MCP config file; in a JSON MCP config it looks like this:
 
 ```json
 {
@@ -503,6 +510,7 @@ deliberately not included in this version.
     - Serves as the objective oracle for `prospec-verify` test dimension, preventing agent hallucination.
     - Executed via argv directly without shell; degrades to `skipped` when unable to execute honestly.
     - Previously recorded non-zero exit codes remain FAIL even if command subsequently becomes unresolvable.
+    - A git submodule is fingerprinted by its checkout's actual files, not by the commit it names: test or build output left inside a submodule changes the fingerprint (commit or ignore it there), and a sparse or unmerged entry inside a submodule makes the inputs unprovable.
 
 - **`prospec check --record-review [--change <name>]`**
   - **Purpose**: Records code digest and `delta-spec.md` fingerprint to satisfy `review-provenance` and `delta-spec-provenance`.
@@ -522,7 +530,7 @@ Evidence connects a recorded review or test result to the repository contents it
 - Legacy records remain readable, but need one real review and test revalidation.
 - Verify/archive assess current inputs and workflow facts, then recheck before writing; archive dry-run uses the same refusal conditions. A saved report alone does not authorize the operation.
 
-The evidence format is `snapshot-v2` / `repository-inputs-v2`; see the [input snapshot specification](../prospec/specs/features/drift-detection/us-5.md) for the precise scope and supported file types. Ignore test outputs in Git (tracked outputs still count as inputs). Unsupported or unreadable inputs remain unprovable. The before/after checks cannot detect every transient change-and-restore, or changes to ignored dependencies, external services and toolchains outside repository inputs.
+The evidence format is `snapshot-v2` / `repository-inputs-v2`; see the [input snapshot specification](../../prospec/specs/features/drift-detection/us-5.md) for the precise scope and supported file types. Ignore test outputs in Git (tracked outputs still count as inputs). Unsupported or unreadable inputs remain unprovable. The before/after checks cannot detect every transient change-and-restore, or changes to ignored dependencies, external services and toolchains outside repository inputs.
 
 #### Check results and verification decisions
 
@@ -608,7 +616,7 @@ The harness makes the token-efficiency claim verifiable instead of asserted: for
 
 ## Configuration
 
-Prospec can be configured via a `.prospec.yaml` file in the project root. This is the primary way to customize how AI Knowledge is generated and how the workflow operates.
+Prospec can be configured via a `.prospec.yaml` file in the project root. This is the primary way to customize how AI Knowledge is generated and how the workflow operates. It holds the project's language, agents, token budgets and test command; the schema in `src/types/config.ts` is what actually validates the file, and `prospec config example` prints every field with an example value.
 
 Key configurations you can tweak:
 
@@ -671,7 +679,7 @@ skill_exclusions:
 
 ## Architecture
 
-Prospec uses **Pragmatic Layered Architecture** for CLI development best practices:
+Prospec uses **Pragmatic Layered Architecture** for CLI development best practices, with dependencies pointing one way — `cli → services → lib → types` — and Handlebars templates alongside:
 
 ```
 src/

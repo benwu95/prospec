@@ -172,6 +172,12 @@ const sectionOf = (content: string, heading: string): string => {
   return body;
 };
 
+/** Every Markdown page under docs/ in one language, as repo-relative paths — where the root READMEs' detail now lives. */
+const publicDocsPages = (zh: boolean): string[] =>
+  (fs.readdirSync(path.resolve(import.meta.dirname, '../../docs'), { recursive: true }) as string[])
+    .filter((p) => p.endsWith('.md') && p.endsWith('.zh-TW.md') === zh)
+    .map((p) => `docs/${p.replace(/\\/g, '/')}`);
+
 /** Collapse prose line wrapping so an assertion pins meaning, not wrap position. */
 const flat = (text: string): string => text.replace(/\s+/g, ' ');
 
@@ -281,7 +287,7 @@ describe('Shipped budgets never reach a project loading table', () => {
 });
 
 describe('public playbook station documentation (REQ-CLI-059)', () => {
-  for (const file of ['README.md', 'README.zh-TW.md', 'reference/cli-reference.md', 'reference/cli-reference.zh-TW.md']) {
+  for (const file of ['docs/reference/cli-reference.md', 'docs/reference/cli-reference.zh-TW.md']) {
     it(`${file} documents station routing and the measured scope`, () => {
       const content = fs.readFileSync(path.resolve(file), 'utf8');
       const start = content.lastIndexOf('prospec learn playbook --station');
@@ -2583,8 +2589,12 @@ describe('Skill Format Contract', () => {
 
   describe('root README invocation guidance (REQ-TEMPLATES-222)', () => {
     const root = path.resolve(import.meta.dirname, '../..');
-    const english = fs.readFileSync(path.join(root, 'README.md'), 'utf-8');
-    const traditionalChinese = fs.readFileSync(path.join(root, 'README.zh-TW.md'), 'utf-8');
+    const readDoc = (rel: string) => fs.readFileSync(path.join(root, rel), 'utf-8');
+    const english = readDoc('README.md');
+    const traditionalChinese = readDoc('README.zh-TW.md');
+    const docsIn = (zh: boolean) => publicDocsPages(zh).map(readDoc).join('\n');
+    const englishDocs = docsIn(false);
+    const chineseDocs = docsIn(true);
     const expectedRows = [
       '| Claude Code | `/prospec-<name>` |',
       '| Codex | `$prospec-<name>` |',
@@ -2592,17 +2602,19 @@ describe('Skill Format Contract', () => {
     ];
 
     it('presents 2.0 as the current product story while retaining the 1.3 migration path', () => {
-      const englishV2 = sectionOf(english, "## What's new in 2.0");
-      const chineseV2 = sectionOf(traditionalChinese, '## 2.0 新功能');
-      const englishUpgrade = sectionOf(english, '### Upgrade from 1.3');
-      const chineseUpgrade = sectionOf(traditionalChinese, '### 從 1.3 升級');
+      const englishGuide = readDoc('docs/guides/upgrading.md');
+      const chineseGuide = readDoc('docs/guides/upgrading.zh-TW.md');
+      const englishV2 = sectionOf(englishGuide, "## What's new in 2.0");
+      const chineseV2 = sectionOf(chineseGuide, '## 2.0 新功能');
+      const englishUpgrade = sectionOf(englishGuide, '### Upgrade from 1.3');
+      const chineseUpgrade = sectionOf(chineseGuide, '### 從 1.3 升級');
 
       expect(englishUpgrade).toContain('Upgrade an existing 1.3 project');
       expect(chineseUpgrade).toContain('既有的 1.3 專案');
       expect(englishV2).not.toContain('currently published release remains');
       expect(chineseV2).not.toContain('目前已發布版本仍是');
-      expect(english).not.toContain('Upcoming 2.0');
-      expect(traditionalChinese).not.toContain('即將推出 2.0');
+      expect(english + englishDocs).not.toContain('Upcoming 2.0');
+      expect(traditionalChinese + chineseDocs).not.toContain('即將推出 2.0');
     });
 
     it('keeps the same host matrix, canonical identity, and implicit-discovery boundary in both languages', () => {
@@ -2616,34 +2628,31 @@ describe('Skill Format Contract', () => {
     });
 
     it('contains no unlabelled host sigil outside the invocation matrix', () => {
-      for (const [name, readme, heading] of [
-        ['README.md', english, '### Skill invocation'],
-        ['README.zh-TW.md', traditionalChinese, '### Skill 呼叫方式'],
+      for (const [name, readme, docs, heading] of [
+        ['README.md', english, englishDocs, '### Skill invocation'],
+        ['README.zh-TW.md', traditionalChinese, chineseDocs, '### Skill 呼叫方式'],
       ] as const) {
         const matrix = sectionOf(readme, heading);
         expect(matrix, name).toMatch(/\/prospec-<name>/);
-        const withoutMatrix = readme.replace(matrix, '');
+        const withoutMatrix = readme.replace(matrix, '') + docs;
         expect(withoutMatrix, name).not.toMatch(/(?<![A-Za-z0-9_.-])[/$]prospec-[a-z-]+/);
       }
     });
 
-    it('keeps the documented CI workflow path and machine-owned coverage fields in both languages', () => {
-      expect(english).toContain('`.github/workflows/prospec-check.yml`');
-      expect(traditionalChinese).toContain('`.github/workflows/prospec-check.yml`');
-      expect(english).toMatch(/\*\*Test Coverage\*\*: \d+ total tests \(\d+ passed; \d+ skipped\)/);
-      expect(traditionalChinese).toMatch(
-        /\*\*測試覆蓋率\*\*：共 \d+ 個測試（\d+ 個通過；\d+ 個略過）/,
-      );
+    it('keeps the documented CI workflow path in both CLI references and the machine-owned coverage field in the contributor guide', () => {
+      expect(readDoc('docs/reference/cli-reference.md')).toContain('`.github/workflows/prospec-check.yml`');
+      expect(readDoc('docs/reference/cli-reference.zh-TW.md')).toContain('`.github/workflows/prospec-check.yml`');
+      expect(readDoc('CONTRIBUTING.md')).toMatch(/\*\*Test Coverage\*\*: \d+ total tests \(\d+ passed; \d+ skipped\)/);
     });
 
     it('keeps proven backfill free of plan/tasks and prepares Knowledge before Verify', () => {
       const englishRoute = sectionOf(
-        english,
-        '### Backfill: Bringing Brownfield Code into the Trust Zone',
+        readDoc('docs/guides/backfill.md'),
+        '# Backfill: Bringing Brownfield Code into the Trust Zone',
       );
       const chineseRoute = sectionOf(
-        traditionalChinese,
-        '### Backfill：把既有程式碼納進信任區',
+        readDoc('docs/guides/backfill.zh-TW.md'),
+        '# Backfill：把既有程式碼納進信任區',
       );
       expect(englishRoute).toContain(
         'PR([Promote]) -- "scale: backfill<br/>(no plan/tasks)" --> K([Knowledge Sync]) --> V([Verify])',
@@ -2682,12 +2691,15 @@ describe('Skill Format Contract', () => {
 
       expect(englishFirstChange).toContain('machine gates pass');
       expect(englishFirstChange).toContain('Tastemaker sign-off');
-      expect(englishFirstChange).toContain('Individual station Skills');
-      expect(englishFirstChange).not.toContain('Every stage ends');
       expect(chineseFirstChange).toContain('machine gates 通過');
       expect(chineseFirstChange).toContain('Tastemaker sign-off');
-      expect(chineseFirstChange).toContain('個別 station Skills');
-      expect(chineseFirstChange).not.toContain('每個階段結束時');
+
+      const englishCascade = sectionOf(readDoc('docs/concepts/workflow.md'), '## Cascade and pauses');
+      const chineseCascade = sectionOf(readDoc('docs/concepts/workflow.zh-TW.md'), '## Cascade 與暫停');
+      expect(englishCascade).toContain('Individual station Skills');
+      expect(chineseCascade).toContain('個別 station Skills');
+      for (const page of [english, englishDocs]) expect(page).not.toContain('Every stage ends');
+      for (const page of [traditionalChinese, chineseDocs]) expect(page).not.toContain('每個階段結束時');
     });
   });
 
@@ -2814,8 +2826,8 @@ describe('Skill Format Contract', () => {
       expect(chineseBrownfield).not.toContain('feature 的 modules）');
       expect(chineseBrownfield).not.toContain('只同步宣告的 modules');
       for (const [file, expected, banned, heading] of [
-        ['README.md', 'Update the READMEs of the modules `prospec knowledge update --change` reports ∪ `metadata.related_modules`', 'update only the module READMEs named in `metadata.related_modules`', '### Backfill: Bringing Brownfield Code into the Trust Zone'],
-        ['README.zh-TW.md', '更新`prospec knowledge update --change` 回報的 modules ∪ `metadata.related_modules` 的 READMEs', '只更新 `metadata.related_modules` 指定的 module READMEs', '### Backfill：把既有程式碼納進信任區'],
+        ['docs/guides/backfill.md', 'Update the READMEs of the modules `prospec knowledge update --change` reports ∪ `metadata.related_modules`', 'update only the module READMEs named in `metadata.related_modules`', '# Backfill: Bringing Brownfield Code into the Trust Zone'],
+        ['docs/guides/backfill.zh-TW.md', '更新`prospec knowledge update --change` 回報的 modules ∪ `metadata.related_modules` 的 READMEs', '只更新 `metadata.related_modules` 指定的 module READMEs', '# Backfill：把既有程式碼納進信任區'],
       ] as const) {
         const readme = fs.readFileSync(path.resolve(file), 'utf-8');
         const section = sectionOf(readme, heading);
@@ -5893,11 +5905,11 @@ describe('prospec-upgrade: root index enrichment only', () => {
   });
 });
 
-describe('root README validate-kind parity (REQ-CLI-050)', () => {
+describe('CLI reference validate-kind parity (REQ-CLI-050)', () => {
   it('documents module-readme in the English and Traditional Chinese validate command entries', () => {
     const root = path.resolve(import.meta.dirname, '../..');
-    const english = fs.readFileSync(path.join(root, 'README.md'), 'utf-8');
-    const traditionalChinese = fs.readFileSync(path.join(root, 'README.zh-TW.md'), 'utf-8');
+    const english = fs.readFileSync(path.join(root, 'docs/reference/cli-reference.md'), 'utf-8');
+    const traditionalChinese = fs.readFileSync(path.join(root, 'docs/reference/cli-reference.zh-TW.md'), 'utf-8');
 
     for (const readme of [english, traditionalChinese]) {
       const line = readme.split('\n').find((candidate) => candidate.startsWith('- **`prospec validate <kind>'));
@@ -9020,11 +9032,11 @@ describe('split and trim references contract (REQ-TEMPLATES-215~220, REQ-AGNT-04
       };
       const THREAT_MODEL_ZH = /防範的是意外或行為出錯的委派代理，而非惡意代理/;
 
-      it.each(['README.md', 'reference/cli-reference.md'])('%s claims detection and preservation only, with the threat model', (file) => {
+      it.each(['docs/reference/cli-reference.md'])('%s claims detection and preservation only, with the threat model', (file) => {
         expectOnlyDetectionClaims(delegateEntry(file), file);
       });
 
-      it.each(['README.zh-TW.md', 'reference/cli-reference.zh-TW.md'])('%s claims detection and preservation only, with the threat model', (file) => {
+      it.each(['docs/reference/cli-reference.zh-TW.md'])('%s claims detection and preservation only, with the threat model', (file) => {
         const entry = delegateEntry(file);
         expect(entry, `${file} claims detection`).toMatch(/偵測/);
         expect(entry, `${file} claims preservation`).toMatch(/保存/);
@@ -9033,10 +9045,11 @@ describe('split and trim references contract (REQ-TEMPLATES-215~220, REQ-AGNT-04
       });
 
       it('the claim predicate rejects a restoration claim, a prevention claim and a missing threat model', () => {
-        const real = delegateEntry('README.md');
-        expect(() => expectOnlyDetectionClaims(`${real} It restores the tree.`, 'README.md')).toThrow(/prevention or restoration/);
-        expect(() => expectOnlyDetectionClaims(`${real} It prevents damage.`, 'README.md')).toThrow(/prevention or restoration/);
-        expect(() => expectOnlyDetectionClaims(real.replace(THREAT_MODEL, 'any delegate'), 'README.md')).toThrow(/threat model/);
+        const sample = 'docs/reference/cli-reference.md';
+        const real = delegateEntry(sample);
+        expect(() => expectOnlyDetectionClaims(`${real} It restores the tree.`, sample)).toThrow(/prevention or restoration/);
+        expect(() => expectOnlyDetectionClaims(`${real} It prevents damage.`, sample)).toThrow(/prevention or restoration/);
+        expect(() => expectOnlyDetectionClaims(real.replace(THREAT_MODEL, 'any delegate'), sample)).toThrow(/threat model/);
       });
     });
 
@@ -9477,16 +9490,16 @@ describe('verified input evidence guidance', () => {
     expect(source('skills/references/drift-report-format.hbs')).toContain('display artifact');
   });
   it('attributes every guarantee to CLI, skill or model, with bounded model claims (REQ-TEMPLATES-230)', () => {
-    for (const [file, heading, labels] of [
-      ['README.md', '### What is enforced, and by what',
+    for (const [file, readmeFile, heading, labels] of [
+      ['docs/concepts/how-it-works.md', 'README.md', '## What is enforced, and by what',
         ['**CLI-enforced (deterministic)**', '**Skill-directed (procedural)**', '**Model judgment (bounded)**']],
-      ['README.zh-TW.md', '### 誰在強制什麼',
+      ['docs/concepts/how-it-works.zh-TW.md', 'README.zh-TW.md', '## 誰在強制什麼',
         ['**CLI 強制（決定性）**', '**Skill 指示（程序性）**', '**模型判斷（有界）**']],
     ] as const) {
       const readme = fs.readFileSync(path.resolve(file), 'utf8');
       const start = readme.indexOf(heading);
       expect(start, file).toBeGreaterThan(-1);
-      const block = readme.slice(start, readme.indexOf('\n### ', start + heading.length));
+      const block = readme.slice(start, readme.indexOf('\n## ', start + heading.length));
       for (const label of labels) expect(block, `${file}: ${label}`).toContain(label);
       // The quick-scale Knowledge impact review is model judgment, named where it is judged.
       expect(block, file).toContain('quick');
@@ -9495,7 +9508,9 @@ describe('verified input evidence guidance', () => {
       expect(block, file).toContain('scripts/workflow-eval/README.md');
       // The old overclaims are gone: nothing is "guaranteed" about model behavior, and
       // the Constitution is graded by the audit rather than "enforced by the tool".
-      expect(readme, file).not.toMatch(/guarantees zero-token|保證了?零 token/);
+      for (const scanned of [readmeFile, ...publicDocsPages(readmeFile.endsWith('.zh-TW.md'))]) {
+        expect(fs.readFileSync(path.resolve(scanned), 'utf8'), scanned).not.toMatch(/guarantees zero-token|保證了?零 token/);
+      }
       const principle = readme.split('\n').find((line) => line.startsWith('5. **User Controls the Rules**'))!;
       expect(principle, file).toBeDefined();
       expect(principle, file).not.toMatch(/the tool enforces|工具負責強制執行/);
@@ -9506,8 +9521,8 @@ describe('verified input evidence guidance', () => {
 
   it('relocates the command/config/layout detail to a bilingual reference pair with parity (REQ-TEMPLATES-230)', () => {
     const pair = {
-      en: fs.readFileSync(path.resolve('reference/cli-reference.md'), 'utf8'),
-      zh: fs.readFileSync(path.resolve('reference/cli-reference.zh-TW.md'), 'utf8'),
+      en: fs.readFileSync(path.resolve('docs/reference/cli-reference.md'), 'utf8'),
+      zh: fs.readFileSync(path.resolve('docs/reference/cli-reference.zh-TW.md'), 'utf8'),
     };
     // Both halves carry the same four relocated sections, and each links the other.
     const sections = {
@@ -9556,47 +9571,47 @@ describe('verified input evidence guidance', () => {
     expect([...realIds('en')].sort(), 'both CLI Reference files must name the same check ids')
       .toEqual([...realIds('zh')].sort());
 
-    // A relative link written for the repo root resolves to reference/<path> here.
+    // A relative link written for the repo root resolves to docs/reference/<path> here.
     for (const lang of ['en', 'zh'] as const) expect(pair[lang], lang).not.toMatch(/\]\(\.\/prospec\//);
-    // The root READMEs keep the onboarding narrative plus a reachable destination link,
-    // and no longer carry the exhaustive per-command tables.
-    for (const [file, link, heading] of [
-      ['README.md', './reference/cli-reference.md#cli-commands', '## CLI Commands'],
-      ['README.zh-TW.md', './reference/cli-reference.zh-TW.md#cli-命令', '## CLI 命令'],
+    // The root READMEs keep the onboarding narrative and link the reference pair; the
+    // per-command detail, including the entries graduated REQs name, lives in the pair.
+    for (const [readmeFile, link] of [
+      ['README.md', './docs/reference/cli-reference.md'],
+      ['README.zh-TW.md', './docs/reference/cli-reference.zh-TW.md'],
     ] as const) {
-      const readme = fs.readFileSync(path.resolve(file), 'utf8');
-      expect(readme, file).toContain(heading);
-      expect(readme, file).toContain(link);
-      // The concise mentions existing contracts require stay in the root file — the
-      // validate entry by its own line, not merely the word somewhere else on the page.
-      const lines = readme.split('\n');
+      expect(fs.readFileSync(path.resolve(readmeFile), 'utf8'), readmeFile).toContain(`](${link})`);
+    }
+    for (const lang of ['en', 'zh'] as const) {
+      const file = `docs/reference/cli-reference${lang === 'zh' ? '.zh-TW' : ''}.md`;
+      const reference = pair[lang];
+      // The validate entry by its own line, not merely the word somewhere else on the page.
+      const lines = reference.split('\n');
       const at = lines.findIndex((line) => line.startsWith('- **`prospec validate <kind>'));
       expect(at, file).toBeGreaterThan(-1);
-      // The entry wraps, so the kind list sits on its continuation line. Pin it against
-      // the registry Commander binds: a plausible-looking invented kind is a copy-paste
-      // the CLI refuses, and a real kind left out sends the reader to a dead end.
+      // The entry's kind list sits on its Purpose line. Pin it against the registry
+      // Commander binds: a plausible-looking invented kind is a copy-paste the CLI
+      // refuses, and a real kind left out sends the reader to a dead end.
       const entry = lines.slice(at, at + 2).join(' ');
       for (const kind of VALIDATE_KINDS) expect(entry, `${file}: ${kind}`).toContain(`\`${kind}\``);
       const documented = [...entry.matchAll(/`([a-z-]+)`/g)].map((match) => match[1]!)
         .filter((kind) => kind !== 'kind' && !kind.startsWith('prospec'));
       expect([...new Set(documented)].sort(), file).toEqual([...VALIDATE_KINDS].sort());
-      expect(readme, file).toContain('--verifier-report <file>');
-      expect(readme, file).toContain('.github/workflows/prospec-check.yml');
-      expect(readme, file).toContain('snapshot-v2');
-      // Graduated REQs require these in the ROOT README specifically, so relocating the
-      // command detail must not take them along: REQ-MCP-008 (an MCP section plus
-      // per-agent registration guidance), REQ-CLI-021 (`config example`) and
-      // REQ-AGNT-036 (`agent triggers`). All three vanished once (round-2 A2-1).
-      expect(readme, `${file}: REQ-MCP-008 command`).toContain('prospec mcp serve');
-      expect(readme, `${file}: REQ-MCP-008 section`).toMatch(/^### MCP server$/m);
-      expect(readme, `${file}: REQ-MCP-008 registration`).toContain('claude mcp add');
-      expect(readme, `${file}: REQ-CLI-021`).toContain('prospec config example');
-      expect(readme, `${file}: REQ-AGNT-036`).toContain('prospec agent triggers');
+      expect(reference, file).toContain('--verifier-report <file>');
+      expect(reference, file).toContain('.github/workflows/prospec-check.yml');
+      expect(reference, file).toContain('snapshot-v2');
+      // REQ-MCP-008 (an MCP section plus per-agent registration guidance), REQ-CLI-021
+      // (`config example`) and REQ-AGNT-036 (`agent triggers`). All three vanished once
+      // when command detail moved (round-2 A2-1).
+      expect(reference, `${file}: REQ-MCP-008 command`).toContain('prospec mcp serve');
+      expect(reference, `${file}: REQ-MCP-008 section`).toMatch(/^### MCP Server$/m);
+      expect(reference, `${file}: REQ-MCP-008 registration`).toContain('claude mcp add');
+      expect(reference, `${file}: REQ-CLI-021`).toContain('prospec config example');
+      expect(reference, `${file}: REQ-AGNT-036`).toContain('prospec agent triggers');
     }
   });
 
-  it('documents scope, migration and bounded guarantees in both public READMEs', () => {
-    for (const file of ['README.md', 'README.zh-TW.md']) {
+  it('documents scope, migration and bounded guarantees in both CLI references', () => {
+    for (const file of ['docs/reference/cli-reference.md', 'docs/reference/cli-reference.zh-TW.md']) {
       const text = fs.readFileSync(path.resolve(file), 'utf8');
       expect(text).toContain('snapshot-v2');
       expect(text).toContain('repository-inputs-v2');
@@ -9767,8 +9782,8 @@ describe('one verdict vocabulary, one station route (issue #266 — REQ-TEMPLATE
     }
   });
 
-  it('both root READMEs document --verifier-report, the [CODE] prefix and the per-change gate', () => {
-    for (const file of ['README.md', 'README.zh-TW.md']) {
+  it('both CLI references document --verifier-report, the [CODE] prefix and the per-change gate', () => {
+    for (const file of ['docs/reference/cli-reference.md', 'docs/reference/cli-reference.zh-TW.md']) {
       const text = fs.readFileSync(path.join(root, file), 'utf-8');
       expect(text, file).toContain('--verifier-report <file>');
       expect(text, file).toContain('[CODE]');
@@ -9863,14 +9878,15 @@ describe('finisher skills name both localization keys (REQ-TEMPLATES-231)', () =
   }
 });
 
-describe('root READMEs state the finisher skills\' per-session cost honestly (REQ-AGNT-043)', () => {
+describe('public docs state the finisher skills\' per-session cost honestly (REQ-AGNT-043)', () => {
   const root = path.resolve(import.meta.dirname, '../..');
-  const english = fs.readFileSync(path.join(root, 'README.md'), 'utf-8');
-  const traditionalChinese = fs.readFileSync(path.join(root, 'README.zh-TW.md'), 'utf-8');
+  const read = (rel: string) => fs.readFileSync(path.join(root, rel), 'utf-8');
+  const english = read('docs/concepts/workflow.md');
+  const traditionalChinese = read('docs/concepts/workflow.zh-TW.md');
 
-  it('neither README claims zero ongoing token cost', () => {
-    expect(english).not.toContain('zero ongoing token cost');
-    expect(traditionalChinese).not.toContain('不增加任何重複性 token 成本');
+  it('neither language\'s README or docs pages claim zero ongoing token cost', () => {
+    for (const file of ['README.md', ...publicDocsPages(false)]) expect(read(file), file).not.toContain('zero ongoing token cost');
+    for (const file of ['README.zh-TW.md', ...publicDocsPages(true)]) expect(read(file), file).not.toContain('不增加任何重複性 token 成本');
   });
 
   it('the finisher note itself states that the SKILL.md metadata still loads per session (section-scoped)', () => {

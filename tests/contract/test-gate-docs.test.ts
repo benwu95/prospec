@@ -5,7 +5,7 @@ import * as path from 'node:path';
 
 /**
  * Public-doc contract for the fresh-test gates (REQ-TEMPLATES-234, REQ-CLI-043):
- * the bilingual CLI references and the root READMEs describe the same refusal
+ * the bilingual CLI references and the public workflow summaries describe the same refusal
  * conditions, exemptions and counting limitation — in English technical tokens
  * both languages share, so parity is checked token by token.
  */
@@ -26,8 +26,8 @@ function entryOf(doc: string, command: string): string {
 const STATUS_TOKENS = ['implemented', 'prospec check --record-tests --change', 'tests: not-adjudicated', 'backfill'];
 const MERGE_TOKENS = ['prospec check --record-tests --change', 'tests: not-adjudicated', 'test_failures', 'persistent_test_failure', 'ESCALATE_TO_HUMAN', '3'];
 
-describe('reference/cli-reference*.md — change status and review merge refusal conditions', () => {
-  const docs = { en: read('reference/cli-reference.md'), zh: read('reference/cli-reference.zh-TW.md') };
+describe('docs/reference/cli-reference*.md — change status and review merge refusal conditions', () => {
+  const docs = { en: read('docs/reference/cli-reference.md'), zh: read('docs/reference/cli-reference.zh-TW.md') };
 
   it.each(Object.entries(docs))('%s: change status documents the fresh-green refusal, remediation and explicit exemptions', (_lang, doc) => {
     const entry = entryOf(doc, 'prospec change status');
@@ -54,10 +54,10 @@ describe('reference/cli-reference*.md — change status and review merge refusal
   });
 });
 
-describe('README workflow summaries — bilingual parity for the test gate', () => {
+describe('public workflow summaries — bilingual parity for the test gate', () => {
   it.each([
-    ['README.md', 'Gated, resumable execution'],
-    ['README.zh-TW.md', '受 gate 管理、可恢復的執行'],
+    ['docs/guides/upgrading.md', 'Gated, resumable execution'],
+    ['docs/guides/upgrading.zh-TW.md', '受 gate 管理、可恢復的執行'],
   ])('%s names the fresh-green requirement on implemented and review merge in its workflow row', (file, rowTitle) => {
     const row = read(file).split('\n').find((l) => l.includes(rowTitle));
     expect(row, rowTitle).toBeDefined();
@@ -68,8 +68,8 @@ describe('README workflow summaries — bilingual parity for the test gate', () 
   });
 });
 
-describe('reference/cli-reference*.md — knowledge update never retires a module for a REMOVED requirement', () => {
-  const docs = { en: read('reference/cli-reference.md'), zh: read('reference/cli-reference.zh-TW.md') };
+describe('docs/reference/cli-reference*.md — knowledge update never retires a module for a REMOVED requirement', () => {
+  const docs = { en: read('docs/reference/cli-reference.md'), zh: read('docs/reference/cli-reference.zh-TW.md') };
   // #311 R4-1: pin the positive meaning on the REMOVED bullet itself — another
   // bullet's `module-map` (or the old sentence's absence) must not satisfy it.
   const neverRetires = { en: 'never deprecates or unregisters it from `module-map.yaml`', zh: '不會棄用模組或從 module-map 移除' } as const;
@@ -85,8 +85,8 @@ describe('reference/cli-reference*.md — knowledge update never retires a modul
   });
 });
 
-describe('reference/cli-reference*.md — related_modules correction and the knowledge-sync input halt (REQ-CLI-060, REQ-CLI-039)', () => {
-  const docs = { en: read('reference/cli-reference.md'), zh: read('reference/cli-reference.zh-TW.md') };
+describe('docs/reference/cli-reference*.md — related_modules correction and the knowledge-sync input halt (REQ-CLI-060, REQ-CLI-039)', () => {
+  const docs = { en: read('docs/reference/cli-reference.md'), zh: read('docs/reference/cli-reference.zh-TW.md') };
   const neverRemoves = { en: 'never removes a registered module', zh: '絕不移除已註冊模組' } as const;
   // the Behavior sentence, not a token: an entry inverted to "may remove" must go red
   const entryRule = {

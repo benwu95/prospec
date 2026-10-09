@@ -24,10 +24,13 @@ import type { CountEntry, CountFormat, CountOccurrence } from './types.js';
 
 const README = 'README.md';
 const README_ZH = 'README.zh-TW.md';
-// The exhaustive command/config/layout/architecture detail lives in this pair; a
+// The command/config/layout/architecture detail lives in this pair; a
 // count anchored in that prose moves WITH it, or `counts:check` reads a stale copy.
-const CLI_REFERENCE = 'reference/cli-reference.md';
-const CLI_REFERENCE_ZH = 'reference/cli-reference.zh-TW.md';
+const CLI_REFERENCE = 'docs/reference/cli-reference.md';
+const CLI_REFERENCE_ZH = 'docs/reference/cli-reference.zh-TW.md';
+// The per-layer test counts live in the contributor guide's Testing section, which has no
+// Traditional Chinese twin; both root READMEs keep only the badge total.
+const CONTRIBUTING = 'CONTRIBUTING.md';
 const DOCS_INDEX = 'docs/index.html';
 const DOCS_I18N = 'docs/i18n.js';
 const INDEX = 'prospec/index.md';
@@ -56,23 +59,13 @@ export const COUNT_REGISTRY: CountEntry[] = [
     source: { kind: 'test-suite', layer: 'total' },
     occurrences: [
       { doc: README, anchor: /badge\/tests-(\d+)%20(?:passing|total)/, format: 'plain' },
-      { doc: README, anchor: /Run all tests \((\d+) (?:tests|total)(?:; \d+ skipped)?\)/, format: 'plain' },
+      { doc: CONTRIBUTING, anchor: /Run all tests \((\d+) (?:tests|total)(?:; \d+ skipped)?\)/, format: 'plain' },
       {
-        doc: README,
+        doc: CONTRIBUTING,
         anchor: /\*\*Test Coverage\*\*: (\d+) (?:tests(?: total)?|total tests)(?: \(\d+ passed; \d+ skipped\))? across/,
         format: 'plain',
       },
       { doc: README_ZH, anchor: /badge\/測試-(\d+)%20(?:通過|總計)/, format: 'plain' },
-      {
-        doc: README_ZH,
-        anchor: /執行所有測試（(?:共 )?(\d+) 個(?:測試)?(?:；\d+ 個略過)?）/,
-        format: 'plain',
-      },
-      {
-        doc: README_ZH,
-        anchor: /\*\*測試覆蓋率\*\*：(?:共 )?(\d+) 個測試(?:（\d+ 個通過；\d+ 個略過）)?(?:，)?橫跨/,
-        format: 'plain',
-      },
       {
         doc: DOCS_INDEX,
         anchor: /data-i18n="hero\.facts\.tests"><b>([\d,]+)<\/b> total ·/,
@@ -93,13 +86,8 @@ export const COUNT_REGISTRY: CountEntry[] = [
     source: { kind: 'test-suite', layer: 'passed' },
     occurrences: [
       {
-        doc: README,
+        doc: CONTRIBUTING,
         anchor: /\*\*Test Coverage\*\*: \d+ (?:tests(?: total)?|total tests) \((\d+) passed; \d+ skipped\) across/,
-        format: 'plain',
-      },
-      {
-        doc: README_ZH,
-        anchor: /\*\*測試覆蓋率\*\*：(?:共 )?\d+ 個測試（(\d+) 個通過；\d+ 個略過）(?:，)?橫跨/,
         format: 'plain',
       },
       {
@@ -118,20 +106,10 @@ export const COUNT_REGISTRY: CountEntry[] = [
     key: 'tests.skipped',
     source: { kind: 'test-suite', layer: 'skipped' },
     occurrences: [
-      { doc: README, anchor: /Run all tests \(\d+ (?:tests|total); (\d+) skipped\)/, format: 'plain' },
+      { doc: CONTRIBUTING, anchor: /Run all tests \(\d+ (?:tests|total); (\d+) skipped\)/, format: 'plain' },
       {
-        doc: README,
+        doc: CONTRIBUTING,
         anchor: /\*\*Test Coverage\*\*: \d+ (?:tests(?: total)?|total tests) \(\d+ passed; (\d+) skipped\) across/,
-        format: 'plain',
-      },
-      {
-        doc: README_ZH,
-        anchor: /執行所有測試（(?:共 )?\d+ 個(?:測試)?；(\d+) 個略過）/,
-        format: 'plain',
-      },
-      {
-        doc: README_ZH,
-        anchor: /\*\*測試覆蓋率\*\*：(?:共 )?\d+ 個測試（\d+ 個通過；(\d+) 個略過）(?:，)?橫跨/,
         format: 'plain',
       },
       {
@@ -151,13 +129,8 @@ export const COUNT_REGISTRY: CountEntry[] = [
     source: { kind: 'test-suite', layer: 'unit' },
     occurrences: [
       {
-        doc: README,
+        doc: CONTRIBUTING,
         anchor: /Unit tests \(types \+ lib \+ services \+ cli\): (\d+) tests/,
-        format: 'plain',
-      },
-      {
-        doc: README_ZH,
-        anchor: /Unit tests（types \+ lib \+ services \+ cli）：(\d+) tests/,
         format: 'plain',
       },
       { doc: INDEX, anchor: /\(unit (\d+) \+ contract/, format: 'plain' },
@@ -170,13 +143,8 @@ export const COUNT_REGISTRY: CountEntry[] = [
     source: { kind: 'test-suite', layer: 'contract' },
     occurrences: [
       {
-        doc: README,
+        doc: CONTRIBUTING,
         anchor: /Contract tests \(CLI output \+ Skill format\): (\d+) tests/,
-        format: 'plain',
-      },
-      {
-        doc: README_ZH,
-        anchor: /Contract tests（CLI 輸出 \+ Skill 格式）：(\d+) tests/,
         format: 'plain',
       },
       { doc: INDEX, anchor: /\+ contract (\d+) \+ integration/, format: 'plain' },
@@ -188,8 +156,7 @@ export const COUNT_REGISTRY: CountEntry[] = [
     key: 'tests.integration',
     source: { kind: 'test-suite', layer: 'integration' },
     occurrences: [
-      { doc: README, anchor: /Integration tests: (\d+) tests/, format: 'plain' },
-      { doc: README_ZH, anchor: /Integration tests：(\d+) tests/, format: 'plain' },
+      { doc: CONTRIBUTING, anchor: /Integration tests: (\d+) tests/, format: 'plain' },
       { doc: INDEX, anchor: /\+ integration (\d+) \+ e2e/, format: 'plain' },
       moduleMapTwin('tests', /\+ integration (\d+) \+ e2e/),
       { doc: TESTS_README, anchor: /, integration (\d+), e2e/, format: 'plain' },
@@ -199,8 +166,7 @@ export const COUNT_REGISTRY: CountEntry[] = [
     key: 'tests.e2e',
     source: { kind: 'test-suite', layer: 'e2e' },
     occurrences: [
-      { doc: README, anchor: /E2E tests: (\d+) tests/, format: 'plain' },
-      { doc: README_ZH, anchor: /E2E tests：(\d+) tests/, format: 'plain' },
+      { doc: CONTRIBUTING, anchor: /E2E tests: (\d+) tests/, format: 'plain' },
       { doc: INDEX, anchor: /\+ e2e (\d+)\)/, format: 'plain' },
       moduleMapTwin('tests', /\+ e2e (\d+)\)/),
       { doc: TESTS_README, anchor: /, e2e (\d+)\)/, format: 'plain' },

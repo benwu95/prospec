@@ -27,8 +27,12 @@ const TRUTH: TruthMap = {
 const HISTORICAL = '> 測試數 1800→1860→1862 逐層重導（歷史，勿改）';
 
 const README_STALE = [
-  '[![Tests](https://img.shields.io/badge/tests-1800%20passing-success)](tests/)',
+  '[![Tests](https://img.shields.io/badge/tests-1800%20passing-success)](./CONTRIBUTING.md#testing)',
   HISTORICAL,
+].join('\n');
+
+// The per-layer test counts live in the contributor guide; the root README keeps only the badge.
+const CONTRIBUTING_STALE = [
   '# Run all tests (1800 tests; 2 skipped)',
   '**Test Coverage**: 1800 tests (1798 passed; 2 skipped) across 4 categories:',
   '- Unit tests (types + lib + services + cli): 1200 tests',
@@ -81,7 +85,8 @@ function setup(): string {
     writeFileSync(abs, body);
   };
   write('README.md', README_STALE);
-  write('reference/cli-reference.md', CLI_REFERENCE_STALE);
+  write('CONTRIBUTING.md', CONTRIBUTING_STALE);
+  write('docs/reference/cli-reference.md', CLI_REFERENCE_STALE);
   write('prospec/index.md', INDEX_STALE);
   write('prospec/ai-knowledge/module-map.yaml', MODULE_MAP_STALE);
   return root;
@@ -96,13 +101,13 @@ describe('syncCounts write mode', () => {
   it('rewrites every whitelisted count to the truth value, in-place', async () => {
     setup();
     await syncCounts({ repoRoot: root, check: false, truth: TRUTH });
-    const readme = read('README.md');
-    expect(readme).toContain('badge/tests-1865%20passing');
-    expect(readme).toContain('# Run all tests (1865 tests; 4 skipped)');
-    expect(readme).toContain('**Test Coverage**: 1865 tests (1861 passed; 4 skipped) across');
-    expect(readme).toContain('Unit tests (types + lib + services + cli): 1204 tests');
-    expect(readme).toContain('Integration tests: 38 tests');
-    expect(read('reference/cli-reference.md')).toContain('Handlebars templates (58 .hbs files)');
+    expect(read('README.md')).toContain('badge/tests-1865%20passing');
+    const contributing = read('CONTRIBUTING.md');
+    expect(contributing).toContain('# Run all tests (1865 tests; 4 skipped)');
+    expect(contributing).toContain('**Test Coverage**: 1865 tests (1861 passed; 4 skipped) across');
+    expect(contributing).toContain('Unit tests (types + lib + services + cli): 1204 tests');
+    expect(contributing).toContain('Integration tests: 38 tests');
+    expect(read('docs/reference/cli-reference.md')).toContain('Handlebars templates (58 .hbs files)');
 
     const index = read('prospec/index.md');
     expect(index).toContain('78 files, 1,865 tests (unit 1204 + contract 580 + integration 38 + e2e 43)');
@@ -170,10 +175,11 @@ describe('syncCounts write mode', () => {
     setup();
     const report = await syncCounts({ repoRoot: root, check: false, truth: TRUTH });
     expect(report.written.sort()).toEqual([
+      'CONTRIBUTING.md',
       'README.md',
+      'docs/reference/cli-reference.md',
       'prospec/ai-knowledge/module-map.yaml',
       'prospec/index.md',
-      'reference/cli-reference.md',
     ]);
     expect(report.changes.length).toBeGreaterThan(0);
     for (const c of report.changes) {
@@ -234,9 +240,9 @@ describe('syncCounts honest skip', () => {
       skipped: [{ key: 'tests.total', reason: 'vitest unavailable' }],
     });
     // inventory fixed…
-    expect(read('reference/cli-reference.md')).toContain('Handlebars templates (58 .hbs files)');
+    expect(read('docs/reference/cli-reference.md')).toContain('Handlebars templates (58 .hbs files)');
     // …but every test count stays stale (no fabricated write)
-    expect(read('README.md')).toContain('# Run all tests (1800 tests; 2 skipped)');
+    expect(read('CONTRIBUTING.md')).toContain('# Run all tests (1800 tests; 2 skipped)');
     expect(report.changes.every((c) => c.key.startsWith('templates.'))).toBe(true);
     expect(report.skipped).toEqual([{ key: 'tests.total', reason: 'vitest unavailable' }]);
   });
