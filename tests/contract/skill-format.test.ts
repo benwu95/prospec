@@ -4516,8 +4516,11 @@ describe('Startup Loading cache-stable prefix ordering (REQ-TEMPLATES-080/081)',
   // align-skill-guidance (#326): recaptured exact rows after valid-command,
   // owner-pointer, proven-backfill and README-linked-doc guidance corrections.
   // Both ceiling anchors remain unchanged.
-  const REFERENCE_CEILING_ANCHOR = 51_089;
-  const CUMULATIVE_CEILING_ANCHOR = 88_535;
+  // Class-sweep guidance: references +21 net (brief +60, predicate +26, lens -65);
+  // review skill body +263 and mandatory review-format +26 add +289 context tokens.
+  // Measured totals 51_084 → 51_105 and 88_518 → 88_807; ceilings raised, not earned.
+  const REFERENCE_CEILING_ANCHOR = 51_105;
+  const CUMULATIVE_CEILING_ANCHOR = 88_807;
 
   const renderSkill = (name: string) => {
     const skill = SKILL_DEFINITIONS.find((s) => s.name === name)!;
@@ -10756,5 +10759,103 @@ describe('quantitative target baselines (issue #331)', () => {
     const changed = mutate(text, original, replacement.padEnd(original.length));
     expect(changed.length).toBe(text.length);
     expect(() => assertExample(changed)).toThrow();
+  });
+});
+
+describe('review defect-class sweep (REQ-TEMPLATES-249/250, REQ-TESTS-135)', () => {
+  const rules = [
+    {
+      name: 'class filing', template: 'references/delegation-protocol', heading: '## Ticketed delegation', step: 2,
+      item: /^ {3}- For review findings:/m,
+      clauses: ['one finding per failure mode', '`location` names the first instance',
+        '`repro` is a one-line rerunnable command describing the failure-mode structure and listing its instances',
+        '`evidence` lists known instances'],
+    },
+    {
+      name: 'class sweep', template: 'prospec-review', heading: '### The Loop', step: 3,
+      item: /^ {3}- \*\*Class sweep\*\*:/m,
+      clauses: ['derive a structural predicate', 'cumulative diff and its touched files', 'fix every match',
+        'list sites still missing the required content', 'locale-safe scanning for non-ASCII content'],
+    },
+    {
+      name: 'fix ripple', template: 'prospec-review', heading: '### The Loop', step: 3,
+      item: /^ {3}- \*\*Fix ripple\*\*:/m,
+      clauses: ['parallel-language pages', 'docs', 'JSDoc/comments', 'delta-spec', 'task implementation deviations',
+        'module READMEs', 'test-count sites', 'trust-zone owner requirement', 'MODIFIED delta', 'same change'],
+    },
+    {
+      name: 'shape check', template: 'prospec-review', heading: '### The Loop', step: 3,
+      item: /^ {3}- \*\*Shape check\*\*:/m,
+      clauses: ["failure's shape", 'second time', 'delete the claim rather than rewrite it'],
+    },
+    {
+      name: 'predicate handoff', template: 'prospec-review', heading: '### The Loop', item: /^4\. /m,
+      clauses: ['classes repaired this round and their predicates', 'reviewer reruns those predicates',
+        'remaining instances keep the original finding id open'],
+    },
+    {
+      name: 'filing pointer', template: 'prospec-review', heading: '### Persistence',
+      item: /^Follow the Spawn brief/m,
+      clauses: ["Spawn brief's class-granularity guidance", 'delegation protocol'],
+    },
+    {
+      name: 'predicate structure', template: 'references/review-format', heading: '## Auto-Fix Boundary',
+      item: /^A class predicate/m,
+      clauses: ["failure mode's structure", 'rather than a list of quoted instance strings'],
+    },
+    {
+      name: 'remediation pointer', template: 'references/review-lenses-content', heading: '## Parallel-Site Completeness Lens',
+      item: /^\| \*\*Remediation face\*\*/m,
+      clauses: ['prospec-review', 'The Loop step 3', 'Class sweep', 'Fix ripple', 'Shape check'],
+    },
+  ];
+  const render = (template: string) => renderTemplate(`skills/${template}.hbs`, TEMPLATE_CONTEXT);
+  const assertRule = (content: string, rule: typeof rules[number]) => {
+    const section = sectionOf(content, rule.heading);
+    const scope = rule.step === undefined ? section
+      : section.split(/\n(?=\d+\. )/).find((part) => part.startsWith(`${rule.step}. `)) ?? '';
+    expect(scope.length, rule.name).toBeGreaterThan(0);
+    const items = scope.split('\n').filter((line) => rule.item.test(line));
+    expect(items, rule.name).toHaveLength(1);
+    for (const clause of rule.clauses) expect(items[0], rule.name).toContain(clause);
+  };
+
+  for (const rule of rules) {
+    it(`places ${rule.name} in its owning section`, () => assertRule(render(rule.template), rule));
+    it.each(rule.clauses)(`${rule.name} rejects removing %s`, (clause) => {
+      const original = render(rule.template);
+      assertRule(original, rule);
+      const line = sectionOf(original, rule.heading).split('\n').find((value) => rule.item.test(value))!;
+      const changed = original.replace(line, line.replace(clause, ''));
+      expect(changed).not.toBe(original);
+      expect(() => assertRule(changed, rule)).toThrow();
+    });
+    it(`${rule.name} rejects moving its instruction outside the owning section`, () => {
+      const original = render(rule.template);
+      assertRule(original, rule);
+      const line = sectionOf(original, rule.heading).split('\n').find((value) => rule.item.test(value))!;
+      const moved = `${original.replace(line, '')}\n## Unrelated\n${line}\n`;
+      expect(moved).not.toBe(original);
+      expect(() => assertRule(moved, rule)).toThrow();
+      if (rule.step !== undefined) {
+        const section = sectionOf(original, rule.heading);
+        const movedSection = section.replace(line, '').replace(
+          new RegExp(`^${rule.step + 1}\\. .*`, 'm'), (nextStep) => `${nextStep}\n${line}`,
+        );
+        const movedWithinSection = original.replace(section, movedSection);
+        expect(movedWithinSection).not.toBe(original);
+        expect(sectionOf(movedWithinSection, rule.heading)).toContain(line);
+        expect(() => assertRule(movedWithinSection, rule)).toThrow();
+      }
+    });
+  }
+
+  it('keeps the three fix actions inside step 3 before full-lens re-review', () => {
+    const loop = sectionOf(render('prospec-review'), '### The Loop');
+    const fix = loop.slice(loop.indexOf('\n3. '), loop.indexOf('\n4. '));
+    expect(fix.length).toBeGreaterThan(0);
+    expect([...fix.matchAll(/^ {3}- \*\*([^*]+)\*\*:/gm)].map((match) => match[1]))
+      .toEqual(['Class sweep', 'Fix ripple', 'Shape check']);
+    expect(loop.indexOf('\n3. ')).toBeLessThan(loop.indexOf('\n4. '));
   });
 });

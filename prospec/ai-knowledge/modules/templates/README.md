@@ -37,6 +37,8 @@
 
 ## Ripple Effects
 
+- Review class filing pairs `prospec-review` Persistence with the review-only Spawn brief in `delegation-protocol`. The Loop step 3 owns Class sweep, Fix ripple and Shape check; `review-format` defines structural predicates and the parallel-site lens points remediation to that step. Update those sources together.
+
 - `module-readme.hbs` / `index.md.hbs` changes affect ALL knowledge output — guard with `knowledge-format.test.ts`; `skills/**` ripple is covered in the sub-module.
 
 ## Pitfalls

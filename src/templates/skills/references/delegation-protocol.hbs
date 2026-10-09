@@ -59,6 +59,7 @@ have destroyed is still on disk for the human.
    When a ticket can be issued, a fresh run the degraded path offers is ticketed too, under
    `<role>{{delegation_fresh_suffix}}`.
 2. **Spawn** — with a brief that tells the delegate to:
+   - For review findings: file one finding per failure mode; `location` names the first instance, `repro` is a one-line rerunnable command describing the failure-mode structure and listing its instances, and `evidence` lists known instances.
    - run every test, regression pin, mutation check and repro that writes inside the snapshot path only —
      never in the main working tree;
    - make ignored dependencies (which the snapshot does not hold) available there per the project test

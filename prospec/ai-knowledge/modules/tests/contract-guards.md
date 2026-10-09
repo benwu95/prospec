@@ -42,6 +42,8 @@
 
 ## Pitfalls
 
+- Review class-sweep contracts locate the owning filing bullet, fix subitem, re-review input, or reference pointer. Mutations remove each required clause from that specific line and move the instruction outside its section or into another numbered step; filing and fix subitems are scoped to their owning step; the fix-step action set is ordered before re-review. Keep the mutation target as narrow as the assertion target.
+
 - `premise-format.test.ts` renders the shared proposal mapping and checks the new-story/ff validation commands and explore handoff. Pair those predicates with physical template mutations and restore/rebundle after each probe.
 
 - `escalation-guidance.test.ts` scopes assertions to the shared rendered section, enumerates all six station consumers and kills deletion of each enforcement predicate. Keep source, bundle and deployment checks separate.

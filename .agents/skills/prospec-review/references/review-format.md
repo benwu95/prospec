@@ -31,6 +31,8 @@ A finding is critical only if it is one of:
 
 ## Auto-Fix Boundary
 
+A class predicate describes the failure mode's structure rather than a list of quoted instance strings.
+
 Only a critical that is **confirmed to exist** — by running its `repro` and reading the cited code, with an independent verifier's `[confirmed]` verdict — **and** has a **fail-then-pass mutation-verified regression test (pin)** and a **concrete, local, drop-in** fix is auto-applied to the working tree. The regression pin serves as the mechanical receipt guarding against regression in subsequent rounds. Where the project has no mutation tool, "mutation-verified" means the pin was observed red on the unfixed code and green after the fix — the fail-then-pass run itself is the receipt. A `critical` therefore always carries a `repro` and a regression test. A critical whose fix is **architectural, a large refactor, or ambiguous** is **escalated to the human** with the analysis — never auto-applied. Every applied fix is followed by a full test re-run; a fix that turns a test red is rolled back.
 
 ---

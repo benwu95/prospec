@@ -8,7 +8,7 @@
 |------|---------|
 | `skills/prospec-*.hbs` (17) | Skill definitions → `SKILL.md` per agent on `agent sync`; frontmatter description single-sourced from `types/skill.ts`; canonical references use bare `prospec-<name>`, while host-specific syntax is confined to the entry-config matrix |
 | `skills/_*.hbs` | Shared partials: `premise` (pending sourced-premise mapping), `cli-probe` (the required-CLI probe), `harness-capabilities` (per-agent capability flags + the degradation floor; consumers pass their own `degraded_action`), `next-step-handoff`, `output-summary-note`, `generated-notice`, `language-policy` (path-scoped), `knowledge-loading-rules`, `verifier-rubric-base` (shared LLM-as-Verifier scaffold), `escalation-guidance` (CLI-owned exits, human-only scoped grants and partial-write handling), `human-decision` (the shared human-decision presentation contract) |
-| `skills/references/*.hbs` (31) | Per-skill format specs + design adapters, rendered to `.md` on demand — `metadata-format` guides the **CLI-written** metadata.yaml; `review-format` pins the 8-column findings table, its evidence section, **and the finding-CONTENT rules** (a Summary claiming mutation verification must name each mutation and its outcome) |
+| `skills/references/*.hbs` (31) | Per-skill format specs + design adapters, rendered to `.md` on demand — `metadata-format` guides the **CLI-written** metadata.yaml; `review-format` pins the 8-column findings table, its evidence section, **and the finding-CONTENT rules** (class filing is the review-only Spawn brief in `delegation-protocol`, paired with `prospec-review` Persistence) (a Summary claiming mutation verification must name each mutation and its outcome) |
 
 ## Public API
 
