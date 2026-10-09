@@ -2,13 +2,12 @@ import { describe, it, expect, afterEach } from 'vitest';
 import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, rmSync } from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
+import { deriveTestCounts } from '../../../scripts/counts/derive.js';
 import { syncCounts, checkFailed } from '../../../scripts/counts/sync.js';
 import type { TruthMap } from '../../../scripts/counts/types.js';
 
 const TRUTH: TruthMap = {
   'tests.total': 1865,
-  'tests.passed': 1861,
-  'tests.skipped': 4,
   'tests.unit': 1204,
   'tests.contract': 580,
   'tests.integration': 38,
@@ -27,14 +26,14 @@ const TRUTH: TruthMap = {
 const HISTORICAL = '> 測試數 1800→1860→1862 逐層重導（歷史，勿改）';
 
 const README_STALE = [
-  '[![Tests](https://img.shields.io/badge/tests-1800%20passing-success)](./CONTRIBUTING.md#testing)',
+  '[![Tests](https://img.shields.io/badge/tests-1800%20total-success)](./CONTRIBUTING.md#testing)',
   HISTORICAL,
 ].join('\n');
 
 // The per-layer test counts live in the contributor guide; the root README keeps only the badge.
 const CONTRIBUTING_STALE = [
-  '# Run all tests (1800 tests; 2 skipped)',
-  '**Test Coverage**: 1800 tests (1798 passed; 2 skipped) across 4 categories:',
+  '# Run all tests (1800 tests)',
+  '**Test Coverage**: 1800 tests across 4 categories:',
   '- Unit tests (types + lib + services + cli): 1200 tests',
   '- Contract tests (CLI output + Skill format): 500 tests',
   '- Integration tests: 30 tests',
@@ -101,10 +100,10 @@ describe('syncCounts write mode', () => {
   it('rewrites every whitelisted count to the truth value, in-place', async () => {
     setup();
     await syncCounts({ repoRoot: root, check: false, truth: TRUTH });
-    expect(read('README.md')).toContain('badge/tests-1865%20passing');
+    expect(read('README.md')).toContain('badge/tests-1865%20total');
     const contributing = read('CONTRIBUTING.md');
-    expect(contributing).toContain('# Run all tests (1865 tests; 4 skipped)');
-    expect(contributing).toContain('**Test Coverage**: 1865 tests (1861 passed; 4 skipped) across');
+    expect(contributing).toContain('# Run all tests (1865 tests)');
+    expect(contributing).toContain('**Test Coverage**: 1865 tests across');
     expect(contributing).toContain('Unit tests (types + lib + services + cli): 1204 tests');
     expect(contributing).toContain('Integration tests: 38 tests');
     expect(read('docs/reference/cli-reference.md')).toContain('Handlebars templates (58 .hbs files)');
@@ -204,6 +203,28 @@ describe('syncCounts write mode', () => {
 });
 
 describe('syncCounts --check (dry-run)', () => {
+  it('ignores platform outcomes but detects added and removed tests', async () => {
+    setup();
+    const report = (statuses: string[]) => ({
+      numPassedTests: statuses.filter((status) => status === 'passed').length,
+      numPendingTests: statuses.filter((status) => status === 'pending').length,
+      testResults: [{
+        name: '/repo/tests/unit/a.test.ts',
+        assertionResults: statuses.map((status) => ({ status })),
+      }],
+    });
+    const truth = (statuses: string[]) => ({ ...TRUTH, ...deriveTestCounts(report(statuses))! });
+    await syncCounts({ repoRoot: root, check: false, truth: truth(['passed', 'passed']) });
+    const linux = await syncCounts({ repoRoot: root, check: true, truth: truth(['passed', 'pending']) });
+    expect(linux.changes).toEqual([]);
+    expect(checkFailed(linux)).toBe(false);
+    for (const statuses of [['passed'], ['passed', 'pending', 'passed']]) {
+      const changed = await syncCounts({ repoRoot: root, check: true, truth: truth(statuses) });
+      expect(changed.changes.some((change) => change.key === 'tests.total')).toBe(true);
+      expect(checkFailed(changed)).toBe(true);
+    }
+  });
+
   it('reports drift but writes nothing', async () => {
     setup();
     const before = read('README.md');
@@ -242,7 +263,7 @@ describe('syncCounts honest skip', () => {
     // inventory fixed…
     expect(read('docs/reference/cli-reference.md')).toContain('Handlebars templates (58 .hbs files)');
     // …but every test count stays stale (no fabricated write)
-    expect(read('CONTRIBUTING.md')).toContain('# Run all tests (1800 tests; 2 skipped)');
+    expect(read('CONTRIBUTING.md')).toContain('# Run all tests (1800 tests)');
     expect(report.changes.every((c) => c.key.startsWith('templates.'))).toBe(true);
     expect(report.skipped).toEqual([{ key: 'tests.total', reason: 'vitest unavailable' }]);
   });

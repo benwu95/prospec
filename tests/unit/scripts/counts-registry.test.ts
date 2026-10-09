@@ -37,7 +37,7 @@ describe('COUNT_REGISTRY structure', () => {
 });
 
 describe('COUNT_REGISTRY ⇄ docs completeness', () => {
-  it.each(['tests.total', 'tests.passed', 'tests.skipped'] as const)(
+  it.each(['tests.total'] as const)(
     '%s owns one narrow target in each website language source',
     (key) => {
       const entry = COUNT_REGISTRY.find((candidate) => candidate.key === key);

@@ -2642,7 +2642,7 @@ describe('Skill Format Contract', () => {
     it('keeps the documented CI workflow path in both CLI references and the machine-owned coverage field in the contributor guide', () => {
       expect(readDoc('docs/reference/cli-reference.md')).toContain('`.github/workflows/prospec-check.yml`');
       expect(readDoc('docs/reference/cli-reference.zh-TW.md')).toContain('`.github/workflows/prospec-check.yml`');
-      expect(readDoc('CONTRIBUTING.md')).toMatch(/\*\*Test Coverage\*\*: \d+ total tests \(\d+ passed; \d+ skipped\)/);
+      expect(readDoc('CONTRIBUTING.md')).toMatch(/\*\*Test Coverage\*\*: \d+ total tests across 4 categories:/);
     });
 
     it('keeps proven backfill free of plan/tasks and prepares Knowledge before Verify', () => {

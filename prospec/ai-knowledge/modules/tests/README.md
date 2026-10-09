@@ -1,6 +1,6 @@
 # Verification Suite
 
-> 4-layer Vitest suite (fast-glob/git bypass memfs — 296 test files, 7,568 tests (unit 5538, contract 1662, integration 153, e2e 215)).
+> 4-layer Vitest suite (fast-glob/git bypass memfs — 296 test files, 7,560 tests (unit 5530, contract 1662, integration 153, e2e 215)).
 <!-- prospec:module-readme-format 2026-09-01 -->
 
 <!-- prospec:auto-start -->
@@ -12,7 +12,7 @@
 | `change-abandon.service.test.ts` / `abandon-consumers.test.ts` / `change-abandon.test.ts` | Real Git preservation/publication faults, retry writer admission, archive/yield exclusion and in-process CLI flow |
 | `tests/unit/{lib,services,cli,types,scripts}/*.test.ts` | Isolated units — mock `node:fs` with memfs; one suite per station engine (`markdown-table`, `delegated-evidence`, `verify-grade`, `review-merge`, `lessons-ledger`, `artifact-validators`, `review-circuit-breaker`, `lens-yield`), baseline/assessment engines (`acceptance-baseline`, `requirement-assessment`, `verification-context`), service and formatter (incl. `change-acceptance`, `verify-context`, `learn-yield.service` / `learn-yield-output`, and CLI-owned review round counts: `change-metadata` round-keyed upsert, `review-merge` idempotency, `change-log` mismatch audit); heaviest are `services/archive`, `knowledge-update`, `upgrade`, `lib/config`, `module-detector`, `drift-*`. |
 | `tests/contract/*.test.ts` | Format, registry, public-document and trust-zone pins, including bare Skill identities, host invocation matrices, registry↔program help completeness (both directions), skill negative-scope / bare-trigger hygiene, README parity, website release/version/social-preview readiness, and deployed artifacts — see [Contract Guards](./contract-guards.md). |
-| `tests/unit/scripts/counts-registry.test.ts` | Factual-count registry structure and target completeness, including one total/passed/skipped target in each website language source. |
+| `tests/unit/scripts/counts-registry.test.ts` | Factual-count registry structure and target completeness, including one inventory total target in each website language source. |
 | `tests/integration/*.test.ts` | Multi-service flows — init, change (story→freeze→plan→tasks), verify context and per-REQ evidence evaluation, upgrade, skill/agent-config generation, and a real four-host `agent sync` on a real filesystem whose output the station-reference collector and evaluator then judge (mutations asserted applied before their verdict is read). |
 | `tests/e2e/cli-{basics,change,station,knowledge,check-mcp,lifecycle}.test.ts` | The CLI e2e suite, run **in-process** via `helpers/run-cli.ts` (`createProgram`/`runProgram`, no per-test subprocess — was one 126s file) across command groups: init/version/help, change+spec, cli-first station commands, knowledge/agent/measure, check+mcp, upgrade+auto-draft. `run-cli-helper.test.ts` pins the helper's isolation contract. |
 | `tests/e2e/cli-subprocess-smoke.test.ts` · `startup-modules.test.ts` | Real-subprocess coverage that lives outside the JS module boundary — shebang + bundled bin, exit-code propagation, non-TTY color (setup-color), mcp stdio startup; and the startup module-graph guard (REQ-CLI-045). Spawn `dist/cli/index.js`, so need `pnpm build`. |
@@ -39,7 +39,7 @@
 5. **Run one layer** — `pnpm vitest run tests/{unit|contract|integration|e2e}/`.
 6. **Measure coverage** — `pnpm test:coverage --testTimeout=30000` (see Pitfalls).
 7. **Change a delegated-receipt rule** — edit `delegation-protocol.hbs` and its section-scoped predicate in `skill-format.test.ts`; the nine pointer surfaces must keep only a link (a negative guard refuses re-inlined steps, ticket-flow invariants and detection limits anywhere in them), the protocol must render the same for every host, the user-facing descriptions (both CLI references) claim detection and preservation only, and every physical, bounded-wait, degradation, zero-mock, pointer, claim and downstream-neutral predicate needs a killing mutation. The delegation lib suites run real git in temp repos, each judgment condition has its own killing mutation, and the e2e suite pins that every `change delegate` mode leaves `.git` and the five facets byte-identical under a read-only `.git`.
-8. **Add a machine-owned documentation count** — register each narrowly anchored target in `scripts/counts/registry.ts`, add completeness coverage in `counts-registry.test.ts`, then run `pnpm counts` and `pnpm counts:check`.
+8. **Add a machine-owned documentation count** — register each narrowly anchored target in `scripts/counts/registry.ts`, add completeness coverage in `counts-registry.test.ts`, then run `pnpm counts` and `pnpm counts:check`. Static test counts track inventory (total, layers and files); environment-dependent passed/skipped outcomes belong in execution reports.
 
 ## Ripple Effects
 
