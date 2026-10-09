@@ -291,8 +291,8 @@ modules:
     rationale: Pure resources — no logic, consumed by lib/template.ts
     last_verified: 2026-10-07T08:27:20.442Z
   - name: tests
-    description: 4-layer test suite — 294 files, 7,556 tests (unit 5537 + contract
-      1653 + integration 153 + e2e 213). Validates every module — format and
+    description: 4-layer test suite — 295 files, 7,552 tests (unit 5528 + contract
+      1658 + integration 153 + e2e 213). Validates every module — format and
       public-document contracts, the cli-first probe + station-command
       contracts, the drift engine, token corpus, and the MCP protocol over
       in-memory transport.
@@ -336,4 +336,4 @@ modules:
       - 驗證
       - vitest
     rationale: Quality gate — validates all layers with pyramid coverage
-    last_verified: 2026-10-08T07:37:11.971Z
+    last_verified: 2026-10-09T02:16:59.720Z

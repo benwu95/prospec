@@ -1,7 +1,7 @@
 ---
 feature: drift-detection
 status: active
-last_updated: 2026-10-06
+last_updated: 2026-10-09
 story_count: 21
 req_count: 88
 ---
@@ -62,6 +62,7 @@ _(None)_
 
 | Date | Change | Impact | Stories/REQs |
 |------|--------|--------|--------------|
+| 2026-10-09 | slim-readme-into-docs | MODIFIED REQ-CLI-052 | REQ-CLI-052 |
 | 2026-10-06 | hash-gitlink-contents | MODIFIED REQ-LIB-024 | REQ-LIB-024 |
 | 2026-10-06 | prove-gitlink-provenance | MODIFIED REQ-LIB-024 | REQ-LIB-024 |
 | 2026-10-05 | add-change-abandon | MODIFIED REQ-LIB-037 | REQ-LIB-037 |

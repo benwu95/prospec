@@ -1,6 +1,6 @@
 # Prospec CLI 參考
 
-> [prospec](../README.zh-TW.md) 的完整命令、設定、目錄佈局與架構細節。根 README 保留上手敘事，
+> [prospec](../../README.zh-TW.md) 的命令、設定、目錄佈局與架構細節。根 README 與[文件頁面](../README.zh-TW.md)保留上手與指南，
 > 這份文件保留參考表格。[English](./cli-reference.md)
 
 ## 目錄
@@ -231,7 +231,7 @@ Entry Points、Dependencies、Config Files 沒有逐語言覆寫機制——未�
 
 `quality_log` 是 lifetime ledger；所有 reader 都使用同一份 `workflow.max_station_retries`。ordinal ≥ 2 的 pending event 只提供 re-scope、abandon、break-glass，推薦 re-scope。只有明確 composed WARN 中非空的 `Manual override: <reason>` 能授權目前事件與 station 的一次新 attempt；report warning 與 legacy 未綁定 marker 都不構成授權。Accepted replay 不耗用 grant；事件解決時未用 grant 到期，新事件不能沿用。測試 gate 仍然獨立。
 
-Re-scope 是由開發者調整 proposal 或建立新 Story；scenario amendment 仍須通過 reason／digest／lifecycle gate，不倒退 status，也不解鎖 escalation。Abandon 是停止並保留工件與理由；rollback 另由人類決定。Abandon 目前由人類停止流程處理。
+Re-scope 是由開發者調整 proposal 或建立新 Story；scenario amendment 仍須通過 reason／digest／lifecycle gate，不倒退 status，也不解鎖 escalation。Abandon 是停止並保留工件與理由；rollback 另由人類決定。
 
 Review 維持 artifact→metadata，verify 維持 metadata→evidence 的寫入順序；receipt 綁定的補件不新增第二筆 accepted verdict，也不再次耗用 grant。Persistent-test refusal 先保存事件、重新檢查，再更新 metrics；事件寫入失敗就保留 metrics。Status 保持唯讀，verify／archive 在 PASS 後仍保留 override 理由、事件綁定與使用狀態。
 
@@ -318,11 +318,17 @@ Review 維持 artifact→metadata，verify 維持 metadata→evidence 的寫入�
   - **核心用途**：單向推進生命週期狀態（逆向或非法躍遷將被拒絕並列出合法目標）。
   - **`implemented` 的測試閘門**：除了所有 code task 已勾選，變更還需要一筆 fresh green `test_attempt`——最新 attempt 以 exit 0 通過、與其 `test_provenance` 連結、且對應目前 snapshot。缺失、過期（stale）、執行中或失敗的證據會被拒絕（exit 1）並印出補救指令 `prospec check --record-tests --change <name>`，metadata 不變。兩種明確豁免會以 `tests: not-adjudicated` WARN 放行（producer `prospec-test-gate`，依入口與原因去重，與 status 同一次 metadata 寫入）：無可解析的測試命令，或已證明的 backfill（存在 `backfill-draft.md`）。已知的非零失敗絕不豁免；單靠 `scale: backfill` 不會帶來任何放寬。
 
+- **`prospec change abandon <name> --reason <text> [--overturned <field>]`**
+  - **核心用途**：先保存 Prospec 專案根目錄內的 staged／unstaged binary patches 與改動工作檔 bytes，再結束這次嘗試；不包含 monorepo 其他專案。原 artifacts 與理由保留於 `.prospec/abandoned/`；部分失敗列出實際路徑、已搬與待搬檔案，供人工核對恢復。
+  - **極限**：不支援的 Git 輸入會拒絕；不還原工作樹、不寫入 tracker。同 issue 新 Story 會列出前次理由，所有 scale 都須填寫 Premise `retry_difference`。
+  - **Submodule**：專案內乾淨的 submodule 會記錄在 `preservation/gitlinks.json`——路徑，以及 HEAD 記錄、index 記錄與 submodule 實際 checkout 的 commit（不存在或未初始化時為 null）——不會當成保存的檔案；submodule 內有未 commit、未追蹤、skip-worktree、assume-unchanged 或 unmerged 的工作，或 submodule 目錄非空卻沒有 `.git` 時會拒絕。還原記錄的 pin 需要該 commit 仍然存在：`git submodule deinit` 會保留 module 的 repository，但只存在於 detached HEAD 上的 commit，在 HEAD 移走、garbage collection 清掉之後就會遺失。
+
 - **`prospec change log --skill <station> (--result <PASS|WARN|FAIL> | --verifier-report <file> | --signoff <option>) [options]`**
   - **核心用途**：在 `metadata.yaml` 追加一筆結構化的 `quality_log` 記錄。
   - **選項**：支援 `--warning <w>`、`--grade <g>`、`--dimension n=r`、`--criticals-found <n>` 等參數，欄位順序固定；自由文字由 yaml 函式庫以 YAML 資料序列化（僅在 YAML 語法需要時加引號），metacharacter 不會破壞檔案；此命令寫的是 YAML 而非 Markdown 表格，不做表格跳脫。針對 `prospec-review`，`--criticals-found`、`--criticals-fixed` 與 `--majors` 旗標僅作為期望值稽核輸入而非直寫：與 `review merge` 所記錄的 CLI 真值不符時會追加 `log_mismatch` 警告並將結果至少提升為 `WARN`（不覆寫已記錄之真值），且追加的關輪記錄本身不帶計數欄位。
   - **`--verifier-report <file>`**（plan/tasks 站）：以 rubric 擁有的 schema 驗證 Architecture/Task Verifier 的 JSON 報告（verdict `PASS` | `WARN` | `FLAWS`、恰好該站的 dimensions、單行且有上限的 `rationale`/`warnings`）並記錄——`FLAWS` 落為 `result: FAIL`，無效 payload 在寫入前即被拒絕。對 `prospec-plan` 另以通過 schema 的 `candidates/decision.json` 推薦方案蓋上 `audited_option`（verifier 所稽核者），並以其稽核的 plan.md＋delta-spec.md 版本蓋上 `audited_plan_digest`。與 `--result` 及組合式欄位互斥。`prospec status` 會把最新 verifier 結果為 `FAIL` 的站導回該站，直到後續 verifier `PASS`／`WARN`；Break-Glass `--result WARN --warning "Manual override: …"` 只授權有界重試，不取代 verifier verdict。
   - **`--signoff <option>`**（僅限 `--skill prospec-plan`，且須有人類明確指示）：記錄人類的 plan 簽核——`scale: full` 簽候選方案，其他有 plan 的 scale 簽 `plan`（被審核的 plan 版本，不讀候選檔）。以下任一不成立即拒絕且不寫入任何檔案：該 scale 有 plan、最新 plan verifier 結果為 PASS/WARN、已記錄 plan verifier 報告（Break-Glass 記錄未稽核任何內容）且其標記的 plan.md＋delta-spec.md 版本就是目前版本、讀取到寫入之間沒有變動。簽候選方案時另須 `candidates/decision.json` 通過 schema、option 等於其 `recommended_option` 與最新報告的 `audited_option`（要改選其他方案，須先修訂 plan 與 decision 並重新記錄 verifier），且整組候選通過 `prospec validate candidates`（因此非 hybrid 的 option 必有有效的 `candidates/<option>.json`）；`scale: full` 不接受 `plan`。接受後，候選方案會把 decision.json 的 `graded_by` 設為 `human`，並追加一筆帶 `signoff_option` 與 `signoff_plan_digest` 的 PASS 記錄；`--warning` 為人類備註。與 `--result`、`--verifier-report` 及組合式欄位互斥。
+  - **閘門範圍**：此閘門是 **per-change**——sibling change 的過期證據不會擋住這一個。（以 `[CODE]` 標示 CLI 自有判定的是 `prospec status` 的路由理由行。）
 
 - **`prospec change progress [--complete <task>] [--change <name>]`**
   - **核心用途**：計算與更新 `tasks.md` 的任務進度。
@@ -337,6 +343,7 @@ Review 維持 artifact→metadata，verify 維持 metadata→evidence 的寫入�
   - **`--spawn-failed`**：結束 open 或 refused 的票據——先追加一筆 `prospec-delegation` WARN——且任一面向與 spawn 前不同時拒絕；`--accept-current-tree` 只在人類明確指示時使用，會連同每個 refused 的 sibling 與每個帶著讀不到面向返回的 sibling 一併結束，保留各自的 checkpoint 並印出路徑；另有委派代理可能仍在執行時拒絕。
   - **Sink**：`review merge` 與 `verify record` 在任何其他拒收之前結清本站票據——任一最新 attempt 為 open 或 refused 時不寫入任何東西——之後把每個 live attempt 標記為 consumed；一般輸出必定帶一行 delegation 揭露。
   - **極限**：它偵測並保存，不防止任何事，也不還原任何事；它防範的是意外或行為出錯的委派代理，而非惡意代理。它看不到 ignored 檔案（被 ignore 的 `prospec-report.json` 也在內）；`.prospec/` 內的工件，包括票據與 checkpoint（委派代理若竄改自己的票據或其他 CLI 紀錄，可使收件通過）；repository 的 `.git/config`、hooks 與 `info/exclude`（委派代理在那裡設定的 hook 或命令，如 `core.fsmonitor` 或 reference-transaction hook，會在 CLI 自己收件時的 git 呼叫與之後每一次 git 呼叫中執行）；沒有任何面向讀取的 `.git` metadata（`.git/shallow`、`info/grafts`、`info/attributes`）；比委派代理存活更久的程序（`--spawn-failed` 或被新 attempt 取代後仍在跑的代理，或它啟動的背景程序），可能在收件後改動工作樹；委派代理在返回前自行復原的改動；專案以外的內容；以及推送到任何遠端（remote-tracking refs 不是面向）——但 `git fetch` 自動跟隨的 tags 會改變 refs 面向。同一 repository 中同時進行的多個 change 的委派彼此不隔離。
+  - **Submodule**：含 git submodule 的 repository 不會發票，因為 snapshot 不會 checkout submodule 的檔案：review 與 verify 改在 session 內評定，verify 最高只能拿到 A。
 
 - **`prospec review merge --findings <file> [--round <n>] [--max-fix-induced-ratio <r>] [--max-rounds <n>] [--max-flips <n>] [--lenses <list>] [--json] [--change <name>]`**
   - **核心用途**：將單輪審查的 JSON 發現合併至累積的 `review.md` 表格中。
@@ -373,7 +380,7 @@ Review 維持 artifact→metadata，verify 維持 metadata→evidence 的寫入�
   - **重點條列**：依 `頻率 ≥ 3 且影響模組 ≥ 2` 規則自動評分是否晉升至 Playbook，並自動掃描 Playbook 條目的 TTL 狀態。
 
 - **`prospec learn playbook --station <s> [--modules <m,…>] | --modules <m,…> | --id <PB-NNN>`**
-  - **核心用途**：plan 與 implement 在 Startup Loading 讀取本站的 Playbook 正文；`/prospec-learn` 仍讀全文。
+  - **核心用途**：plan 與 implement 在 Startup Loading 讀取本站的 Playbook 正文；`prospec-learn` 仍讀全文。
   - **重點條列**：station 模式對每條 active 條目印一行目錄——id、標題、kind、modules（或 `modules: undeclared`）、TTL；僅 `Stations` 宣告本站或 `all` 的條目印正文。站名接受 SDD 名稱與 Skill 別名。`--modules` 在此模式只將模組命中的目錄列排前，不改變正文選取。所有 active 條目均未宣告 `Stations` 時，以 `WARN` 提示並退回舊模組選取。單獨使用 `--modules` 維持舊的 `relevance: module-match` 選取；`--id` 讀單條，不存在時 exit 1。retired 條目不顯示；未知的宣告站名在 stderr 警示。條目超過 300-token 建議上限時也在 stderr 警示，stdout 不截斷。`_playbook.md` 不存在時印一行並 exit 0；檔案不可讀或路徑逸出 knowledge 目錄時 exit 1 並指出原因。
   - **實測範圍**：本 repository 的實際 CLI stdout，全部 10 站為 1,107–6,368 `estimateTokens`，全文為 8,965，減少 28%–88%（revision `3ade165b` 加上本次工作樹）。change 的 `playbook-measurements.md` 記載指令、逐站 tokens 與正文 ids。
 
@@ -382,7 +389,7 @@ Review 維持 artifact→metadata，verify 維持 metadata→evidence 的寫入�
   - **重點條列**：追蹤各鏡角的連續零產出變更數與產出比例；提供 `keep`、`review` 或 `retire` 建議。
 
 - **`prospec validate <kind> [target] [--change <name>]`**
-  - **核心用途**：機械式校驗工件結構完整性（支援 `slug`、`promote-scaffold`、`backfill-draft`、`design-spec`、`module-readme`、`candidates` 等）。`module-readme` 會依 canonical Markdown convention 校驗指定模組的 README。`candidates` 以 schema 校驗變更的 `candidates/option-*.json` 與 `decision.json`，並印出指標表（依 module map `depends_on` 計算的 `direction_violations`、`touched_modules`、`estimated_lines`、`unknown_references`）。校驗失敗時 exit 1。
+  - **核心用途**：機械式校驗工件結構完整性（支援 `proposal`、`slug`、`promote-scaffold`、`backfill-draft`、`design-spec`、`module-readme`、`candidates` 等）。`module-readme` 會依 canonical Markdown convention 校驗指定模組的 README。`candidates` 以 schema 校驗變更的 `candidates/option-*.json` 與 `decision.json`，並印出指標表（依 module map `depends_on` 計算的 `direction_violations`、`touched_modules`、`estimated_lines`、`unknown_references`）。校驗失敗時 exit 1。
 
 > [!IMPORTANT]
 > **確定性執行層**：上述變更管理命令即為工作流的確定性執行層（issue #107）。Skills（`prospec-new-story`、`prospec-ff` 等）的所有 scaffold、狀態轉換與記錄均透過呼叫 CLI 完成，不再由 LLM 自行產出格式易錯的產物；若 CLI 缺失或版本低於探針門檻時，各 Skill 會自動停止（STOP）。這些命令亦完全支援手動與 CI/CD 腳本呼叫。
@@ -425,7 +432,7 @@ Claude Code：
 claude mcp add project-name -- prospec mcp serve --cwd /path/to/project
 ```
 
-其他 agent —— 在其 JSON MCP 設定中用同一個命令：
+其他 agent（包括 Copilot 與 Codex）在各自的 MCP 設定檔填入同一個命令；以 JSON MCP 設定為例：
 
 ```json
 {
@@ -498,6 +505,7 @@ claude mcp add -s user prospec-b -- prospec mcp serve --cwd /path/to/B
     - 測試結果作為 `prospec-verify` 測試維度的客觀裁決依據，防止 Agent 自陳虛報。
     - 指令直接經由 argv 執行（不經 shell）；無法執行時標記為 `skipped` 並說明原因。
     - 若先前已記錄非零退出碼（紅燈），即使事後指令變得無法解析仍判定為 FAIL（事實不被隱藏）。
+    - git submodule 以其 checkout 的實際檔案計入 fingerprint，而不是它指向的 commit：在 submodule 內留下的測試或 build 產物會改變 fingerprint（請在 submodule 內 commit 或 ignore），submodule 內的 sparse 或 unmerged entry 則使輸入無法證明。
 
 - **`prospec check --record-review [--change <name>]`**
   - **核心用途**：記錄該變更的審查基線（程式碼 digest）與 `delta-spec.md` 指紋，供後續驗證 `review-provenance` 與 `delta-spec-provenance`。
@@ -517,7 +525,7 @@ claude mcp add -s user prospec-b -- prospec mcp serve --cwd /path/to/B
 - 舊版紀錄仍可讀，但需要實際重新審查與測試一次。
 - verify/archive 會評估目前輸入與工作流程事實，並在寫入前重新確認；archive dry-run 使用相同拒絕條件。僅有一份儲存的報告不足以允許操作。
 
-證據格式為 `snapshot-v2`／`repository-inputs-v2`；精確的輸入範圍與支援檔案類型見[輸入快照規格](../prospec/specs/features/drift-detection/us-5.md)。測試輸出應宣告於 Git ignore，已追蹤輸出仍算輸入。不支援或不可讀的輸入會維持 unprovable。執行前後的檢查無法偵測所有短暫修改後還原（change-and-restore），也不涵蓋被忽略的依賴、外部服務或儲存庫輸入之外的工具鏈變更。
+證據格式為 `snapshot-v2`／`repository-inputs-v2`；精確的輸入範圍與支援檔案類型見[輸入快照規格](../../prospec/specs/features/drift-detection/us-5.md)。測試輸出應宣告於 Git ignore，已追蹤輸出仍算輸入。不支援或不可讀的輸入會維持 unprovable。執行前後的檢查無法偵測所有短暫修改後還原（change-and-restore），也不涵蓋被忽略的依賴、外部服務或儲存庫輸入之外的工具鏈變更。
 
 #### 檢查結果與驗證裁決
 
@@ -603,7 +611,7 @@ harness 讓 token 效率主張可驗證而非空口宣稱：對每個 corpus 任
 
 ## 設定 (Configuration)
 
-Prospec 的核心設定檔為專案根目錄的 `.prospec.yaml`。這是客製化 AI Knowledge 生成方式以及工作流程的主要途徑。
+Prospec 的核心設定檔為專案根目錄的 `.prospec.yaml`。這是客製化 AI Knowledge 生成方式以及工作流程的主要途徑。它保存專案語言、agents、token 預算與測試命令；真正驗證這個檔案的是 `src/types/config.ts` 的 schema，`prospec config example` 會印出每個欄位與範例值。
 
 你可以調整的關鍵設定包含：
 
@@ -666,7 +674,7 @@ skill_exclusions:
 
 ## 架構
 
-Prospec 採用 **Pragmatic Layered Architecture**（務實分層架構）遵循 CLI 開發最佳實踐：
+Prospec 採用 **Pragmatic Layered Architecture**（務實分層架構）遵循 CLI 開發最佳實踐，依賴方向單向——`cli → services → lib → types`——Handlebars 模板並列：
 
 ```
 src/

@@ -56,6 +56,9 @@
 
 ```
 docs/
+  concepts/
+  guides/
+  reference/
 planning/
 prospec/
   ai-knowledge/
@@ -76,7 +79,6 @@ prospec/
       mcp-server/
       project-setup/
       sdd-workflow/
-reference/
 scripts/
   counts/
   measure/
@@ -227,17 +229,19 @@ tests/
 > alphabetically first.
 
 - `tests/fixtures/spec-sync-corpus/` — 594 files: `.md`, `.yaml`, `.json`, `.txt`
-- `prospec/` — 330 files: `.md`, `.yaml`
+- `prospec/` — 331 files: `.md`, `.yaml`
 - `tests/fixtures/workflow-eval/` — 17 files: `.json`
 - `tests/fixtures/token-corpus/` — 13 files: `.md`, `.yaml`
 - `planning/` — 10 files: `.md`
+- `docs/guides/` — 6 files: `.md`
 - `tests/fixtures/lessons-harvest/` — 6 files: `.md`, `.yaml`
-- `reference/` — 2 files: `.md`
+- `docs/concepts/` — 4 files: `.md`
+- `docs/reference/` — 2 files: `.md`
 - `tests/fixtures/legacy-metadata/` — 2 files: `.yaml`
 
 ## File Stats
 
 | Metric | Value |
 |--------|-------|
-| Total files | 1636 |
+| Total files | 1652 |
 | Scan depth | 10 |

@@ -1,7 +1,7 @@
 ---
 feature: agent-integration
 status: active
-last_updated: 2026-10-04
+last_updated: 2026-10-09
 story_count: 26
 req_count: 116
 ---
@@ -137,11 +137,14 @@ The test suite protects canonical identity, host-specific explicit invocation, a
 ---
 
 
-#### REQ-TEMPLATES-230: Concise bilingual reader entry with accurate guarantees
-The repository's English and Traditional Chinese root READMEs provide equivalent concise onboarding and navigation to detailed command/configuration/layout documentation.
-- WHEN entering either README, THEN readers can find purpose, audience, installation, first change, core workflow and capability limitations; relocated information remains reachable through valid links and retained anchors or explicit destination links.
+#### REQ-TEMPLATES-230: Concise bilingual reader entry and categorized docs
+The repository's English and Traditional Chinese root READMEs are an equivalent concise reader entry. Detailed documentation lives in Markdown pages under `docs/`, grouped by kind — a getting-started tutorial, concepts, how-to guides and reference — where every English page has a Traditional Chinese twin, the English docs index lists every other English page and the Traditional Chinese docs index lists every other Traditional Chinese page.
+- WHEN entering either README, THEN readers find purpose, audience, installation and the first change, and reach the core workflow, capability limitations, command reference and configuration through links to the docs pages
+- WHEN either root README grows past 200 lines, THEN a contract test fails
+- WHEN a docs page is added, THEN it has a Traditional Chinese twin with the same heading structure, and each language's docs index lists the page in that language
+- WHEN a root README, the contributor guide or a docs page links inside the repository, THEN the link is a file-relative path whose target exists with the exact case, and its `#anchor`, when present, resolves to a heading of the target
 - WHEN describing guarantees, THEN accurately attribute CLI-enforced schema/per-target checks, skill-directed gates and model judgment, including quick Knowledge impact review; do not claim broader model reliability than the recorded evaluation demonstrates.
-- WHEN moving detailed content, THEN maintain bilingual parity and retain concise root mentions required by existing command/skill documentation contracts; keep canonical skill identity and host-specific invocation guidance intact.
+- WHEN moving detailed content, THEN maintain bilingual parity and keep canonical skill identity and host-specific invocation guidance intact
 
 ---
 
@@ -181,6 +184,7 @@ The repository's English and Traditional Chinese root READMEs provide equivalent
 
 | Date | Change | Impact | Stories/REQs |
 |------|--------|--------|-------------|
+| 2026-10-09 | slim-readme-into-docs | MODIFIED REQ-TEMPLATES-230; MODIFIED REQ-AGNT-036; MODIFIED REQ-TESTS-040; MODIFIED REQ-TEMPLATES-233; MODIFIED REQ-TESTS-119; MODIFIED REQ-AGNT-043; MODIFIED REQ-AGNT-024; MODIFIED REQ-AGNT-026 | REQ-TEMPLATES-230, REQ-AGNT-036, REQ-TESTS-040, REQ-TEMPLATES-233, REQ-TESTS-119, REQ-AGNT-043, REQ-AGNT-024, REQ-AGNT-026 |
 | 2026-10-04 | align-skill-guidance | MODIFIED REQ-AGNT-035 | REQ-AGNT-035 |
 | 2026-10-04 | reassess-canonical-claims | MODIFIED REQ-TEMPLATES-241; MODIFIED REQ-TEMPLATES-084; MODIFIED REQ-TEMPLATES-221; REMOVED REQ-TYPES-109; REMOVED REQ-SERVICES-125; REMOVED REQ-TESTS-129 | REQ-TEMPLATES-241, REQ-TEMPLATES-084, REQ-TEMPLATES-221, REQ-TYPES-109, REQ-SERVICES-125, REQ-TESTS-129 |
 | 2026-10-02 | audit-knowledge-spec-claims | MODIFIED REQ-TYPES-109 | REQ-TYPES-109 |

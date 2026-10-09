@@ -1,7 +1,7 @@
 ---
 feature: feedback-promotion
 status: active
-last_updated: 2026-10-05
+last_updated: 2026-10-09
 story_count: 5
 req_count: 25
 ---
@@ -71,6 +71,7 @@ _(None)_
 
 | Date | Change | Impact | Stories/REQs |
 |------|--------|--------|--------------|
+| 2026-10-09 | slim-readme-into-docs | MODIFIED REQ-CLI-059 | REQ-CLI-059 |
 | 2026-10-05 | add-change-abandon | MODIFIED REQ-SERVICES-099 | REQ-SERVICES-099 |
 | 2026-10-04 | restore-harvest-summary | MODIFIED REQ-TEMPLATES-128 | REQ-TEMPLATES-128 |
 | 2026-10-04 | reassess-canonical-claims | MODIFIED REQ-TESTS-106; MODIFIED REQ-TESTS-024 | REQ-TESTS-106, REQ-TESTS-024 |

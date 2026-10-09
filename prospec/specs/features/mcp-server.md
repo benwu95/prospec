@@ -1,7 +1,7 @@
 ---
 feature: mcp-server
 status: active
-last_updated: 2026-09-16
+last_updated: 2026-10-09
 story_count: 4
 req_count: 15
 ---
@@ -34,7 +34,7 @@ req_count: 15
 - **SC-2**: The three tools return contract-correct results on fixtures (including empty results and erroneous input)
 - **SC-3**: Zero mcp references in `templates/` and existing services (graceful structural guarantee holds)
 - **SC-4**: health and the `knowledge_health` of `prospec check --json` are byte-for-byte consistent under the same state
-- **SC-5**: Both the Chinese and English versions of the README contain a `prospec mcp serve` feature section
+- **SC-5**: Both the English and Traditional Chinese CLI references contain a `prospec mcp serve` feature section
 
 ## Maintenance Rules
 
@@ -51,6 +51,7 @@ _(None)_
 
 | Date | Change | Impact | Stories/REQs |
 |------|--------|--------|-------------|
+| 2026-10-09 | slim-readme-into-docs | MODIFIED REQ-MCP-008 | REQ-MCP-008 |
 | 2026-09-16 | enrich-help-and-skill-descriptions | ADDED REQ-MCP-010 | REQ-MCP-010 |
 | 2026-09-01 | standardize-module-readme-format | MODIFIED REQ-MCP-002 | REQ-MCP-002 |
 | 2026-08-31 | retire-legacy-index-migration | MODIFIED REQ-MCP-002 | REQ-MCP-002 |

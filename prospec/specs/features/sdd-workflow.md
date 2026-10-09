@@ -1,7 +1,7 @@
 ---
 feature: sdd-workflow
 status: active
-last_updated: 2026-10-08
+last_updated: 2026-10-09
 story_count: 50
 req_count: 357
 ---
@@ -104,6 +104,7 @@ req_count: 357
 
 | Date | Change | Impact | Stories/REQs |
 |------|--------|--------|--------------|
+| 2026-10-09 | slim-readme-into-docs | MODIFIED REQ-DOCS-002; MODIFIED REQ-CLI-054; MODIFIED REQ-CLI-057; MODIFIED REQ-TESTS-125; MODIFIED REQ-CLI-058; MODIFIED REQ-TESTS-070; MODIFIED REQ-TESTS-128; MODIFIED REQ-TEMPLATES-234 | REQ-DOCS-002, REQ-CLI-054, REQ-CLI-057, REQ-TESTS-125, REQ-CLI-058, REQ-TESTS-070, REQ-TESTS-128, REQ-TEMPLATES-234 |
 | 2026-10-08 | encode-routing-rule-table | ADDED REQ-LIB-103; ADDED REQ-TESTS-133; ADDED REQ-TESTS-134 | REQ-LIB-103, REQ-TESTS-133, REQ-TESTS-134 |
 | 2026-10-07 | preserve-gitlink-on-abandon | ADDED REQ-DOCS-002; MODIFIED REQ-LIB-100 | REQ-DOCS-002, REQ-LIB-100 |
 | 2026-10-06 | prove-gitlink-provenance | MODIFIED REQ-LIB-090 | REQ-LIB-090 |

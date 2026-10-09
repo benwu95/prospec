@@ -39,12 +39,17 @@ it('keeps the abandon exit CLI-owned, preservation-first and outside successful 
     expect(terminal).toContain('incomplete'); expect(terminal).toMatch(/not.*success|exclud/);
   }
 });
-it('documents the same command and recovery data in both public READMEs', () => {
-  for (const file of ['README.md', 'README.zh-TW.md']) {
-    const line = read(file).split('\n').find((value) => value.startsWith('- **`prospec change abandon'));
-    expect(line).toBeTruthy();
-    expect(line).toContain('--reason'); expect(line).toContain('--overturned'); expect(line).toContain('retry_difference');
-    expect(line).toContain('.prospec/abandoned/'); expect(line).not.toContain('.prospec/archive/');
-    expect(line).toContain('staged'); expect(line).toContain('unstaged'); expect(line).toContain('Prospec');
+it('documents the same command and recovery data in both CLI references', () => {
+  for (const file of ['docs/reference/cli-reference.md', 'docs/reference/cli-reference.zh-TW.md']) {
+    // The entry runs from its own command bullet to the next one, so its indented sub-bullets count and a sibling's do not.
+    const text = read(file);
+    const start = text.search(/^- \*\*`prospec change abandon/m);
+    expect(start, file).toBeGreaterThanOrEqual(0);
+    const rest = text.slice(start);
+    const next = rest.slice(1).search(/^- \*\*`|^#/m);
+    const entry = next < 0 ? rest : rest.slice(0, next + 1);
+    expect(entry).toContain('--reason'); expect(entry).toContain('--overturned'); expect(entry).toContain('retry_difference');
+    expect(entry).toContain('.prospec/abandoned/'); expect(entry).not.toContain('.prospec/archive/');
+    expect(entry).toContain('staged'); expect(entry).toContain('unstaged'); expect(entry).toContain('Prospec');
   }
 });
