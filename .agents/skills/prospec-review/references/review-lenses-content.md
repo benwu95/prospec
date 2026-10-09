@@ -134,7 +134,7 @@ Applies when the change introduces or touches an invariant or a shared resolver 
 |-----------|------------------|
 | An invariant (realpath containment, terminal sanitization, resource-name guard) or resolution rule applied at one site but a **parallel consumer of the same data source was missed** — grep every consumer and apply + test each | critical (the missed site is the next bug) |
 | A NEW consumer re-derives a shared path/config or re-implements the check ad hoc instead of going through the canonical resolver | major |
-| **Remediation face** — applying a **fix**: only the reported line was rechecked instead of **re-running the full lens each round**, or only the named site was patched without asking "who else is in this family" and "did I only change the failure's SHAPE". A fix carries the author's highest confidence and lowest scrutiny — fix the defect's CLASS and send the fix back as a new diff; the missed sibling or the unfixed shape-defect is the next critical | critical (the fix introduces the next defect) / major |
+| **Remediation face** — applying a **fix**: follow `prospec-review` The Loop step 3 (Class sweep, Fix ripple, Shape check), continue re-running the full lens each round over the fix as a new diff | critical (the fix introduces the next defect) / major |
 
 ---
 

@@ -73,9 +73,13 @@ function declaredMandatory(skillPath: string, instructions: Record<string, strin
  * `quick` 16_505 → 16_516 when the 2026-09-25 learn Sweep synced PB-001's set-or-structure
  * clause into the `prospec-implement` NEVER list (quick routes through implement).
  */
+// Class sweep: review Loop step 3/4 and Persistence add +263 body tokens;
+// mandatory review-format adds +26. Measured closures +289: proven-backfill
+// 23_405 → 23_694 and stale-delta 12_867 → 13_156. Ceilings raised, not earned:
+// 23_556 → 23_694 and 12_939 → 13_156; other routes retain their bounds.
 const CEILING_ANCHORS: Record<string, number> = {
-  quick: 16_516, 'standard-ui': 15_380, 'proven-backfill': 23_556, 'equivalent-commit': 12_794,
-  'reverify-c': 15_678, 'missing-receipt': 5_891, 'stale-delta': 12_939, 'multi-change': 12_794,
+  quick: 16_516, 'standard-ui': 15_380, 'proven-backfill': 23_694, 'equivalent-commit': 12_794,
+  'reverify-c': 15_678, 'missing-receipt': 5_891, 'stale-delta': 13_156, 'multi-change': 12_794,
 };
 
 describe('scenario mandatory context closure (REQ-TEMPLATES-081, REQ-TESTS-116)', () => {

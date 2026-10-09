@@ -44,7 +44,7 @@ Entry format: `.claude/skills/prospec-learn/references/promotion-format.md`.
 - **Source**: add-mcp-server, src-review-round2-remediation, fix-upgrade-doc-coverage, enforce-metadata-schema · **Criteria**: freq=6, modules=4 (lib, services, types, templates) · **Kind**: playbook · **Approved-by**: benwu95 · **Date**: 2026-07-28 (broadened to cover remediation; originally 2026-07-02)
 - **Stations**: implement, review
 - **TTL**: review by 2027-01-02
-- **Inlined into gate 2026-07-04**: Landing: `src/templates/skills/references/review-lenses-content.hbs` (Parallel-Site Completeness Lens), `src/templates/skills/prospec-implement.hbs` (canonical resolver).
+- **Inlined into gate 2026-07-04**: Landing: `src/templates/skills/references/review-lenses-content.hbs` (Parallel-Site Completeness Lens), `src/templates/skills/prospec-review.hbs` (Class sweep), `src/templates/skills/prospec-implement.hbs` (canonical resolver).
 
 ### PB-008: Relocating a symbol/type/artifact? Sweep every reference site — src imports, TEST imports, wording, knowledge files — not just file-path strings
 - **Source**: add-knowledge-flywheel, quick-scale-and-ceremony-cleanup, inject-resolved-knowledge-budgets · **Criteria**: freq=3, modules=5 (templates, types, tests, lib, services) · **Kind**: playbook · **Approved-by**: benwu95 · **Date**: 2026-07-06
