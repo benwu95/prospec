@@ -1,5 +1,5 @@
 # Backfill: Bringing Brownfield Code into the Trust Zone
-[Documentation](../README.md) • [繁體中文](./backfill.zh-TW.md)
+[繁體中文](./backfill.zh-TW.md) • [Documentation](../README.md)
 
 Brownfield projects accumulate behavior that no Feature Spec describes. **Backfill** is a first-class, two-skill path that reverse-extracts that behavior from the code and graduates it into the spec trust zone (`prospec/specs/features/`) — and it **never writes the trust zone by hand** (archive stays the sole writer).
 

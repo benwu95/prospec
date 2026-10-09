@@ -1,5 +1,5 @@
 # AI Skills 與工作流程
-[文件](../README.zh-TW.md) • [English](./workflow.md)
+[English](./workflow.md) • [文件](../README.zh-TW.md)
 
 Prospec 生成 17 個 Skills —— 15 個涵蓋完整 SDD 生命週期，外加兩個週期性收尾：`prospec-quickstart`（啟動）與 `prospec-upgrade`（版本升級）：
 

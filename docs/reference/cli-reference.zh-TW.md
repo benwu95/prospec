@@ -1,5 +1,5 @@
 # Prospec CLI 參考
-[文件](../README.zh-TW.md) • [English](./cli-reference.md)
+[English](./cli-reference.md) • [文件](../README.zh-TW.md)
 
 > [prospec](../../README.zh-TW.md) 的命令、設定、目錄佈局與架構細節。README 與[文件頁面](../README.zh-TW.md)保留上手與指南，
 > 這份文件保留參考表格。

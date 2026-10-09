@@ -1,5 +1,5 @@
 # 入門指南
-[文件](./README.zh-TW.md) • [English](./getting-started.md)
+[English](./getting-started.md) • [文件](./README.zh-TW.md)
 
 這一頁收錄 [README 快速上手](../README.zh-TW.md#快速上手)沒有涵蓋的內容：所有安裝方式、兩個 bootstrap 命令實際展開的步驟，以及自己逐站驅動。README 的[前置需求](../README.zh-TW.md#前置需求)在這裡同樣適用。
 

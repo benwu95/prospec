@@ -1,5 +1,5 @@
 # 運作原理
-[文件](../README.zh-TW.md) • [English](./how-it-works.md)
+[English](./how-it-works.md) • [文件](../README.zh-TW.md)
 
 Prospec 跑一條線性流程，外包兩條回饋迴圈，讓它**越用越好**，而非單純重複。
 

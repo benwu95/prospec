@@ -1,5 +1,5 @@
 # Upgrading Prospec
-[Documentation](../README.md) • [繁體中文](./upgrading.zh-TW.md)
+[繁體中文](./upgrading.zh-TW.md) • [Documentation](../README.md)
 
 When a new prospec version is available, update the binary first:
 

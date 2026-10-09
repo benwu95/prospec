@@ -1,5 +1,5 @@
 # 客製化 Module README（Project Section Extensions）
-[文件](../README.zh-TW.md) • [English](./customizing-module-readmes.md)
+[English](./customizing-module-readmes.md) • [文件](../README.zh-TW.md)
 
 以模組 README 作為知識入口，連結 sub-module 與 supplementary docs（含流程圖）。執行 `prospec check` 並查看 `knowledge-size`，確認逐檔預算。
 

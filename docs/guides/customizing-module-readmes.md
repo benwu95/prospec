@@ -1,5 +1,5 @@
 # Customizing Module READMEs (Project Section Extensions)
-[Documentation](../README.md) • [繁體中文](./customizing-module-readmes.zh-TW.md)
+[繁體中文](./customizing-module-readmes.zh-TW.md) • [Documentation](../README.md)
 
 Use each module README as the knowledge entry point: link its sub-module and supplementary docs, including flow diagrams. Run `prospec check` and inspect `knowledge-size` for per-file budgets.
 

@@ -1,5 +1,5 @@
 # How it works
-[Documentation](../README.md) • [繁體中文](./how-it-works.zh-TW.md)
+[繁體中文](./how-it-works.zh-TW.md) • [Documentation](../README.md)
 
 Prospec runs one linear flow, wrapped in two feedback loops that make it **compound** rather than merely repeat.
 
