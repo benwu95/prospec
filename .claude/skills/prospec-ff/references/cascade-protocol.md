@@ -39,7 +39,7 @@ Every station — whether reached via `prospec status` or by autonomous cascadin
 2. **Step 2 [ENTRY]** — Check the station's Entry Gates; if any FAILs, stop and resolve it before acting.
 3. **Step 3 [EXEC]** — Execute the station per its `SKILL.md` and the references it loads on demand; loading a station never means its references arrived.
 4. **Step 4 [GATE]** — Run the station's machine verifiers. On FAIL, apply the Oscillation Breaker (stop if state flips FAIL → PASS → FAIL ≥ 2) — never loop unbounded.
-5. **Step 5 [NEXT]** — Run `prospec status` for the next station. When the route carries `code: ESCALATE_TO_HUMAN`, HALT immediately and emit the CLI-produced `EscalationReport` decision, including its persisted lifetime ordinal, trigger and reasons — do NOT return to Step 1. When it carries `code: AWAITING_HUMAN_PLAN_SIGNOFF`, HALT and present the plan station's sign-off material for the change's scale — it is not a failure, so emit no `EscalationReport`; after the human signs off, resume at Step 1. When it carries `code: KNOWLEDGE_INPUT_INVALID`, HALT and present the knowledge-sync input its reasons name (no `EscalationReport`); resume at Step 1 once it is repaired. Otherwise, return to Step 1.
+5. **Step 5 [NEXT]** — Run `prospec status` for the next station. `code: ESCALATE_TO_HUMAN`, HALT immediately and emit the CLI-produced `EscalationReport` with persisted lifetime ordinal, trigger and reasons; do NOT return to Step 1. `code: AWAITING_HUMAN_PLAN_SIGNOFF`: HALT; present scale-specific plan sign-off material, no `EscalationReport` (not a failure); resume Step 1 after human sign-off. `code: KNOWLEDGE_INPUT_INVALID`: HALT; present the named invalid knowledge-sync input, no `EscalationReport`; resume Step 1 after repair. Otherwise, return to Step 1.
 
 ---
 
@@ -98,10 +98,12 @@ When the pipeline completes final Verification with Grade S/A, reaching this bou
 
 ## Escalation Decision (CLI-Owned)
 
-- Present CLI trigger, lifetime ordinal, exits/recommendation; stop.
-- Human `Manual override: <reason>` composed WARN alone grants one event/station attempt; observations/report warnings grant nothing. Replay consumes none; resolution expires grants. Tests remain independent.
-- Re-scope retains amendment gates/status without unlocking escalation. Preserve history, adjacent prose and fenced examples after PASS.
+- Present CLI trigger/lifetime ordinal/exits/recommendation; stop.
+- Only human `Manual override: <reason>` composed WARN grants one event/station attempt; observations/report warnings grant none. Replay consumes none; resolution expires grants; tests independent.
+- Re-scope keeps amendment gates/status, no unlock. After PASS retain history/adjacent prose/fences.
 
 ### Abandon an attempt
 
-Run `prospec change abandon <name> --reason <text>`; retain `.prospec/abandoned/` artifacts. `--overturned <field>` identifies disproved leaves. Work preservation precedes movement and terminal metadata; inspect partial-failure paths. Every scale requires retry `retry_difference`.
+Run `prospec change abandon <name> --reason <text>`; retain `.prospec/abandoned/`. `--overturned <field>`: disproved leaves. Save work → move → terminal metadata; inspect partial failures. Every scale: retry `retry_difference`.
+
+Report preservedFileCount (manifest entries, no gitlink pins); work tree not restored. Ask human: keep or restore via preservation/version control. Restore only with explicit authorization; reuse prior decision.

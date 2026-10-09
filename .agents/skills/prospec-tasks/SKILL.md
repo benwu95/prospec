@@ -127,7 +127,7 @@ Audit `tasks.md` against `delta-spec.md` and `plan.md` in an independent, fresh 
 Record the report — whatever its verdict — to `metadata.yaml` `quality_log` via `prospec change log --skill prospec-tasks --verifier-report <file>` (Bash). The CLI validates it against the rubric-owned schema (verdict "PASS" | "WARN" | "FLAWS"; exactly the four dimensions; `rationale` and each warning single-line, ≤ 500 chars) and records `FLAWS` as `result: FAIL`, `WARN`/`PASS` as themselves; an invalid payload is refused before anything is written. Never relay the verdict by hand.
 - **PASS**: All 4 dimensions satisfied. Proceed.
 - **WARN**: Advisory concerns identified (e.g. minor sizing note) — already recorded by the sink. Proceed.
-- **FLAWS**: Revise the artifacts and re-run the verifier. A later sink-stamped PASS/WARN supersedes the FAIL; Exit Gate notes do not. On escalation, follow the CLI-owned Break-Glass Override decision below: a developer grant permits one attempt, never a verifier PASS or station advancement.
+- **FLAWS**: Revise and re-verify. Later sink-stamped PASS/WARN supersedes FAIL; Exit Gate notes cannot. Use guidance below; a grant permits one attempt, not verifier PASS or advancement.
 
 > **Phase 6 Gate** — proceed when:
 > - [ ] Task Verifier audit completed against the 4 orthogonal dimensions and its report recorded via `prospec change log --verifier-report` with result PASS/WARN (a Break-Glass grant alone does not satisfy this gate)
@@ -146,13 +146,15 @@ Suggest: `prospec-implement` or manual review.
 
 ## Escalation Decision (CLI-Owned)
 
-- Present CLI trigger, lifetime ordinal, exits/recommendation; stop.
-- Human `Manual override: <reason>` composed WARN alone grants one event/station attempt; observations/report warnings grant nothing. Replay consumes none; resolution expires grants. Tests remain independent.
-- Re-scope retains amendment gates/status without unlocking escalation. Preserve history, adjacent prose and fenced examples after PASS.
+- Present CLI trigger/lifetime ordinal/exits/recommendation; stop.
+- Only human `Manual override: <reason>` composed WARN grants one event/station attempt; observations/report warnings grant none. Replay consumes none; resolution expires grants; tests independent.
+- Re-scope keeps amendment gates/status, no unlock. After PASS retain history/adjacent prose/fences.
 
 ### Abandon an attempt
 
-Run `prospec change abandon <name> --reason <text>`; retain `.prospec/abandoned/` artifacts. `--overturned <field>` identifies disproved leaves. Work preservation precedes movement and terminal metadata; inspect partial-failure paths. Every scale requires retry `retry_difference`.
+Run `prospec change abandon <name> --reason <text>`; retain `.prospec/abandoned/`. `--overturned <field>`: disproved leaves. Save work → move → terminal metadata; inspect partial failures. Every scale: retry `retry_difference`.
+
+Report preservedFileCount (manifest entries, no gitlink pins); work tree not restored. Ask human: keep or restore via preservation/version control. Restore only with explicit authorization; reuse prior decision.
 
 ## Output Contract
 

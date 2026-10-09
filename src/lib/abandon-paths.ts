@@ -31,5 +31,14 @@ export function abandonedEntryFor(root: string, identity: string): string {
 
 export function abandonDirFor(root: string, changeName: string): string {
   if (!isSafeResourceName(changeName)) throw new PrerequisiteError('Unsafe change name', changeName);
-  return abandonedEntryFor(root, `${new Date().toISOString().slice(0, 10)}-${changeName}`);
+  const base = `${new Date().toISOString().slice(0, 10)}-${changeName}`;
+  for (let ordinal = 1; ; ordinal++) {
+    const candidate = abandonedEntryFor(root, ordinal === 1 ? base : `${base}-${ordinal}`);
+    try {
+      fs.lstatSync(candidate);
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error;
+      return candidate;
+    }
+  }
 }

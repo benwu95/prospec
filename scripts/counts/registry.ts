@@ -12,7 +12,7 @@ import type { CountEntry, CountFormat, CountOccurrence } from './types.js';
  * enough literal context to match its intended line only (or, for a
  * field-scoped occurrence, its intended YAML value only).
  *
- * SCOPE (v1): test counts (total + outcomes + per-layer + file count) and the `.hbs`
+ * SCOPE (v1): test counts (total + per-layer + file count) and the `.hbs`
  * template inventory (total + the 6 category sub-counts, at their canonical
  * index.md inventory sentence — each paired with its `module-map.yaml` source via
  * `moduleMapTwin`, since index.md is GENERATED from it). Deliberately NOT covered — module per-file
@@ -59,69 +59,26 @@ export const COUNT_REGISTRY: CountEntry[] = [
     source: { kind: 'test-suite', layer: 'total' },
     occurrences: [
       { doc: README, anchor: /badge\/tests-(\d+)%20(?:passing|total)/, format: 'plain' },
-      { doc: CONTRIBUTING, anchor: /Run all tests \((\d+) (?:tests|total)(?:; \d+ skipped)?\)/, format: 'plain' },
+      { doc: CONTRIBUTING, anchor: /Run all tests \((\d+) (?:tests|total)\)/, format: 'plain' },
       {
         doc: CONTRIBUTING,
-        anchor: /\*\*Test Coverage\*\*: (\d+) (?:tests(?: total)?|total tests)(?: \(\d+ passed; \d+ skipped\))? across/,
+        anchor: /\*\*Test Coverage\*\*: (\d+) (?:tests(?: total)?|total tests) across/,
         format: 'plain',
       },
       { doc: README_ZH, anchor: /badge\/測試-(\d+)%20(?:通過|總計)/, format: 'plain' },
       {
         doc: DOCS_INDEX,
-        anchor: /data-i18n="hero\.facts\.tests"><b>([\d,]+)<\/b> total ·/,
+        anchor: /data-i18n="hero\.facts\.tests"><b>([\d,]+)<\/b> total tests<\/span>/,
         format: 'comma',
       },
       {
         doc: DOCS_I18N,
-        anchor: /'hero\.facts\.tests': '共 <b>([\d,]+)<\/b> 個測試 ·/,
+        anchor: /'hero\.facts\.tests': '共 <b>([\d,]+)<\/b> 個測試'/,
         format: 'comma',
       },
       { doc: INDEX, anchor: /files, ([\d,]+) tests \(unit /, format: 'comma' },
       moduleMapTwin('tests', /files, ([\d,]+) tests \(unit /, 'comma'),
       { doc: TESTS_README, anchor: /test files, ([\d,]+) tests \(unit /, format: 'comma' },
-    ],
-  },
-  {
-    key: 'tests.passed',
-    source: { kind: 'test-suite', layer: 'passed' },
-    occurrences: [
-      {
-        doc: CONTRIBUTING,
-        anchor: /\*\*Test Coverage\*\*: \d+ (?:tests(?: total)?|total tests) \((\d+) passed; \d+ skipped\) across/,
-        format: 'plain',
-      },
-      {
-        doc: DOCS_INDEX,
-        anchor: /hero\.facts\.tests">.* total · <b>([\d,]+)<\/b> passed ·/,
-        format: 'comma',
-      },
-      {
-        doc: DOCS_I18N,
-        anchor: /'hero\.facts\.tests': '.* 個測試 · <b>([\d,]+)<\/b> 個通過 ·/,
-        format: 'comma',
-      },
-    ],
-  },
-  {
-    key: 'tests.skipped',
-    source: { kind: 'test-suite', layer: 'skipped' },
-    occurrences: [
-      { doc: CONTRIBUTING, anchor: /Run all tests \(\d+ (?:tests|total); (\d+) skipped\)/, format: 'plain' },
-      {
-        doc: CONTRIBUTING,
-        anchor: /\*\*Test Coverage\*\*: \d+ (?:tests(?: total)?|total tests) \(\d+ passed; (\d+) skipped\) across/,
-        format: 'plain',
-      },
-      {
-        doc: DOCS_INDEX,
-        anchor: /hero\.facts\.tests">.* passed · <b>([\d,]+)<\/b> skipped/,
-        format: 'comma',
-      },
-      {
-        doc: DOCS_I18N,
-        anchor: /'hero\.facts\.tests': '.* 個通過 · <b>([\d,]+)<\/b> 個略過/,
-        format: 'comma',
-      },
     ],
   },
   {

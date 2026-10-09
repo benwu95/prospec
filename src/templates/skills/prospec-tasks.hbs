@@ -110,7 +110,7 @@ Audit `tasks.md` against `delta-spec.md` and `plan.md` in an independent, fresh 
 Record the report — whatever its verdict — to `metadata.yaml` `quality_log` via `prospec change log --skill prospec-tasks --verifier-report <file>` (Bash). The CLI validates it against the rubric-owned schema (verdict {{planning_verdicts}}; exactly the four dimensions; `rationale` and each warning single-line, ≤ {{relayed_max_summary}} chars) and records `FLAWS` as `result: FAIL`, `WARN`/`PASS` as themselves; an invalid payload is refused before anything is written. Never relay the verdict by hand.
 - **PASS**: All 4 dimensions satisfied. Proceed.
 - **WARN**: Advisory concerns identified (e.g. minor sizing note) — already recorded by the sink. Proceed.
-- **FLAWS**: Revise the artifacts and re-run the verifier. A later sink-stamped PASS/WARN supersedes the FAIL; Exit Gate notes do not. On escalation, follow the CLI-owned Break-Glass Override decision below: a developer grant permits one attempt, never a verifier PASS or station advancement.
+- **FLAWS**: Revise and re-verify. Later sink-stamped PASS/WARN supersedes FAIL; Exit Gate notes cannot. Use guidance below; a grant permits one attempt, not verifier PASS or advancement.
 
 > **Phase 6 Gate** — proceed when:
 > - [ ] Task Verifier audit completed against the 4 orthogonal dimensions and its report recorded via `prospec change log --verifier-report` with result PASS/WARN (a Break-Glass grant alone does not satisfy this gate)

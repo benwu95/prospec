@@ -17,9 +17,11 @@ composing structured CLI input) knows what each field means.
 
 ## Abandonment and retry
 
-`prospec change abandon <name> --reason <text> [--overturned <field>]` owns terminal `abandoned` and its record: `reason`, `at`, `from_status`, `escalation` (last trigger/ordinal or null), `overturned` (scalar Premise leaves and values), `premise_note`, `manifest`. Artifacts live in `.prospec/abandoned/YYYY-MM-DD-name/`. An operation marker without completed metadata means incomplete publication: inspect before retry.
+`prospec change abandon <name> --reason <text> [--overturned <field>]` owns terminal `abandoned` metadata: `reason`, `at`, `from_status`, `escalation` (last trigger/ordinal or null), `overturned` (scalar Premise leaves/values), `premise_note`, `manifest`. Use first available `.prospec/abandoned/YYYY-MM-DD-name/`, then `-2`, `-3`, … . Incomplete publication blocks retry; inspect its operation marker.
 
-New Stories link completed same-issue attempts via `retry_of`: `archive` is an ID under `.prospec/abandoned/`, paired with its digest; empty means no matches, absent means legacy. Creation reports reasons and retains supplied proposals; skills author the difference. Abandoned entries are excluded from successful archive/finalize and review-yield.
+Preservation does not restore work. Restoration is a human decision requiring explicit authorization.
+
+`retry_of` links completed same-issue attempts: `archive` is an abandoned entry ID with digest; empty means no matches, absent means legacy. Creation reports reasons, retains supplied proposals; skills author the difference. Abandoned entries never enter successful archive/finalize or review-yield.
 
 ## Canonical field order
 

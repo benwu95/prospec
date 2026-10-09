@@ -178,7 +178,7 @@ describe('ci.yml quality gates (REQ-TESTS-070)', () => {
     expect(read, 'ci.yml reads a different path than package.json writes').toBe(written);
   });
 
-  it('windows-smoke runs no counts step — counts are platform-independent', () => {
+  it('windows-smoke runs no counts step for its partial suite', () => {
     // Over the run BODIES (block scalars included), not the raw job text: the
     // reason belongs in a YAML comment inside that job, and a prose mention
     // there must not turn this red.

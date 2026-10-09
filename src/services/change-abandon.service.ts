@@ -159,6 +159,7 @@ export async function execute(options: ChangeAbandonOptions): Promise<ChangeAban
     const issue = normalizeIssueRef(saved.metadata.issue);
     return { changeName: saved.name, archiveDir: destination, preservationDir: path.join(destination, 'preservation'),
       projectRoot: root, gitPrefix: saved.input.manifest.git_prefix, reason: saved.record.reason,
+      preservedFileCount: saved.input.manifest.entries.length,
       ...(issue === undefined ? {} : { issue }) };
   } catch (error) { throw partialFailure(saved, operation, error); }
 }

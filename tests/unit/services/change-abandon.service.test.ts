@@ -49,10 +49,9 @@ describe('abandon admission', () => {
   it.each(['archived', 'abandoned'])('refuses terminal %s', async (status) => {
     metadata({ status }); await expect(prepareAbandon(opts())).rejects.toThrow(/terminal/i);
   });
-  it('refuses unsafe names, destination collisions and reserved source names', async () => {
+  it('refuses unsafe names and reserved source names', async () => {
     await expect(prepareAbandon({ ...opts(), name: '../x' })).rejects.toThrow();
-    fs.mkdirSync(abandonDirFor(root, 'x'), { recursive: true }); await expect(prepareAbandon(opts())).rejects.toThrow(/exist|collision/i);
-    fs.rmdirSync(abandonDirFor(root, 'x')); put('preservation/file', 'original'); await expect(prepareAbandon(opts())).rejects.toThrow(/reserved/i);
+    put('preservation/file', 'original'); await expect(prepareAbandon(opts())).rejects.toThrow(/reserved/i);
   });
   it('publishes separately from a same-named successful archive with relocated trust zone', async () => {
     fs.writeFileSync(path.join(root, '.prospec.yaml'), 'project:\n  name: downstream\npaths:\n  base_dir: docs/spec\n');
@@ -99,16 +98,16 @@ describe('preservation before movement', () => {
     expect(imageOf(dir)).toEqual(before); expect(captureGitState(root)).toEqual(git);
     expect(saved.operation).toMatchObject({ source: 'x', phase: 'preserving', moved: [], pending: ['proposal.md', 'metadata.yaml'] });
     expect(fs.readFileSync(path.join(saved.destination, 'preservation/unstaged.patch'), 'utf8')).toContain('+dirty');
-    await expect(prepareAbandon(opts())).rejects.toThrow(/exists/);
+    await expect(prepareAbandon(opts())).rejects.toThrow(/incomplete/i);
   });
   it('reports preservation failure with paths and leaves the source untouched', async () => {
-    const before = imageOf(dir);
+    const before = imageOf(dir); const destination = abandonDirFor(root, 'x');
     vi.mocked(preservation.persistWork).mockRejectedValueOnce(new Error('disk full'));
     await expect(preserveAbandon(await prepareAbandon(opts()))).rejects.toMatchObject({
       code: 'ABANDON_INCOMPLETE', details: { sourceDir: dir, phase: 'preserving', moved: [], sourceEntries: ['metadata.yaml', 'proposal.md'] },
     });
     expect(imageOf(dir)).toEqual(before);
-    expect(fs.existsSync(path.join(abandonDirFor(root, 'x'), 'abandon-operation.json'))).toBe(true);
+    expect(fs.existsSync(path.join(destination, 'abandon-operation.json'))).toBe(true);
   });
   it('refuses concurrent input changes after saving and before moving', async () => {
     const actual = await vi.importActual<typeof preservation>('../../../src/lib/work-preservation.js');
@@ -153,9 +152,10 @@ describe('publication', () => {
     expect(readAbandonHistory(root)).toMatchObject({ attempts: [], errors: [{ source: 'x' }] });
   });
   it('keeps original nonterminal metadata if final publication fails', async () => {
+    const destination = abandonDirFor(root, 'x');
     vi.mocked(metadataOwner.writeChangeMetadataDoc).mockRejectedValueOnce(new Error('metadata disk full'));
     await expect(execute(opts())).rejects.toMatchObject({ details: { phase: 'publishing', moved: ['proposal.md', 'metadata.yaml'], pending: [], sourceEntries: null } });
-    const archived = metadataOwner.readChangeMetadata(path.join(abandonDirFor(root, 'x'), 'metadata.yaml'), 'x');
+    const archived = metadataOwner.readChangeMetadata(path.join(destination, 'metadata.yaml'), 'x');
     expect(archived.metadata.status).toBe('plan'); expect(readAbandonHistory(root).attempts).toEqual([]);
   });
   it('reports source removal failure without claiming terminal success', async () => {
@@ -207,6 +207,7 @@ it('abandons in a repository with a clean submodule and records its pins', async
     const result = await execute(opts());
     const { GitlinkPinsSchema } = await import('../../../src/types/abandon.js');
     const pins = GitlinkPinsSchema.parse(JSON.parse(fs.readFileSync(path.join(result.archiveDir, 'preservation/gitlinks.json'), 'utf8')));
+    expect(result.preservedFileCount).toBe(0);
     expect(pins.gitlinks).toEqual([{ path: 'module', head_commit: pinned, index_commit: pinned, checkout_commit: pinned }]);
     expect(readAbandonHistory(root).attempts).toHaveLength(1);
   } finally { fs.rmSync(upstream, { recursive: true, force: true }); }
@@ -214,5 +215,51 @@ it('abandons in a repository with a clean submodule and records its pins', async
 
 it('writes no pin record when the repository holds no gitlink', async () => {
   const result = await execute(opts());
+  expect(result.preservedFileCount).toBe(0);
   expect(fs.existsSync(path.join(result.archiveDir, 'preservation/gitlinks.json'))).toBe(false);
+});
+
+
+it('retains three same-day attempts without changing earlier history', async () => {
+  const base = abandonDirFor(root, 'x');
+  const snapshots = new Map<string, ReturnType<typeof imageOf>>();
+  for (let attempt = 1; attempt <= 3; attempt++) {
+    metadata(); put('proposal.md', premiseProposal());
+    fs.writeFileSync(path.join(root, 'work'), `attempt ${attempt}`);
+    const result = await execute(opts());
+    expect(result.archiveDir).toBe(attempt === 1 ? base : `${base}-${attempt}`);
+    const manifest = JSON.parse(fs.readFileSync(path.join(result.preservationDir, 'manifest.json'), 'utf8'));
+    expect(result.preservedFileCount).toBe(manifest.entries.length);
+    expect(result.preservedFileCount).toBe(1);
+    for (const [destination, before] of snapshots) expect(imageOf(destination)).toEqual(before);
+    snapshots.set(result.archiveDir, imageOf(result.archiveDir));
+    expect(readAbandonHistory(root).attempts).toHaveLength(attempt);
+  }
+});
+
+it('refuses a competing destination after admission without allocating another suffix', async () => {
+  const prepared = await prepareAbandon(opts());
+  fs.mkdirSync(prepared.destination, { recursive: true });
+  fs.writeFileSync(path.join(prepared.destination, 'competitor'), 'retained');
+  const sourceBefore = imageOf(dir); const historyBefore = imageOf(path.dirname(prepared.destination));
+  await expect(preserveAbandon(prepared)).rejects.toMatchObject({ code: 'EEXIST' });
+  expect(imageOf(dir)).toEqual(sourceBefore);
+  expect(imageOf(path.dirname(prepared.destination))).toEqual(historyBefore);
+});
+
+it('counts deletions, symlinks and nonignored source artifacts from the captured manifest', async () => {
+  fs.writeFileSync(path.join(root, '.gitignore'), '');
+  fs.unlinkSync(path.join(root, 'work'));
+  fs.symlinkSync('work', path.join(root, 'link'));
+  const result = await execute(opts());
+  const manifest = JSON.parse(fs.readFileSync(path.join(result.preservationDir, 'manifest.json'), 'utf8'));
+  expect(manifest.entries).toEqual(expect.arrayContaining([
+    expect.objectContaining({ path: 'work', kind: 'deleted' }),
+    expect.objectContaining({ path: 'link', kind: 'symlink' }),
+    expect.objectContaining({ path: '.prospec/changes/x/metadata.yaml', kind: 'regular' }),
+    expect.objectContaining({ path: '.prospec/changes/x/proposal.md', kind: 'regular' }),
+  ]));
+  expect(result.preservedFileCount).toBe(manifest.entries.length);
+  expect(result.preservedFileCount).toBe(5);
+  expect(fs.existsSync(dir)).toBe(false);
 });

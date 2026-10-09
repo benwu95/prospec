@@ -50,7 +50,7 @@ Also: `quickstart` (init + agentSync), `agent-triggers` + `trigger-localization`
 
 ## Pitfalls
 
-- Abandonment does not call spec-sync/finalize. Save failures leave source artifacts intact; move/publication failures can split artifacts across directories and require manual reconciliation. Terminal metadata is the sole success marker. Story creation captures normalized same-issue history once, preserves supplied proposal bytes and returns prior reasons, including dry runs.
+- Abandonment does not call spec-sync/finalize. Save failures leave source artifacts intact; move/publication failures can split artifacts across directories and require manual reconciliation. Terminal metadata is the sole success marker. Same-day suffix allocation never bypasses incomplete admission or retries an exclusive-mkdir race. Success returns the saved manifest entry count. Story creation captures normalized same-issue history once, preserves supplied proposal bytes and returns prior reasons, including dry runs.
 
 - Sourced-premise admission is shared through `lib/premise`: plan, tasks, forward status, post-story scale promotion, verify record and archive (including dry-run) refuse blocked inputs before writing. Keep each writer’s existing gates and recheck the capture before its first write. Story creation declares version 1 with pending evidence; results disclose ready/legacy/exempt without claiming evidence truth.
 
