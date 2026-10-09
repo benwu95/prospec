@@ -130,6 +130,16 @@ tests/
 - **Error handling**: Use custom error classes from `src/types/errors.ts`
 - **Testing**: Every new service/feature requires tests
 
+## Public Documentation
+
+The root READMEs and every page under `docs/` are the reader-facing documentation; `tests/contract/public-docs.test.ts` pins their structure.
+
+- Every `docs/` page is an English / Traditional Chinese pair with identical heading structure. Edit both sides of the pair, and list a new page in both docs indexes (`docs/README.md`, `docs/README.zh-TW.md`).
+- Line 2 of every `docs/` page, directly under the H1, is the navigation line: first a link to the page's twin (labelled `繁體中文` or `English`), then a link to that language's docs index (labelled `Documentation` on English pages, `文件` on Traditional Chinese pages), joined by ` • `. The two docs indexes carry only the twin link. Language link first and labels both match the root README's navigation line.
+- Keep navigation on that one line — no footer back-links and no previous/next chains, which GitHub's own breadcrumb already duplicates and which drift when the directory changes.
+- Name the root README as plain "README" with a link; it is the repository front page on GitHub, so qualifiers such as "root" or "project" add nothing.
+- Repo-internal links are file-relative paths with exact case, and any `#anchor` must resolve to a heading of the target.
+
 ## Dependency Management
 
 Development is **pnpm-only**; the single lockfile is `pnpm-lock.yaml`.
