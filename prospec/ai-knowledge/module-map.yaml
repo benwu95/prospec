@@ -63,7 +63,7 @@ modules:
       - MCP 契約
       - 模組分類
     rationale: Leaf module with zero internal deps — all others import from here
-    last_verified: 2026-10-10T00:31:48.287Z
+    last_verified: 2026-10-10T15:00:34.587Z
   - name: lib
     description: Shared stateless utilities — config, file I/O, Handlebars
       rendering, scanning, token accounting, the zero-LLM drift engine
@@ -356,4 +356,4 @@ modules:
       - 驗證
       - vitest
     rationale: Quality gate — validates all layers with pyramid coverage
-    last_verified: 2026-10-10T04:55:12.088Z
+    last_verified: 2026-10-10T15:00:34.587Z
