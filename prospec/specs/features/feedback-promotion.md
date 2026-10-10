@@ -71,6 +71,7 @@ _(None)_
 
 | Date | Change | Impact | Stories/REQs |
 |------|--------|--------|--------------|
+| 2026-10-10 | remove-stale-spec-claims | MODIFIED REQ-TYPES-024; MODIFIED REQ-TESTS-024 | REQ-TYPES-024, REQ-TESTS-024 |
 | 2026-10-10 | preserve-worktree-history | MODIFIED REQ-SERVICES-099 | REQ-SERVICES-099 |
 | 2026-10-09 | slim-readme-into-docs | MODIFIED REQ-CLI-059 | REQ-CLI-059 |
 | 2026-10-05 | add-change-abandon | MODIFIED REQ-SERVICES-099 | REQ-SERVICES-099 |

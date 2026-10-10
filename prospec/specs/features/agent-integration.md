@@ -28,8 +28,7 @@ Serves developers who use Prospec together with a variety of AI Agents (Claude C
 
 
 
-#### REQ-AGNT-040: Register Candidate Evaluation Reference in Agent Sync
-Register `candidate-evaluation.hbs` reference template in `agent-sync.service.ts` for `prospec-plan`.
+#### REQ-AGNT-040: Candidate Evaluation Reference
 - WHEN `agent-sync` runs, THEN `candidate-evaluation.hbs` is rendered to `references/candidate-evaluation.md` under `prospec-plan`
 
 ---
@@ -99,8 +98,7 @@ Skill bodies maintain concise chapter title outlines pointing to format referenc
 ---
 
 
-#### REQ-AGNT-042: Register New References in Agent Sync and Sync Factual Counts
-Agent sync registers all deployed references and maintains factual count integrity.
+#### REQ-AGNT-042: New References and Factual Counts
 - WHEN `prospec agent sync` runs, THEN `references/verify-backfill.md` and `references/spec-graduation.md` are deployed under their respective skill directories
 - WHEN `pnpm counts:check` runs, THEN all template and reference counts are in sync
 
@@ -184,6 +182,7 @@ The repository's English and Traditional Chinese root READMEs are an equivalent 
 
 | Date | Change | Impact | Stories/REQs |
 |------|--------|--------|-------------|
+| 2026-10-10 | remove-stale-spec-claims | MODIFIED REQ-AGNT-015; MODIFIED REQ-AGNT-022; MODIFIED REQ-AGNT-037; MODIFIED REQ-AGNT-023; MODIFIED REQ-TYPES-032; MODIFIED REQ-TYPES-035; MODIFIED REQ-SERVICES-030; MODIFIED REQ-AGNT-039; MODIFIED REQ-AGNT-040; MODIFIED REQ-AGNT-041; MODIFIED REQ-AGNT-042 | REQ-AGNT-015, REQ-AGNT-022, REQ-AGNT-037, REQ-AGNT-023, REQ-TYPES-032, REQ-TYPES-035, REQ-SERVICES-030, REQ-AGNT-039, REQ-AGNT-040, REQ-AGNT-041, REQ-AGNT-042 |
 | 2026-10-10 | correct-readme-split-claims | MODIFIED REQ-TEMPLATES-230; MODIFIED REQ-AGNT-003; MODIFIED REQ-AGNT-024; MODIFIED REQ-AGNT-026; MODIFIED REQ-AGNT-031; MODIFIED REQ-TYPES-032; MODIFIED REQ-TYPES-035 | REQ-TEMPLATES-230, REQ-AGNT-003, REQ-AGNT-024, REQ-AGNT-026, REQ-AGNT-031, REQ-TYPES-032, REQ-TYPES-035 |
 | 2026-10-09 | slim-readme-into-docs | MODIFIED REQ-TEMPLATES-230; MODIFIED REQ-AGNT-036; MODIFIED REQ-TESTS-040; MODIFIED REQ-TEMPLATES-233; MODIFIED REQ-TESTS-119; MODIFIED REQ-AGNT-043; MODIFIED REQ-AGNT-024; MODIFIED REQ-AGNT-026 | REQ-TEMPLATES-230, REQ-AGNT-036, REQ-TESTS-040, REQ-TEMPLATES-233, REQ-TESTS-119, REQ-AGNT-043, REQ-AGNT-024, REQ-AGNT-026 |
 | 2026-10-04 | align-skill-guidance | MODIFIED REQ-AGNT-035 | REQ-AGNT-035 |
