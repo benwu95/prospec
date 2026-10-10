@@ -1,7 +1,7 @@
 ---
 feature: ai-knowledge
 status: active
-last_updated: 2026-10-09
+last_updated: 2026-10-10
 story_count: 15
 req_count: 73
 ---
@@ -103,7 +103,6 @@ The test suite proves the Module README format contract at every boundary using 
 - **SC-1**: The incremental update processes only affected modules, not a full regeneration
 - **SC-2**: `{base_dir}/index.md` and `module-map.yaml` stay consistent with the module directories
 - **SC-3**: AI Knowledge saves 70%+ of AI-conversation token consumption
-- **SC-4**: The Knowledge Quality Gate covers all 5 Planning Skills
 - **SC-5**: Each module knowledge file — the README and each linked sub-module — is ≤ 100 lines, and the README includes the Modification Guide and Pitfalls sections
 - **SC-6**: The `{base_dir}/index.md` module table includes a Rationale column
 
@@ -131,6 +130,7 @@ The test suite proves the Module README format contract at every boundary using 
 
 | Date | Change | Impact | Stories/REQs |
 |------|--------|--------|-------------|
+| 2026-10-10 | correct-stale-content-claims | MODIFIED REQ-TEMPLATES-040 | REQ-TEMPLATES-040 |
 | 2026-10-09 | slim-readme-into-docs | MODIFIED REQ-CLI-050; MODIFIED REQ-TESTS-110 | REQ-CLI-050, REQ-TESTS-110 |
 | 2026-10-04 | align-knowledge-verdict | MODIFIED REQ-TEMPLATES-207 | REQ-TEMPLATES-207 |
 | 2026-10-04 | align-skill-guidance | MODIFIED REQ-KNOW-004; MODIFIED REQ-KNOW-013; MODIFIED REQ-KNOW-016 | REQ-KNOW-004, REQ-KNOW-013, REQ-KNOW-016 |
