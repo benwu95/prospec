@@ -47,18 +47,17 @@ Reference documents only define structure (English headings), and do not mandate
 ## US-8: Knowledge Quality Gate [P1]
 
 As a developer using Prospec,
-I want every SDD phase to have a quality gate that checks Knowledge loading quality,
+I want a quality gate that checks Knowledge loading quality,
 so that the AI produces more precise artifacts.
 
 **Acceptance Scenarios:**
-- WHEN any Planning Skill completes THEN show a PASS/WARN/FAIL quality gate table
 - WHEN a problem is found THEN WARN (non-blocking)
 - WHEN each Skill THEN the check items differ by phase (Story: Related Modules, Plan: Context Mode, Tasks: Architecture Layers)
 
 ### Behavior Specifications
 
-#### REQ-TEMPLATES-205: Knowledge Quality Gate Table
-The 5 Planning Skills show a three-state gate table at the end of the Core Workflow, with different check items per Skill.
+#### REQ-TEMPLATES-205: Knowledge Quality Gate
+The Knowledge Quality Gate has different check items per Skill.
 
 ---
 

@@ -151,7 +151,6 @@ The repository's English and Traditional Chinese root READMEs are an equivalent 
 
 - No AI CLI detected: list the supported ones and prompt for installation
 - Write failure (disk full, insufficient permissions): atomic write, preserving the original file on failure
-- A Planning Skill triggered with no Constitution: skip the Constitution Check without blocking the flow
 - A new Agent platform not yet supported: gracefully skip and note that support is coming
 - Skill template syntax error: preserve the previously deployed version when rendering fails
 - `skill_triggers` pointing at a nonexistent skill: warn and skip (still output to stderr in quiet mode), without interrupting the sync

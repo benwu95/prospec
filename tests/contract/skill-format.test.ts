@@ -5630,7 +5630,7 @@ describe('Verify drift-engine integration (REQ-TEMPLATES-092)', () => {
 
 // US-18: Phase-1 start + per-phase gates (REQ-TEMPLATES-097).
 // The skills REQ-TEMPLATES-097 names (survey 2026-06-13); every other skill is exempt.
-// Semantic decimal/sub-step phases (archive 3.5/3.6/4.5, new-story 3.5, design 2a/2b)
+// Semantic decimal/sub-step phases
 // are intentional insertions and are kept — only Phase 0 (ff) is corrected.
 describe('US-18: Phase-1 start + per-phase gates', () => {
   const NUMBERED_PHASE_SKILLS = [

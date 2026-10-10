@@ -60,7 +60,7 @@ describe('ChangeMetadataSchema quality_log', () => {
     if (r.success) expect(r.data.quality_log).toHaveLength(1);
   });
 
-  it('accepts every lifecycle status including implemented', () => {
+  it('accepts lifecycle statuses including implemented', () => {
     for (const s of ['story', 'plan', 'tasks', 'implemented', 'verified', 'archived']) {
       expect(
         ChangeMetadataSchema.safeParse({ ...base, status: s }).success,
