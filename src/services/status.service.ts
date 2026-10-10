@@ -313,9 +313,8 @@ function signoffReasons(
 
 /**
  * Unresolved WARNs: the latest `quality_log` entry per skill whose `result` is
- * `WARN`, expanded to one item per warning string. A later same-skill entry
- * (any result) supersedes the earlier one, so a WARN cleared by a subsequent
- * PASS no longer surfaces. Mirrors `lastVerifyGrade`'s last-entry-per-skill read.
+ * `WARN`, expanded to one item per warning string. Mirrors `lastVerifyGrade`'s
+ * last-entry-per-skill read.
  */
 function unresolvedWarnings(
   qualityLog:
