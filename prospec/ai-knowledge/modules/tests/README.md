@@ -1,6 +1,6 @@
 # Verification Suite
 
-> 4-layer Vitest suite (fast-glob/git bypass memfs — 305 test files, 7,753 tests (unit 5653, contract 1720, integration 159, e2e 221)).
+> 4-layer Vitest suite (fast-glob/git bypass memfs — 305 test files, 7,754 tests (unit 5653, contract 1721, integration 159, e2e 221)).
 <!-- prospec:module-readme-format 2026-09-01 -->
 
 <!-- prospec:auto-start -->
@@ -23,7 +23,7 @@
 
 ## Public API
 
-- `tests/contract/playbook-station.test.ts` checks all 20 active declarations, the 7 approved compact entries, and service-plus-formatter output for every `SDD_STATIONS` value against the full-file token cost. `skill-format.test.ts` pins Startup loads, caps, cleanup rules, baseline ceilings and both languages' public docs; unit and CLI E2E tests cover parser, service and formatter behavior.
+- `tests/contract/playbook-station.test.ts` checks every active entry's station declaration, the 7 approved compact entries, and service-plus-formatter output for every `SDD_STATIONS` value against the full-file token cost. `skill-format.test.ts` pins Startup loads, caps, cleanup rules, baseline ceilings and both languages' public docs; unit and CLI E2E tests cover parser, service and formatter behavior.
 - No exports — test files run by `vitest run`. Entry: `pnpm test`.
 
 ## Dependencies

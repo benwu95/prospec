@@ -5,7 +5,7 @@ import { collectMarkdownLinks } from '../../src/lib/drift-sources.js';
 import { withoutFencedBlocks } from '../../src/lib/markdown-fences.js';
 
 // REQ-TEMPLATES-230: the root READMEs are a concise entry; detailed docs live
-// under docs/ as English pages with Traditional Chinese twins, listed by each
+// under docs/ as English / Traditional Chinese pairs, listed by each
 // language's index, and every repo-internal link reads the same on GitHub and
 // in a local checkout.
 const root = path.resolve(import.meta.dirname, '../..');
@@ -92,6 +92,16 @@ describe('public docs structure', () => {
       expect(fs.existsSync(path.join(root, twin)), `${page} lacks ${twin}`).toBe(true);
       expect(headingLevels(read(twin)), `${twin} heading levels`).toEqual(headingLevels(read(page)));
     }
+  });
+
+  it('every Traditional Chinese docs page has an English original', () => {
+    const pages = new Set(docsPages());
+    const orphans = docsPages()
+      .filter((p) => p.endsWith(ZH))
+      .map((p) => [p, p.slice(0, -ZH.length) + '.md'] as const)
+      .filter(([, original]) => !pages.has(original))
+      .map(([p, original]) => `${p} lacks ${original}`);
+    expect(orphans).toEqual([]);
   });
 
   it.each([
