@@ -229,7 +229,7 @@ tests/
 > alphabetically first.
 
 - `tests/fixtures/spec-sync-corpus/` — 594 files: `.md`, `.yaml`, `.json`, `.txt`
-- `prospec/` — 335 files: `.md`, `.yaml`
+- `prospec/` — 337 files: `.md`, `.yaml`
 - `tests/fixtures/workflow-eval/` — 17 files: `.json`
 - `tests/fixtures/token-corpus/` — 13 files: `.md`, `.yaml`
 - `planning/` — 10 files: `.md`
@@ -243,5 +243,5 @@ tests/
 
 | Metric | Value |
 |--------|-------|
-| Total files | 1672 |
+| Total files | 1674 |
 | Scan depth | 10 |
