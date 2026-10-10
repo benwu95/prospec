@@ -11,6 +11,7 @@ import { RetryLinkSchema, ABANDON_MANIFEST } from '../types/abandon.js';
 import { normalizeIssueRef } from './change-metadata.js';
 import { assertNoIncompleteAbandon, readAbandonedAttempt } from './abandon-history.js';
 import { abandonedEntryFor } from './abandon-paths.js';
+import { resolveHistoryPaths } from './history-paths.js';
 import { sha256 } from './repo-state.js';
 
 function result(state: PremiseAssessment['state'], findings: string[] = []): PremiseAssessment {
@@ -98,10 +99,11 @@ export interface PremiseCapture {
 /** Read once through existing containment/schema owners; never infer legacy from I/O failure. */
 export function readPremiseAssessment(changeDir: string, root: string, targetScale?: ChangeScale): PremiseCapture {
   const paths: Record<string, string> = { metadata: path.join(changeDir, 'metadata.yaml'), proposal: path.join(changeDir, 'proposal.md') };
+  const roots: Record<string, string> = { metadata: root, proposal: root };
   const assertNoPartial = (): void => assertNoIncompleteAbandon(root, path.basename(changeDir));
   const checkPaths = (): void => {
-    for (const file of Object.values(paths)) {
-      const target = resolveContainedTarget(file, root, { read: true });
+    for (const [key, file] of Object.entries(paths)) {
+      const target = resolveContainedTarget(file, roots[key]!, { read: true });
       if (!target.ok) throw new Error(`${file}: ${target.reason}`);
     }
   };
@@ -124,6 +126,7 @@ export function readPremiseAssessment(changeDir: string, root: string, targetSca
       const dir = abandonedEntryFor(root, link.archive);
       paths[`history${index}`] = path.join(dir, 'metadata.yaml');
       paths[`manifest${index}`] = path.join(dir, ABANDON_MANIFEST);
+      roots[`history${index}`] = roots[`manifest${index}`] = resolveHistoryPaths(root).historyProjectRoot;
     }
     checkPaths();
     const linkedCapture = captureFileInputs(paths);
@@ -139,6 +142,9 @@ export function readPremiseAssessment(changeDir: string, root: string, targetSca
         try {
           checkPaths();
           assertNoPartial();
+          for (const link of metadata.retry_of ?? []) {
+            if (readAbandonedAttempt(root, link.archive).digest !== link.digest) throw new Error('Linked history changed');
+          }
           if (capture.recheck() && linkedCapture.recheck()) return;
         } catch { /* Fail closed, with the same actionable refusal below. */ }
         throw new PrerequisiteError('Premise inputs changed before writing', 'Re-run the command against the current proposal and metadata');

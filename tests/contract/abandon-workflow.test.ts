@@ -13,7 +13,7 @@ it('routes same-issue history through difference authoring before validation in 
     const body = section(`src/templates/skills/${file}.hbs`, file === 'prospec-new-story' ? '### Phase 5:' : '### Phase 2:');
     expect(body.indexOf('retry_difference')).toBeGreaterThanOrEqual(0);
     expect(body.indexOf('retry_difference')).toBeLessThan(body.indexOf('prospec validate proposal'));
-    expect(body).toMatch(/all scales|every scale/);
+    expect(body).toMatch(/all scales|every scale/i);
     expect(body).not.toMatch(/Quick\/backfill are exempt/);
   }
 });

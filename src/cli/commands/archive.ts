@@ -65,7 +65,8 @@ export function registerArchiveCommand(program: Command): void {
   archive
     .command('finalize')
     .description('Post-judgment archive step: copy the finalized summary into spec history and reconcile feature-spec counters')
-    .argument('<name>', 'archived change name (the .prospec/archive/{date}-{name} bundle)')
+    .argument('<name>', 'archived change name')
+    .option('--bundle <identity>', 'Exact archiveIdentity returned by archive; must belong to this source project')
     .option('--dry-run', 'compute and print the planned mutations without writing anything')
     // `--dry-run` is declared on BOTH `archive` and `archive finalize`, and
     // commander binds such a flag to the PARENT — the subcommand's own `opts`
@@ -76,8 +77,8 @@ export function registerArchiveCommand(program: Command): void {
       const logLevel = resolveLogLevel(globalOpts);
       try {
         const { executeFinalize } = await import('../../services/archive.service.js');
-        const { dryRun } = this.optsWithGlobals<{ dryRun?: boolean }>();
-        const result = await executeFinalize({ name, dryRun: dryRun ?? false });
+        const { dryRun, bundle } = this.optsWithGlobals<{ dryRun?: boolean; bundle?: string }>();
+        const result = await executeFinalize({ name, bundle, dryRun: dryRun ?? false });
         formatArchiveFinalizeOutput(result, logLevel);
       } catch (err) {
         handleError(err, globalOpts.verbose ?? false);

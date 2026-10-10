@@ -33,7 +33,7 @@
 
 ## Pitfalls
 
-- Status reads completed abandoned attempts separately from active routes; history alone is clean. Incomplete publication reports a named error and suppresses its residual active source route. Abandoned metadata remaining in the active directory is a named incomplete-location error. Retry Premise failures route every scale to explore.
+- Status reads completed abandoned attempts separately from active routes; history alone is clean. Incomplete publication reports source-specific diagnostics; local-only or unreadable history never hides the active-change listing. A pending origin blocks advancing its residual source workflow. Abandoned metadata remaining in the active directory is a named incomplete-location error. Retry Premise failures route every scale to explore.
 
 - Status collects the shared premise assessment before routing. A blocked active change routes to explore after pending escalation has priority; archived remains terminal. Legacy and exempt decisions remain visible and do not certify evidence truth.
 

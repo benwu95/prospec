@@ -45,7 +45,7 @@ nondeterministic serialization this contract exists to remove.
 
 > Blocking precondition check before this skill runs. If any item FAILs, stop and tell the user what is missing — do not proceed.
 
-- There is material to learn from: at least one archived change exists under `.prospec/archive/` (with `metadata.yaml` quality_log and/or `review.md`) **OR** `prospec/ai-knowledge/_lessons-ledger.md` carries prior entries. Only when **both** are absent, stop and say there is nothing to collect yet. (The ledger is version-controlled, so a fresh worktree with a wiped `.prospec/archive/` but a populated ledger still has material — do not false-block.)
+- Run `prospec history paths --json`; inspect `diagnostics` and resolve linked-local history with `prospec history import --from <project-root>`. Collect from `paths.archiveRoot`, excluding incomplete/abandoned attempts, OR from the version-controlled `prospec/ai-knowledge/_lessons-ledger.md`. Stop only when both are empty. Explicit extra corpus paths stay relative to the executing project; never infer the canonical root from cwd.
 - The promotion rule is available: `references/promotion-format.md` loaded.
 - Prior unresolved WARN: read the lessons ledger and surface any lesson already flagged "suggest promote" but not yet decided.
 

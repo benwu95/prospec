@@ -8,7 +8,7 @@
         ".prospec/changes/"
       ],
       "mandatory": 0,
-      "mandatory_context_tokens": 7666
+      "mandatory_context_tokens": 7519
     },
     "prospec-backfill-spec": {
       "items": [
@@ -100,7 +100,7 @@
         "{{knowledge_base_path}}/module-map.yaml"
       ],
       "mandatory": 1,
-      "mandatory_context_tokens": 5612
+      "mandatory_context_tokens": 5622
     },
     "prospec-new-story": {
       "items": [
@@ -111,7 +111,7 @@
         "{{base_dir}}/specs/features/"
       ],
       "mandatory": 1,
-      "mandatory_context_tokens": 5617
+      "mandatory_context_tokens": 5643
     },
     "prospec-quickstart": {
       "items": [
@@ -137,7 +137,7 @@
         "{{base_dir}}/specs/product.md"
       ],
       "mandatory": 0,
-      "mandatory_context_tokens": 5886
+      "mandatory_context_tokens": 5884
     },
     "prospec-review": {
       "items": [
@@ -148,7 +148,7 @@
         "{{knowledge_base_path}}/_conventions.md"
       ],
       "mandatory": 1,
-      "mandatory_context_tokens": 8144
+      "mandatory_context_tokens": 8142
     },
     "prospec-tasks": {
       "items": [
@@ -160,7 +160,7 @@
         "references/tasks-format.md"
       ],
       "mandatory": 1,
-      "mandatory_context_tokens": 5592
+      "mandatory_context_tokens": 5590
     },
     "prospec-verify": {
       "items": [
@@ -175,7 +175,7 @@
         "{{constitution_path}}"
       ],
       "mandatory": 0,
-      "mandatory_context_tokens": 10535
+      "mandatory_context_tokens": 10533
     }
   },
   "reference_ceiling_tokens": 51105,
@@ -184,10 +184,10 @@
     "adapter-html": 663,
     "adapter-pencil": 859,
     "adapter-penpot": 490,
-    "archive-format": 1272,
+    "archive-format": 1149,
     "candidate-evaluation": 2082,
-    "cascade-protocol": 2766,
-    "circuit-breaker": 1089,
+    "cascade-protocol": 2763,
+    "circuit-breaker": 1087,
     "debug-recovery-format": 1255,
     "delegated-evidence-format": 3202,
     "delegation-protocol": 2469,
@@ -199,12 +199,12 @@
     "human-decision": 709,
     "implementation-guide": 1021,
     "interaction-spec-format": 743,
-    "metadata-format": 3997,
+    "metadata-format": 4022,
     "plan-format": 2828,
     "plan-verifier-rubric": 2235,
     "product-spec-format": 1189,
     "project-test-runner": 687,
-    "promotion-format": 1645,
+    "promotion-format": 1660,
     "proposal-format": 1202,
     "review-format": 2497,
     "review-lenses-content": 2982,

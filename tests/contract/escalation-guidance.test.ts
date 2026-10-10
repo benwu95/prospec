@@ -7,10 +7,10 @@ const root = path.resolve('src/templates/skills');
 const consumers = ['archive', 'ff', 'plan', 'review', 'tasks', 'verify'].map(name => `prospec-${name}.hbs`)
   .concat(['references/cascade-protocol.hbs', 'references/circuit-breaker.hbs']);
 const obligations = [
-  'Report preservedFileCount (manifest entries, no gitlink pins)',
-  'work tree not restored',
-  'Ask human: keep or restore via preservation/version control',
-  'Restore only with explicit authorization; reuse prior decision',
+  'Report preservedFileCount: manifest entries, not gitlink pins',
+  'worktree not restored',
+  'Human decides keep/restore via preservation/version control',
+  'Restore requires explicit authorization; reuse prior decision',
 ];
 function assertRestoration(content: string): void {
   const section = /^### Abandon an attempt\n([\s\S]*?)(?=^#{1,3} |$(?![\s\S]))/m.exec(content)?.[1];
@@ -31,7 +31,7 @@ function assertContract(section: string): void {
   expect(section).toMatch(/tests independent/);
   expect(section).toMatch(/Re-scope keeps amendment gates\/status, no unlock/);
   expect(section).toMatch(/prospec change abandon.*--reason/);
-  expect(section).toMatch(/Save work → move → terminal metadata/);
+  expect(section).toMatch(/Save work → stage metadata → verify\/publish → clean source/);
   expect(section).not.toMatch(/automatically roll back|Progression may then proceed/);
 }
 
@@ -57,7 +57,7 @@ describe('CLI-owned escalation guidance', () => {
   });
   it('kills deletion of every enforcement predicate instead of merely matching a heading', () => {
     const section = guidance(renderTemplate('skills/prospec-review.hbs', {}));
-    const predicates = section.split('\n').filter(line => /^- |^Run `prospec change abandon/.test(line));
+    const predicates = section.split('\n').filter(line => /^- |^`prospec change abandon/.test(line));
     expect(predicates).toHaveLength(4);
     for (const line of predicates) {
       expect(() => assertContract(section.replace(line, ''))).toThrow();

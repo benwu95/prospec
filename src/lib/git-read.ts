@@ -19,7 +19,7 @@ import { realpathSync } from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
 
-export const GIT_READ_SUBCOMMANDS = ['rev-parse', 'ls-files', 'for-each-ref', 'status', 'symbolic-ref', 'reflog', 'diff'] as const;
+export const GIT_READ_SUBCOMMANDS = ['rev-parse', 'ls-files', 'for-each-ref', 'status', 'symbolic-ref', 'reflog', 'diff', 'worktree'] as const;
 export type GitReadSubcommand = (typeof GIT_READ_SUBCOMMANDS)[number];
 
 /** What building a snapshot needs beyond reads — each run against the snapshot only. */
@@ -78,6 +78,9 @@ export function withFixedGitEnv<T>(read: () => T): T {
 function assertReadInvocation(sub: string, args: readonly string[]): void {
   if (!(GIT_READ_SUBCOMMANDS as readonly string[]).includes(sub)) {
     throw new Error(`git ${sub} is not a read-only subcommand of the delegation path`);
+  }
+  if (sub === 'worktree' && (args.length !== 3 || args[0] !== 'list' || args[1] !== '--porcelain' || args[2] !== '-z')) {
+    throw new Error('git worktree only permits list --porcelain -z');
   }
   if (sub === 'diff') {
     const separator = args.indexOf('--');

@@ -7,7 +7,8 @@ modules:
       profiles, Constitution rule types, the station I/O contracts the cli-first
       skills speak (review findings, verify dimension registry, lesson upsert,
       validate kinds), and the canonical index-table column and
-      knowledge-token-budget contracts.
+      knowledge-token-budget contracts. Terminal history contracts separate
+      source origin, canonical storage and partial outcomes.
     paths:
       - src/types
     keywords:
@@ -41,6 +42,8 @@ modules:
       - lens-yield
       - review-status
       - delegation
+      - history
+      - worktree
     relationships:
       depends_on: []
       used_by:
@@ -60,7 +63,7 @@ modules:
       - MCP 契約
       - 模組分類
     rationale: Leaf module with zero internal deps — all others import from here
-    last_verified: 2026-10-09T16:17:16.018Z
+    last_verified: 2026-10-10T00:31:48.287Z
   - name: lib
     description: Shared stateless utilities — config, file I/O, Handlebars
       rendering, scanning, token accounting, the zero-LLM drift engine
@@ -68,7 +71,8 @@ modules:
       runner, knowledge readers, multi-language manifest parsers, and the
       I/O-free station engines (markdown-table, delegated-evidence, verify
       grade, review-merge, lessons-ledger, artifact validators,
-      review-circuit-breaker, lens-yield).
+      review-circuit-breaker, lens-yield). Terminal history resolves registered
+      worktree roots and verifies bundle publication and preservation integrity.
     paths:
       - src/lib
     keywords:
@@ -116,6 +120,8 @@ modules:
       - git-read
       - repo-state
       - checkpoint
+      - history
+      - worktree
     relationships:
       depends_on:
         - types
@@ -133,7 +139,7 @@ modules:
       - 漂移檢查
       - 知識讀取
     rationale: Foundational infrastructure shared across services and benchmark scripts
-    last_verified: 2026-10-09T16:17:16.018Z
+    last_verified: 2026-10-10T00:31:48.287Z
   - name: services
     description: Business logic — one `execute()` service per command — including
       shared-output agent invocation-guidance rendering — init / quickstart /
@@ -141,7 +147,8 @@ modules:
       status / scale / progress, review merge, verify record, learn, validate,
       archive + spec-sync + finalize, agent-sync, measure, drift check
       (record-review / record-tests / auto-draft modes), auto-draft, and the
-      read-only MCP server.
+      read-only MCP server. History import preserves legacy bundles in shared
+      terminal storage while workflow and spec writes remain source-local.
     paths:
       - src/services
     keywords:
@@ -178,6 +185,8 @@ modules:
       - cascade
       - auto-draft
       - change-delegate
+      - history
+      - worktree
     relationships:
       depends_on:
         - types
@@ -195,11 +204,13 @@ modules:
       - 漂移檢查
       - 真相層
     rationale: Isolates business logic from I/O layer, enables testability
-    last_verified: 2026-10-09T16:17:16.018Z
+    last_verified: 2026-10-10T00:31:48.287Z
   - name: cli
-    description: Thin CLI entry — 19 top-level Commander commands + shared
+    description: Thin CLI entry — 20 top-level Commander commands + shared
       formatters that parse → call one service → format output; the cli-first
-      station commands each add one command/formatter pair, never logic.
+      station commands each add one command/formatter pair, never logic. History
+      paths/import expose canonical storage and archive finalize accepts exact
+      bundle identities.
     paths:
       - src/cli
     keywords:
@@ -224,6 +235,8 @@ modules:
       - finalize
       - sanitize
       - auto-draft
+      - history
+      - worktree
     relationships:
       depends_on:
         - types
@@ -237,13 +250,15 @@ modules:
       - 終端
       - entry point
     rationale: "Thin I/O layer: no business logic, delegates to services"
-    last_verified: 2026-10-09T14:47:04.651Z
+    last_verified: 2026-10-10T00:31:48.287Z
   - name: templates
     description: Handlebars template library — 17 skills + host-labelled invocation
       entry guidance, 11 shared partials, 32 references, 1 agent-config, 5
       change, 15 init/knowledge (82 `.hbs` templates) — the source of every
       generated skill, README, and index; every skill delegates its
       deterministic steps to the CLI behind the shared `_cli-probe` partial.
+      Terminal-history guidance uses CLI-reported roots and identities with
+      explicit legacy import.
     paths:
       - src/templates
     keywords:
@@ -273,6 +288,8 @@ modules:
       - grouping
       - cli-probe
       - cli-first
+      - history
+      - worktree
     relationships:
       depends_on: []
       used_by:
@@ -289,13 +306,14 @@ modules:
       - 複雜度適配
       - CI 閘門
     rationale: Pure resources — no logic, consumed by lib/template.ts
-    last_verified: 2026-10-09T16:17:16.018Z
+    last_verified: 2026-10-10T00:19:17.287Z
   - name: tests
-    description: 4-layer test suite — 296 files, 7,611 tests (unit 5530 + contract
-      1713 + integration 153 + e2e 215). Validates every module — format and
+    description: 4-layer test suite — 305 files, 7,753 tests (unit 5653 + contract
+      1720 + integration 159 + e2e 221). Validates every module — format and
       public-document contracts, the cli-first probe + station-command
       contracts, the drift engine, token corpus, and the MCP protocol over
-      in-memory transport.
+      in-memory transport. Real-worktree history fixtures cover publication
+      faults, origin isolation and retained bundle inventories.
     paths:
       - tests
     keywords:
@@ -321,6 +339,8 @@ modules:
       - skill-invocation
       - factual-counts
       - public-docs
+      - history
+      - worktree
     relationships:
       depends_on:
         - types
@@ -336,4 +356,4 @@ modules:
       - 驗證
       - vitest
     rationale: Quality gate — validates all layers with pyramid coverage
-    last_verified: 2026-10-09T16:17:16.018Z
+    last_verified: 2026-10-10T00:19:17.287Z

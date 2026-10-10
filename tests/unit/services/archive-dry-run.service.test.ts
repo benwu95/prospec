@@ -5,7 +5,7 @@ vi.mock('../../../src/lib/drift-assessment.js', () => ({
     snapshot: { digest: 'fixture', clean: true }, recheck: () => true,
   })),
 }));
-import { mkdtempSync, mkdirSync, rmSync, writeFileSync, readFileSync, readdirSync, statSync, existsSync } from 'node:fs';
+import { mkdtempSync, realpathSync, mkdirSync, rmSync, writeFileSync, readFileSync, readdirSync, statSync, existsSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { execute } from '../../../src/services/archive.service.js';
@@ -19,7 +19,7 @@ vi.setConfig({ testTimeout: 90_000 });
 let tmp: string;
 
 beforeEach(() => {
-  tmp = mkdtempSync(path.join(os.tmpdir(), 'archive-dry-run-'));
+  tmp = realpathSync(mkdtempSync(path.join(os.tmpdir(), 'archive-dry-run-')));
 });
 afterEach(() => {
   rmSync(tmp, { recursive: true, force: true });
@@ -152,7 +152,8 @@ describe('execute dry-run (REQ-SERVICES-071)', () => {
       .filter(
         (abs) =>
           !plannedTargets.some((t) => abs === t || t.startsWith(abs)) &&
-          !abs.startsWith(archiveDir),
+          !abs.startsWith(archiveDir) &&
+          !abs.startsWith(path.join(tmp, '.prospec', 'history-operations')),
       );
     expect(unpredicted).toEqual([]);
   });
@@ -221,17 +222,11 @@ describe('execute dry-run (REQ-SERVICES-071)', () => {
     expect(spliceDetail).not.toBe(bootstrapDetail);
   });
 
-  it('keeps a product.md write failure non-fatal — the splice added a read that can throw', async () => {
-    // The old generator only WROTE product.md; the splice reads the existing file
-    // first (EISDIR/EACCES/vanished symlink), so an unhandled throw here would
-    // abort the run after the bundle had already moved.
+  it('reports product.md write failure and the retained canonical history', async () => {
     verifiedChangeFixture();
     mkdirSync(path.join(tmp, 'prospec', 'specs', 'product.md'), { recursive: true });
-
-    const result = await execute({ cwd: tmp, names: ['feat-x'] });
-
-    expect(result.archived).toHaveLength(1);
-    expect(result.skipped).toHaveLength(0);
+    await expect(execute({ cwd: tmp, names: ['feat-x'] })).rejects.toThrow(/Product spec sync failed.*retained bundles/);
+    expect(readdirSync(path.join(tmp, '.prospec', 'archive'))).toHaveLength(1);
   });
 
   it('previews the unclosed-fence refusal as a planned non-mutation, and honours it', async () => {

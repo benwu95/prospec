@@ -17,7 +17,7 @@ composing structured CLI input) knows what each field means.
 
 ## Abandonment and retry
 
-`prospec change abandon <name> --reason <text> [--overturned <field>]` owns terminal `abandoned` metadata: `reason`, `at`, `from_status`, `escalation` (last trigger/ordinal or null), `overturned` (scalar Premise leaves/values), `premise_note`, `manifest`. Use first available `.prospec/abandoned/YYYY-MM-DD-name/`, then `-2`, `-3`, … . Incomplete publication blocks retry; inspect its operation marker.
+`prospec change abandon <name> --reason <text> [--overturned <field>]` owns terminal `abandoned` metadata: `reason`, `at`, `from_status`, `escalation` (last trigger/ordinal or null), `overturned` (scalar Premise leaves/values), `premise_note`, `manifest`. CLI returns `archiveDir` in the main worktree project: first available `.prospec/abandoned/YYYY-MM-DD-name/`, then `-2`, `-3`, … . Incomplete publication blocks retry; inspect its external history operation and retained paths; do not auto-unlock.
 
 Preservation does not restore work. Restoration is a human decision requiring explicit authorization.
 

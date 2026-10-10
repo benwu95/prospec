@@ -124,10 +124,6 @@ The following module documentation may need updating:
 
 ## Spec Archiving
 
-When a change is archived, its `summary.md` is also copied to `prospec/specs/_archived-history/{YYYY-MM-DD}-{change-name}.md`. The `{YYYY-MM-DD}` prefix is the change's archive date — the **same** prefix as its `.prospec/archive/{YYYY-MM-DD}-{change-name}/` folder, so the two stay name-aligned and the history sorts chronologically. This is the **committed** spec-history audit trail: `.prospec/archive/` is typically excluded via `.gitignore`, so this copy is a per-change record in version control.
+Run `prospec archive finalize <name> --bundle <archiveIdentity>` in the original source before removing its worktree. It copies `summary.md` from returned `archivePath` to `prospec/specs/_archived-history/{archiveIdentity}.md`: the committed spec-history audit trail. Reuse the returned identity; never reconstruct dates. The complete bundle stays in the main worktree project’s gitignored `.prospec/archive/`; retention is not Git-object backup.
 
-It lands in `_archived-history/` (not flat under `prospec/specs/`) for two reasons: a flat copy clutters the spec root (which should hold only `product.md` + `features/`), and — because `_archived-history/` matches `ARCHIVED_EXCLUDES` (`**/_archived*`) — the drift checker skips it, so a summary's frozen REQ snapshot never trips the `req-references` check when one of those REQs is later removed.
-
-The spec file is identical to the archive summary — no additional formatting is applied.
-
-`prospec archive finalize` refreshes the owned Escalation History block in both summary copies from metadata. Preserve it, adjacent authored prose and fenced examples; later PASS never erases override reasons or usage.
+`_archived-history/` matches `ARCHIVED_EXCLUDES`, excluding frozen REQs from drift checks. The copy preserves summary formatting; finalize refreshes both summaries’ Escalation History from metadata. Retain authored prose, fenced examples and override reasons after PASS.

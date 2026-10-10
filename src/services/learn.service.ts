@@ -1,6 +1,10 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { PrerequisiteError } from '../types/errors.js';
+import type { HistoryPaths } from '../types/history.js';
+import { HISTORY_POINTER } from '../types/history.js';
+import { resolveHistoryPaths } from '../lib/history-paths.js';
+import { diagnoseLocalHistory, readHistoryOperation, readHistoryOperations } from '../lib/terminal-transfer.js';
 import { excludesAbandonFromYield } from '../lib/abandon-history.js';
 import { normalizeStationName, SDD_STATIONS } from '../types/status.js';
 import {
@@ -46,8 +50,11 @@ export async function scanArchivedReviews(
   archiveDir: string,
   extraCorpusDirs: string[] = [],
   cwd: string = process.cwd(),
+  historyPaths: HistoryPaths = resolveHistoryPaths(cwd),
 ): Promise<ChangeReviewEntry[]> {
   const entries: ChangeReviewEntry[] = [];
+  const physicalDirectories = new Set<string>();
+  const physicalBundles = new Set<string>();
   const searchDirs = Array.from(
     new Set([archiveDir, ...extraCorpusDirs].map((d) => path.resolve(cwd, d))),
   );
@@ -68,6 +75,9 @@ export async function scanArchivedReviews(
       continue;
     }
 
+    const physical = await fs.promises.realpath(dir);
+    if (physicalDirectories.has(physical)) continue;
+    physicalDirectories.add(physical);
     const items = await fs.promises.readdir(dir, { withFileTypes: true });
     for (const item of items) {
       const full = path.join(dir, item.name);
@@ -76,6 +86,13 @@ export async function scanArchivedReviews(
         (item.isSymbolicLink() &&
           (await fs.promises.stat(full).catch(() => undefined))?.isDirectory() === true);
       if (!isDir) continue;
+      const physicalBundle = await fs.promises.realpath(full);
+      if (physicalBundles.has(physicalBundle)) continue;
+      physicalBundles.add(physicalBundle);
+      if (physical === historyPaths.archiveRoot || fs.existsSync(path.join(full, HISTORY_POINTER))) {
+        if (physical !== historyPaths.archiveRoot) throw new PrerequisiteError(`Marked history corpus is outside canonical storage: ${full}`, 'Use prospec history paths to locate the canonical archive and its operation lineage');
+        readHistoryOperation(historyPaths, 'archive', item.name);
+      }
       if (excludesAbandonFromYield(full, dir)) continue;
       const reviewPath = path.join(full, 'review.md');
       if (fs.existsSync(reviewPath)) {
@@ -392,8 +409,12 @@ export async function executeYield(options: LearnYieldOptions = {}): Promise<Len
   }
   const thresholds: LensYieldThresholds = parsed.data;
 
-  const archiveDir = path.join(cwd, '.prospec', 'archive');
-  const corpus = await scanArchivedReviews(archiveDir, options.extraCorpusDirs, cwd);
+  const historyPaths = resolveHistoryPaths(cwd);
+  const diagnostics = diagnoseLocalHistory(historyPaths);
+  if (diagnostics.length) throw new PrerequisiteError(diagnostics.map(item => `${item.path}: ${item.reason}`).join('\n'), 'Run prospec history import before calculating yield across shared history');
+  const pending = readHistoryOperations(historyPaths).filter(operation => operation.kind === 'archive' && operation.phase !== 'published' && operation.phase !== 'complete');
+  if (pending.length) throw new PrerequisiteError(`Incomplete archive publication: ${pending.map(operation => operation.finalDir).join(', ')}`, 'Inspect prospec history paths and reconcile pending operations before calculating yield');
+  const corpus = await scanArchivedReviews(historyPaths.archiveRoot, options.extraCorpusDirs, cwd, historyPaths);
   const stats = calculateLensYield(corpus, thresholds);
 
   return buildLensYieldReport(stats, corpus.length, thresholds);

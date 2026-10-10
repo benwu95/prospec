@@ -1,7 +1,11 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { vol } from 'memfs';
+import * as fs from 'node:fs';
+import { resolveHistoryPaths } from '../../../src/lib/history-paths.js';
 import { executeYield } from '../../../src/services/learn.service.js';
 import { PrerequisiteError } from '../../../src/types/errors.js';
+
+vi.mock('../../../src/lib/history-paths.js', async original => ({ ...await original<typeof import('../../../src/lib/history-paths.js')>(), resolveHistoryPaths: vi.fn((cwd: string) => ({sourceProjectRoot:cwd,historyProjectRoot:cwd,archiveRoot:cwd+'/.prospec/archive',abandonedRoot:cwd+'/.prospec/abandoned',operationsRoot:cwd+'/.prospec/history-operations',commonDir:null,worktree:cwd,projectPrefix:''})) }));
 
 vi.mock('node:fs', async () => {
   const memfs = await import('memfs');
@@ -86,6 +90,26 @@ describe('executeYield service', () => {
     expect(security?.action).toBe('retire');
   });
 
+  it('reads canonical archive from a linked source and deduplicates physical explicit corpus aliases', async () => {
+    vol.fromJSON({ '/main/.prospec/archive/2026-01-01-shared/review.md': review(['security'], []), '/repo/local/2026-01-02-extra/review.md': review(['security'], []) });
+    fs.symlinkSync('/main/.prospec/archive', '/repo/alias');
+    vi.mocked(resolveHistoryPaths).mockReturnValueOnce({sourceProjectRoot:'/repo',historyProjectRoot:'/main',archiveRoot:'/main/.prospec/archive',abandonedRoot:'/main/.prospec/abandoned',operationsRoot:'/main/.prospec/history-operations',commonDir:null,worktree:'/repo',projectPrefix:''});
+    const report = await executeYield({ cwd:CWD, extraCorpusDirs:['alias','local'] });
+    expect(report.total_changes_analyzed).toBe(2);
+  });
+  it('refuses local-only linked history instead of printing incomplete statistics', async () => {
+    vol.fromJSON({ '/main/.prospec/archive/2026-01-01-shared/review.md': review(['security'], []), '/repo/.prospec/archive/2026-01-02-local/review.md': review(['security'], []) });
+    vi.mocked(resolveHistoryPaths).mockReturnValueOnce({sourceProjectRoot:'/repo',historyProjectRoot:'/main',archiveRoot:'/main/.prospec/archive',abandonedRoot:'/main/.prospec/abandoned',operationsRoot:'/main/.prospec/history-operations',commonDir:null,worktree:'/repo',projectPrefix:''});
+    await expect(executeYield({ cwd:CWD })).rejects.toThrow(/import/i);
+  });
+  it('refuses marked history with missing lineage instead of counting its review', async () => {
+    vol.fromJSON({ '/repo/.prospec/archive/2026-01-01-partial/review.md': review(['security'], []), '/repo/.prospec/archive/2026-01-01-partial/.prospec-transfer.json': JSON.stringify({version:1,operationId:'missing',kind:'archive',identity:'2026-01-01-partial'}) });
+    await expect(executeYield({ cwd:CWD })).rejects.toThrow();
+  });
+  it('discloses in-flight history before a final directory exists', async () => {
+    vol.fromJSON({ '/repo/.prospec/history-operations/pending.json': JSON.stringify({version:1,operationId:'pending',kind:'archive',identity:'2026-01-01-pending',origin:{commonDir:null,worktree:'/repo',projectPrefix:'',changeName:'pending'},sourceDir:'/repo/.prospec/changes/pending',stagingDir:'/repo/.prospec/history-operations/.staging-pending',finalDir:'/repo/.prospec/archive/2026-01-01-pending',phase:'copying',original:[],prepared:[],cleanup:true}) });
+    await expect(executeYield({cwd:CWD})).rejects.toThrow(/pending|incomplete/i);
+  });
   it('honors config overrides for thresholds', async () => {
     globalThis.__learnTestConfig = {
       project: { name: 'demo' },

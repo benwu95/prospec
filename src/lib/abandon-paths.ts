@@ -2,6 +2,7 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { PrerequisiteError } from '../types/errors.js';
 import { isContainedPath, isSafeResourceName, resolveContainedTarget } from './knowledge-reader.js';
+import { resolveHistoryPaths } from './history-paths.js';
 
 /** Missing directories are allowed; links and non-directory history roots are not. */
 function containedDirectory(dir: string, root: string): string {
@@ -20,13 +21,15 @@ function containedDirectory(dir: string, root: string): string {
 
 /** Always relative to the Prospec project, independent of trust-zone base_dir. */
 export function abandonedRootFor(root: string): string {
-  return containedDirectory(path.join(root, '.prospec', 'abandoned'), root);
+  const paths = resolveHistoryPaths(root);
+  return containedDirectory(paths.abandonedRoot, paths.historyProjectRoot);
 }
 
 /** The legacy retry link key `archive` identifies an entry in this root only. */
 export function abandonedEntryFor(root: string, identity: string): string {
   if (!isSafeResourceName(identity)) throw new PrerequisiteError('Unsafe abandoned identity', identity);
-  return containedDirectory(path.join(abandonedRootFor(root), identity), root);
+  const paths = resolveHistoryPaths(root);
+  return containedDirectory(path.join(paths.abandonedRoot, identity), paths.historyProjectRoot);
 }
 
 export function abandonDirFor(root: string, changeName: string): string {

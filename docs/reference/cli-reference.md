@@ -205,7 +205,9 @@ Entry Points, Dependencies, and Config Files have no per-language override — t
 | `prospec spec show <feature> [options]` | Read-only targeted REQ or Story slice from Feature Specs for token efficiency |
 | `prospec constitution show --station <s> \| --rule <name>` | Read-only Constitution slice for one station (from the rules' `stations:` declarations), or one rule; fails open to the whole file |
 | `prospec archive <name...> [--dry-run]` | Archive verified changes: move directory, generate summary, and mechanically sync specs |
-| `prospec archive finalize <name> [--dry-run]` | Post-archive finalization: copy final summary to audit trail and reconcile spec counters |
+| `prospec archive finalize <name> [--bundle <identity>] [--dry-run]` | Post-archive finalization: copy final summary to audit trail and reconcile spec counters |
+| `prospec history paths [--json]` | Read-only source and canonical history roots |
+| `prospec history import --from <project-root> [--dry-run] [--json]` | Copy-import same-project legacy history while retaining sources |
 
 #### State, Tracking & Validation Commands
 
@@ -298,17 +300,25 @@ Review preserves artifact→metadata ordering; verify preserves metadata→evide
 - **`prospec archive <name...> [--dry-run]`**
   - **Purpose**: Execute deterministic archiving mutations for verified changes.
   - **Behavior**:
-    - Moves change directory to `.prospec/archive/{date}-{name}/`, generates summary scaffold, and sets `status: archived`.
+    - Copies, verifies and publishes the complete bundle to the corresponding main worktree project’s `.prospec/archive/{date}-{name}/`, then cleans the source; generates the summary scaffold and sets `status: archived`. Use returned `archivePath` and `archiveIdentity`, never reconstructed dates or cwd paths. Spec/Knowledge writes stay in the executing source project.
     - Performs mechanical Feature Spec sync: merges delta-spec `**Spec:**` blocks into feature specs and emits two worklists on stderr (kept bodies requiring convergence, and replaced bodies omitting prior bullets).
     - Syncs `product.md` `## Feature Map` (refusing safely on ambiguous headers, unclosed code blocks, or missing directories).
     - `--dry-run`: Previews all planned file modifications without writing; exits 1 if change is not verified.
 
-- **`prospec archive finalize <name> [--dry-run]`**
+- **`prospec archive finalize <name> [--bundle <identity>] [--dry-run]`**
   - **Purpose**: Post-judgment archive finalization (runs after human summary edits and REQ convergence).
+  - **Identity**: Run in the original source project with returned `archiveIdentity` passed as `--bundle`; known foreign origins, ambiguous bare names and incomplete publication refuse. Finalize before removing the source worktree.
   - **Key Details**:
     - Copies finalized `summary.md` to `specs/_archived-history/` for version-controlled audit trails.
     - Reconciles `story_count` and `req_count` in feature spec frontmatter against final spec bodies.
     - Refuses to execute if `summary.md` is still an unmodified template scaffold.
+
+- **`prospec history paths [--json]`**
+  - **Purpose**: Read-only source and canonical history roots. JSON is `{paths, diagnostics}`, including `paths.archiveRoot`, `paths.abandonedRoot`, `paths.operationsRoot` and `projectPrefix`. Linked worktrees use the same relative project in the main worktree; active changes, configuration, specs and Knowledge stay in the source. Missing main projects, bare repositories and unsafe topology refuse without local fallback.
+
+- **`prospec history import --from <project-root> [--dry-run] [--json]`**
+  - **Purpose**: Import legacy local history from a registered worktree sharing the Git common-dir and `projectPrefix`. Preview with `--dry-run`; execution copies only, retaining sources and original identities/metadata/retry digests. Identical complete copies deduplicate; conflicts and incomplete data refuse. Marked modern bundles do not support noncanonical relocation. JSON reports each entry outcome; partial failure exits nonzero.
+  - **Retention boundary**: Does not restore work or automatically reclaim a writer claim. Inspect reported source, staging, final and operation paths after failure. Storage in the main worktree is not backup of the main repository or Git objects. Non-Git projects allow only their own no-op import.
 
 - **`prospec change scale <quick|standard|full|backfill> [--change <name>]`**
   - **Purpose**: Write user-confirmed complexity scale to `metadata.yaml` (in-place edit preserving comments).
@@ -322,7 +332,7 @@ Review preserves artifact→metadata ordering; verify preserves metadata→evide
   - **Test gate on `implemented`**: besides every code task being checked, the change needs a fresh green `test_attempt` — the latest attempt passed with exit 0, linked to its `test_provenance`, against the current snapshot. Missing, stale, running or failing evidence is refused (exit 1) with the remediation `prospec check --record-tests --change <name>`, metadata untouched. Two explicit exemptions advance with a `tests: not-adjudicated` WARN (producer `prospec-test-gate`, deduplicated per entrance and reason, written in the same metadata write as the status): no resolvable test command, or a proven backfill (`backfill-draft.md` present). A known non-zero failure is never exempt; `scale: backfill` alone buys nothing.
 
 - **`prospec change abandon <name> --reason <text> [--overturned <field>]`**
-  - **Purpose**: Ends an attempt after preserving staged/unstaged binary patches and changed work bytes within the Prospec project root (excluding monorepo siblings). Original artifacts and reasons use the first available `.prospec/abandoned/YYYY-MM-DD-name/`, then `-2`, `-3`, …; incomplete attempts still block retry and allocation races refuse without overwriting. Partial failures report actual paths and moved/pending files for manual reconciliation.
+  - **Purpose**: Ends an attempt after preserving staged/unstaged binary patches and changed work bytes within the Prospec project root (excluding monorepo siblings). Original artifacts, preservation and reasons use the corresponding main worktree project’s first available `.prospec/abandoned/YYYY-MM-DD-name/`; use returned `archiveDir`, then `-2`, `-3`, …; incomplete attempts still block retry and allocation races refuse without overwriting. Source cleanup follows verified publication. Partial failures report source/staging/final/operation paths for manual reconciliation; never automatically unlock or restore.
   - **Success output**: Normal output reports the preserved count; JSON adds `preservedFileCount`, the captured manifest entry count (including deletions/symlinks, excluding gitlink pins). It is not the live dirty-file count, and zero does not imply a clean work tree. Quiet output remains silent. The work tree is not restored: inspect the preservation data and make a human decision to keep or restore the work using version control. Agents require explicit restoration authorization and reuse a decision already given; an unstaged patch alone is not a complete rollback.
   - **Limits**: Unsupported Git inputs refuse; the command performs no rollback or tracker write. Same-issue new Stories report prior reasons and require Premise `retry_difference` on every scale.
   - **Submodules**: A clean submodule inside the project is recorded in `preservation/gitlinks.json` — its path and the commits HEAD records, the index records and the submodule has checked out (null when absent or uninitialized) — never as preserved files; a submodule with uncommitted, untracked, skip-worktree, assume-unchanged or unmerged work, or a non-empty submodule directory without `.git`, refuses. Restoring a recorded pin needs that commit to still exist: `git submodule deinit` keeps the module's repository, but a commit reachable only from its detached HEAD is lost once that HEAD moves on and garbage collection prunes it.

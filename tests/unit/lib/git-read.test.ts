@@ -54,7 +54,7 @@ afterEach(() => {
 
 describe('gitRead allowlist (REQ-LIB-090, REQ-TESTS-125)', () => {
   it('is the closed set of reading subcommands', () => {
-    expect([...GIT_READ_SUBCOMMANDS]).toEqual(['rev-parse', 'ls-files', 'for-each-ref', 'status', 'symbolic-ref', 'reflog', 'diff']);
+    expect([...GIT_READ_SUBCOMMANDS]).toEqual(['rev-parse', 'ls-files', 'for-each-ref', 'status', 'symbolic-ref', 'reflog', 'diff', 'worktree']);
   });
 
   it.each(['commit', 'update-ref', 'config', 'cat-file', 'hash-object', 'checkout', 'stash', 'gc'])(
@@ -74,6 +74,15 @@ describe('gitRead allowlist (REQ-LIB-090, REQ-TESTS-125)', () => {
   ])('throws for symbolic-ref %j before any process starts', (args) => {
     expect(() => gitRead(repo, 'symbolic-ref', args)).toThrow(/symbolic-ref/);
     expect(execFileSync).not.toHaveBeenCalled();
+  });
+
+  it.each([['add', 'elsewhere'], ['remove', 'elsewhere'], ['prune'], ['list'], ['list', '--porcelain'], ['list', '--porcelain', '-z', '--expire=now']])('refuses worktree invocation %j before spawning', (...args) => {
+    expect(() => gitRead(repo, 'worktree' as never, args)).toThrow(/worktree/);
+    expect(execFileSync).not.toHaveBeenCalled();
+  });
+
+  it('reads only lossless porcelain worktree records', () => {
+    expect(gitReadRecords(repo, 'worktree' as never, ['list', '--porcelain', '-z'])).toContain(`worktree ${repo}`);
   });
 
   it('reads a symbolic ref with -q or --short', () => {

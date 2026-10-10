@@ -13,6 +13,8 @@ import { DELEGATION_PRODUCER } from './station.js';
 
 export const HELP_ENRICHED_COMMANDS = [
   'status',
+  'history paths',
+  'history import',
   'change log',
   'change delegate',
   'review merge',
@@ -68,6 +70,16 @@ const TABLE_ESCAPING: EscapingDisclosure = {
 };
 
 export const COMMAND_HELP_SPECS: Record<HelpEnrichedCommand, CommandHelpSpec> = {
+  'history paths': {
+    whenToUse: 'Inspect canonical archive and abandoned roots before reading terminal history or importing local-only bundles.',
+    example: 'prospec history paths --json',
+    returns: 'Read-only source and history paths plus local-only/conflict diagnostics. No files are written.',
+  },
+  'history import': {
+    whenToUse: 'Copy legacy local terminal bundles from the same registered repository and project scope into canonical history. Sources are retained; this does not restore Git work.',
+    example: 'prospec history import --from /path/to/linked-project --dry-run --json',
+    returns: 'Per-entry imported, identical, conflicting, failed or planned outcomes. Conflicting or failed entries exit 1; dry-run performs no writes. Existing identities are never overwritten or renamed.',
+  },
   status: {
     whenToUse:
       'Run at the start of a session, before any station skill: it names the in-flight change and the next station to enter. Not for reading a change\'s artifacts (read the files) and not for advancing a status (`prospec change status`).',

@@ -12,9 +12,14 @@ import { isContainedPath, resolveContainedTarget } from '../lib/knowledge-reader
 import { judgeSettlement, readTickets } from '../lib/delegation.js';
 import { reduceEscalationHistory } from '../lib/escalation.js';
 import { parsePremise } from '../lib/premise.js';
-import { atomicWrite, captureFileInputs } from '../lib/fs-utils.js';
+import { captureFileInputs } from '../lib/fs-utils.js';
 import { captureWork, persistWork, recheckWork } from '../lib/work-preservation.js';
 import { resolveChange } from './change-resolver.js';
+import { HISTORY_POINTER } from '../types/history.js';
+import { HistoryError } from '../types/errors.js';
+import { resolveHistoryPaths, historyOrigin } from '../lib/history-paths.js';
+import { transferBundle, historyClaimPath, historyOperationPath } from '../lib/terminal-transfer.js';
+import { atomicWrite } from '../lib/fs-utils.js';
 
 export interface ChangeAbandonOptions {
   name: string;
@@ -48,12 +53,13 @@ export async function prepareAbandon(options: ChangeAbandonOptions) {
   const inputs = captureFileInputs({ metadata: path.join(sourceDir, 'metadata.yaml'), proposal: path.join(sourceDir, 'proposal.md') });
   const { doc, metadata } = readChangeMetadata(metadataPath.path, name);
   if (metadata.status === 'archived' || metadata.status === 'abandoned') throw new PrerequisiteError('Change is already terminal', 'Inspect its retained artifacts');
+  const paths = resolveHistoryPaths(root);
   const destination = abandonDirFor(root, name);
-  const target = resolveContainedTarget(path.join(destination, ABANDON_MANIFEST), root);
+  const target = resolveContainedTarget(path.join(destination, ABANDON_MANIFEST), paths.historyProjectRoot);
   if (!target.ok) throw new PrerequisiteError('Unsafe abandoned destination', target.reason);
   if (fs.existsSync(destination)) throw new PrerequisiteError(`Abandoned destination already exists: ${destination}`, 'Inspect the existing attempt; do not overwrite it');
   assertNoIncompleteAbandon(root, name);
-  for (const reserved of ['preservation', ABANDON_OPERATION_FILE]) {
+  for (const reserved of ['preservation', ABANDON_OPERATION_FILE, HISTORY_POINTER]) {
     if (fs.readdirSync(sourceDir).includes(reserved)) throw new PrerequisiteError(`Reserved abandon artifact name: ${reserved}`, 'Rename this original artifact before abandoning');
   }
   requireSettled(sourceDir);
@@ -82,84 +88,56 @@ export async function prepareAbandon(options: ChangeAbandonOptions) {
     escalation: last ? { trigger: last.trigger, ordinal: last.ordinal } : null,
     overturned, premise_note: premiseNote, manifest: ABANDON_MANIFEST,
   };
-  const recheck = (): void => {
+  const recheck = (ownedOperationId?: string): void => {
     // This invocation exclusively claims destination later; never exempt older attempts.
-    assertNoIncompleteAbandon(root, name, path.basename(destination));
+    assertNoIncompleteAbandon(root, name, path.basename(destination), ownedOperationId);
     requireSettled(sourceDir);
     if (!inputs.recheck()) throw new PrerequisiteError('Abandonment source inputs changed', 'Re-run admission against the current metadata and proposal');
   };
   recheck();
-  return { root, name, sourceDir, destination, metadata, doc, record, recheck };
-}
-
-type Prepared = Awaited<ReturnType<typeof prepareAbandon>>;
-function partialFailure(prepared: Prepared, operation: AbandonOperation, cause: unknown): AbandonError {
-  const listing = (dir: string): string[] | null => {
-    try { return fs.readdirSync(dir).sort(); } catch { return null; }
-  };
-  return new AbandonError({ phase: operation.phase, sourceDir: prepared.sourceDir,
-    archiveDir: prepared.destination, preservationDir: path.join(prepared.destination, 'preservation'),
-    moved: [...operation.moved], pending: [...operation.pending],
-    sourceEntries: listing(prepared.sourceDir), archiveEntries: listing(prepared.destination),
-  }, cause);
-}
-
-async function writeOperation(prepared: Prepared, operation: AbandonOperation): Promise<void> {
-  const target = resolveContainedTarget(path.join(prepared.destination, ABANDON_OPERATION_FILE), prepared.root);
-  if (!target.ok) throw new Error(`Unsafe operation marker: ${target.reason}`);
-  await atomicWrite(target.path, JSON.stringify(operation, null, 2) + '\n', { mode: 0o600 });
-}
-
-/** Claim and preserve before any original artifact moves. */
-export async function preserveAbandon(prepared: Prepared) {
-  const input = captureWork(prepared.root, prepared.destination, prepared.sourceDir);
-  prepared.recheck();
-  const operation: AbandonOperation = { version: 1, source: prepared.name, source_digest: input.sourceDigest,
-    phase: 'preserving', moved: [], pending: fs.readdirSync(prepared.sourceDir).sort()
-      .filter((name) => name !== 'metadata.yaml').concat('metadata.yaml') };
-  fs.mkdirSync(path.dirname(prepared.destination), { recursive: true });
-  // Non-recursive mkdir is the exclusive claim; a competing destination is never reused.
-  fs.mkdirSync(prepared.destination);
-  try {
-    await writeOperation(prepared, operation);
-    await persistWork(input);
-    recheckWork(input);
-    prepared.recheck();
-    return { ...prepared, operation, input };
-  } catch (error) { throw partialFailure(prepared, operation, error); }
+  return { root, paths, name, sourceDir, destination, metadata, doc, record, recheck };
 }
 
 export async function execute(options: ChangeAbandonOptions): Promise<ChangeAbandonResult> {
-  const saved = await preserveAbandon(await prepareAbandon(options));
-  const { operation, sourceDir, destination, root, doc } = saved;
+  const saved = await prepareAbandon(options);
+  const { root, paths, sourceDir, destination, doc } = saved;
+  let captured: ReturnType<typeof captureWork> | undefined;
+  const operation: AbandonOperation = { version: 1, source: saved.name, source_digest: '',
+    origin: historyOrigin(paths, saved.name), phase: 'preserving', moved: [], pending: fs.readdirSync(sourceDir).sort() };
   try {
-    operation.phase = 'moving';
-    await writeOperation(saved, operation);
-    recheckWork(saved.input);
-    saved.recheck();
-    while (operation.pending.length > 0) {
-      const name = operation.pending[0]!;
-      const target = path.join(destination, name);
-      const parent = resolveContainedTarget(path.join(destination, '.prospec-path-probe'), root);
-      if (!parent.ok || fs.readdirSync(destination).includes(name)) throw new Error(`Unsafe or occupied artifact destination: ${target}`);
-      await fs.promises.rename(path.join(sourceDir, name), target);
-      operation.moved.push(name);
-      operation.pending.shift();
-      await writeOperation(saved, operation);
-    }
-    await fs.promises.rmdir(sourceDir);
-    operation.phase = 'publishing';
-    await writeOperation(saved, operation);
-    doc.set('status', 'abandoned');
-    doc.set('abandonment', saved.record);
-    const metadata = resolveContainedTarget(path.join(destination, 'metadata.yaml'), root, { read: true });
-    if (!metadata.ok) throw new Error(`Unsafe publication metadata: ${metadata.reason}`);
-    // This atomic metadata replacement is the sole success marker.
-    await writeChangeMetadataDoc(metadata.path, doc, saved.name);
-    const issue = normalizeIssueRef(saved.metadata.issue);
-    return { changeName: saved.name, archiveDir: destination, preservationDir: path.join(destination, 'preservation'),
-      projectRoot: root, gitPrefix: saved.input.manifest.git_prefix, reason: saved.record.reason,
-      preservedFileCount: saved.input.manifest.entries.length,
-      ...(issue === undefined ? {} : { issue }) };
-  } catch (error) { throw partialFailure(saved, operation, error); }
+    await transferBundle({ paths, kind: 'abandoned', identity: path.basename(destination), changeName: saved.name,
+      sourceDir, cleanup: true, prepare: async (stagingDir, transfer) => {
+        captured = captureWork(root, stagingDir, sourceDir, { storageRoot: paths.historyProjectRoot,
+          excludedPaths: [destination, historyOperationPath(paths, transfer.operationId), historyClaimPath(paths)] });
+        saved.recheck(transfer.operationId);
+        operation.source_digest = captured.sourceDigest;
+        const marker = path.join(stagingDir, ABANDON_OPERATION_FILE);
+        await atomicWrite(marker, JSON.stringify(operation, null, 2) + '\n', { mode: 0o600 });
+        await persistWork(captured);
+        recheckWork(captured);
+        saved.recheck(transfer.operationId);
+        operation.phase = 'publishing';
+        await atomicWrite(marker, JSON.stringify(operation, null, 2) + '\n', { mode: 0o600 });
+        doc.set('status', 'abandoned');
+        doc.set('abandonment', saved.record);
+        await writeChangeMetadataDoc(path.join(stagingDir, 'metadata.yaml'), doc, saved.name);
+        recheckWork(captured);
+        saved.recheck(transfer.operationId);
+      } });
+  } catch (cause) {
+    if (!(cause instanceof HistoryError)) throw cause;
+    const listing = (dir: string): string[] | null => { try { return fs.readdirSync(dir).sort(); } catch { return null; } };
+    const sourceEntries = listing(sourceDir);
+    throw new AbandonError({ phase: operation.phase, sourceDir, archiveDir: destination,
+      preservationDir: path.join(cause.details.phase === 'published' || cause.details.phase === 'complete' ? destination : cause.details.stagingDir, 'preservation'),
+      moved: operation.pending.filter((entry) => !sourceEntries?.includes(entry)), pending: sourceEntries ?? [],
+      sourceEntries, archiveEntries: listing(destination),
+      stagingDir: cause.details.stagingDir, operationPath: cause.details.operationPath, transferPhase: cause.details.phase,
+    }, cause);
+  }
+  if (!captured) throw new Error('Preservation capture missing after completed transfer');
+  const issue = normalizeIssueRef(saved.metadata.issue);
+  return { changeName: saved.name, archiveDir: destination, preservationDir: path.join(destination, 'preservation'),
+    projectRoot: root, gitPrefix: captured.manifest.git_prefix, reason: saved.record.reason,
+    preservedFileCount: captured.manifest.entries.length, ...(issue === undefined ? {} : { issue }) };
 }
