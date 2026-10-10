@@ -40,12 +40,11 @@ function judgeGitlink(repository: string, file: string, label: string): string |
 
 /** Project paths (relative to the Git prefix) a gitlink judgment applies to: inside the
  *  project, outside this operation's own destination. */
-function projectScope(root: string, gitPrefix: string, destination: string): (repoPath: string) => string | null {
-  const excluded = path.relative(root, destination).split(path.sep).join('/');
+function projectScope(gitPrefix: string, excluded: string[]): (repoPath: string) => string | null {
   return (repoPath) => {
     if (!repoPath.startsWith(gitPrefix)) return null;
     const name = repoPath.slice(gitPrefix.length);
-    return name === excluded || name.startsWith(`${excluded}/`) ? null : name;
+    return excluded.some((entry) => name === entry || name.startsWith(`${entry}/`)) ? null : name;
   };
 }
 
@@ -56,14 +55,23 @@ const HIDDEN_INPUT_REFUSALS = {
 } as const;
 
 /** Refuse inputs Git can hide from an ordinary status/diff capture. Writes nothing. */
-export function preflightWork(cwd: string, destination: string) {
+export interface WorkStorageOptions {
+  storageRoot?: string;
+  excludedPaths?: string[];
+}
+
+export function preflightWork(cwd: string, destination: string, options: WorkStorageOptions = {}) {
   const root = fs.realpathSync(cwd);
-  const target = resolveContainedTarget(path.join(destination, 'preservation', 'manifest.json'), root);
+  const storageRoot = fs.realpathSync(options.storageRoot ?? root);
+  const target = resolveContainedTarget(path.join(destination, 'preservation', 'manifest.json'), storageRoot);
   if (!target.ok) throw new PrerequisiteError(`Unsafe preservation destination: ${destination}`, target.reason);
   try {
     gitRead(root, 'rev-parse', ['--verify', 'HEAD^{commit}']);
     const gitPrefix = withFixedGitEnv(() => gitProjectPrefix(root));
-    const inScope = projectScope(root, gitPrefix, destination);
+    const excluded = [destination, ...(options.excludedPaths ?? [])].map((dir) => path.relative(root, dir))
+      .filter((name) => name !== '' && name !== '..' && !name.startsWith(`..${path.sep}`) && !path.isAbsolute(name))
+      .map((name) => name.split(path.sep).join('/'));
+    const inScope = projectScope(gitPrefix, excluded);
     const gitlinks = new Map<string, { index: string; checkout: string | null }>();
     const records = gitReadRecords(root, 'ls-files', ['-z', '-t', '-v', '--stage', '--full-name', '--', ':/']);
     for (const record of records) {
@@ -78,7 +86,7 @@ export function preflightWork(cwd: string, destination: string) {
     for (const facet of ['head', 'index', 'refs', 'stash'] as const) {
       if (isUnreadable(state[facet])) throw new Error(`${facet}: unreadable Git input`);
     }
-    return { root, gitPrefix, state, gitlinks, inScope };
+    return { root, storageRoot, excluded, gitPrefix, state, gitlinks, inScope };
   } catch (error) {
     throw new PrerequisiteError(`Cannot preserve work: ${error instanceof Error ? error.message : String(error)}`, 'Use a readable Git repository with HEAD, commit or remove work inside submodules, and resolve unsupported inputs before abandoning');
   }
@@ -145,6 +153,8 @@ function artifactDigest(sourceDir: string, root: string): string {
 
 export interface WorkCapture {
   root: string;
+  storageRoot: string;
+  excludedPaths: string[];
   destination: string;
   sourceDir: string;
   sourceDigest: string;
@@ -158,10 +168,9 @@ export interface WorkCapture {
 }
 
 /** Complete in-memory capture before creating any preservation output. */
-export function captureWork(cwd: string, destination: string, sourceDir: string): WorkCapture {
-  const context = preflightWork(cwd, destination);
-  const { root, gitPrefix, inScope } = context;
-  const excluded = path.relative(root, destination).split(path.sep).join('/');
+export function captureWork(cwd: string, destination: string, sourceDir: string, options: WorkStorageOptions = {}): WorkCapture {
+  const context = preflightWork(cwd, destination, options);
+  const { root, storageRoot, excluded, gitPrefix, inScope } = context;
   const gitlinks: GitlinkPin[] = [];
   try {
     const heads = headRecords(root, inScope);
@@ -195,7 +204,7 @@ export function captureWork(cwd: string, destination: string, sourceDir: string)
   }
   const blobs = new Map<string, Buffer>();
   const entries = [...paths].sort().map((name) => readEntry(root, name, blobs));
-  const pathspec = ['--', '.', `:(exclude,literal)${excluded}`];
+  const pathspec = ['--', '.', ...excluded.map((entry) => `:(exclude,literal)${entry}`)];
   const staged = gitReadBuffer(root, 'diff', [...PRESERVATION_DIFF_FLAGS, '--cached', 'HEAD', ...pathspec]);
   const unstaged = gitReadBuffer(root, 'diff', [...PRESERVATION_DIFF_FLAGS, ...pathspec]);
   const head = context.state.head;
@@ -204,7 +213,7 @@ export function captureWork(cwd: string, destination: string, sourceDir: string)
     patches: { staged: sha256(staged), unstaged: sha256(unstaged) }, entries };
   const sourceDigest = artifactDigest(sourceDir, root);
   const state: RepoState = { ...context.state, content: { digest: sha256(JSON.stringify([manifest, gitlinks, sourceDigest])) } };
-  return { root, destination, sourceDir, sourceDigest, manifest, gitlinks, staged, unstaged, blobs, state };
+  return { root, storageRoot, excludedPaths: options.excludedPaths ?? [], destination, sourceDir, sourceDigest, manifest, gitlinks, staged, unstaged, blobs, state };
 }
 
 /** Output goes only inside the exclusively claimed abandoned entry. */
@@ -220,12 +229,12 @@ export async function persistWork(input: WorkCapture): Promise<void> {
   }
   for (const [name, bytes] of outputs) {
     const file = path.join(dir, name);
-    const target = resolveContainedTarget(file, input.root);
+    const target = resolveContainedTarget(file, input.storageRoot);
     if (!target.ok) throw new Error(`Unsafe preservation output ${file}: ${target.reason}`);
     await atomicWrite(target.path, bytes, { mode: 0o600 });
   }
   for (const [name, bytes] of outputs) {
-    const target = resolveContainedTarget(path.join(dir, name), input.root, { read: true });
+    const target = resolveContainedTarget(path.join(dir, name), input.storageRoot, { read: true });
     if (!target.ok || sha256(fs.readFileSync(target.path)) !== sha256(bytes)) {
       throw new Error(`Preservation read-back failed: ${name}`);
     }
@@ -234,7 +243,7 @@ export async function persistWork(input: WorkCapture): Promise<void> {
 
 /** Compare through the existing facet owner, with our full project/source content scope. */
 export function recheckWork(input: WorkCapture): void {
-  const current = captureWork(input.root, input.destination, input.sourceDir);
+  const current = captureWork(input.root, input.destination, input.sourceDir, { storageRoot: input.storageRoot, excludedPaths: input.excludedPaths });
   if (!sameRepoState(input.state, current.state)) {
     throw new PrerequisiteError('Preservation inputs changed before publication', 'Inspect the preserved copy and re-run against stable inputs');
   }

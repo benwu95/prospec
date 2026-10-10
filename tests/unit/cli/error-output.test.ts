@@ -4,7 +4,7 @@ import {
   formatGenericError,
   handleError,
 } from '../../../src/cli/formatters/error-output.js';
-import { ProspecError, ConfigNotFound, TestGateError } from '../../../src/types/errors.js';
+import { ProspecError, ConfigNotFound, TestGateError, HistoryError } from '../../../src/types/errors.js';
 
 // BEL (0x07) is a C0 control char picocolors never emits (it only uses ESC for
 // color), so asserting "no BEL in output" proves injected control bytes were
@@ -258,4 +258,13 @@ describe('structured escalation refusals', () => {
     expect(json.error.cause).toBe('original I/O cause');
     expect(process.exitCode).toBe(1);
   });
+});
+
+it('retains HistoryError partial details in JSON and sanitizes human output', () => {
+  const details = { phase: 'published' as const, sourceDir: 'source\u0007', stagingDir: 'stage', finalDir: 'final', operationPath: 'operation' };
+  const error = new HistoryError('disk full', details);
+  const json = captureStderr(() => handleError(error, false, true));
+  expect(JSON.parse(json).error).toMatchObject({ code: 'HISTORY_INCOMPLETE', details });
+  const human = captureStderr(() => handleError(error));
+  expect(human).toContain('operationPath'); expect(human).not.toContain('\u0007'); expect(process.exitCode).toBe(1);
 });

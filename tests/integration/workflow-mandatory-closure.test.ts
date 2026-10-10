@@ -130,7 +130,7 @@ describe('scenario mandatory context closure (REQ-TEMPLATES-081, REQ-TESTS-116)'
       // Unprovable is not "small": a missing mandatory source fails, never passes as zero.
       expect(ledger.errors, scenario.id).toEqual([]);
       expect(ledger.available, scenario.id).toBe(true);
-      expect(ledger.estimated_tokens, `${scenario.id} mandatory context`).toBeLessThanOrEqual(fixture.ceilings[scenario.id]!);
+      expect.soft(ledger.estimated_tokens, `${scenario.id} mandatory context`).toBeLessThanOrEqual(fixture.ceilings[scenario.id]!);
       expect(ledger.loads.length, scenario.id).toBeGreaterThan(0);
     }
   });

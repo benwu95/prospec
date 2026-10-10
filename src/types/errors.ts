@@ -9,6 +9,7 @@
 
 import type { CircuitBreakerState, EscalationFailureDetails } from './cascade.js';
 import type { AbandonFailureDetails } from './abandon.js';
+import type { HistoryFailureDetails } from './history.js';
 import { ALWAYS_ESCALATE_CATEGORIES, PAUSE_AT_ENV_VAR, PAUSE_AT_NONE, PAUSE_STATIONS } from './config.js';
 import { TEST_GATE_NOT_ADJUDICATED, testGateRemediation, type TestGateEntrance } from './station.js';
 
@@ -33,9 +34,17 @@ export class AbandonError extends ProspecError {
   constructor(readonly details: AbandonFailureDetails, cause: unknown) {
     super(`Abandonment incomplete during ${details.phase}: ${String(cause)}`,
       'ABANDON_INCOMPLETE',
-      `Inspect source ${details.sourceDir}, abandoned destination ${details.archiveDir}, and preservation ${details.preservationDir}. Compare moved/pending entries with both directories. After checking retained bytes, manually return moved artifacts to the source and retain the partial abandoned entry elsewhere before retrying. Do not overwrite either copy.`,
+      `Inspect source ${details.sourceDir}, abandoned destination ${details.archiveDir}, and preservation ${details.preservationDir}.${details.stagingDir ? ` Staging: ${details.stagingDir}; operation: ${details.operationPath}.` : ''} Compare retained entries and reconcile before retrying. Do not overwrite either copy.`,
       { cause });
     this.name = 'AbandonError';
+  }
+}
+
+export class HistoryError extends ProspecError {
+  constructor(message: string, readonly details: HistoryFailureDetails, cause?: unknown) {
+    super(`Terminal history incomplete during ${details.phase}: ${message}`, 'HISTORY_INCOMPLETE',
+      `Inspect source ${details.sourceDir}, staging ${details.stagingDir}, final ${details.finalDir}, and operation ${details.operationPath}. Retain all copies and reconcile before retrying.`, { cause });
+    this.name = 'HistoryError';
   }
 }
 

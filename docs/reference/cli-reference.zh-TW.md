@@ -204,7 +204,9 @@ Entry Points、Dependencies、Config Files 沒有逐語言覆寫機制——未�
 | `prospec spec show <feature> [options]` | 唯讀且精確讀取 Feature Spec 的指定 REQ 或 Story 區段 |
 | `prospec constitution show --station <s> \| --rule <name>` | 唯讀讀取單一站的 Constitution 切片（依規則的 `stations:` 宣告）或單條規則；無法切片時 fail-open 到全文 |
 | `prospec archive <name...> [--dry-run]` | 封存 verified 變更：搬移目錄、生成摘要並機械式同步 Feature Spec |
-| `prospec archive finalize <name> [--dry-run]` | 歸檔後置完成步驟：複製 final summary 至歷史目錄並對帳 spec 計數 |
+| `prospec archive finalize <name> [--bundle <identity>] [--dry-run]` | 歸檔後置完成步驟：複製 final summary 至歷史目錄並對帳 spec 計數 |
+| `prospec history paths [--json]` | 唯讀回報來源與 canonical history roots |
+| `prospec history import --from <project-root> [--dry-run] [--json]` | 複製匯入同專案 legacy 歷史並保留來源 |
 
 #### 狀態、追蹤與驗證輔助指令
 
@@ -296,17 +298,24 @@ Review 維持 artifact→metadata，verify 維持 metadata→evidence 的寫入�
 - **`prospec archive <name...> [--dry-run]`**
   - **核心用途**：對已驗證（`verified`）的變更執行確定性歸檔與規格合併。
   - **執行行為**：
-    - 搬移變更目錄至 `.prospec/archive/{date}-{name}/`，產生 `summary.md` 骨架並設定 `status: archived`。
+    - 將完整 bundle 複製、驗證並發布至 main worktree 對應專案的 `.prospec/archive/{date}-{name}/`，再清理來源；產生 `summary.md` 骨架並設定 `status: archived`。使用回傳的 `archivePath` 與 `archiveIdentity`，勿自行推導日期或 cwd 路徑。Spec／Knowledge 寫入仍位於執行的來源專案。
     - 執行 Feature Spec 機械式同步：將 delta-spec 中的 `**Spec:**` 區塊合併進正式規格，並在 stderr 輸出兩份工作清單（保留原規格 body 的 REQ 清單，以及被取代且漏掉既有 `WHEN/THEN` 條點的清單）。
     - 同步 `product.md` 的 `## Feature Map` 區段（若遇近似標題、未閉合 code fence 或缺目錄則安全拒絕並提供修復指南；缺檔時自動 bootstrap）。
     - `--dry-run`：完整列出預定進行的所有 mutation 而不寫入磁碟；目標未達 verified 狀態時回報 refused（exit 1）。
 
-- **`prospec archive finalize <name> [--dry-run]`**
+- **`prospec archive finalize <name> [--bundle <identity>] [--dry-run]`**
   - **核心用途**：歸檔後置完成步驟（在人工收斂 `summary.md` 與規格文案後執行）。
   - **重點條列**：
     - 將最終版 `summary.md` 複製至 `specs/_archived-history/` 作為入版控的稽核軌跡。
     - 依據最新文本對帳並更新每份 feature spec 的 frontmatter `story_count` 與 `req_count`。
-    - 若 `summary.md` 仍為未編輯的 scaffold 樣板則拒絕執行。
+    - 在原來源專案執行，將回傳的 `archiveIdentity` 傳入 `--bundle`；已知 foreign origin、ambiguous 裸名稱或 incomplete publication 都會拒絕。應在移除來源 worktree 前完成 finalize。若 `summary.md` 仍為未編輯的 scaffold 樣板則拒絕執行。
+
+- **`prospec history paths [--json]`**
+  - **核心用途**：唯讀回報來源與 canonical history roots。JSON 為 `{paths, diagnostics}`，包含 `paths.archiveRoot`、`paths.abandonedRoot`、`paths.operationsRoot` 與 `projectPrefix`。Linked worktree 使用 main worktree 的相同專案相對位置；active changes、設定、specs 與 Knowledge 留在來源。Main 專案不存在、bare repo 或不安全 topology 均拒絕，不會退回本地儲存。
+
+- **`prospec history import --from <project-root> [--dry-run] [--json]`**
+  - **核心用途**：匯入同一 Git common-dir、相同 `projectPrefix`、已註冊 worktree 的 legacy 本地歷史。先用 `--dry-run` 檢查；正式執行只複製、保留來源與原始 identity／metadata／retry digest。相同完整副本去重，衝突或 incomplete 資料拒絕；新版 marked bundle 不支援 noncanonical relocation。JSON 提供各 entry outcome，部分失敗以非零退出。
+  - **保存邊界**：不還原工作、不自動搶占 writer claim。失敗時檢查回報的 source、staging、final 與 operation 路徑；儲存於 main worktree 不等於 main repository 或 Git objects 的備份。非 Git 專案只允許自身 no-op import。
 
 - **`prospec change scale <quick|standard|full|backfill> [--change <name>]`**
   - **核心用途**：設定變更的複雜度 scale，就地更新 `metadata.yaml` 並保留原有註解。
@@ -320,7 +329,7 @@ Review 維持 artifact→metadata，verify 維持 metadata→evidence 的寫入�
   - **`implemented` 的測試閘門**：除了所有 code task 已勾選，變更還需要一筆 fresh green `test_attempt`——最新 attempt 以 exit 0 通過、與其 `test_provenance` 連結、且對應目前 snapshot。缺失、過期（stale）、執行中或失敗的證據會被拒絕（exit 1）並印出補救指令 `prospec check --record-tests --change <name>`，metadata 不變。兩種明確豁免會以 `tests: not-adjudicated` WARN 放行（producer `prospec-test-gate`，依入口與原因去重，與 status 同一次 metadata 寫入）：無可解析的測試命令，或已證明的 backfill（存在 `backfill-draft.md`）。已知的非零失敗絕不豁免；單靠 `scale: backfill` 不會帶來任何放寬。
 
 - **`prospec change abandon <name> --reason <text> [--overturned <field>]`**
-  - **核心用途**：先保存 Prospec 專案根目錄內的 staged／unstaged binary patches 與改動工作檔 bytes，再結束這次嘗試；不包含 monorepo 其他專案。原 artifacts 與理由採用首個可用的 `.prospec/abandoned/YYYY-MM-DD-name/`，同日重複依序使用 `-2`、`-3` 等後綴；incomplete attempt 仍阻擋重試，配置競態會拒絕且不覆寫。部分失敗列出實際路徑、已搬與待搬檔案，供人工核對恢復。
+  - **核心用途**：先保存 Prospec 專案根目錄內的 staged／unstaged binary patches 與改動工作檔 bytes，再結束這次嘗試；不包含 monorepo 其他專案。原 artifacts、preservation 與理由發布至 main worktree 對應專案首個可用的 `.prospec/abandoned/YYYY-MM-DD-name/`，使用 CLI 回傳的 `archiveDir`；同日重複依序使用 `-2`、`-3` 等後綴；incomplete attempt 仍阻擋重試，配置競態會拒絕且不覆寫。完整發布並驗證後才清理來源；部分失敗列出 source／staging／final／operation 路徑，供人工核對，不自動 unlock 或 restore。
   - **成功輸出**：一般輸出呈現保存數；JSON 新增 `preservedFileCount`，計算 captured manifest entries（含刪除／symlink，排除 gitlink pins），不是目前 dirty files 數量，零也不代表工作樹乾淨。Quiet 維持無輸出。工作樹未還原：檢查 preservation 資料，由人類決定保留工作或使用版本控制還原。Agent 必須取得明確還原授權，並沿用已給的決定；單獨反套 unstaged patch 不等於完整 rollback。
   - **極限**：不支援的 Git 輸入會拒絕；不還原工作樹、不寫入 tracker。同 issue 新 Story 會列出前次理由，所有 scale 都須填寫 Premise `retry_difference`。
   - **Submodule**：專案內乾淨的 submodule 會記錄在 `preservation/gitlinks.json`——路徑，以及 HEAD 記錄、index 記錄與 submodule 實際 checkout 的 commit（不存在或未初始化時為 null）——不會當成保存的檔案；submodule 內有未 commit、未追蹤、skip-worktree、assume-unchanged 或 unmerged 的工作，或 submodule 目錄非空卻沒有 `.git` 時會拒絕。還原記錄的 pin 需要該 commit 仍然存在：`git submodule deinit` 會保留 module 的 repository，但只存在於 detached HEAD 上的 commit，在 HEAD 移走、garbage collection 清掉之後就會遺失。

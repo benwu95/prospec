@@ -1,6 +1,6 @@
 # Verification Suite
 
-> 4-layer Vitest suite (fast-glob/git bypass memfs — 296 test files, 7,611 tests (unit 5530, contract 1713, integration 153, e2e 215)).
+> 4-layer Vitest suite (fast-glob/git bypass memfs — 305 test files, 7,753 tests (unit 5653, contract 1720, integration 159, e2e 221)).
 <!-- prospec:module-readme-format 2026-09-01 -->
 
 <!-- prospec:auto-start -->
@@ -9,6 +9,7 @@
 
 | File | Purpose |
 |------|---------|
+| `history-paths.test.ts` / `terminal-transfer.test.ts` / `history-import.service.test.ts` / `cli-history.test.ts` | Real-Git topology, no-clobber publication/failure boundaries, retained source copies, modern lineage and read-only dry-run/paths contracts |
 | `change-abandon.service.test.ts` / `abandon-consumers.test.ts` / `change-abandon.test.ts` | Real Git preservation/publication faults, retry writer admission, archive/yield exclusion and in-process CLI flow |
 | `tests/unit/{lib,services,cli,types,scripts}/*.test.ts` | Isolated units — mock `node:fs` with memfs; one suite per station engine (`markdown-table`, `delegated-evidence`, `verify-grade`, `review-merge`, `lessons-ledger`, `artifact-validators`, `review-circuit-breaker`, `lens-yield`), baseline/assessment engines (`acceptance-baseline`, `requirement-assessment`, `verification-context`), service and formatter (incl. `change-acceptance`, `verify-context`, `learn-yield.service` / `learn-yield-output`, and CLI-owned review round counts: `change-metadata` round-keyed upsert, `review-merge` idempotency, `change-log` mismatch audit); heaviest are `services/archive`, `knowledge-update`, `upgrade`, `lib/config`, `module-detector`, `drift-*`. |
 | `tests/contract/*.test.ts` | Format, registry, public-document and trust-zone pins, including bare Skill identities, host invocation matrices, registry↔program help completeness (both directions), skill negative-scope / bare-trigger hygiene, README parity, website release/version/social-preview readiness, and deployed artifacts — see [Contract Guards](./contract-guards.md). |
@@ -46,6 +47,8 @@
 - Template/skill/service/CLI changes ripple to contract + E2E expectations; public README, `docs/` page or website claims ripple to the section-scoped document contracts; a new station command needs a formatter unit test AND an E2E case.
 
 ## Pitfalls
+
+- Terminal history fixtures use real registered worktrees and compare complete inventories (bytes, modes, directory modes and symlink targets). Cover source-origin isolation, same-name exact finalize, pointer/journal failures, missing primary projects and cleanup interruption; fault injection is distinct from a real cross-filesystem run.
 
 - The rendered metadata reference independently pins preservation without restoration, human choice and explicit authorization within its abandonment section; deletion and relocation mutations must fail.
 

@@ -124,13 +124,24 @@ describe('archive finalize', () => {
     expect(vol.readFileSync(SPEC, 'utf-8')).toBe(SPEC_CONTENT);
   });
 
-  it('picks the latest bundle when the change was archived more than once', async () => {
+  it('refuses ambiguous legacy bundles instead of choosing the latest', async () => {
     seed();
     vol.fromJSON({
       '/repo/.prospec/archive/2026-06-01-add-widget/summary.md': '# old\n\n## Review & Verify\nold\n',
     });
-    const result = await executeFinalize({ name: 'add-widget', cwd: CWD });
-    expect(result.archiveDir).toBe('.prospec/archive/2026-07-30-add-widget');
+    await expect(executeFinalize({ name: 'add-widget', cwd: CWD })).rejects.toThrow(/ambiguous/i);
+    const result = await executeFinalize({ name: 'add-widget', cwd: CWD, bundle: '2026-06-01-add-widget' });
+    expect(result.archiveDir).toBe('.prospec/archive/2026-06-01-add-widget');
+    expect(vol.readFileSync(`${ARCHIVE_DIR}/summary.md`, 'utf8')).toBe(FINAL_SUMMARY);
+  });
+
+  it('rejects exact bundle/name mismatches and traversal before writes', async () => {
+    seed();
+    const before = vol.toJSON();
+    for (const bundle of ['2026-07-30-other', '../2026-07-30-add-widget']) {
+      await expect(executeFinalize({ name: 'add-widget', cwd: CWD, bundle, dryRun: true })).rejects.toThrow();
+    }
+    expect(vol.toJSON()).toEqual(before);
   });
 
   it('is idempotent — rerunning changes nothing further', async () => {

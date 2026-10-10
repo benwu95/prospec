@@ -2165,12 +2165,12 @@ describe('Skill Format Contract', () => {
       // specs/{change-name}.md (clutters specs root + gets scanned by req-references).
       const ref = renderTemplate('skills/references/archive-format.hbs', TEMPLATE_CONTEXT);
       const specArchiving = sectionOf(ref, '## Spec Archiving');
-      expect(specArchiving).toContain('prospec/specs/_archived-history/{YYYY-MM-DD}-{change-name}.md');
+      expect(specArchiving).toContain('prospec/specs/_archived-history/{archiveIdentity}.md');
       expect(specArchiving).not.toContain('prospec/specs/{change-name}.md'); // never flat root
 
       // The copy step must be explicit in the skill flow, not only buried in the reference.
       const skill = renderTemplate('skills/prospec-archive.hbs', TEMPLATE_CONTEXT);
-      expect(skill).toContain('specs/_archived-history/{YYYY-MM-DD}-{change-name}.md');
+      expect(skill).toContain('specs/_archived-history/{archiveIdentity}.md');
       expect(skill).not.toContain('specs/{change-name}.md'); // never flat root in the skill either
     });
 
@@ -6122,8 +6122,8 @@ describe('Lessons-ledger evidence points to committed _archived-history (REQ-TEM
         { ...TEMPLATE_CONTEXT, base_dir: baseDir },
       );
       const harvest = sectionOf(content, '## Harvest (archive-time auto-extraction)');
-      expect(harvest).toContain('.prospec/archive/{date}-{name}/');
-      expect(harvest).toContain(`${baseDir}/specs/_archived-history/{date}-{name}.md`);
+      expect(harvest).toContain('archivePath');
+      expect(harvest).toContain(`${baseDir}/specs/_archived-history/{archiveIdentity}.md`);
       expect(harvest).toContain('## Review & Verify');
       expect(harvest).toContain('ledger');
       expect(harvest).toContain('git log -p');
@@ -6700,6 +6700,7 @@ describe('Structured quality_log (issue #61)', () => {
         '## Light-scale artifact matrix',
         '## Gates (why some transitions are conditional)',
         '## Sourced premise admission',
+        '## Worktree history',
         '## Abandoned attempts',
         '## Stations without a status transition',
         '## What each gate checks (artifact ownership)',
@@ -7038,7 +7039,7 @@ describe('archive delegates deterministic mutations to the CLI (REQ-TEMPLATES-15
   it('Phase 3.7 Finalize owns the _archived-history copy + counter reconciliation, post-judgment (issue #107)', () => {
     const phase37 = sectionOf(render(), '### Phase 3.7: Finalize');
     expect(phase37).toContain('prospec archive finalize');
-    expect(phase37).toContain('specs/_archived-history/{YYYY-MM-DD}-{change-name}.md');
+    expect(phase37).toContain('specs/_archived-history/{archiveIdentity}.md');
     // refuses a scaffold summary — the Phase 2 record must be in place first
     expect(flat(phase37)).toContain('refuses while the file still lacks `## Review & Verify`');
     expect(flat(phase37)).toContain('story_count');
@@ -8451,6 +8452,7 @@ describe('split and trim references contract (REQ-TEMPLATES-215~220, REQ-AGNT-04
       '{sub-module}.md',
       '{YYYY-MM-DD}-{change-name}.md',
       '{date}-{name}.md',
+      '{archiveIdentity}.md',
       // Shipped feature specs cited in examples
       'sdd-workflow.md',
       'ai-knowledge.md',

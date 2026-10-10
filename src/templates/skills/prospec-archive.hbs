@@ -65,7 +65,7 @@ For each change to archive:
 2. Read `delta-spec.md` — extract REQ IDs and affected modules (quick: absent — use the Spec Impact section and diff-derived modules from the Entry Gate)
 3. Read `tasks.md` — calculate completion rate over **code tasks only** (kind schema: tasks-format reference). Unchecked code tasks → **warn and list them** before archiving; unchecked `[M]` manual tasks → reminder only, never blocking. (`scale: backfill` has no tasks.md — skip this step.)
 4. Check for `design-spec.md` and `interaction-spec.md` — if present, note design artifacts in summary
-5. Assemble the **Review & Verify** section from `metadata.yaml` `quality_log` (WARN/FAIL digest), `review.md` (critical/major counts + a short findings excerpt), and the verify report (grade + dimensions) — archiving is the one moment these still exist before the worktree workflow can discard them (same window as Phase 4.5 Harvest). When a source is absent, state it plainly (`Unverified`, `no review round`); **never fabricate** a grade or counts. Format: `references/archive-format.md` §6
+5. Assemble the **Review & Verify** section from `metadata.yaml` `quality_log` (WARN/FAIL digest), `review.md` (critical/major counts + a short findings excerpt), and the verify report (grade + dimensions) — use the same evidence in Phase 4.5 Harvest. When a source is absent, state it plainly (`Unverified`, `no review round`); **never fabricate** a grade or counts. Format: `references/archive-format.md` §6
 6. Generate `summary.md` following `references/archive-format.md` specification — it MUST carry the `## Review & Verify` section from step 5
 
 > **Phase 2 Gate** — proceed when:
@@ -75,16 +75,15 @@ For each change to archive:
 
 ### Phase 3: Execute Archive
 
-The deterministic mutations are code-executed by the CLI — do not hand-run them. For each confirmed change:
+Mutations are code-executed by the CLI — do not hand-run them. For each change:
 1. Preview: run `prospec archive <change-name> --dry-run` and show the planned mutations.
-2. Execute: run `prospec archive <change-name>` — it moves the bundle to `.prospec/archive/{YYYY-MM-DD}-{change-name}/`, sets `status: archived` + `archived_at`, and runs the mechanical Feature Spec / product.md `## Feature Map` / feature-map.yaml syncs (detailed in Phases 3.5–3.6). A `refused`/`not found` report means the target is not archivable — resolve it, never force.
-3. Overwrite the scaffold `summary.md` in the archive directory with the Phase 2 summary (the one carrying `## Review & Verify`) — the scaffold is the deterministic baseline; the Phase 2 summary is the record. Carry the scaffold's `- **Plan Decision**:` line over verbatim when it has one.
-The `_archived-history` copy and the feature-spec counter reconciliation happen AFTER the judgment
-work, via `prospec archive finalize` in Phase 3.7 — running them here would copy the scaffold and
-count the pre-graduation spec text.
+2. Execute: run `prospec archive <change-name>` — retain its returned `archivePath` and exact `archiveIdentity`. It verifies and publishes the complete bundle in the corresponding main worktree project, then removes the source; sets `status: archived` + `archived_at`, and runs the mechanical Feature Spec / product.md `## Feature Map` / feature-map.yaml syncs (detailed in Phases 3.5–3.6). A `refused`/`not found` report means the target is not archivable — resolve it, never force.
+3. Overwrite the scaffold `summary.md` at the returned `archivePath` with the Phase 2 summary (the one carrying `## Review & Verify`). Carry the scaffold's `- **Plan Decision**:` line over verbatim when it has one.
+All spec/Knowledge writes stay in the executing source project. For linked-local legacy history, use `prospec history import --from <project-root>`; inspect reported paths on partial failure, never automatically unlock or restore. Do not reconstruct dates or destinations.
+Finalize `_archived-history` and counters after judgment via `prospec archive finalize` in Phase 3.7.
 
 > **Phase 3 Gate** — proceed when:
-> - [ ] `prospec archive` executed (dry-run previewed first) — bundle moved to `.prospec/archive/{YYYY-MM-DD}-{change-name}/` with all artifacts (originals not deleted)
+> - [ ] `prospec archive` executed (dry-run previewed first) — complete bundle retained at returned `archivePath`; `archiveIdentity` recorded for finalize
 > - [ ] Phase 2 `summary.md` (with `## Review & Verify`) placed in the archive directory, replacing the scaffold
 > - [ ] `metadata.yaml` `status` set to `archived`
 
@@ -112,7 +111,7 @@ count the pre-graduation spec text.
 > - [ ] Every **stale declaration** reported is resolved — a declared bullet that was not dropped means the delta-spec describes an older body than the spec now has, so re-read the merged file before graduating
 > - [ ] Each ADDED/MODIFIED/REMOVED requirement routed into its Feature Spec under `{{base_dir}}/specs/features/` (CLI-reported, spot-checked; or graduation skipped for a quick change diagnosed as no-impact)
 > - [ ] Merged REQ wording converged and placed under the right Story section
-> - [ ] Any sync failure logged and surfaced to the user (non-fatal)
+> - [ ] Any partial sync failure surfaced with retained source/history paths
 
 ### Phase 3.6: Product Spec Sync
 
@@ -121,9 +120,9 @@ count the pre-graduation spec text.
 1. Confirm the run did **not** report a declined `product.md` sync. A decline means the Feature Map was NOT synced — the CLI names the reason (a near-miss `## Feature Map` heading, an unclosed code fence, an absent `specs/features/`) and what resolves it. Apply that fix now, and say so in the summary: this change's bundle has already moved out of `.prospec/changes/`, so the sync cannot be retried for it — the Feature Map lands on the **next archive run**, which rescans every active Feature Spec and loses nothing. Do not confirm item 2 against a file the sync never touched
 2. **When the sync ran** (item 1 reported no decline), confirm `{{base_dir}}/specs/product.md`: its Feature Map lists every active Feature Spec — including any spec Phase 3.5's wording pass just touched — and everything outside that section is unchanged apart from the frontmatter's `last_updated` (`## Feature Map` is the only machine-owned region; a **missing** product.md is instead bootstrapped to `references/product-spec-format.md`, TBD placeholders included). After a decline there is nothing to confirm — the file was not touched — and item 1 carries this one
 3. Read the authored sections for a feature map the sync will not recognize: one under a **different name** (`## Feature Inventory`, `## 功能地圖`), or under a same-name heading the near-miss rule does not reach — that rule is lexical and narrow, and its exact reach lives in the CLI (`archive` spec-sync) and its contract test, so headings like `## Feature Map (draft) (2024)` and `## 3.1 Feature Map` fall past it and are silently appended. Either way a second map is about to be appended: reconcile it with the author instead of leaving two to drift apart
-4. Confirm `{{knowledge_base_path}}/feature-map.yaml` — the feature→module index, scanned alongside `product.md` from the same `specs/features/*.md`. **Bootstrap-once + no-clobber**: an existing index (and its human-curated `req_prefixes`) is never overwritten; on first creation `modules` is seeded from each feature's module-prefix REQ headings and `req_prefixes` is left empty for human curation. The archive service writes it as an idempotent, non-fatal safety net.
+4. Confirm `{{knowledge_base_path}}/feature-map.yaml`: **bootstrap-once + no-clobber**. Existing curated indexes remain untouched; new indexes derive modules from REQ prefixes and leave `req_prefixes` for human curation.
 
-**Product Spec and feature-map writes are non-fatal** — if either fails, Feature Spec Sync results are still valid.
+I/O failures stop the command and report retained bundles; inspect partial source spec writes before proceeding.
 
 > **Phase 3.6 Gate** — proceed when:
 > - [ ] the run reported no declined `product.md` sync — or, when it did, the named cause is fixed and the pending sync is recorded in the summary (the Feature Map lands on the next archive run; this change's bundle has already moved)
@@ -134,25 +133,17 @@ count the pre-graduation spec text.
 
 ### Phase 3.7: Finalize (post-judgment CLI step)
 
-Run `prospec archive finalize <change-name>` (Bash; `--dry-run` first to preview). It executes the
+Run `prospec archive finalize <change-name> --bundle <archiveIdentity>` in the original source project (Bash; `--dry-run` first). It executes the
 two writes that MUST come after the judgment work above:
 
-1. Refreshes the CLI-owned escalation history from metadata in both copies, retaining override reasons after PASS, then copies the finalized `summary.md` (the Phase 2 record you placed in Phase 3 — the command refuses
-   while the file still lacks `## Review & Verify`) to
-   `{{base_dir}}/specs/_archived-history/{YYYY-MM-DD}-{change-name}.md` — the **committed**
-   spec-history audit trail. It lands in `_archived-history/` (drift-excluded via
-   `ARCHIVED_EXCLUDES`), never flat under `{{base_dir}}/specs/`.
-2. Reconciles every feature spec's frontmatter `story_count`/`req_count` against its FINAL
-   (post-graduation) body — except a spec whose body would zero a counter the frontmatter declares
-   above zero: that file is left byte-identical and reported as a refused reconciliation on stderr.
-   A zeroed count is treated as a parse signal, not a fact, so converge that spec by hand (its
-   counters keep warning under `spec-counters` until you do).
+1. Refreshes escalation history from metadata in both summaries, preserving override reasons after PASS, then copies the final summary to `{{base_dir}}/specs/_archived-history/{archiveIdentity}.md` (committed, drift-excluded via `ARCHIVED_EXCLUDES`). It refuses while the file still lacks `## Review & Verify`.
+2. Reconciles `story_count`/`req_count` from final feature-spec bodies. A recount that would zero a positive declared counter leaves that file byte-identical and reports a refused reconciliation; converge its body first.
 
-Non-fatal — a finalize failure never un-archives; fix and re-run (idempotent).
+Finalize failure never un-archives. Resolve the reported cause before re-running (idempotent).
 
 > **Phase 3.7 Gate** — proceed when:
 > - [ ] `prospec archive finalize` ran after Phase 3.5's graduation
-> - [ ] each refusal was read for WHICH kind it is: a *command* refusal means the Phase 3 summary overwrite is missing (fix that first); a *reconciliation* refusal names a spec whose counter would have been zeroed (converge that spec — re-running finalize will not fix it)
+> - [ ] each refusal was read for WHICH kind it is: a *command* refusal names a summary, identity, origin, publication or input problem (fix that first); a *reconciliation* refusal names a spec whose counter would have been zeroed (converge that spec — re-running finalize will not fix it)
 
 ### Phase 4: Knowledge Sync Re-check
 
@@ -231,6 +222,6 @@ Emit one line: `Met N/M | Unmet: <items> | Overall: PASS|WARN|FAIL | Next: <one-
 | Change missing delta-spec.md | `scale: quick`: expected — run the quick spec-impact check instead. Otherwise: archive with partial summary, note missing spec in summary.md |
 | `prospec archive` reports `refused` / `not found` | The named target is not archivable (wrong status) or misspelled — resolve per the report (verify to S/A, or `prospec status` to list names); never force |
 | Archive directory already exists | The CLI reports it skipped (exit 1) — investigate the stale destination with the user before retrying |
-| File move fails | The CLI rolls back that change's move and reports the error — surface it, continue with others |
+| Transfer fails | Report retained paths and phase; inspect before retrying |
 
 {{> next-step-handoff}}

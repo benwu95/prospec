@@ -57,6 +57,38 @@ it('does not refresh stale index stat data during preflight', () => {
 });
 
 describe('work capture', () => {
+  it('captures a linked source while persisting under the main project', async () => {
+    const { captureWork, persistWork, recheckWork } = await import('../../../src/lib/work-preservation.js');
+    const linked = `${root}-linked`;
+    gitIn(root, 'worktree', 'add', '-qb', 'linked', linked);
+    try {
+      const source = path.join(linked, '.prospec/changes/x');
+      fs.mkdirSync(source, { recursive: true }); fs.writeFileSync(path.join(source, 'proposal.md'), 'linked');
+      fs.writeFileSync(path.join(linked, 'tracked'), 'linked edits');
+      const input = captureWork(linked, destination, source, { storageRoot: root });
+      await persistWork(input);
+      recheckWork(input);
+      expect(input.manifest.root).toBe(linked);
+      expect(fs.readFileSync(path.join(destination, 'preservation/unstaged.patch'), 'utf8')).toContain('+linked edits');
+      expect(fs.readFileSync(path.join(root, 'tracked'), 'utf8')).toBe('base\n');
+    } finally { fs.rmSync(linked, { recursive: true, force: true }); }
+  });
+  it('excludes only the current operation control paths when .prospec is not ignored', async () => {
+    const { captureWork, persistWork, recheckWork } = await import('../../../src/lib/work-preservation.js');
+    put('.gitignore', 'ignored/\n');
+    const operationDir = path.join(root, '.prospec/history-operations/current');
+    const claimDir = path.join(root, '.prospec/history-operations/writer');
+    const staging = path.join(operationDir, 'staging');
+    put('.prospec/history-operations/other/note', 'other operation');
+    const input = captureWork(root, staging, sourceDir, { excludedPaths: [destination, operationDir, claimDir] });
+    put('.prospec/history-operations/current/operation.json', 'control');
+    put('.prospec/history-operations/writer/owner', 'ours');
+    await persistWork(input);
+    expect(() => recheckWork(input)).not.toThrow();
+    expect(input.manifest.entries.some((entry) => entry.path.endsWith('other/note'))).toBe(true);
+    put('.prospec/user-note', 'new user work');
+    expect(() => recheckWork(input)).toThrow(/changed/);
+  });
   it('keeps opposing patches, raw binary bytes, links and deletion identities', async () => {
     const { captureWork } = await import('../../../src/lib/work-preservation.js');
     put('tracked', 'staged\n'); gitIn(root, 'add', 'tracked'); put('tracked', 'base\n');

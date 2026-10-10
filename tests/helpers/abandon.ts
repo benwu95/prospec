@@ -11,5 +11,7 @@ export function abandonedFixture(root: string, issue: string | undefined = '#333
     ...(issue === undefined ? {} : { issue }),
     abandonment: { reason: 'Premise disproved', at: '2026-10-05', from_status: 'plan', escalation: null, overturned: [], premise_note: 'None declared', manifest: 'preservation/manifest.json' } }));
   fs.writeFileSync(path.join(dir, 'preservation/manifest.json'), JSON.stringify({ version: 1, root, git_prefix: '', head: 'a'.repeat(40), patches: { staged: sha256(''), unstaged: sha256('') }, entries: [] }));
+  fs.writeFileSync(path.join(dir, 'preservation/staged.patch'), '');
+  fs.writeFileSync(path.join(dir, 'preservation/unstaged.patch'), '');
   return { archive, dir };
 }

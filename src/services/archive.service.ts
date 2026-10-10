@@ -1,3 +1,7 @@
+import { resolveHistoryPaths, recheckHistoryPaths, historyOrigin } from '../lib/history-paths.js';
+import { diagnoseLocalHistory, preflightTransferSource } from '../lib/terminal-transfer.js';
+import { historyClaimPath, assertNoPendingHistory, assertHistoryFinalizable, readHistoryOperation, inventoryTree, transferBundle, withHistoryClaim } from '../lib/terminal-transfer.js';
+import type { HistoryFailureDetails, HistoryPaths } from '../types/history.js';
 import { archiveDirFor } from '../lib/archive-paths.js';
 export { archiveDirFor } from '../lib/archive-paths.js';
 import { requirePremise } from '../lib/premise.js';
@@ -54,7 +58,7 @@ import { readCandidateFiles } from '../lib/plan-candidates.js';
 import type { ProspecConfig } from '../types/config.js';
 import { assessCurrentDrift } from '../lib/drift-assessment.js';
 import type { CurrentDriftAssessment } from '../types/drift-report.js';
-import { PrerequisiteError } from '../types/errors.js';
+import { HistoryError, PrerequisiteError } from '../types/errors.js';
 import type { ModuleMap } from '../types/module-map.js';
 import type { FeatureEntry } from '../types/feature-map.js';
 import { formatWorkflowReason } from '../types/status.js';
@@ -87,6 +91,7 @@ export interface ArchiveResult {
   skipped: string[];
   /** Why each skipped change was skipped, keyed by change name */
   skippedReasons: Record<string, string>;
+  skippedDetails?: Record<string, HistoryFailureDetails>;
   affectedModules: string[];
   specFiles: string[];
   /** True when the run was a dry-run preview (nothing written) */
@@ -146,6 +151,7 @@ export interface ArchivedChange {
   name: string;
   sourcePath: string;
   archivePath: string;
+  archiveIdentity?: string;
   summaryGenerated: boolean;
 }
 
@@ -354,41 +360,13 @@ export function filterByStatus(
 export async function moveToArchive(
   change: ChangeEntry,
   cwd: string,
+  prepare?: (stagingDir: string) => Promise<void>,
 ): Promise<string> {
+  const paths = resolveHistoryPaths(cwd);
   const archiveDir = archiveDirFor(cwd, change.name);
-
-  if (fs.existsSync(archiveDir)) {
-    throw new WriteError(archiveDir, 'Archive directory already exists');
-  }
-
-  await ensureDir(archiveDir);
-
-  // Move all files from change directory to archive. A mid-loop failure must
-  // not leave the change split across the source and archive directories, so
-  // already-moved files are rolled back (best effort) before rethrowing.
-  const files = await fs.promises.readdir(change.dir);
-  const moved: Array<{ src: string; dest: string }> = [];
-  try {
-    for (const file of files) {
-      const src = path.join(change.dir, file);
-      const dest = path.join(archiveDir, file);
-      await fs.promises.rename(src, dest);
-      moved.push({ src, dest });
-    }
-  } catch (err) {
-    for (const { src, dest } of moved.reverse()) {
-      await fs.promises.rename(dest, src).catch(() => { /* best effort rollback */ });
-    }
-    await fs.promises.rmdir(archiveDir).catch(() => { /* best effort cleanup */ });
-    throw new WriteError(
-      archiveDir,
-      `archive move failed and was rolled back: ${err instanceof Error ? err.message : String(err)}`,
-    );
-  }
-
-  // Remove the now-empty source directory
-  await fs.promises.rmdir(change.dir);
-
+  if (fs.existsSync(archiveDir)) throw new WriteError(archiveDir, 'Archive directory already exists');
+  await transferBundle({ paths, kind: 'archive', identity: path.basename(archiveDir), changeName: change.name,
+    sourceDir: path.join(paths.sourceProjectRoot, path.relative(path.resolve(cwd), change.dir)), cleanup: true, prepare });
   return archiveDir;
 }
 
@@ -1453,6 +1431,7 @@ export async function execute(options: ArchiveOptions): Promise<ArchiveResult> {
   const archived: ArchivedChange[] = [];
   const skipped: string[] = [];
   const skippedReasons: Record<string, string> = {};
+  const skippedDetails: Record<string, HistoryFailureDetails> = {};
   const allAffectedModules = new Set<string>();
   const specFiles: string[] = [];
   const planned: PlannedMutation[] = [];
@@ -1580,103 +1559,99 @@ export async function execute(options: ArchiveOptions): Promise<ArchiveResult> {
         continue;
       }
 
-      // Move to archive. Dry-run mirrors moveToArchive: an existing archive
-      // directory makes the real run throw → skipped, so predict the same.
-      const archiveDir = dryRun ? archiveDirFor(cwd, change.name) : await moveToArchive(change, cwd);
-      if (dryRun) {
-        if (fs.existsSync(archiveDir)) {
-          skipped.push(change.name);
-          skippedReasons[change.name] = `archive destination already exists: ${archiveDir}`;
-          continue;
-        }
-        planned.push({
-          action: 'move',
-          target: archiveDir,
-          detail: `move ${change.dir} → ${archiveDir}`,
-        });
-      }
-      // Dry-run reads artifacts from the change dir (nothing was moved)
-      const artifactsDir = dryRun ? change.dir : archiveDir;
-
-      // Generate summary
+      const historyPaths = resolveHistoryPaths(cwd);
+      const sourceDir = path.join(historyPaths.sourceProjectRoot, path.relative(path.resolve(cwd), change.dir));
+      preflightTransferSource(historyPaths, sourceDir);
+      assertNoPendingHistory(historyPaths, change.name);
+      if (fs.existsSync(historyClaimPath(historyPaths))) throw new PrerequisiteError('History writer claim unavailable', historyClaimPath(historyPaths));
+      const archiveDir = archiveDirFor(cwd, change.name);
+      if (fs.existsSync(archiveDir)) throw new WriteError(archiveDir, 'Archive directory already exists');
       let summaryGenerated = false;
-      try {
-        const { content, affectedModules } = await generateSummary(
-          artifactsDir,
-          change.name,
-          createdDate,
-          resolveMaxStationRetries(configObj),
-        );
-        const summaryPath = path.join(archiveDir, 'summary.md');
-        if (dryRun) {
-          planned.push({
-            action: 'write',
-            target: summaryPath,
-            detail: 'generate summary.md scaffold',
-          });
-        } else {
-          await atomicWrite(summaryPath, content);
-        }
-        summaryGenerated = true;
-        affectedModules.forEach((m) => allAffectedModules.add(m));
-      } catch {
-        // Summary generation failure is non-fatal
-      }
-
-      // Sync requirements to Feature Specs (non-fatal)
-      if (featuresPath) {
-        try {
-          const sync = await syncToFeatureSpecs(artifactsDir, featuresPath, change.name, dryRun);
-          const syncedFiles = sync.files;
-          specFiles.push(...syncedFiles);
-          pendingConvergence.push(...sync.pendingConvergence);
-          droppedBehavior.push(...sync.droppedBehavior);
-          refusedRequirements.push(...sync.refusedRequirements);
-          acknowledgedDrops.push(...sync.acknowledgedDrops);
-          staleDeclarations.push(...sync.staleDeclarations);
-          missingChangeHistory.push(...sync.missingChangeHistory);
+      const prepare = async (artifactsDir: string): Promise<void> => {
+        // Generate summary
+        {
+          const { content, affectedModules } = await generateSummary(
+            artifactsDir,
+            change.name,
+            createdDate,
+            resolveMaxStationRetries(configObj),
+          );
+          const summaryPath = path.join(dryRun ? archiveDir : artifactsDir, 'summary.md');
           if (dryRun) {
-            for (const specFile of syncedFiles) {
-              planned.push({
-                action: 'write',
-                target: specFile,
-                detail: `sync requirements into ${path.basename(specFile)}`,
-              });
-            }
-            // Mirror the real run's ensureDir trigger (routes exist), not its
-            // outcome (files written) — see readFeatureRoutes.
-            if ((await readFeatureRoutes(artifactsDir)).length > 0) {
-              specSyncWouldTouchFeaturesDir = true;
+            planned.push({
+              action: 'write',
+              target: summaryPath,
+              detail: 'generate summary.md scaffold',
+            });
+          } else {
+            await atomicWrite(summaryPath, content);
+          }
+          summaryGenerated = true;
+          affectedModules.forEach((m) => allAffectedModules.add(m));
+        }
+
+        // Spec writes remain in the executing project.
+        if (featuresPath) {
+          {
+            const sync = await syncToFeatureSpecs(artifactsDir, featuresPath, change.name, dryRun);
+            if (sync.refusedRequirements.length || sync.droppedBehavior.length) throw new WriteError(featuresPath, 'Spec sync refused after preflight; source artifacts and staged history retained for inspection');
+          const syncedFiles = sync.files;
+            specFiles.push(...syncedFiles);
+            pendingConvergence.push(...sync.pendingConvergence);
+            droppedBehavior.push(...sync.droppedBehavior);
+            refusedRequirements.push(...sync.refusedRequirements);
+            acknowledgedDrops.push(...sync.acknowledgedDrops);
+            staleDeclarations.push(...sync.staleDeclarations);
+            missingChangeHistory.push(...sync.missingChangeHistory);
+            if (dryRun) {
+              for (const specFile of syncedFiles) {
+                planned.push({
+                  action: 'write',
+                  target: specFile,
+                  detail: `sync requirements into ${path.basename(specFile)}`,
+                });
+              }
+              // Mirror the real run's ensureDir trigger (routes exist), not its
+              // outcome (files written) — see readFeatureRoutes.
+              if ((await readFeatureRoutes(artifactsDir)).length > 0) {
+                specSyncWouldTouchFeaturesDir = true;
+              }
             }
           }
-        } catch {
-          // Feature Spec sync failure is non-fatal
         }
-      }
 
-      // Update metadata to archived. Deliberately NOT schema-validated here:
-      // archive is the terminal station and must still absorb records the
-      // earlier stations would now reject — a pre-schema change with no
-      // `created_at` archives with its summary rendering "unknown" rather than
-      // becoming unarchivable. The completeness floor is enforced ahead of this
-      // by the archive skill's Entry Gate via the `metadata-completeness` drift
-      // check, so validating again here would only convert a reportable gap
-      // into a silent skip.
-      const metadataPath = path.join(artifactsDir, 'metadata.yaml');
-      if (fs.existsSync(metadataPath)) {
-        if (dryRun) {
-          planned.push({
-            action: 'update',
-            target: path.join(archiveDir, 'metadata.yaml'),
-            detail: 'set status: archived + archived_at',
-          });
-        } else {
-          const metaContent = await fs.promises.readFile(metadataPath, 'utf-8');
-          const meta = parseYaml<Record<string, unknown>>(metaContent, metadataPath);
-          meta.status = 'archived';
-          meta.archived_at = new Date().toISOString().slice(0, 10);
-          await atomicWrite(metadataPath, stringifyYaml(meta));
+        // Update metadata to archived. Deliberately NOT schema-validated here:
+        // archive is the terminal station and must still absorb records the
+        // earlier stations would now reject — a pre-schema change with no
+        // `created_at` archives with its summary rendering "unknown" rather than
+        // becoming unarchivable. The completeness floor is enforced ahead of this
+        // by the archive skill's Entry Gate via the `metadata-completeness` drift
+        // check, so validating again here would only convert a reportable gap
+        // into a silent skip.
+        const metadataPath = path.join(artifactsDir, 'metadata.yaml');
+        if (fs.existsSync(metadataPath)) {
+          if (dryRun) {
+            planned.push({
+              action: 'update',
+              target: path.join(archiveDir, 'metadata.yaml'),
+              detail: 'set status: archived + archived_at',
+            });
+          } else {
+            const metaContent = await fs.promises.readFile(metadataPath, 'utf-8');
+            const meta = parseYaml<Record<string, unknown>>(metaContent, metadataPath);
+            meta.status = 'archived';
+            meta.archived_at = new Date().toISOString().slice(0, 10);
+            await atomicWrite(metadataPath, stringifyYaml(meta));
+          }
         }
+
+      };
+      if (dryRun) {
+        planned.push({ action: 'move', target: archiveDir, detail: `copy, verify and publish ${change.dir} → ${archiveDir}; only then remove source` });
+        planned.push({ action: 'write', target: historyPaths.operationsRoot, detail: 'exclusive writer claim, durable operation record and private staging; operation identity allocated during execution' });
+        await prepare(change.dir);
+      } else {
+        await transferBundle({ paths: historyPaths, kind: 'archive', identity: path.basename(archiveDir), changeName: change.name, sourceDir, cleanup: true, prepare });
       }
 
       archived.push({
@@ -1684,11 +1659,13 @@ export async function execute(options: ArchiveOptions): Promise<ArchiveResult> {
         name: change.name,
         sourcePath: change.dir,
         archivePath: archiveDir,
+        archiveIdentity: path.basename(archiveDir),
         summaryGenerated,
       });
     } catch (err) {
       skipped.push(change.name);
-      skippedReasons[change.name] = err instanceof Error ? err.message : String(err);
+      skippedReasons[change.name] = err instanceof HistoryError ? `${err.message}. ${err.suggestion}` : err instanceof Error ? err.message : String(err);
+      if (err instanceof HistoryError) skippedDetails[change.name] = err.details;
     }
   }
 
@@ -1724,9 +1701,8 @@ export async function execute(options: ArchiveOptions): Promise<ArchiveResult> {
       try {
         productSpecDeclined = (await generateProductSpec(featuresPath, productSpecPath, projectName))
           .declined;
-      } catch {
-        // Product Spec sync failure is non-fatal — including a read failure on an
-        // existing file, which the splice path added as a new throw source
+      } catch (error) {
+        throw new WriteError(productSpecPath, `Product spec sync failed after history publication; retained bundles: ${archived.map(change => change.archivePath).join(', ')}; ${String(error)}`);
       }
     }
     // feature-map.yaml is the sibling feature→module index — same scan point as
@@ -1748,8 +1724,8 @@ export async function execute(options: ArchiveOptions): Promise<ArchiveResult> {
         try {
           const moduleMap = loadModuleMap(knowledgePath, cwd) ?? constitutionFallbackModuleMap();
           await syncFeatureMap(featuresPath, featureMapPath, moduleMap);
-        } catch {
-          // feature-map regeneration failure is non-fatal
+        } catch (error) {
+          throw new WriteError(featureMapPath, `Feature map sync failed after history publication; retained bundles: ${archived.map(change => change.archivePath).join(', ')}; ${String(error)}`);
         }
       }
     }
@@ -1759,6 +1735,7 @@ export async function execute(options: ArchiveOptions): Promise<ArchiveResult> {
     archived,
     skipped,
     skippedReasons,
+    ...(Object.keys(skippedDetails).length ? { skippedDetails } : {}),
     affectedModules: [...allAffectedModules],
     specFiles,
     dryRun,
@@ -2328,6 +2305,7 @@ function parseFeatureSpecFrontmatter(
 
 export interface ArchiveFinalizeOptions {
   name: string;
+  bundle?: string;
   cwd?: string;
   dryRun?: boolean;
 }
@@ -2381,8 +2359,11 @@ export async function executeFinalize(
   const cwd = options.cwd ?? process.cwd();
   const dryRun = options.dryRun ?? false;
 
-  const archiveRoot = path.join(cwd, '.prospec', 'archive');
-  const archiveDirName = findArchiveDirName(archiveRoot, options.name);
+  const paths = resolveHistoryPaths(cwd);
+  const archiveRoot = paths.archiveRoot;
+  assertFinalizeLocalHistory(paths);
+  if (fs.existsSync(historyClaimPath(paths))) throw new PrerequisiteError('History writer claim unavailable', historyClaimPath(paths));
+  const archiveDirName = findArchiveDirName(paths, options.name, options.bundle);
   if (!archiveDirName) {
     throw new PrerequisiteError(
       `No archived bundle found for '${options.name}' under .prospec/archive/`,
@@ -2390,7 +2371,7 @@ export async function executeFinalize(
     );
   }
   const archiveDir = path.join(archiveRoot, archiveDirName);
-  if (excludesAbandonFromYield(archiveDir, cwd)) {
+  if (excludesAbandonFromYield(archiveDir, paths.historyProjectRoot)) {
     throw new PrerequisiteError('Abandoned or incomplete attempts cannot be finalized', 'Inspect the retained attempt; only successful archives enter spec history');
   }
   const summaryPath = path.join(archiveDir, 'summary.md');
@@ -2400,6 +2381,10 @@ export async function executeFinalize(
       'Re-run `prospec archive <name>` to scaffold it, then overwrite it with the Phase 2 summary',
     );
   }
+  for (const file of [summaryPath, path.join(archiveDir, 'metadata.yaml')]) {
+    if (fs.existsSync(file) && !fs.lstatSync(file).isFile()) throw new PrerequisiteError(`Unsafe finalize input: ${file}`, 'Use regular bundle files');
+  }
+  const bundleInputs = inventoryTree(archiveDir);
   const originalSummary = fs.readFileSync(summaryPath, 'utf-8');
   let summaryContent = originalSummary;
   if (!/^##\s+Review\s*&\s*Verify/m.test(summaryContent)) {
@@ -2409,8 +2394,11 @@ export async function executeFinalize(
     );
   }
 
+  const configPath = path.join(cwd, '.prospec.yaml');
+  const configBytes = fs.existsSync(configPath) ? fs.readFileSync(configPath, 'utf8') : null;
   const config = await readConfig(cwd);
   const { specsPath } = resolveBasePaths(config, cwd);
+  const specInputs = fs.existsSync(specsPath) ? inventoryTree(specsPath) : null;
   const escalationHistory = reduceEscalationHistory(readArchivedQualityLog(path.join(archiveDir, 'metadata.yaml'), options.name), resolveMaxStationRetries(config));
   summaryContent = upsertEscalationHistory(summaryContent, escalationHistory);
   const historyDir = path.join(specsPath, '_archived-history');
@@ -2469,14 +2457,23 @@ export async function executeFinalize(
     }
   }
 
-  if (!dryRun) {
+  if (!dryRun) await withHistoryClaim(paths, async () => {
+    recheckHistoryPaths(paths);
+    assertFinalizeLocalHistory(paths);
+    assertHistoryFinalizable(paths, 'archive', archiveDirName);
+    if (findArchiveDirName(paths, options.name, options.bundle) !== archiveDirName
+      || JSON.stringify(inventoryTree(archiveDir)) !== JSON.stringify(bundleInputs)
+      || (fs.existsSync(configPath) ? fs.readFileSync(configPath, 'utf8') : null) !== configBytes
+      || JSON.stringify(fs.existsSync(specsPath) ? inventoryTree(specsPath) : null) !== JSON.stringify(specInputs)) {
+      throw new PrerequisiteError('Finalize inputs changed before writing', 'Retry with stable bundle, configuration and source specs');
+    }
     await ensureDir(historyDir);
     if (summaryContent !== originalSummary) await atomicWrite(summaryPath, summaryContent);
     await atomicWrite(historyPath, summaryContent);
     for (const rewrite of rewrites) {
       await atomicWrite(rewrite.absolute, rewrite.content);
     }
-  }
+  });
 
   return {
     changeName: options.name,
@@ -2489,19 +2486,37 @@ export async function executeFinalize(
   };
 }
 
-/** Latest `{YYYY-MM-DD}-{name}` directory for the change (null when none). */
-function findArchiveDirName(archiveRoot: string, name: string): string | null {
-  let entries: fs.Dirent[];
-  try {
-    entries = fs.readdirSync(archiveRoot, { withFileTypes: true });
-  } catch {
-    return null;
+function assertFinalizeLocalHistory(paths: HistoryPaths): void {
+  const diagnostics = diagnoseLocalHistory(paths);
+  if (diagnostics.length) throw new PrerequisiteError(diagnostics.map(item => `${item.path}: ${item.reason}`).join('; '), 'Reconcile local history before finalizing');
+}
+
+function findArchiveDirName(paths: HistoryPaths, name: string, exact?: string): string | null {
+  if (!isSafeResourceName(name)) throw new PrerequisiteError('Unsafe change name', name);
+  const pattern = new RegExp(`^\\d{4}-\\d{2}-\\d{2}-${escapeRegExp(name)}$`);
+  if (exact !== undefined && (!isSafeResourceName(exact) || !pattern.test(exact))) {
+    throw new PrerequisiteError('Archive bundle/name mismatch', 'Use the exact archiveIdentity returned by archive');
   }
-  const matches = entries
-    .filter((e) => e.isDirectory() && new RegExp(`^\\d{4}-\\d{2}-\\d{2}-${escapeRegExp(name)}$`).test(e.name))
-    .map((e) => e.name)
-    .sort();
-  return matches.at(-1) ?? null;
+  let entries: string[];
+  try { entries = fs.readdirSync(paths.archiveRoot).filter(entry => pattern.test(entry)); }
+  catch (error) { if ((error as NodeJS.ErrnoException).code === 'ENOENT') return null; throw error; }
+  const expectedOrigin = historyOrigin(paths, name);
+  const matchesOrigin = (identity: string): boolean | null => {
+    const operation = readHistoryOperation(paths, 'archive', identity);
+    if (!operation) return null;
+    return Object.entries(expectedOrigin).every(([key, value]) => operation.origin[key as keyof typeof expectedOrigin] === value);
+  };
+  if (exact !== undefined) {
+    if (!entries.includes(exact)) return null;
+    if (matchesOrigin(exact) === false) throw new PrerequisiteError('Archive belongs to another source worktree', 'Run finalize in the original source project');
+    assertHistoryFinalizable(paths, 'archive', exact);
+    return exact;
+  }
+  const matching = entries.filter(identity => matchesOrigin(identity) === true);
+  const selected = matching.length === 1 ? matching[0]! : entries.length === 1 && matchesOrigin(entries[0]!) === null ? entries[0]! : null;
+  if (selected) { assertHistoryFinalizable(paths, 'archive', selected); return selected; }
+  if (entries.length) throw new PrerequisiteError('Ambiguous or foreign-origin archive bundle', 'Pass --bundle with the exact archiveIdentity in its original source project');
+  return null;
 }
 
 function escapeRegExp(text: string): string {

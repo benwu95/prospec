@@ -43,7 +43,7 @@
 
 ## Pitfalls
 
-- Abandon guidance uses `.prospec/abandoned/`; successful archive remains separate. Entry configs inherit its artifact-language scope from `language-policy.ts`.
+- Archive guidance keeps CLI-returned `archivePath`/`archiveIdentity` for summary, harvest and exact finalize; history/learn/retry guidance resolves canonical roots via `history paths` and names explicit legacy import. Abandon guidance uses the returned canonical abandoned destination; successful archive remains separate. Entry configs inherit its artifact-language scope from `language-policy.ts`.
 
 - New-story/ff review abandoned reasons and author `retry_difference` before validation on every scale. CLI-owned `retry_of` records creation-time history; quick/backfill can use a difference-only Premise. Synchronize both lifecycle copies and refresh exact startup baselines without raising ceilings.
 

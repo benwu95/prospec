@@ -112,7 +112,6 @@ export async function execute(options: StatusOptions = {}): Promise<StatusReport
       .sort();
 
     for (const name of dirs) {
-      if (history.errors.some((entry) => entry.source === undefined || entry.source === name)) continue;
       const changeDir = path.join(changesDir, name);
       const metadataPath = path.join(changeDir, 'metadata.yaml');
       if (!fs.existsSync(metadataPath)) {

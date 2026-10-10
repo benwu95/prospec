@@ -25,7 +25,7 @@ it('blocks a partially moved active source and exposes the archive error', async
   const { dir } = abandonedFixture('/p'); fs.unlinkSync(`${dir}/metadata.yaml`); partial('old', dir);
   vol.fromJSON({ '/p/.prospec/changes/old/metadata.yaml': stringifyYaml({ name: 'old', status: 'plan', created_at: '2026-10-05' }) });
   const result = await status({ cwd: '/p' });
-  expect(result.clean).toBe(false); expect(result.changes).toEqual([]);
+  expect(result.clean).toBe(false); expect(result.changes).toMatchObject([{ name: 'old', premise: { state: 'blocked' } }]);
   expect(result.errors.some((e) => /Incomplete abandonment/.test(e.error))).toBe(true);
   await expect(tasks({ change: 'old', cwd: '/p', quiet: true })).rejects.toThrow(/abandon/i);
 });

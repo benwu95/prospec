@@ -30,6 +30,8 @@ describe('retry admission', () => {
     const archived = stringifyYaml({ name: 'old', created_at: '2026-10-05', status: 'abandoned', issue: '#333', abandonment: { reason: 'Old evidence failed', at: '2026-10-05', from_status: 'plan', escalation: null, overturned: [], premise_note: '', manifest: 'preservation/manifest.json' } });
     fs.writeFileSync(path.join(old, 'metadata.yaml'), archived);
     fs.writeFileSync(path.join(old, 'preservation/manifest.json'), JSON.stringify({ version: 1, root, git_prefix: '', head: 'a', patches: { staged: sha256(''), unstaged: sha256('') }, entries: [] }));
+    fs.writeFileSync(path.join(old, 'preservation/staged.patch'), '');
+    fs.writeFileSync(path.join(old, 'preservation/unstaged.patch'), '');
     fs.writeFileSync(path.join(dir, 'metadata.yaml'), stringifyYaml({ name: 'new', status: 'story', created_at: '2026-10-05', scale: 'quick', issue: '#333', retry_of: [{ ...link, digest: sha256(archived) }] }));
     fs.writeFileSync(path.join(dir, 'proposal.md'), premiseProposal({ ...verifiedPremise, retry_difference: 'The earlier invalid assumption has a new reproduction.' }));
     const captured = readPremiseAssessment(dir, root);

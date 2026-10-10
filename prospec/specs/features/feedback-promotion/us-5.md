@@ -26,10 +26,11 @@ Provide stateless computation functions in `lib/lens-yield.ts` for calculating l
 
 #### REQ-SERVICES-099: Lens Yield Service
 Implement business service `executeYield` in `services/learn.service.ts` to scan historical review artifacts and build lens yield reports.
-- WHEN `executeYield` is invoked, THEN read configuration from `.prospec.yaml` `learn.lens_thresholds`, scan `.prospec/archive/` and any `extraCorpusDirs` (resolved against the working directory, deduplicated, ordered by date then name in code-point order) for `review.md` files, parse findings tables and metrics comments, and compute lens yield statistics; an `extraCorpusDirs` entry that is not an existing directory raises a `PrerequisiteError` while an absent default archive yields an empty corpus
+- WHEN `executeYield` is invoked, THEN read configuration from `.prospec.yaml` `learn.lens_thresholds`, scan the canonical archive from REQ-LIB-104 and any `extraCorpusDirs` (resolved against the working directory, deduplicated, ordered by date then name in code-point order) for `review.md` files, parse findings tables and metrics comments, and compute lens yield statistics; an `extraCorpusDirs` entry that is not an existing directory raises a `PrerequisiteError` while an absent default archive yields an empty corpus
 - WHEN no archived reviews exist, THEN return an empty report gracefully without error
 - WHEN invalid threshold values are provided in config or CLI overrides, THEN raise a `PrerequisiteError` with actionable remediation guidance
 - WHEN either default or explicit archive corpus entries are scanned, THEN abandoned metadata and incomplete abandon operation markers exclude those attempts from review-yield statistics; legacy corpus entries without these markers retain existing behavior.
+- WHEN shared history is scanned, THEN incomplete transfer entries are reported and excluded under REQ-LIB-105, default and explicit references to the same physical corpus are deduplicated, and local-only history is disclosed rather than counted as already shared.
 
 #### REQ-CLI-044: prospec learn yield CLI Command
 Add CLI subcommand and output formatter for lens yield statistics under `prospec learn yield`.

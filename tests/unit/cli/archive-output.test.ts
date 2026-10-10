@@ -520,3 +520,16 @@ describe('formatArchiveOutput — refusals and declarations', () => {
     expect(stderr()).not.toMatch(/Change History/i);
   });
 });
+
+it('prints the exact returned archive identity with sanitized canonical path', () => {
+  formatArchiveOutput(emptyResult({ archived: [{ name: 'old', sourcePath: 'local', archivePath: '/main/archive\u0007', archiveIdentity: '2026-10-10-old\u0007', summaryGenerated: true }] }), 'normal');
+  expect(stdout()).toContain('archiveIdentity: 2026-10-10-old'); expect(stdout()).toContain('/main/archive'); expect(stdout()).not.toContain('\u0007');
+});
+
+it('keeps partial recovery paths visible and sanitized under quiet', () => {
+  const details = { phase: 'copying' as const, sourceDir: '/source\u0007', stagingDir: '/stage\u0007', finalDir: '/final\u0007', operationPath: '/journal\u0007' };
+  formatArchiveOutput(emptyResult({ skipped: ['old'], skippedReasons: { old: `copying: ${details.sourceDir}, ${details.stagingDir}, ${details.finalDir}, ${details.operationPath}` }, skippedDetails: { old: details } }), 'quiet');
+  expect(stdout()).toBe('');
+  for (const location of ['/source', '/stage', '/final', '/journal']) expect(stderr()).toContain(location);
+  expect(stderr()).toContain('copying'); expect(stderr()).not.toContain('\u0007');
+});

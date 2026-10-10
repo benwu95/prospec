@@ -1,6 +1,6 @@
 # Contract Registry
 
-> Zod schemas, errors, frozen registries — the leaf layer every module imports (24 files)
+> Zod schemas, errors, frozen registries — the leaf layer every module imports (25 files)
 <!-- prospec:module-readme-format 2026-09-01 -->
 
 <!-- prospec:auto-start -->
@@ -9,6 +9,7 @@
 
 | File | Purpose |
 |------|---------|
+| `history.ts` | Named source/history roots, origin, inventory, strict versioned pointer/operation schemas and per-entry import outcomes; `errors.ts` adds `HistoryError` with actual retained paths and phase |
 | `abandon.ts` | Retry linkage, preservation manifest, operation marker and typed partial/success contracts; `change.ts` owns terminal metadata and `errors.ts` owns `AbandonError` |
 | `change.ts` | Change metadata contract — loose read + strict build views (incl. acceptance baseline schemas `AcceptanceBaselineSchema`, `AcceptanceRevisionSchema`, `AcceptanceScenarioSchema`, shared `computeAcceptanceDigest` validating revision content, `NewQualityLogEntrySchema` with the sink-only `verifier_verdict` stamp (and, on a plan verifier entry, the `audited_option` and `audited_plan_digest` it audited), the sign-off-only `signoff_option` stamp over `PLAN_SIGNOFF_OPTIONS` (`PLAN_DECISION_OPTIONS` + `plan`) with `signoff_plan_digest`, the optional `round` int≥0 that tags a `prospec-review` counts entry — the upsert idempotency key AND the discriminator that tells a merge-written counts entry from a round-less close entry — and `PLANNING_VERDICTS`), `BareModuleNameSchema`, `issue`; its registry half (statuses, scales, artifact matrix, gate/grade enums) is in the sub-module |
 | `cascade.ts` | Review-loop and Tastemaker contracts — `CircuitBreakerConfigSchema` (+ `REVIEW_ROUNDS_MIN/MAX`, `maxConsecutiveTestFailures` default 3 — the single threshold source the streak reducer and breaker share), `TestFailureStreakSchema` / `EMPTY_TEST_FAILURE_STREAK`, `PersistentTestFailureDiagnosticsSchema`, `CircuitBreakerStateSchema`, `OscillationRecordSchema`, `EscalationReportSchema`, `TastemakerPresentationSchema`, the `CascadeScale` alias (kept as a spec-listed export; no consumer since the transition evaluator left); no station list — `SDD_STATIONS` (`status.ts`) is the only station vocabulary |
@@ -54,6 +55,8 @@ Also: `auto-draft.ts` (drift-drafting options/result, incl. the `created | skipp
 - Imported everywhere: a schema change ripples to every consumer — config → `lib/config.ts`, errors → `cli/formatters/error-output.ts`. Registry ripple is in the sub-module.
 
 ## Pitfalls
+
+- Terminal operation origin includes Git common-dir, source worktree, project prefix and change name. Keep `HISTORY_POINTER` reserved; missing marked lineage must not degrade to legacy history. Legacy retry metadata remains byte-identical during import.
 
 - Abandon JSON retains `retry_of[].archive` as an entry ID relative to `.prospec/abandoned/`; result/error `archiveDir` is the actual abandoned destination, not a successful archive path. `preservedFileCount` counts captured manifest entries, including deletions/symlinks and excluding gitlink pins; it is not a live dirty-file count.
 

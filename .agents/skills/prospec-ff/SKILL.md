@@ -73,7 +73,7 @@ Sub-agents are available here, so take the sub-agent path. Should a spawn fail a
 | Scaffold | Run `prospec change story [name] --description "<one-liner>" [--issue <ref>]` (Bash) — creates proposal + metadata (status: story). Pass `--issue` only for a supplied tracker item; this creation-only flag cannot amend an existing change |
 | Scale | Apply `prospec-new-story` Phase 3.5 (criteria + quick veto). Record Draft-First assumptions; interactive mode asks only for an undecided scale. Write via `prospec change scale <scale>` (Bash). Quick → slim proposal form |
 | Populate | Preserve original source independently of verification; use input or actual code investigation as traceable evidence. Read [`references/proposal-format.md`](references/proposal-format.md) on demand, then write User Story and ACs to that format |
-| Retry history | For all scales, read prior abandoned reasons; author Premise `retry_difference` before validation. CLI owns linkage |
+| Retry history | All scales: read abandoned reasons; author `retry_difference` before validation. CLI links history; resolve import diagnostics |
 | Premise | Run `prospec validate proposal [name]` per proposal-format. Blocked → `prospec-explore` → `prospec-new-story` updates the same proposal. Structural PASS does not establish evidence truth |
 | Freeze | Freeze substantive acceptance scenarios via `prospec change story [name] --freeze-scenarios` (Bash). Amend via `prospec change story [name] --amend-scenarios --reason "<text>" --expected-digest <sha256>`. Never hand-edit metadata.yaml |
 | Check | INVEST is **advisory**: record concerns via `prospec change log --skill prospec-ff --result WARN --warning "<concern>"` and continue; never pause the Story. `prospec-verify` owns the authoritative audit |
@@ -168,13 +168,13 @@ offering the next skill.
 
 - Present CLI trigger/lifetime ordinal/exits/recommendation; stop.
 - Only human `Manual override: <reason>` composed WARN grants one event/station attempt; observations/report warnings grant none. Replay consumes none; resolution expires grants; tests independent.
-- Re-scope keeps amendment gates/status, no unlock. After PASS retain history/adjacent prose/fences.
+- Re-scope keeps amendment gates/status, no unlock. PASS retains history/prose/fences.
 
 ### Abandon an attempt
 
-Run `prospec change abandon <name> --reason <text>`; retain `.prospec/abandoned/`. `--overturned <field>`: disproved leaves. Save work → move → terminal metadata; inspect partial failures. Every scale: retry `retry_difference`.
+`prospec change abandon <name> --reason <text>` → `archiveDir` (main worktree `.prospec/abandoned/`). `--overturned`: disproved leaves. Save work → stage metadata → verify/publish → clean source; inspect partial paths; no auto-unlock.
 
-Report preservedFileCount (manifest entries, no gitlink pins); work tree not restored. Ask human: keep or restore via preservation/version control. Restore only with explicit authorization; reuse prior decision.
+Report preservedFileCount: manifest entries, not gitlink pins; worktree not restored. Human decides keep/restore via preservation/version control. Restore requires explicit authorization; reuse prior decision.
 
 ## Output Contract
 

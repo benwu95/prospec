@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { HistoryOriginSchema } from './history.js';
 
 const digest = z.string().regex(/^[a-f0-9]{64}$/);
 /** Shape only; contained readers additionally apply the resource-name guard. */
@@ -38,6 +39,7 @@ export const ABANDON_OPERATION_FILE = 'abandon-operation.json';
 export const ABANDON_MANIFEST = 'preservation/manifest.json';
 export const AbandonOperationSchema = z.object({
   version: z.literal(1), source: z.string(), source_digest: digest,
+  origin: HistoryOriginSchema.optional(),
   phase: z.enum(['preserving', 'moving', 'publishing']),
   moved: z.array(z.string()), pending: z.array(z.string()),
 }).strict();
@@ -53,6 +55,9 @@ export interface AbandonFailureDetails {
   pending: string[];
   sourceEntries: string[] | null;
   archiveEntries: string[] | null;
+  stagingDir?: string;
+  operationPath?: string;
+  transferPhase?: string;
 }
 
 export interface ChangeAbandonResult {
@@ -77,5 +82,5 @@ export interface AbandonedAttempt extends RetryLink {
 }
 export interface AbandonHistory {
   attempts: AbandonedAttempt[];
-  errors: Array<{ name: string; error: string; source?: string }>;
+  errors: Array<{ name: string; error: string; source?: string; foreign?: boolean }>;
 }

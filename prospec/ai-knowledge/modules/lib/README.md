@@ -1,6 +1,6 @@
 # Shared Kernel
 
-> Config, I/O, templates, scanning, detection, drift engine, status routing, knowledge reads, station engines (70 files)
+> Config, I/O, templates, scanning, detection, drift engine, status routing, knowledge reads, station engines (72 files)
 <!-- prospec:module-readme-format 2026-09-01 -->
 
 <!-- prospec:auto-start -->
@@ -9,6 +9,7 @@
 
 | File | Purpose |
 |------|---------|
+| `history-paths.ts` / `terminal-transfer.ts` | Canonical main-worktree roots, verified publication, origin-scoped pending operations and local-only diagnostics — see [Terminal History](./terminal-history.md) |
 | `work-preservation.ts` / `abandon-history.ts` / `abandon-paths.ts` / `archive-paths.ts` | Project-scoped capture/recheck (a project-scoped gitlink — index entry or HEAD-only — must be clean recursively and is recorded by its pins in `preservation/gitlinks.json`, never as a manifest entry; the checkout rule is drift-sources' `gitlinkCheckoutState`: every path component lstat-ed as a real directory (no symlinked ancestor, in or out of the project), whose `.git` makes it its own top level judged by directory identity (dev+inode), not spelling; HEAD's commit comes from status v2's HEAD mode); dedicated abandoned root/entry resolution; successful archive naming |
 | `config.ts` | read/writeConfig, resolveBasePaths, resolveKnowledgeTokenBudget (shipped skill/reference budgets always resolve to DEFAULT), the two language resolvers (`resolveArtifactLanguage` / `resolveTrustZoneLanguage`, each defaulting to English); `resolvePauseAt` (a set `PROSPEC_PAUSE_AT` — empty or `none` = no pause — decides alone, else a verified `ai-proposed` Premise adds `plan` to `workflow.pause_at`; an invalid value throws `PauseAtInvalid`), `resolveAlwaysEscalate` (default: all `ALWAYS_ESCALATE_CATEGORIES`; invalid throws `AlwaysEscalateInvalid`) and `readWorkflowFallback` (both workflow settings of a config that failed validation; an unreadable or unparseable file pauses everywhere and says why) |
 | `project-runner.ts` | Multi-ecosystem test command resolution (`resolveProjectTestCommand`, `detectTestCommand`): declared `test_command` → declared package manager + `scripts.test` → manifest detection (Rust, Python, Go, Node lockfile, Makefile) → honest `null`; the review circuit breaker is a station engine — see the sub-module below |
@@ -60,7 +61,7 @@ The drift and station engines are detailed in the linked sub-modules; other sing
 
 ## Pitfalls
 
-- Preservation uses separate binary patches and raw changed bytes, including nonignored `.prospec` inputs except its own destination. Git reads have a 30-second timeout; `captureGitState` avoids content scans that refresh index stat data. History and linked Premise inputs share `abandon-paths.ts` under `.prospec/abandoned/`, refusing linked roots and never falling back to successful archive. `abandonDirFor` captures the UTC date once and chooses the first absent base/-2/-3 candidate; only ENOENT means absent, while unsafe candidates and other I/O errors refuse. A completed record needs validated metadata and manifest; `assertNoIncompleteAbandon` blocks a partial source in both forward admission and abandon, including across UTC dates. `premise.ts` captures linked metadata/manifest bytes and rechecks them before advancing.
+- Preservation uses separate binary patches and raw changed bytes; gitlinks require clean recursive checkouts and retain pins. Shared terminal roots, transfer phases and reader admission live in [Terminal History](./terminal-history.md). `premise.ts` captures each linked metadata/manifest input with its own allowed root and rechecks before advancing; never widen containment to a shared ancestor.
 
 - `premise.ts` owns structural assessment plus contained metadata/proposal capture. All readers and advancing writers share it; writers call the returned `recheck()` immediately before their first write. Its metadata projection validates only scale/version so archive retains pre-schema legacy compatibility; writer-specific completeness checks still apply. `markdown-fences.fencedCodeBlocks` locates YAML using the existing fence scanner.
 
@@ -82,6 +83,8 @@ The drift and station engines are detailed in the linked sub-modules; other sing
 - Station engines decide, never re-derive policy — grade budgets, ledger refusals, findings identity and evidence round-trip are in [Station Engines](./station-engines.md).
 
 ## Sub-Modules
+
+- [Terminal History](./terminal-history.md) — main-worktree topology, verified publication, preservation integrity and legacy import admission
 
 - [Drift Engine](./drift-engine.md) — the zero-LLM collectors + evaluators, the provenance fingerprints, and the check-authoring recipe
 - [Spec Reading](./spec-reading.md) — the REQ heading rule, fence-aware section locator, spec index, and shared REQ-scoped read

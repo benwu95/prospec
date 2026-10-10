@@ -4,7 +4,7 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg?style=flat-square)](LICENSE)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.9-blue?style=flat-square&logo=typescript)](https://www.typescriptlang.org/)
-[![Tests](https://img.shields.io/badge/tests-7611%20total-success?style=flat-square)](./CONTRIBUTING.md#testing)
+[![Tests](https://img.shields.io/badge/tests-7753%20total-success?style=flat-square)](./CONTRIBUTING.md#testing)
 [![Node](https://img.shields.io/badge/node-%3E%3D22.13-brightgreen?style=flat-square&logo=node.js)](https://nodejs.org/)
 [![pnpm](https://img.shields.io/badge/pnpm-%3E%3D11-orange?style=flat-square&logo=pnpm)](https://pnpm.io/)
 
@@ -142,6 +142,8 @@ The agent picks up the request and runs prospec-ff:
 ```
 
 The cascade pauses only for clarification, a failed gate or circuit breaker, a plan sign-off where one applies, and final Tastemaker sign-off, and it never commits, pushes, or archives without your explicit approval. The pause rules are in [AI Skills and the Workflow](./docs/concepts/workflow.md#cascade-and-pauses); driving each station yourself, and the full greenfield and brownfield walkthroughs, are in [Getting Started](./docs/getting-started.md#3-run-your-first-change-inside-your-ai-agent).
+
+In worktree mode, active changes stay in the source `.prospec/changes/`; complete archive/abandoned bundles live in the corresponding main worktree project’s `.prospec/archive/` and `.prospec/abandoned/`. Read actual locations with `prospec history paths --json`; preview existing local history with `prospec history import --from <project-root> --dry-run`. Edit the returned `archivePath` summary and run `prospec archive finalize <name> --bundle <archiveIdentity>` in the source before removing that worktree. Retention is not Git backup or work restoration.
 
 ---
 

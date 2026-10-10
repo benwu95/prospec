@@ -209,7 +209,7 @@ describe('moveToArchive', () => {
     expect(dirName).toMatch(/^\d{4}-\d{2}-\d{2}-feat-a$/);
   });
 
-  it('rolls back already-moved files when a mid-move rename fails', async () => {
+  it('retains every source file when staging copy fails', async () => {
     vol.fromJSON({
       '/project/.prospec/changes/feat/a.md': 'A',
       '/project/.prospec/changes/feat/b.md': 'B',
@@ -221,16 +221,16 @@ describe('moveToArchive', () => {
       metadata: { status: 'verified' },
       status: 'verified',
     };
-    const realRename = fs.promises.rename.bind(fs.promises);
+    const realCopy = fs.copyFileSync.bind(fs);
     const spy = vi
-      .spyOn(fs.promises, 'rename')
-      .mockImplementation(async (src: fs.PathLike, dest: fs.PathLike) => {
+      .spyOn(fs, 'copyFileSync')
+      .mockImplementation((src: fs.PathLike, dest: fs.PathLike, flags?: number) => {
         // fail the forward move of b.md INTO the archive, mid-loop
         if (String(dest).endsWith('b.md')) throw new Error('disk full');
-        return realRename(src, dest);
+        return realCopy(src, dest, flags);
       });
 
-    await expect(moveToArchive(change, '/project')).rejects.toThrow(/rolled back/);
+    await expect(moveToArchive(change, '/project')).rejects.toThrow(/disk full/);
     spy.mockRestore();
 
     // every file is back in the source dir — nothing left split across two dirs
@@ -567,7 +567,7 @@ last_updated: 2026-01-01
         '# Delta Spec\n\n## ADDED\n\n### REQ-TYPES-001: Some type\n\n**Feature:** sdd-workflow\n**Story:** US-1\n\n**Description:**\nDetails.\n\n---\n\n### REQ-TYPES-002: Another\n\n**Feature:** fresh-slug\n**Story:** US-1\n\n**Description:**\nDetails.\n',
     });
 
-    await execute({ cwd: '/project' });
+    await syncToFeatureSpecs('/project/.prospec/changes/odd|name', '/project/prospec/specs/features', 'odd|name');
 
     for (const [file, reqId] of [
       ['sdd-workflow', 'REQ-TYPES-001'],

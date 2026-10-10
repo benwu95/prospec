@@ -23,6 +23,8 @@
 
 ## Pitfalls
 
+- Archive publishes through `terminal-transfer.ts`, returning exact `archiveIdentity` and canonical `archivePath`; finalize accepts `--bundle`, validates origin and local-history diagnostics before admission and under the writer claim. Bare-name selection requires one source-matching candidate (unknown legacy origin only when the entire same-name set is unique), never the latest date. Batch partial failures retain typed recovery details and readable recovery paths.
+
 - Successful archive/finalize and review-yield exclude abandoned and operation-marked incomplete entries via `lib/abandon-history.ts`. Abandonment retains artifacts without any spec or trust-zone writes; it is not successful graduation.
 
 - Archive reads the typed ledger independently of its lenient legacy metadata envelope. `generateSummary` requires the resolved retry bound; finalize refreshes the owned escalation-history block in both copies, preserving fenced examples and adjacent prose.

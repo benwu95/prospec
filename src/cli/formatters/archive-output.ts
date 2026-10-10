@@ -37,6 +37,7 @@ export function formatArchiveOutput(result: ArchiveResult, logLevel: LogLevel): 
         console.log(
           `${pc.green('✓')} archived ${sanitizeTerminal(a.name)} → ${sanitizeTerminal(a.archivePath)}${summaryNote}`,
         );
+        if (a.archiveIdentity) console.log(`  archiveIdentity: ${sanitizeTerminal(a.archiveIdentity)}`);
       }
       if (result.specFiles.length > 0) {
         console.log(pc.bold('Feature Specs synced:'));
