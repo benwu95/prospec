@@ -407,7 +407,7 @@ export interface AgentConfig extends AgentRenderFlags, InvocationProfileMember {
 /**
  * Predefined Skill definitions (17 Skills total; prospec-quickstart and
  * prospec-upgrade are excludeFromEntryConfig — deployed as a SKILL.md but not
- * listed in the entry config, so 15 appear in CLAUDE.md/AGENTS.md).
+ * listed in the entry config, so 15 appear in AGENTS.md).
  */
 export const SKILL_DEFINITIONS: SkillConfig[] = [
   {

@@ -767,7 +767,7 @@ describe('Skill Format Contract', () => {
       expect(refSkillNames).toContain('prospec-archive');
       // backfill-spec externalizes feature-boundary-criteria (BL-039)
       expect(refSkillNames).toContain('prospec-backfill-spec');
-      // promote-backfill bundles the four planning-format references it scaffolds against
+      // promote-backfill bundles the planning-format references it scaffolds against
       expect(refSkillNames).toContain('prospec-promote-backfill');
     });
 
@@ -5629,8 +5629,7 @@ describe('Verify drift-engine integration (REQ-TEMPLATES-092)', () => {
 });
 
 // US-18: Phase-1 start + per-phase gates (REQ-TEMPLATES-097).
-// The 8 numbered-phase skills (survey 2026-06-13); the other 5 (explore,
-// knowledge-generate, learn, review, verify) use non-numbered structure — exempt.
+// The skills REQ-TEMPLATES-097 names (survey 2026-06-13); every other skill is exempt.
 // Semantic decimal/sub-step phases (archive 3.5/3.6/4.5, new-story 3.5, design 2a/2b)
 // are intentional insertions and are kept — only Phase 0 (ff) is corrected.
 describe('US-18: Phase-1 start + per-phase gates', () => {
@@ -7964,7 +7963,7 @@ describe('Action Space Reform — Draft-First Protocol and Silence-Aware Logging
 });
 
 describe("Autonomous Pipeline Cascading & Verifier Gates (issue #183)", () => {
-  it("cascade-protocol.md, circuit-breaker.md, project-test-runner.md are registered in SKILL_REFERENCE_MAP", () => {
+  it("cascade-protocol.md, circuit-breaker.md, project-test-runner.md are registered", () => {
     const ffRefs = getSkillReferences("prospec-ff").map((r) => r.outputName);
     expect(ffRefs).toContain("cascade-protocol.md");
     expect(ffRefs).toContain("circuit-breaker.md");

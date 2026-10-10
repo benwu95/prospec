@@ -75,14 +75,14 @@ knowledge:
       0,
     );
     expect(claudeResult!.referenceFiles).toHaveLength(expectedRefs);
-    // A skill with hasReferences=false (prospec-explore) must emit none.
+    // A skill with no references (prospec-explore) must emit none.
     expect(
       claudeResult!.referenceFiles.some((f) => f.includes('prospec-explore/')),
     ).toBe(false);
   });
 
-  // REQ-AGNT-015 — archive's Phase 4.5 cites references/promotion-format.md, so the
-  // referenceMap must deploy it into archive's OWN dir (not borrow prospec-learn's).
+  // REQ-AGNT-015 — archive's Phase 4.5 cites references/promotion-format.md, so
+  // agent sync must deploy it into archive's OWN dir (not borrow prospec-learn's).
   it("should bundle prospec-archive's own promotion-format reference (REQ-AGNT-015)", async () => {
     vol.fromJSON({
       '/project/.prospec.yaml': `project:
@@ -105,7 +105,7 @@ knowledge:
 
   // REQ-AGNT-022 — verify gains its first reference (debug-recovery-format) and review
   // gains a second (review-lenses-content); both deploy self-contained into their OWN dir.
-  it('deploys verify (1) and review (2) vendored references self-contained (REQ-AGNT-022)', async () => {
+  it('deploys verify and review vendored references self-contained (REQ-AGNT-022)', async () => {
     vol.fromJSON({
       '/project/.prospec.yaml': `project:
   name: test-project

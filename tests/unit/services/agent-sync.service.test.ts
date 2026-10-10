@@ -588,7 +588,6 @@ knowledge:
     const result = await execute({ cwd: '/project' });
     const refs = result.agents[0]!.referenceFiles;
 
-    // prospec-plan declares exactly two references (plan-format, delta-spec-format).
     expect(refs).toContain('.claude/skills/prospec-plan/references/plan-format.md');
     expect(refs).toContain('.claude/skills/prospec-plan/references/delta-spec-format.md');
     expect(fs.existsSync('/project/.claude/skills/prospec-plan/references/plan-format.md')).toBe(
@@ -881,7 +880,7 @@ describe('agent-sync skill_triggers warnings', () => {
     expect(entryCtx.artifact_language).toBe('English');
   });
 
-  it('excludes excludeFromEntryConfig skills from the entry config but still writes their SKILL.md (REQ-AGNT-023)', async () => {
+  it('excludes excludeFromEntryConfig skills from the entry config but still renders their SKILL.md (REQ-AGNT-023)', async () => {
     vol.fromJSON({
       '/project/.prospec.yaml': 'project:\n  name: test\nagents:\n  - claude\n',
     });
@@ -903,7 +902,7 @@ describe('agent-sync skill_triggers warnings', () => {
     expect(entryNames).not.toContain('prospec-quickstart');
     expect(entryNames).toContain('prospec-explore');
 
-    // ...but its SKILL.md is still generated on disk (invocable on demand).
+    // ...but its SKILL.md is still rendered (invocable on demand).
     const quickstartRender = calls.find(
       ([name]) => name === 'skills/prospec-quickstart.hbs',
     );
