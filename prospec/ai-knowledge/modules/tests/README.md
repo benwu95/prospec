@@ -23,7 +23,7 @@
 
 ## Public API
 
-- `tests/contract/playbook-station.test.ts` checks all 20 active declarations, the 7 approved compact entries, and service-plus-formatter output for every `SDD_STATIONS` value against the full-file token cost. `skill-format.test.ts` pins Startup loads, caps, cleanup rules, baseline ceilings and both languages' public docs; unit and CLI E2E tests cover parser, service and formatter behavior.
+- `tests/contract/playbook-station.test.ts` checks every active entry's station declaration, the 7 approved compact entries, and service-plus-formatter output for every `SDD_STATIONS` value against the full-file token cost. `skill-format.test.ts` pins Startup loads, caps, cleanup rules, baseline ceilings and both languages' public docs; unit and CLI E2E tests cover parser, service and formatter behavior.
 - No exports — test files run by `vitest run`. Entry: `pnpm test`.
 
 ## Dependencies

@@ -12,6 +12,7 @@ const ACTIVE_IDS = [
   'PB-001', 'PB-002', 'PB-006', 'PB-007', 'PB-008', 'PB-010',
   'PB-011', 'PB-012', 'PB-013', 'PB-014', 'PB-015', 'PB-016', 'PB-017',
   'PB-018', 'PB-019', 'PB-020', 'PB-021', 'PB-022', 'PB-023', 'PB-024',
+  'PB-025', 'PB-026',
 ];
 const COMPACT_IDS = ['PB-001', 'PB-006', 'PB-007', 'PB-008', 'PB-014', 'PB-016', 'PB-018'];
 // Only clauses not covered by each entry's Landing remain in live Guidance.
@@ -23,7 +24,7 @@ const RETAINED_GUIDANCE: Record<string, string> = {
 };
 
 describe('repository playbook station migration', () => {
-  it('declares valid stations for exactly the 20 active entries', () => {
+  it('declares valid stations for exactly the 22 active entries', () => {
     const entries = parsePlaybookEntries(readFileSync(PLAYBOOK, 'utf8')).filter((entry) => !entry.retired);
     expect(entries.map((entry) => entry.id)).toEqual(ACTIVE_IDS);
     for (const entry of entries) {
