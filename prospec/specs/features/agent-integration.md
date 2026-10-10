@@ -163,7 +163,7 @@ The repository's English and Traditional Chinese root READMEs are an equivalent 
 - **SC-1**: `prospec agent sync` generates correct configuration for all detected Agents
 - **SC-2**: The deployed Skills stay consistent with the source .hbs templates
 - **SC-3**: AI Knowledge saves 70%+ of token consumption
-- **SC-4**: All 13 Skills pass the language-neutrality contract test
+- **SC-4**: All Skills pass the language-neutrality contract test
 
 ## Maintenance Rules
 
@@ -182,6 +182,7 @@ The repository's English and Traditional Chinese root READMEs are an equivalent 
 
 | Date | Change | Impact | Stories/REQs |
 |------|--------|--------|-------------|
+| 2026-10-10 | remove-stale-skill-count-claims | MODIFIED REQ-TESTS-029; MODIFIED REQ-TEMPLATES-143 | REQ-TESTS-029, REQ-TEMPLATES-143 |
 | 2026-10-10 | remove-stale-spec-claims | MODIFIED REQ-AGNT-015; MODIFIED REQ-AGNT-022; MODIFIED REQ-AGNT-037; MODIFIED REQ-AGNT-023; MODIFIED REQ-TYPES-032; MODIFIED REQ-TYPES-035; MODIFIED REQ-SERVICES-030; MODIFIED REQ-AGNT-039; MODIFIED REQ-AGNT-040; MODIFIED REQ-AGNT-041; MODIFIED REQ-AGNT-042 | REQ-AGNT-015, REQ-AGNT-022, REQ-AGNT-037, REQ-AGNT-023, REQ-TYPES-032, REQ-TYPES-035, REQ-SERVICES-030, REQ-AGNT-039, REQ-AGNT-040, REQ-AGNT-041, REQ-AGNT-042 |
 | 2026-10-10 | correct-readme-split-claims | MODIFIED REQ-TEMPLATES-230; MODIFIED REQ-AGNT-003; MODIFIED REQ-AGNT-024; MODIFIED REQ-AGNT-026; MODIFIED REQ-AGNT-031; MODIFIED REQ-TYPES-032; MODIFIED REQ-TYPES-035 | REQ-TEMPLATES-230, REQ-AGNT-003, REQ-AGNT-024, REQ-AGNT-026, REQ-AGNT-031, REQ-TYPES-032, REQ-TYPES-035 |
 | 2026-10-09 | slim-readme-into-docs | MODIFIED REQ-TEMPLATES-230; MODIFIED REQ-AGNT-036; MODIFIED REQ-TESTS-040; MODIFIED REQ-TEMPLATES-233; MODIFIED REQ-TESTS-119; MODIFIED REQ-AGNT-043; MODIFIED REQ-AGNT-024; MODIFIED REQ-AGNT-026 | REQ-TEMPLATES-230, REQ-AGNT-036, REQ-TESTS-040, REQ-TEMPLATES-233, REQ-TESTS-119, REQ-AGNT-043, REQ-AGNT-024, REQ-AGNT-026 |

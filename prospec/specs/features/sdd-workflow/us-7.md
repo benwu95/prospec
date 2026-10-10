@@ -128,7 +128,7 @@ so that I can judge output quality without checking the artifact line by line, a
 ### Behavior Specifications
 
 #### REQ-TEMPLATES-060: Skill Output Contract Section
-The 11 skill templates each contain `## Output Contract` (Success Criteria + Failure Conditions), placed before `## NEVER`; the deployed SKILL.md is kept in sync via agent sync.
+The skill templates each contain `## Output Contract` (Success Criteria + Failure Conditions), placed before `## NEVER`; the deployed SKILL.md is kept in sync via agent sync.
 - WHEN a skill template renders, THEN it contains `## Output Contract` with `### Success Criteria` + `### Failure Conditions`
 - WHEN a non-artifact skill (explore), THEN success is defined by observable outcome, not artifact conditions
 
