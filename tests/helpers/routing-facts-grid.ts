@@ -5,8 +5,7 @@ import { CHANGE_SCALES, type ChangeStatus } from '../../src/types/change.js';
  * Deterministic `ChangeRouteFacts` for whole-router properties: per status, every
  * scale × premise × escalation history × retry bound × pass-through field shape ×
  * value of each fact that status's branch reads, with the facts no branch of that
- * status reads filled from a seeded stream. `randomRoutingFacts` draws every fact
- * from the same value sets.
+ * status reads filled from a seeded stream.
  */
 
 const UNSYNCED: WorkflowReason = { code: 'KNOWLEDGE_UNSYNCED', message: 'stale: services', remediation: 'verify' };
@@ -160,13 +159,5 @@ export function* routingFactsGrid(status: ChangeStatus): Generator<ChangeRouteFa
         }
       }
     }
-  }
-}
-
-/** `count` facts with every field drawn from the grid's value sets, status included. */
-export function* randomRoutingFacts(count: number, seed: number, statuses: readonly ChangeStatus[]): Generator<ChangeRouteFacts> {
-  const pick = seededPick(seed);
-  for (let i = 0; i < count; i++) {
-    yield build(pick(statuses), pick(CHANGE_SCALES), pick(PREMISES), pick(HISTORIES), {}, pick);
   }
 }

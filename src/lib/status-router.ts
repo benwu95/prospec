@@ -5,7 +5,7 @@ import type {
   RouteTarget,
   WorkflowReasonCode,
 } from '../types/status.js';
-import { BREAK_GLASS_PREFIX, formatWorkflowReason, PLAN_SIGNOFF_REMEDIES, PLAN_VERSION_SIGNOFF_REMEDIES, ROUTE_TARGET_SKILLS } from '../types/status.js';
+import { formatWorkflowReason, PLAN_SIGNOFF_REMEDIES, PLAN_VERSION_SIGNOFF_REMEDIES, ROUTE_TARGET_SKILLS } from '../types/status.js';
 import { forbiddenArtifacts, isStatusBefore, type ChangeStatus } from '../types/change.js';
 import { AGENT_CONFIGS } from '../types/skill.js';
 import { RELATED_MODULE_HALT_CONDITION } from './knowledge-sync.js';
@@ -128,8 +128,8 @@ const pendingReason = (c: RouteContext): string =>
 const streakReached = (c: RouteContext, streak: number): boolean =>
   c.history === undefined && streak >= c.facts.maxStationRetries;
 
-const PLAN_VERIFIER_GATE = `Architecture Verifier PASS/WARN recorded via \`prospec change log --skill prospec-plan --verifier-report <file>\` (or a documented Break-Glass \`--result WARN --warning "${BREAK_GLASS_PREFIX} …"\`)`;
-const TASKS_VERIFIER_GATE = `Task Verifier PASS/WARN recorded via \`prospec change log --skill prospec-tasks --verifier-report <file>\` (or a documented Break-Glass \`--result WARN --warning "${BREAK_GLASS_PREFIX} …"\`)`;
+const PLAN_VERIFIER_GATE = `Architecture Verifier PASS/WARN recorded via \`prospec change log --skill prospec-plan --verifier-report <file>\``;
+const TASKS_VERIFIER_GATE = `Task Verifier PASS/WARN recorded via \`prospec change log --skill prospec-tasks --verifier-report <file>\``;
 const VERIFY_GATE = 'grade S or A required (no FAIL, ≤ 2 WARN); `prospec verify record` adjudicates machine dimensions from `prospec check` — follow its current assessment, refusal and remediation';
 const REVERIFY_GATE = 'a fresh grade S or A recorded by `prospec verify record` (no FAIL, ≤ 2 WARN)';
 

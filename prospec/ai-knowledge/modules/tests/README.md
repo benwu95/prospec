@@ -1,6 +1,6 @@
 # Verification Suite
 
-> 4-layer Vitest suite (fast-glob/git bypass memfs — 305 test files, 7,754 tests (unit 5653, contract 1721, integration 159, e2e 221)).
+> 4-layer Vitest suite (fast-glob/git bypass memfs — 304 test files, 7,746 tests (unit 5645, contract 1721, integration 159, e2e 221)).
 <!-- prospec:module-readme-format 2026-09-01 -->
 
 <!-- prospec:auto-start -->
@@ -17,9 +17,9 @@
 | `tests/integration/*.test.ts` | Multi-service flows — init, change (story→freeze→plan→tasks), verify context and per-REQ evidence evaluation, upgrade, skill/agent-config generation, and a real four-host `agent sync` on a real filesystem whose output the station-reference collector and evaluator then judge (mutations asserted applied before their verdict is read). |
 | `tests/e2e/cli-{basics,change,station,knowledge,check-mcp,lifecycle}.test.ts` | The CLI e2e suite, run **in-process** via `helpers/run-cli.ts` (`createProgram`/`runProgram`, no per-test subprocess — was one 126s file) across command groups: init/version/help, change+spec, cli-first station commands, knowledge/agent/measure, check+mcp, upgrade+auto-draft. `run-cli-helper.test.ts` pins the helper's isolation contract. |
 | `tests/e2e/cli-subprocess-smoke.test.ts` · `startup-modules.test.ts` | Real-subprocess coverage that lives outside the JS module boundary — shebang + bundled bin, exit-code propagation, non-TTY color (setup-color), mcp stdio startup; and the startup module-graph guard (REQ-CLI-045). Spawn `dist/cli/index.js`, so need `pnpm build`. |
-| `tests/helpers/` | Shared test infrastructure (the in-process CLI runner lives in `tests/e2e/helpers/run-cli.ts`): `mandatory-loads.ts` / `station-references.ts` (baseline projections); `git-fixture.ts` — `GIT_ID`, `gitIn(cwd, …args)` (git with the fixture identity) and `imageOf(root)` (a byte-and-mode image of a directory, so a chmod alone makes two images differ); `no-child-process.ts` — `withoutSpawns(actual)` (memfs suites: every spawn fails without starting a process); `private-tmpdir.ts` — `usePrivateTmpdir(label)` gives a test file its own temp dir (`os.tmpdir()`/`snapshotRoot()` point there), removed in `afterAll`; every file building a delegation snapshot calls it (ticket- or stem-keyed cleanup leaks or races parallel workers); `routing-facts-grid.ts` — the per-status `ChangeRouteFacts` grid and seeded random facts the router suites share. |
+| `tests/helpers/` | Shared test infrastructure (the in-process CLI runner lives in `tests/e2e/helpers/run-cli.ts`): `mandatory-loads.ts` / `station-references.ts` (baseline projections); `git-fixture.ts` — `GIT_ID`, `gitIn(cwd, …args)` (git with the fixture identity) and `imageOf(root)` (a byte-and-mode image of a directory, so a chmod alone makes two images differ); `no-child-process.ts` — `withoutSpawns(actual)` (memfs suites: every spawn fails without starting a process); `private-tmpdir.ts` — `usePrivateTmpdir(label)` gives a test file its own temp dir (`os.tmpdir()`/`snapshotRoot()` point there), removed in `afterAll`; every file building a delegation snapshot calls it (ticket- or stem-keyed cleanup leaks or races parallel workers); `routing-facts-grid.ts` — the per-status `ChangeRouteFacts` grid. |
 | `tests/setup-env.ts` | vitest `setupFiles`: deletes `PROSPEC_PAUSE_AT` so a developer's or CI runner's pause override never reroutes a `status` assertion (in-process and spawned alike); a test of the override passes `env` or `vi.stubEnv` explicitly |
-| `tests/fixtures/` | `startup-loading-baseline.json` (per-skill loading items + size ceilings), `workflow-eval/`, `token-corpus/`, `lessons-harvest/`, `legacy-status-router.ts` (pre-rule-table router; retire per [Routing Flow](../lib/routing-flow.md)). |
+| `tests/fixtures/` | `startup-loading-baseline.json` (per-skill loading items + size ceilings), `workflow-eval/`, `token-corpus/`, `lessons-harvest/`. |
 
 ## Public API
 

@@ -245,7 +245,23 @@ describe('status-router — lifecycle edges', () => {
     expect(route.next).toBe('plan');
     expect(route.code).toBe('PLAN_VERIFIER_FAILED');
     expect(route.blockingGates.join(' ')).toContain('--verifier-report');
-    expect(route.blockingGates.join(' ')).toContain('Manual override');
+  });
+
+  it('plan/tasks verifier gates name only a recorded verifier report', () => {
+    const verifierRoutes = [
+      facts({ status: 'plan', lastPlanVerifierResult: 'FAIL' }),
+      facts({ status: 'plan', lastPlanVerifierResult: 'FAIL', planFlawsStreak: 3, maxStationRetries: 3 }),
+      facts({ status: 'tasks', lastTasksVerifierResult: 'FAIL', hasTasks: true, codeTasksTotal: 3 }),
+      facts({ status: 'tasks', lastTasksVerifierResult: 'FAIL', tasksFlawsStreak: 3, maxStationRetries: 3, hasTasks: true, codeTasksTotal: 3 }),
+    ].map(routeChange);
+    const planGate = 'Architecture Verifier PASS/WARN recorded via `prospec change log --skill prospec-plan --verifier-report <file>`';
+    const tasksGate = 'Task Verifier PASS/WARN recorded via `prospec change log --skill prospec-tasks --verifier-report <file>`';
+    expect(verifierRoutes.map((route) => [route.code, route.blockingGates])).toEqual([
+      ['PLAN_VERIFIER_FAILED', [planGate]],
+      ['ESCALATE_TO_HUMAN', [planGate]],
+      ['TASKS_VERIFIER_FAILED', [tasksGate]],
+      ['ESCALATE_TO_HUMAN', [tasksGate]],
+    ]);
   });
 
   it('plan with a recorded verifier PASS or WARN (or none) advances normally', () => {
