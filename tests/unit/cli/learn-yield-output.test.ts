@@ -127,3 +127,19 @@ describe('learn yield output formatter', () => {
     expect(out).toContain('No review findings found across analyzed changes.');
   });
 });
+
+
+it('renders canonical must-run review recommendations alongside conditional retirement without changing JSON shape', () => {
+  const report: LensYieldReport = {
+    ...baseReport,
+    stats: [
+      { ...baseReport.stats[1]!, lens: 'security', action: 'review', reason: 'Inspect criteria, execution and attribution; retirement requires a policy change.' },
+      { ...baseReport.stats[1]!, lens: 'performance' },
+    ],
+  };
+  const out = captureStdout(() => formatLensYieldOutput(report));
+  expect(out.split('\n').find(line => line.includes('security'))).toContain('review');
+  expect(out.split('\n').find(line => line.includes('performance'))).toContain('retire');
+  const json = JSON.parse(captureStdout(() => formatLensYieldOutput(report, { json: true })));
+  expect(json).toEqual(report);
+});

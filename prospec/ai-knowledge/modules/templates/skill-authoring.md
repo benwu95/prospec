@@ -40,6 +40,8 @@ For Playbook loads, keep plan and implement Startup item 6 on `learn playbook --
 
 ## Pitfalls
 
+- Review and reviewer-table lens lists use `reviewLenses`, backed by `types/review-lenses`; edit the registry instead of either generated list. Security summary runs every round; detail criteria remain on demand for risk surfaces or applicable conditional lenses. Keep skill, reference introduction and station reference map aligned, with severity in review-format and web criteria scoped to web/HTTP changes.
+
 - `_premise.hbs` renders the same pending mapping into both proposal scaffolds and the proposal-format reference. Keep validation handoffs in new-story/ff and the conversational explore handoff aligned; re-entry updates the existing proposal and preserves acceptance-baseline ownership.
 
 - `_cli-probe.hbs` is the SINGLE source of the CLI prerequisite: its STOP sentence may appear in no other template (contract-asserted), and its floor must stay `{{minimum_cli_version}}` — a hardcoded version literal is rejected. No template under `skills/` or `agent-configs/` may carry a CLI-unavailable fallback phrase ("If the CLI is unavailable", "fall back manually", …): hand-executing a CLI-owned mutation re-introduces the nondeterministic serialization cli-first removes.

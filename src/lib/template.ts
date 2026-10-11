@@ -2,6 +2,7 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import Handlebars from 'handlebars';
+import { REVIEW_LENSES } from '../types/review-lenses.js';
 import { TemplateError } from '../types/errors.js';
 import { BUNDLED_TEMPLATES } from './bundled-templates.js';
 import { renderStationReferenceSlot } from './skill-reference-map.js';
@@ -62,6 +63,8 @@ function registerHelpers(): void {
     (skillName: unknown, slotId: unknown) =>
       new Handlebars.SafeString(renderStationReferenceSlot(String(skillName), String(slotId))),
   );
+
+  Handlebars.registerHelper('reviewLenses', () => REVIEW_LENSES);
 
   // {{isoDate}} — current ISO 8601 date string
   Handlebars.registerHelper('isoDate', () => new Date().toISOString());

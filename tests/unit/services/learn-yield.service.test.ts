@@ -87,7 +87,7 @@ describe('executeYield service', () => {
     expect(security?.invocations).toBe(2);
     expect(security?.confirmed_findings).toBe(0);
     expect(security?.consecutive_zero_changes).toBe(2);
-    expect(security?.action).toBe('retire');
+    expect(security?.action).toBe('review');
   });
 
   it('reads canonical archive from a linked source and deduplicates physical explicit corpus aliases', async () => {
@@ -155,7 +155,7 @@ describe('executeYield service', () => {
     expect(security?.invocations).toBe(3);
     expect(security?.last_yield_change).toBe('a');
     expect(security?.consecutive_zero_changes).toBe(2); // b, c after a — order matters
-    expect(security?.action).toBe('retire');
+    expect(security?.action).toBe('review');
   });
 
   it('refuses a --corpus path that is not an existing directory, while the default archive may be absent', async () => {
@@ -178,4 +178,19 @@ describe('executeYield service', () => {
     expect(security?.last_yield_change).toBe('Foo');
     expect(security?.consecutive_zero_changes).toBe(1);
   });
+});
+
+
+it('projects legacy aliases into canonical statistics without changing archived bytes', async () => {
+  const files = {
+    '/repo/.prospec/archive/2026-01-01-a/review.md': review(['Correctness & Edge Cases', 'correctness', 'Security', 'performance'], ['| F-1 | a.ts:1 | major | Correctness & Edge Cases | fixed | bug |']),
+    '/repo/.prospec/archive/2026-01-02-b/review.md': review(['CORRECTNESS', 'security', 'performance'], []),
+  };
+  vol.fromJSON(files);
+  const report = await executeYield({ cwd: CWD, minInvocations: 2, consecutiveZeroThreshold: 2 });
+  expect(report.stats.map(stat => stat.lens).sort()).toEqual(['correctness', 'performance', 'security']);
+  expect(report.stats.find(stat => stat.lens === 'correctness')).toMatchObject({ invocations: 2, declared_invocations: 2, confirmed_findings: 1, yield_ratio: 0.5 });
+  expect(report.stats.find(stat => stat.lens === 'security')).toMatchObject({ action: 'review', invocation_source: 'declared' });
+  expect(report.stats.find(stat => stat.lens === 'performance')).toMatchObject({ action: 'retire', invocation_source: 'declared' });
+  for (const [file, content] of Object.entries(files)) expect(vol.readFileSync(file, 'utf8')).toBe(content);
 });

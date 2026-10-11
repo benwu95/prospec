@@ -232,3 +232,12 @@ describe('startup-mandatory stays the legacy metric boundary (REQ-TESTS-116)', (
     ]);
   });
 });
+
+
+it('loads review detail on security risk surfaces or applicable conditional lenses in phase', () => {
+  const use = STATION_REFERENCES['prospec-review']!.uses.find((entry) => entry.id === 'lenses-review-lenses-content')!;
+  expect(use.loading).toBe('in-phase');
+  expect(use.conditionHint).toContain('security');
+  expect(use.conditionHint).toContain('conditional');
+  expect(use.purpose).toContain('security');
+});

@@ -51,6 +51,8 @@ Also: `quickstart` (init + agentSync), `agent-triggers` + `trigger-localization`
 
 ## Pitfalls
 
+- Review merge canonicalizes accumulated lens declarations only on accepted requests supplying `lenses`; omission, refusal and failure-only metrics paths do not migrate them. Delegate to `lib/lens-yield.canonicalizeDeclaredLenses`; keep original finding labels, request digests and identity/evidence unchanged.
+
 - Archive/abandon transfer complete bundles to the corresponding main-worktree project; config, active changes, delegation, tests, Knowledge and spec writes remain source-local. History import retains source copies and exact identities; marked inputs support only canonical no-op or identical canonical deduplication.
 
 - Abandonment does not call spec-sync/finalize. Preparation/publication failures retain source and staging data; cleanup failures retain a verified final bundle and remaining source entries. Terminal metadata plus valid shared operation lineage determine readiness; command success also requires completed source cleanup. Same-day suffix allocation never bypasses incomplete admission or retries an exclusive-mkdir race. Success returns the saved manifest entry count. Story creation captures normalized same-issue history once, preserves supplied proposal bytes and returns prior reasons, including dry runs.

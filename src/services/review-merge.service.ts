@@ -51,6 +51,7 @@ import type { Document } from 'yaml';
 import type { CircuitBreakerState } from '../types/cascade.js';
 import { admitEscalation, canonicalAttemptId, canonicalDigest, escalationFailureDetails, escalationTransitions, legacyEscalationRecords, projectEscalationReport, reduceEscalationHistory } from '../lib/escalation.js';
 import type { ReviewAttemptInputs, ChangeMetadata, GateResult } from '../types/change.js';
+import { canonicalizeDeclaredLenses } from '../lib/lens-yield.js';
 import { resolveChange } from './change-resolver.js';
 
 function resolveCleanReviewSentence(language: string): string {
@@ -480,7 +481,7 @@ export async function execute(options: ReviewMergeOptions): Promise<ReviewMergeR
   const combinedLenses =
     options.lenses === undefined
       ? docMetrics.lenses
-      : Array.from(new Set([...(docMetrics.lenses ?? []), ...options.lenses]));
+      : canonicalizeDeclaredLenses([...(docMetrics.lenses ?? []), ...options.lenses]);
 
   // Pre-write fence: the verdict, the target's metadata and review.md must be the
   // ones observed. After an exemption WARN the assessment is the re-obtained one.

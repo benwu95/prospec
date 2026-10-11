@@ -841,6 +841,28 @@ quality_log:
       expect(missing.stderr).toContain('--corpus');
     });
 
+    it('learn yield canonically groups legacy aliases and protects must-run retirement', async () => {
+      await initChange();
+      const archiveDir = path.join(tmpDir, '.prospec', 'archive', '2026-01-01-aliases');
+      await fs.promises.mkdir(archiveDir, { recursive: true });
+      const content = '<!-- prospec:review-metrics round="1" lenses="Correctness & Edge Cases,correctness,SECURITY,performance" -->\n# Review Findings: aliases\n\n| ID | Location | Severity | Lens | Status | Summary |\n|---|---|---|---|---|---|\n| F-1 | a.ts:1 | major | Correctness & Edge Cases | fixed | bug |\n';
+      const reviewPath = path.join(archiveDir, 'review.md');
+      await fs.promises.writeFile(reviewPath, content);
+      const args = ['learn', 'yield', '--min-invocations', '1', '--consecutive-zero', '1'];
+      const json = await runCli([...args, '--json']);
+      expect(json.exitCode).toBe(0);
+      const report = JSON.parse(json.stdout);
+      expect(report.total_changes_analyzed).toBe(1);
+      expect(report.stats.map((stat: { lens: string }) => stat.lens).sort()).toEqual(['correctness', 'performance', 'security']);
+      expect(report.stats.find((stat: { lens: string }) => stat.lens === 'correctness')).toMatchObject({ invocations: 1, confirmed_findings: 1, action: 'keep' });
+      expect(report.stats.find((stat: { lens: string }) => stat.lens === 'security')).toMatchObject({ action: 'review', invocation_source: 'declared' });
+      expect(report.stats.find((stat: { lens: string }) => stat.lens === 'performance')).toMatchObject({ action: 'retire' });
+      const table = await runCli(args);
+      expect(table.exitCode).toBe(0);
+      expect(table.stdout.split('\n').find(line => line.includes('security'))).toContain('review');
+      expect(await fs.promises.readFile(reviewPath, 'utf8')).toBe(content);
+    });
+
     it('validate slug exits 0 on PASS and 1 on FAIL (machine gate)', async () => {
       await initChange();
       expect((await runCli(['validate', 'slug', 'user-profile'])).exitCode).toBe(0);

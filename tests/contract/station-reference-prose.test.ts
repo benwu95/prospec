@@ -125,3 +125,45 @@ describe('agent-sync deploys the pre-migration reference set (REQ-AGNT-030)', ()
     expect(new Set(Object.values(roots)).size).toBe(2);
   });
 });
+
+describe('security detail loading boundaries', () => {
+  const lensSection = rendered.get('prospec-review')!.split('### Review Lenses')[1]!.split('### Severity Routing')[0]!;
+  it('checks security every round while plain text without a risk trigger leaves details on demand', () => {
+    expect(lensSection).toContain('Check security');
+    expect(lensSection).toContain('each round');
+    expect(lensSection).toContain('Otherwise its details stay on demand');
+    expect(lensSection).toContain('never Startup mandatory');
+  });
+  it('loads detail for filesystem writes and separates general criteria from web-only surfaces', () => {
+    expect(lensSection).toContain('filesystem writes');
+    const detail = renderTemplate('skills/references/review-lenses-content.hbs', CONTEXT);
+    const security = detail.split('## Security & Data Integrity Lens')[1]!.split('## Efficiency')[0]!;
+    const [general, web] = security.split('### Web / HTTP');
+    for (const concept of ['injection', 'secrets', 'symlinks', 'permissions', 'partial failure/overwrite', 'model output', 'tools', 'dependency']) {
+      expect(general!.toLowerCase()).toContain(concept);
+    }
+    for (const concept of ['XSS', 'IDOR', 'SSRF', 'CORS']) expect(web).toContain(concept);
+    expect(web).toContain('changed surfaces only');
+    expect(general).toContain('authorized actions are allowed');
+  });
+  it('keeps policy retirement separate from yield recommendations', () => {
+    const learn = renderTemplate('skills/prospec-learn.hbs', CONTEXT).split('### Sweep')[1]!;
+    const promotion = renderTemplate('skills/references/promotion-format.hbs', CONTEXT);
+    expect(learn).toContain('insufficient declared runs stay keep');
+    expect(learn).toContain('Must-run lenses never retire from yield');
+    expect(promotion).toContain('retirement requires an explicit policy change');
+    expect(promotion).toContain('Shared changes require human approval');
+  });
+});
+
+
+it('declares security risk triggers at both the skill and detail entry points', () => {
+  const skill = rendered.get('prospec-review')!.split('### Review Lenses')[1]!.split('### Severity Routing')[0]!;
+  const intro = renderTemplate('skills/references/review-lenses-content.hbs', CONTEXT).split('> **Severity')[0]!;
+  for (const entry of [skill, intro]) {
+    for (const trigger of ['inputs', 'filesystem writes', 'auth', 'secrets', 'external calls', 'dependencies', 'applicable conditional lenses']) {
+      expect(entry).toContain(trigger);
+    }
+    expect(entry).toContain('never Startup mandatory');
+  }
+});

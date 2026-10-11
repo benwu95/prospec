@@ -90,7 +90,7 @@ Shared writes record **source changes**, **criteria fired**, **approver**, **dat
 
 - **Ledger retirement**: A row is **never deleted, never re-keyed**. Set `status: retired`; `frequency`, `impact_modules` and `source_changes` stay untouched; it is never re-opened.
 - **Playbook retirement**: PB numbers are permanent and never reused. Replace TTL + Guidance with `- **RETIRED {date}**: {reason}` under `## Retired Entries`; a retired entry never returns to the needs-review list. Mechanized ≠ retired: keep rationale and `- **Inlined into gate {date}**` with `Landing: \`path\` (marker)`. A `personal` row is the opposite case and never compressed.
-- **Lens retirement**: Retire zero-yield entries after declared invocations ≥ min_invocations.
+- **Lens retirement**: Follow `learn yield` for conditional/custom retirement. Must-run review checks criteria, execution and attribution; retirement requires an explicit policy change. Shared changes require human approval.
 - **Cleanup approval**: Both cleanup tests require per-entry human approval before writes. Keep unapproved entries, uncovered clauses, ids and ledger counters. Resync strengthened clauses missing from Landing; never delete them for the cap.
 - **Stale cross-references**: Sweep ledger, playbook, skills and shipped Feature Specs for stale references; only a MODIFIED REQ graduated at archive may correct Feature Specs.
 - **Prose ownership**: Only one tier owns prose: promoted narratives live in the playbook; personal descriptions are promotion evidence, never compressed.

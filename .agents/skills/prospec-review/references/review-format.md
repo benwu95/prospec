@@ -117,12 +117,15 @@ read foo.ts:38-46 — the `<=` bound overruns when n === len.
 
 ## Reviewer Lenses
 
-| Lens | When | Looks for |
-|------|------|-----------|
-| correctness & edge cases | always | logic errors, boundary conditions, error paths |
-| security & data integrity | always | injection, auth gaps, unsafe writes, data loss |
-| **spec-architecture** | always (prospec) | vs `delta-spec` REQ intent, dependency direction, module conventions, ripple effects |
-| efficiency / performance | hot-path or data-layer change | N+1, needless allocation, blocking I/O |
-| maintainability / DRY | new abstractions introduced, or an existing helper / guard / writer re-implemented | duplication, leaky abstraction, dead branches, documented single-source bypass |
+| Lens | Classification | Looks for |
+|------|----------------|-----------|
+| Correctness & edge cases | must-run | Logic, boundaries, errors and state transitions. |
+| Security & data integrity | must-run | Injection, secrets, authorization, filesystem writes, preservation, model/tool trust and dependencies; web checks when applicable. |
+| Spec-architecture | must-run | REQ contradictions, dependencies, conventions and ripple. |
+| Efficiency / performance | conditional | Hot paths, repeated I/O, resource use or latency-sensitive changes. |
+| Maintainability / DRY | conditional | Abstractions, duplicated helpers/guards/writers, documented single-source bypass. |
+| Docs-claims | conditional | Documentation claims affected by changed behavior or interfaces. |
+| Parallel-site completeness | conditional | Sibling sites implementing the same changed behavior. |
+| Test-quality | conditional | Changed tests: behavior coverage, independent oracles and failure sensitivity. |
 
-A pluggable language-specific engine may add language lenses; the **spec-architecture** lens is always layered on by prospec — it is what a generic code-review tool cannot provide.
+Use the strongest available model/agent tier in fresh context. Record `prospec check --record-review --graded-by fresh-subagent` or `in-session` honestly; caps use dimension `graded_by`.

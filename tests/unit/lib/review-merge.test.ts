@@ -863,3 +863,18 @@ describe('review attempt receipt', () => {
     expect(() => parseReviewMetricsStrict('<!-- prospec:review-metrics request_id="oops" -->')).toThrow(/receipt/);
   });
 });
+
+
+it('keeps alias and canonical id-less finding identities separate through fallback and replay', () => {
+  const original = [finding({ location: 'a.ts:1', lens: 'correctness & edge cases', summary: 'alias finding' })];
+  const incoming = [
+    finding({ location: 'a.ts:1', lens: 'correctness', summary: 'canonical finding' }),
+    finding({ location: 'a.ts:1', lens: 'correctness & edge cases', summary: 'alias updated', status: 'fixed' }),
+  ];
+  const merged = mergeFindings(original, incoming);
+  expect(merged).toHaveLength(2);
+  expect(merged.map(row => [row.lens, row.summary])).toEqual([
+    ['correctness & edge cases', 'alias updated'], ['correctness', 'canonical finding'],
+  ]);
+  expect(mergeFindings(merged, incoming)).toEqual(merged);
+});
