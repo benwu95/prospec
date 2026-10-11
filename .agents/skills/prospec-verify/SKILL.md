@@ -359,7 +359,7 @@ budget-counted WARN. The CLI:
 
 `verified` means S/A only — WARN-heavy (B) or FAIL (C/D) changes do not graduate. Full lifecycle (`implemented → verified`): `prospec/ai-knowledge/_status-lifecycle.md`.
 
-The `metadata-completeness` drift check reads only `grade` (`hasVerifyGrade` accepts `grade` ∈ {S,A}); `dimensions` and the review counts are not read by any check — together with `grade` they make quality trends aggregatable across archives.
+The `metadata-completeness` drift check reads `grade` (`hasVerifyGrade` accepts `grade` ∈ {S,A}); `dimensions` and the review counts are not read by any check — together with `grade` they make quality trends aggregatable across archives.
 
 **Commit prompt (S/A only)**: reaching S/A is the single commit point — the last gate that can require code changes. Follow the canonical **Tastemaker Presentation & Human Gate** protocol defined in [`references/cascade-protocol.md §Tastemaker Presentation & Human Gate`](references/cascade-protocol.md) (confirm affected-module Knowledge and counts were synchronized before final review/tests/verify, updating descriptions without citing not-yet-graduated REQ ids; any later effective-input edit requires renewed validation). Prompt the user to commit the change as a single atomic-by-feature commit that folds the implement, review, and verify fixes plus Knowledge sync together. Do not commit automatically.
 

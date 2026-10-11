@@ -193,7 +193,7 @@ quality_log:
   consumes it yet. prospec detects no model: both are self-declared.
 - **`verifier_verdict`** (plan/tasks only) is written solely by `prospec change log --verifier-report`
   — the verifier's own verdict (`PASS` | `WARN` | `FLAWS`; `FLAWS` maps to `result: FAIL`). It is the
-  provenance stamp `prospec status` keys on: only a stamped entry is the station's verifier result, a
+  provenance stamp `prospec status` keys on: a stamped entry is the station's verifier result, a
   later stamped `PASS`/`WARN` supersedes a stamped `FLAWS`, and a station's own Exit Gate entry under
   the same skill (unstamped) is never read as one. Legacy unstamped Break-Glass `WARN` entries with `{{break_glass_prefix}}` remain historical evidence,
   but cannot unlock a pending escalation. New grants are explicit composed WARNs with a nonempty human reason, bound by the CLI to the current event and station; report warning text grants nothing.
@@ -202,7 +202,7 @@ quality_log:
 - **`signoff_option`** (plan only) is written solely by `prospec change log --signoff` — the human's
   plan sign-off: a candidate option (`option-a` | `option-b` | `option-c` | `hybrid`) at full scale, `plan` otherwise —
   with **`signoff_plan_digest`**, the plan version signed. The CLI states its own acceptance rules. It
-  releases the plan pause only while no later verifier entry follows it and the plan is unchanged, and it is provenance,
+  releases the plan pause while no later verifier entry follows it and the plan is unchanged, and it is provenance,
   not a gate result: it neither counts as a verifier result nor hides an unresolved WARN.
 - `warnings` is always present (use `[]` when none); each entry is one string.
 - Omit the optional keys entirely when they do not apply — do not write them as `null`/empty.

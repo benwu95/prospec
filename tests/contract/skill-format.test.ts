@@ -7740,7 +7740,7 @@ describe('opt-in plan sign-off pause and autonomous selection (REQ-TEMPLATES-236
     const text = oneLine(render('skills/references/metadata-format.hbs'));
     expect(text).toMatch(/\*\*`audited_option`\*\* \/ \*\*`audited_plan_digest`\*\* \(plan only\) are stamped by the same sink/);
     expect(text).toMatch(/a candidate option \(`option-a` \| `option-b` \| `option-c` \| `hybrid`\) at full scale, `plan` otherwise — with \*\*`signoff_plan_digest`\*\*, the plan version signed/);
-    expect(text).toMatch(/releases the plan pause only while no later verifier entry follows it and the plan is unchanged/);
+    expect(text).toMatch(/releases the plan pause while no later verifier entry follows it and the plan is unchanged/);
     expect(text).toMatch(/\*\*`signoff_option`\*\* \(plan only\) is written solely by `prospec change log --signoff`/);
     expect(text).toMatch(/neither counts as a verifier result nor hides an unresolved WARN/);
   });

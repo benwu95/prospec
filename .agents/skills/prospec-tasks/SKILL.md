@@ -191,7 +191,7 @@ Verify the output against this skill's **site-specific** Constitution rule (**TD
 - **NEVER** fabricate mock report files, dummy outputs, or synthetic PASS when a receipt file is missing or unreadable — fail closed with concrete diagnostic errors
 - **NEVER** add `references/tasks-verifier-rubric.md` to Startup Loading or the stable prefix — it is an in-phase, on-demand read only (preserves cache stability)
 - **NEVER** hardcode specific layer architectures in the verifier audit — dynamically resolve rules from the project's Constitution and conventions
-- **NEVER** proceed past Phase 6 on unresolved FLAWS; a documented Break-Glass Override authorizes only another attempt
+- **NEVER** proceed past Phase 6 on unresolved FLAWS; a documented Break-Glass Override authorizes another attempt
 
 ## Error Handling
 
