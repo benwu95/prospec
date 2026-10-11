@@ -10,7 +10,7 @@
 
 **讓 AI coding agent 共用、可接續的專案開發流程**
 
-*專案內的規格與規則 · 分站 Skills · 確定性 CLI — 支援 Claude Code、Codex、Copilot、Antigravity*
+*專案內的規格、規則與變更歷史 · Skills 指引判斷 · CLI 執行確定性步驟*
 
 [English](./README.md) • [快速上手](#快速上手) • [為什麼選擇 Prospec？](#為什麼選擇-prospec) • [文件](./docs/README.zh-TW.md) • [運作原理](./docs/concepts/how-it-works.zh-TW.md) • [CLI 參考](./docs/reference/cli-reference.zh-TW.md)
 
@@ -22,7 +22,7 @@
 
 ## 什麼是 Prospec？
 
-Prospec 讓開發者與 AI coding agent **依據專案內的檔案，共用同一套開發流程**。Spec 記錄預期行為；Constitution、conventions 與模組知識留下開發規則及修改程式碼前需要注意的事。進行中的 change 檔案記錄需求、計畫與任務。工作暫停時，`prospec status` 會列出目前站點、下一個 Skill 與阻擋條件，讓使用同一專案的其他 agent 能依據已記錄的狀態接手。
+**Prospec** 的名稱結合 **Project + Specification**。它讓開發者與 AI coding agent **依據專案內的檔案，共用同一套開發流程**。Spec 記錄預期行為；Constitution、conventions 與模組知識留下開發規則及修改程式碼前需要注意的事。進行中的 change 檔案記錄需求、計畫與任務。工作暫停時，`prospec status` 會列出目前站點、下一個 Skill 與阻擋條件，讓使用同一專案的其他 agent 能依據已記錄的狀態接手。
 
 日常工作由 agent 內的 host-aware **Skills** 驅動（Claude Code、Antigravity、Copilot、Codex）。每一站都有操作說明，指引訪談、文件撰寫、審查與裁決等判斷工作；必裝的獨立執行檔 **`prospec` CLI** 則負責確定性的 scaffold、狀態轉換、結構化紀錄、檢查、評分與 spec sync。標準流程是 `story → plan → design → tasks → implement → review → verify → knowledge-update → archive`；Design 視 UI 範圍執行，change scale 也可能縮短流程。
 

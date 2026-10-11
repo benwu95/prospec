@@ -10,7 +10,7 @@
 
 **A shared, resumable development workflow for AI coding agents**
 
-*Project-local specs and rules · stage-by-stage Skills · deterministic CLI — for Claude Code, Codex, Copilot, Antigravity*
+*Project-local specs, rules, and change history · Skills guide judgment · the CLI executes deterministic steps*
 
 [繁體中文](./README.zh-TW.md) • [Quickstart](#quickstart) • [Why Prospec?](#why-prospec) • [Documentation](./docs/README.md) • [How It Works](./docs/concepts/how-it-works.md) • [CLI Reference](./docs/reference/cli-reference.md)
 
@@ -22,7 +22,7 @@
 
 ## What is Prospec?
 
-Prospec gives developers and AI coding agents a **shared workflow grounded in files inside the project**. Specs describe expected behavior; the Constitution, conventions, and module knowledge record project rules and things an agent needs to know before changing code. In-progress change files capture the request, plan, and tasks. When work pauses, `prospec status` reports the current station, next Skill, and blocking gates, so another agent working in the same project can resume from the recorded state.
+**Prospec** combines **Project + Specification**. It gives developers and AI coding agents a **shared workflow grounded in files inside the project**. Specs describe expected behavior; the Constitution, conventions, and module knowledge record project rules and things an agent needs to know before changing code. In-progress change files capture the request, plan, and tasks. When work pauses, `prospec status` reports the current station, next Skill, and blocking gates, so another agent working in the same project can resume from the recorded state.
 
 You work through host-aware **Skills inside your agent** (Claude Code, Antigravity, Copilot, Codex). Each station has instructions for the judgment it needs — interviews, prose, reviews, and verdicts — while the required standalone **`prospec` CLI** handles deterministic scaffolding, status transitions, structured records, checks, grading, and spec sync. The standard path is `story → plan → design → tasks → implement → review → verify → knowledge-update → archive`; Design is conditional on UI scope, and change scale can shorten the path.
 
