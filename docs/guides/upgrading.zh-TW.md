@@ -39,6 +39,22 @@ prospec-upgrade                 # 步驟 2：AI Agent 依盤點報告遷移格�
 > - **舊版檔案清理**：若從早於 1.0 的舊版 Prospec 升級，完成升級同步後可手動清理不再使用的舊版檔案與目錄：`GEMINI.md`、`.gemini/skills/`、`.codex/skills/`、`.github/copilot-instructions.md` 與 `.github/instructions/`。
 > - **設定檔版本與觸發詞**：`.prospec.yaml` 的 `version` 會記錄專案上次升級的版本。新增 Skill 後若想單獨檢查或在地化觸發詞，只需直接執行 `prospec agent sync`，系統會明確列出缺少的條目供填補，完全無需重新建立設定檔。
 
+## 升級至 2.5.0
+
+先更新 binary，再執行 `prospec upgrade`，讓同步後的 Skills 可使用新的 `history` commands。不需要遷移設定。
+
+Linked worktree 產生的 archive 與 abandoned bundles 現在存於 main worktree 的對應專案。Active changes、設定、Feature Specs 與 Knowledge 仍留在來源專案。移除含有舊版本機歷史的 worktree 前，先檢查並匯入：
+
+```bash
+prospec history paths --json
+prospec history import --from /path/to/source-project --dry-run
+prospec history import --from /path/to/source-project
+```
+
+Import 保留來源 bundles；移除來源 worktree 前，先處理回報的衝突或失敗。在移除原始來源專案前，於該專案完成 `prospec archive finalize <name> --bundle <archiveIdentity>`。自訂 scripts 必須使用 CLI 回傳的路徑與 identity，不要自行重建目前 worktree 下的路徑。Main worktree 儲存不等於 repository 或 Git objects 的備份。支援的拓撲與失敗回報見 [History commands](../reference/cli-reference.zh-TW.md)。
+
+升級後執行 `prospec status` 與 `prospec check --strict`。
+
 ## 2.0 新功能
 
 Prospec 2.0 把 SDD 從一串引導步驟，提升為**受 gate 管理、可恢復的 pipeline**：Skills 保留判斷面，CLI 則負責狀態轉換、evidence 與 spec landing。

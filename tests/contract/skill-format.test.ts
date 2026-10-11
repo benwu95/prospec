@@ -2718,16 +2718,16 @@ describe('Skill Format Contract', () => {
       expect(release).toContain('quality');
       expect(release).not.toContain('Upcoming 2.0');
       expect(release).not.toContain('released version remains');
-      expect(website).toContain('<span class="ver">2.4.0</span>');
-      expect(website).toContain('"softwareVersion":"2.4.0"');
+      expect(website).toContain('<span class="ver">2.5.0</span>');
+      expect(website).toContain('"softwareVersion":"2.5.0"');
       expect(zhOverlay).toContain("'v2.eyebrow'");
       expect(zhOverlay).toContain('2.0 新功能');
       expect(zhOverlay).not.toContain('即將推出 2.0');
       expect(zhOverlay).not.toContain('已發布版本仍維持');
     });
 
-    it('describes the 2.0 social image with the current runtime and lifecycle', () => {
-      const alt = 'Prospec 2.0 social preview: spec-driven development that audits itself, with stronger planning, deterministic gates, disciplined review, standalone binaries, and a lifecycle from story through knowledge update to archive.';
+    it('describes the 2.5.0 social image with the current runtime and lifecycle', () => {
+      const alt = 'Prospec 2.5.0 social preview: spec-driven development that audits itself, with stronger planning, deterministic gates, disciplined review, standalone binaries, and a lifecycle from story through knowledge update to archive.';
       expect(website).toContain(`<meta property="og:image:alt" content="${alt}">`);
       expect(website).toContain(`<meta name="twitter:image:alt" content="${alt}">`);
       expect(website).not.toContain('Current 1.3 social preview');

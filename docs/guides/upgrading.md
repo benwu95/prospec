@@ -39,6 +39,22 @@ prospec-upgrade                 # Step 2: AI agent migrates drifted doc formats,
 > - **Legacy File Cleanup**: If upgrading from an older pre-1.0 Prospec layout, remove the now-unused legacy files and directories after re-syncing: `GEMINI.md`, `.gemini/skills/`, `.codex/skills/`, `.github/copilot-instructions.md`, and `.github/instructions/`.
 > - **Configuration Version & Triggers**: `.prospec.yaml` `version` tracks the prospec version the project last upgraded to. If you ever need to localize triggers after adding a skill, simply run `prospec agent sync` — it explicitly reports missing `skill_triggers` entries so you fill only the gaps.
 
+## Upgrade to 2.5.0
+
+Update the binary before running `prospec upgrade` so the synced Skills can use the new `history` commands. No configuration migration is required.
+
+Archive and abandoned bundles created in linked worktrees now live in the corresponding main-worktree project. Active changes, configuration, Feature Specs and Knowledge remain in the source project. Before removing a worktree that contains older local history, inspect and import it:
+
+```bash
+prospec history paths --json
+prospec history import --from /path/to/source-project --dry-run
+prospec history import --from /path/to/source-project
+```
+
+Import retains source bundles; resolve reported conflicts or failures before removing the source worktree. Finish `prospec archive finalize <name> --bundle <archiveIdentity>` in the original source project before removing it. Scripts must use the CLI-returned paths and identities rather than reconstructing paths under the current worktree. Main-worktree storage does not back up the repository or Git objects. See [History commands](../reference/cli-reference.md) for supported topology and failure reporting.
+
+Run `prospec status` and `prospec check --strict` after upgrading.
+
 ## What's new in 2.0
 
 Prospec 2.0 turns SDD from a guided sequence into a **gated, resumable pipeline**: Skills retain judgment, while the CLI owns state transitions, evidence, and spec landing.
