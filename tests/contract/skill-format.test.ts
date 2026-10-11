@@ -8385,6 +8385,18 @@ describe('split and trim references contract (REQ-TEMPLATES-215~220, REQ-AGNT-04
     expect(tasksRubric).toContain('references/tasks-format.md §4');
   });
 
+  it.each([
+    ['plan', 'Revise `plan.md`/`delta-spec.md` to resolve flaws.'],
+    ['tasks', 'Revise `tasks.md` to resolve flaws.'],
+  ])('%s verifier rubric FLAWS row sends the developer back to revision only', (name, action) => {
+    const rubric = renderTemplate(`skills/references/${name}-verifier-rubric.hbs`, TEMPLATE_CONTEXT);
+    const table = findTable(sectionOf(rubric, '## Verdict & Severity Contract').split('\n'), {
+      isTarget: (h) => h[0] === 'verdict',
+    });
+    expect(table).not.toBeNull();
+    expect(table!.rows.find((r) => r[0] === '**FLAWS** (FAIL)')?.[2]).toBe(action);
+  });
+
   it('consolidates Tastemaker feature commit prompt into cascade-protocol.hbs and cites it in prospec-verify.hbs', () => {
     const cascadeContent = renderTemplate('skills/references/cascade-protocol.hbs', TEMPLATE_CONTEXT);
     expect(cascadeContent).toContain('## Tastemaker Presentation & Human Gate');
@@ -10651,7 +10663,6 @@ describe('quantitative target baselines (issue #331)', () => {
     expect(row).toBeDefined();
     expect(row![1]).toContain('a quantitative acceptance target missing its measured baseline');
     expect(row![1]).toContain('an unmet gap without a closing mechanism');
-    expect(row![2]).toContain('Break-Glass Override');
   };
   const headers = ['Acceptance target', 'Measured HEAD/version', 'Baseline value', 'Measurement command',
     'Target', 'Gap', 'Closing mechanism / estimated improvement'];

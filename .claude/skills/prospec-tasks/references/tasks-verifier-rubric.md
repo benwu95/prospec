@@ -38,7 +38,7 @@ The Verifier audits `tasks.md` across four orthogonal dimensions:
 |---------|-----------|--------|
 | **PASS** | All 4 dimensions satisfied; 100% contract coverage and correct topological ordering. | Advance to `prospec-implement` or manual review. |
 | **WARN** | Advisory concerns (e.g. minor task sizing variance). | Record to `metadata.yaml` `quality_log` (`result: WARN`). Does not block progression. |
-| **FLAWS** (FAIL) | Structural defect (uncovered REQ-ID, inverted dependency ordering, missing test task for affected module, missing `[M]`/`[V]` marker). | Revise `tasks.md` to resolve flaws, or exercise Break-Glass Override. |
+| **FLAWS** (FAIL) | Structural defect (uncovered REQ-ID, inverted dependency ordering, missing test task for affected module, missing `[M]`/`[V]` marker). | Revise `tasks.md` to resolve flaws. |
 
 ---
 
