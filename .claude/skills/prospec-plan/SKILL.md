@@ -243,7 +243,7 @@ Verify the output against this skill's **site-specific** Constitution rule (**de
 - **NEVER** add the `_diagram-conventions.md` diagram read to Startup Loading or the stable prefix — it is an in-phase, on-demand read only
 - **NEVER** add `references/plan-verifier-rubric.md` to Startup Loading or the stable prefix — it is an in-phase, on-demand read only
 - **NEVER** hardcode specific layer architectures in the verifier audit — dynamically resolve rules from the project's Constitution and conventions
-- **NEVER** proceed past Phase 6 on unresolved FLAWS; a documented Break-Glass Override authorizes only another attempt
+- **NEVER** proceed past Phase 6 on unresolved FLAWS; a documented Break-Glass Override authorizes another attempt
 
 ## Error Handling
 
