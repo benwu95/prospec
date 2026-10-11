@@ -77,5 +77,5 @@ flowchart LR
 4. **`next`** — a station, or `null` for a human halt, whose code then belongs in `HUMAN_HALT_CODES` (`status-router-rules.test.ts`).
 5. **Lifecycle prose** — `_status-lifecycle.md` and its shipped twin `src/templates/init/status-lifecycle.md.hbs` describe each code; update both alike.
 6. **Diagram** — run `pnpm routing-flow`; `tests/contract/routing-flow.test.ts` fails until the region is redrawn.
-7. **Tests** — add cases to `tests/unit/lib/status-router.test.ts`; when routing output changes on purpose, delete `tests/fixtures/legacy-status-router.ts` and `status-router-equivalence.test.ts`.
+7. **Tests** — add cases to `tests/unit/lib/status-router.test.ts`.
 8. **A refusal at a CLI write is a writer gate, not a rule** — it belongs to that command (e.g. `lib/archive-gate.ts`).
