@@ -2709,28 +2709,27 @@ describe('Skill Format Contract', () => {
     const zhOverlay = fs.readFileSync(path.join(root, 'docs/i18n.js'), 'utf-8');
     const zhTranslations = websiteTranslationMap(zhOverlay);
 
-    it('presents the 2.0 release story with the released version fields', () => {
-      const release = htmlSectionById(website, 'v2');
-      expect(release).toContain("What's new in 2.0");
-      expect(release).toContain('1.3 → 2.0');
-      expect(release).toContain('planning');
-      expect(release).toContain('gated');
-      expect(release).toContain('quality');
-      expect(release).not.toContain('Upcoming 2.0');
-      expect(release).not.toContain('released version remains');
+    it('presents current workflow capabilities without obsolete upgrade instructions', () => {
+      const workflow = htmlSectionById(website, 'v2');
+      expect(workflow).toContain('prospec status');
+      expect(workflow).toContain('docs/guides/upgrading.md');
       expect(website).toContain('<span class="ver">2.5.0</span>');
       expect(website).toContain('"softwareVersion":"2.5.0"');
-      expect(zhOverlay).toContain("'v2.eyebrow'");
-      expect(zhOverlay).toContain('2.0 新功能');
-      expect(zhOverlay).not.toContain('即將推出 2.0');
-      expect(zhOverlay).not.toContain('已發布版本仍維持');
+      for (const page of [website, zhOverlay]) {
+        expect(page).not.toContain('1.3 → 2.0');
+        expect(page).not.toContain("What's new in 2.0");
+        expect(page).not.toContain('2.0 新功能');
+      }
     });
 
-    it('describes the 2.5.0 social image with the current runtime and lifecycle', () => {
-      const alt = 'Prospec 2.5.0 social preview: spec-driven development that audits itself, with stronger planning, deterministic gates, disciplined review, standalone binaries, and a lifecycle from story through knowledge update to archive.';
-      expect(website).toContain(`<meta property="og:image:alt" content="${alt}">`);
-      expect(website).toContain(`<meta name="twitter:image:alt" content="${alt}">`);
-      expect(website).not.toContain('Current 1.3 social preview');
+    it('describes the same current social image for both sharing consumers', () => {
+      const ogAlt = website.match(/<meta property="og:image:alt" content="([^"]+)">/)?.[1];
+      const twitterAlt = website.match(/<meta name="twitter:image:alt" content="([^"]+)">/)?.[1];
+      expect(ogAlt).toBeDefined();
+      expect(twitterAlt).toBe(ogAlt);
+      expect(ogAlt).toContain('2.5.0');
+      expect(ogAlt).toContain('shared');
+      expect(ogAlt).not.toContain('audits itself');
     });
 
     it('renders the canonical standard lifecycle in order and names its exceptions', () => {
@@ -2907,9 +2906,7 @@ describe('Skill Format Contract', () => {
       const chineseRuntimeBoundary = zhTranslations.get('quickstart.lede');
       expect(chineseRuntimeBoundary).toBeDefined();
       expect(chineseRuntimeBoundary).toContain('獨立執行檔不需要 Node.js');
-      expect(chineseRuntimeBoundary).toContain(
-        '只有 npx、devDependency 與原始碼開發路徑需要 Node.js ≥ 22.13',
-      );
+      expect(htmlSectionById(website, 'quickstart')).not.toContain('npx github:');
 
       const seoDescriptions = [...website.matchAll(
         /<meta name="description" content="([^"]+)">/g,
@@ -2936,7 +2933,19 @@ describe('Skill Format Contract', () => {
 
     it('keeps translated metadata and user-facing claims aligned with visible content', () => {
       expect(website).toContain('story → plan → design → tasks → implement → review → verify → knowledge update → archive');
-      expect(website).toContain('prospec measure');
+      expect(website).not.toContain('token-saving claim');
+      expect(zhOverlay).not.toContain('省 token 的主張');
+      const faq = websiteJsonLdBlocks(website).find((block) => block['@type'] === 'FAQPage');
+      const questions = [...website.matchAll(/data-i18n="faq\.q\d+\.q">([\s\S]*?)<\/span>/g)];
+      const answers = [...website.matchAll(/data-i18n="faq\.q\d+\.a">([\s\S]*?)<\/div>/g)];
+      const plainText = (html: string) => html.replace(/<[^>]+>/g, '').replace(/&amp;/g, '&');
+      expect(questions).toHaveLength(6);
+      expect(answers).toHaveLength(6);
+      expect(faq?.mainEntity).toHaveLength(6);
+      questions.forEach((question, index) => {
+        expect(faq?.mainEntity?.[index]?.name).toBe(plainText(question[1]!));
+        expect(faq?.mainEntity?.[index]?.acceptedAnswer.text).toBe(plainText(answers[index]![1]!));
+      });
       expect(website).not.toContain('3,777');
       expect(website).not.toContain('3777');
       expect(zhOverlay).not.toContain('3,777');
