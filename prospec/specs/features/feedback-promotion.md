@@ -1,9 +1,9 @@
 ---
 feature: feedback-promotion
 status: active
-last_updated: 2026-10-10
+last_updated: 2026-10-11
 story_count: 5
-req_count: 25
+req_count: 26
 ---
 
 # Feedback Promotion Pipeline
@@ -71,6 +71,7 @@ _(None)_
 
 | Date | Change | Impact | Stories/REQs |
 |------|--------|--------|--------------|
+| 2026-10-11 | unify-review-lenses | ADDED REQ-TYPES-114; MODIFIED REQ-LIB-065; MODIFIED REQ-TEMPLATES-204; MODIFIED REQ-TEMPLATES-072; MODIFIED REQ-TESTS-100 | REQ-TYPES-114, REQ-LIB-065, REQ-TEMPLATES-204, REQ-TEMPLATES-072, REQ-TESTS-100 |
 | 2026-10-10 | remove-stale-spec-claims | MODIFIED REQ-TYPES-024; MODIFIED REQ-TESTS-024 | REQ-TYPES-024, REQ-TESTS-024 |
 | 2026-10-10 | preserve-worktree-history | MODIFIED REQ-SERVICES-099 | REQ-SERVICES-099 |
 | 2026-10-09 | slim-readme-into-docs | MODIFIED REQ-CLI-059 | REQ-CLI-059 |
