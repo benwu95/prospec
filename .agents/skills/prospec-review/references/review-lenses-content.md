@@ -1,8 +1,6 @@
 # Review Lens Criteria Reference
 
-Concrete, checkable criteria for **prospec-review**'s conditional lenses — security, efficiency/
-performance, and maintainability/DRY. Loaded **on demand** when a conditional lens applies; it is NOT a
-Startup Loading item.
+Load for inputs, filesystem writes, auth, secrets, external calls, dependencies or applicable conditional lenses; never Startup mandatory.
 
 > **Severity vocabulary is defined once, in `review-format.md`** (critical / major / minor). This file does
 > NOT redefine severity — it maps each criterion onto that vocabulary. The **spec-architecture** lens stays
@@ -45,18 +43,28 @@ SOFTWARE.
 
 ## Security & Data Integrity Lens
 
+Cite defects against authorization, sensitivity and preservation contracts; valid symlinks, public directories and authorized actions are allowed.
+
+### General
+
 | Criterion | Default severity |
 |-----------|------------------|
-| External input validated at the boundary; queries parameterized (no string-concatenated SQL/NoSQL); no `eval`/`innerHTML`/shell/file-path from user input | critical (injection / code execution) |
-| Output encoded/escaped to prevent XSS | critical |
-| Every endpoint authorizes before acting; a user can only access resources they own (no IDOR); admin actions require a verified admin role | critical (broken access control / privilege escalation) |
-| Server-side fetches allowlisted by host; resolved IPs rejected for private/reserved ranges (block `169.254.169.254`); redirects disallowed on SSRF-prone fetches | critical (SSRF) / major (redirect bypass) |
-| No secrets in code or VCS; `.env` git-ignored; sensitive fields stripped from responses and logs | critical (credential / PII leak) |
-| Passwords hashed with bcrypt/scrypt/argon2; session cookies `httpOnly`+`secure`+`sameSite` | critical |
-| LLM/model output treated as untrusted input; no secrets/PII/system-prompt in model context; tool permissions least-privilege; destructive actions need confirmation | critical (untrusted output) / major (excessive agency) |
-| Security headers (CSP, HSTS, X-Frame-Options); CORS not wildcard on credentialed endpoints; errors don't leak stack traces | major / critical (wildcard CORS on credentials) |
-| Dependencies audited; lockfile committed and CI installs from it; `pnpm audit` criticals fixed | major / critical (known CVE) |
-| Login/reset endpoints rate-limited; reset tokens expire | major (brute force) |
+| Prevent query, shell, path and marker injection at input boundaries | critical (execution or authority bypass) |
+| Constrain secrets and sensitive data in storage, VCS, output and logs | critical (disclosure) |
+| Keep resolved paths and followed symlinks within authorized scope | critical (boundary escape) |
+| Match file/directory permissions to sensitivity | critical (unauthorized access) |
+| Preserve data on partial failure/overwrite per atomicity or recovery contract | critical (data loss) |
+| Distrust model output; authorize context disclosure, tools and side effects | critical (boundary bypass) / major (excess authority) |
+| Assess dependency vulnerabilities against actual exposure | major / critical (exploitable defect) |
+
+### Web / HTTP — changed surfaces only
+
+| Criterion | Default severity |
+|-----------|------------------|
+| Encode output against XSS; authorize resource access against IDOR | critical |
+| Constrain destinations, resolved addresses and redirects against SSRF | critical / major (bypass) |
+| Protect credentials and sessions: password hashing, cookie flags, expiry, login/reset rate limits | critical / major (brute force) |
+| Apply security headers, credential-safe CORS and non-disclosing errors | major / critical (credential exposure) |
 
 ---
 

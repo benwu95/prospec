@@ -669,9 +669,9 @@ export const STATION_REFERENCES: Readonly<Record<string, StationReferenceEntry>>
         phase: 'Review Lenses',
         site: 'Core Workflow > Review Lenses',
         target: { kind: 'reference', reference: 'review-lenses-content.md' },
-        purpose: 'the severity-pre-mapped criteria behind each conditional lens',
+        purpose: 'criteria for security risk surfaces and applicable conditional lenses',
         loading: 'in-phase',
-        conditionHint: 'a conditional lens applies to this diff',
+        conditionHint: 'security risk surfaces or a conditional lens apply to this diff',
       },
       {
         id: 'severity-review-format',

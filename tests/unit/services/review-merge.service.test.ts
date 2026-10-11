@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { vol } from 'memfs';
+import { parseReviewDocument, parseReviewMetricsStrict } from '../../../src/lib/review-merge.js';
 import { execute } from '../../../src/services/review-merge.service.js';
 import { readChangeMetadata, writeChangeMetadataDoc } from '../../../src/lib/change-metadata.js';
 import { DelegationRefusedError, PrerequisiteError, ProspecError, TestGateError } from '../../../src/types/errors.js';
@@ -1448,4 +1449,72 @@ it('F330-R3-1: refuses a source-content change after the exemption WARN before r
   expect.soft(log.filter(entry => entry.accepted)).toEqual([]);
   expect.soft(log.filter(entry => entry.skill === TEST_GATE_PRODUCER)).toHaveLength(1);
   expect(vol.existsSync(REVIEW)).toBe(false);
+});
+
+
+describe('declaration canonicalization boundary', () => {
+  const legacy = '<!-- prospec:review-metrics round="1" lenses="Correctness & Edge Cases, SECURITY ,Custom,custom" -->\n# Review Findings: add-widget\n';
+
+  it.each([{ lenses: [] }, { lenses: ['correctness', 'security', 'security/correctness', 'Custom'] }])('canonicalizes supplied lenses %j without rewriting finding identity or evidence', async ({ lenses }) => {
+    const findings = [
+      { id: 'alias', location: 'a.ts:1', severity: 'major', lens: 'Correctness & Edge Cases', summary: 'first', evidence: 'Exact evidence\n\nwith `syntax`.' },
+      { id: 'canonical', location: 'a.ts:1', severity: 'major', lens: 'correctness', summary: 'second' },
+    ];
+    seed(findings, legacy);
+    const input = vol.readFileSync(FINDINGS, 'utf8');
+    await execute({ cwd: CWD, findingsPath: FINDINGS, round: 1, lenses });
+    const written = String(vol.readFileSync(REVIEW, 'utf8'));
+    expect(parseReviewMetricsStrict(written).lenses).toEqual(['correctness', 'security', 'Custom', 'custom', ...(lenses.length ? ['security/correctness'] : [])]);
+    expect(parseReviewDocument(written).rows.map(row => [row.id, row.lens, row.summary])).toEqual([
+      ['alias', 'Correctness & Edge Cases', 'first'], ['canonical', 'correctness', 'second'],
+    ]);
+    expect(written).toContain(findings[0]!.evidence);
+    expect(vol.readFileSync(FINDINGS, 'utf8')).toBe(input);
+    await execute({ cwd: CWD, findingsPath: FINDINGS, round: 1, lenses });
+    expect(vol.readFileSync(REVIEW, 'utf8')).toBe(written);
+  });
+
+  it('leaves omitted declarations as authored', async () => {
+    seed([], legacy);
+    await execute({ cwd: CWD, findingsPath: FINDINGS, round: 1 });
+    expect(parseReviewMetricsStrict(String(vol.readFileSync(REVIEW, 'utf8'))).lenses).toEqual(['Correctness & Edge Cases', 'SECURITY', 'Custom', 'custom']);
+  });
+
+  it('keeps raw supplied aliases in receipt identity even when declarations coincide', async () => {
+    seed([]);
+    await execute({ cwd: CWD, findingsPath: FINDINGS, round: 1, lenses: ['correctness & edge cases'] });
+    const first = parseReviewMetricsStrict(String(vol.readFileSync(REVIEW, 'utf8')));
+    await execute({ cwd: CWD, findingsPath: FINDINGS, round: 1, lenses: ['correctness'] });
+    const second = parseReviewMetricsStrict(String(vol.readFileSync(REVIEW, 'utf8')));
+    expect(first.lenses).toEqual(['correctness']);
+    expect(second.lenses).toEqual(first.lenses);
+    expect(second.receipt!.request_id).not.toBe(first.receipt!.request_id);
+  });
+
+  it('preserves declarations on invalid input and failure-only metrics writes', async () => {
+    seed([{ invalid: true }], legacy);
+    await expect(execute({ cwd: CWD, findingsPath: FINDINGS, lenses: ['security'] })).rejects.toThrow();
+    expect(vol.readFileSync(REVIEW, 'utf8')).toBe(legacy);
+    seed([], legacy, FAILED('red'));
+    await expect(execute({ cwd: CWD, findingsPath: FINDINGS, lenses: [] })).rejects.toBeInstanceOf(TestGateError);
+    expect(parseReviewMetricsStrict(String(vol.readFileSync(REVIEW, 'utf8'))).lenses).toEqual(['Correctness & Edge Cases', 'SECURITY', 'Custom', 'custom']);
+  });
+
+  it('preserves all bytes when supplied lenses meet a stale pre-write snapshot', async () => {
+    seed([], legacy);
+    const before = vol.readFileSync(METADATA, 'utf8');
+    snapshot.sequence = ['D', 'MOVED'];
+    await expect(execute({ cwd: CWD, findingsPath: FINDINGS, round: 1, lenses: [] })).rejects.toThrow(/changed before the write/);
+    expect(vol.readFileSync(REVIEW, 'utf8')).toBe(legacy);
+    expect(vol.readFileSync(METADATA, 'utf8')).toBe(before);
+  });
+
+  it('keeps concurrent metadata after the canonical artifact is written', async () => {
+    seed([], legacy);
+    const before = String(vol.readFileSync(METADATA, 'utf8'));
+    writes.afterWrite = file => { if (file === REVIEW) vol.appendFileSync(METADATA, '# concurrent edit\n'); };
+    await expect(execute({ cwd: CWD, findingsPath: FINDINGS, round: 1, lenses: [] })).rejects.toThrow();
+    expect(vol.readFileSync(METADATA, 'utf8')).toBe(before + '# concurrent edit\n');
+    expect(parseReviewMetricsStrict(String(vol.readFileSync(REVIEW, 'utf8'))).lenses).toEqual(['correctness', 'security', 'Custom', 'custom']);
+  });
 });

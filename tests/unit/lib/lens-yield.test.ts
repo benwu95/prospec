@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import {
   normalizeLens,
+  canonicalizeDeclaredLenses,
   isConfirmedFinding,
   calculateLensYield,
   recommendLensRetirement,
@@ -100,7 +101,7 @@ describe('lens-yield library', () => {
       expect(security?.confirmed_findings).toBe(0);
       expect(security?.yield_ratio).toBe(0);
       expect(security?.consecutive_zero_changes).toBe(2);
-      expect(security?.action).toBe('retire');
+      expect(security?.action).toBe('review');
       expect(security?.reason).toContain('Consecutive zero confirmed findings');
 
       const performance = stats.find((s) => s.lens.toLowerCase() === 'performance');
@@ -233,7 +234,7 @@ describe('lens-yield library', () => {
       expect(correctness?.invocation_source).toBe('declared');
     });
 
-    it('lets declared zero-yield runs retire a lens even when a legacy rows-only change also names it', () => {
+    it('reviews a must-run lens after declared zero-yield runs despite a legacy rows-only finding', () => {
       const corpus: ChangeReviewEntry[] = [
         {
           changeName: 'legacy',
@@ -247,7 +248,7 @@ describe('lens-yield library', () => {
       expect(security?.declared_invocations).toBe(6);
       expect(security?.invocation_source).toBe('declared');
       expect(security?.consecutive_zero_changes).toBe(6);
-      expect(security?.action).toBe('retire');
+      expect(security?.action).toBe('review');
       expect(security?.reason).toContain('6 declared invocations');
     });
 
@@ -297,5 +298,80 @@ describe('lens-yield library', () => {
       expect(res[1]?.lens).toBe('Mid');
       expect(res[2]?.lens).toBe('High');
     });
+  });
+});
+
+const aliases = [
+  ['correctness', 'correctness & edge cases'],
+  ['security', 'security & data integrity'],
+  ['security', 'security-data-integrity'],
+  ['security', 'security/data-integrity'],
+  ['performance', 'efficiency / performance'],
+  ['performance', 'efficiency/performance'],
+  ['maintainability', 'maintainability / DRY'],
+  ['maintainability', 'maintainability/DRY'],
+  ['parallel-site-completeness', 'parallel-site completeness'],
+];
+
+describe('canonical lens projection', () => {
+  it.each(aliases)('maps %s alias %s by complete trimmed case-insensitive lookup', (canonical, alias) => {
+    expect(normalizeLens(`  ${alias.toUpperCase()}  `)).toBe(canonical);
+  });
+  it.each(aliases)('displays %s for either encounter order of %s', (canonical, alias) => {
+    for (const lensesRun of [[alias, canonical], [canonical, alias]]) {
+      expect(calculateLensYield([{ changeName: 'one', lensesRun, rows: [] }])).toEqual([expect.objectContaining({ lens: canonical, invocations: 1, declared_invocations: 1 })]);
+    }
+  });
+  it.each(['security/correctness', 'custom SECURITY', 'security / data-integrity', ''])('does not infer unknown %s', (name) => {
+    expect(normalizeLens(` ${name} `)).toBe(name.toLowerCase());
+  });
+  it('canonicalizes known declarations in encounter order and preserves exact custom strings', () => {
+    expect(canonicalizeDeclaredLenses([' SECURITY ', 'Custom', 'security-data-integrity', 'custom', ' Custom ', 'Custom', 'correctness & edge cases', 'security/correctness', '', '']))
+      .toEqual(['security', 'Custom', 'custom', ' Custom ', 'correctness', 'security/correctness', '']);
+  });
+  it('counts canonical invocations once per change across rounds and preserves individual findings', () => {
+    const row = (lens: string, round: number, status: string) => ({ lens, round, status, severity: 'major' as const, location: 'same.ts:1', summary: `round ${round}` });
+    const corpus: ChangeReviewEntry[] = [
+      { changeName: 'one', lensesRun: ['SECURITY', 'security/data-integrity'], rows: [row('security & data integrity', 1, 'fixed'), row('security', 2, 'confirmed'), row('SECURITY', 2, 'open')] },
+      { changeName: 'two', rows: [row('security-data-integrity', 1, 'verified')] },
+      { changeName: 'three', lensesRun: ['security & data integrity'], rows: [] },
+      { changeName: 'four', lensesRun: ['SECURITY'], rows: [] },
+    ];
+    const before = structuredClone(corpus);
+    expect(calculateLensYield(corpus)).toEqual([expect.objectContaining({ lens: 'security', invocations: 4, declared_invocations: 3, confirmed_findings: 3, yield_ratio: 0.5, confirmed_per_invocation: 0.75, consecutive_zero_changes: 2, last_yield_change: 'two', invocation_source: 'declared', action: 'keep' })]);
+    expect(corpus).toEqual(before);
+  });
+  it('preserves custom Map display semantics and does not split mixed names', () => {
+    expect(calculateLensYield([{ changeName: 'one', lensesRun: [' My Lens ', 'MY LENS', 'security/correctness'], rows: [] }]).map((stat) => stat.lens)).toEqual(['MY LENS', 'security/correctness']);
+    expect(calculateLensYield([{ changeName: 'one', rows: [{ lens: ' My Lens ', severity: 'major', location: 'a', status: 'fixed', summary: 'one' }] }, { changeName: 'two', lensesRun: ['MY LENS'], rows: [] }])[0]?.lens).toBe('My Lens');
+  });
+});
+
+const mustRunNames = ['correctness', 'correctness & edge cases', 'security', 'security & data integrity', 'security-data-integrity', 'security/data-integrity', 'spec-architecture'];
+const policyCases = [
+  { name: 'rows proxy', source: 'rows', declared: 5, zero: 5, yield: 0, action: 'keep', reason: 'proxy' },
+  { name: 'declared shortfall', source: 'declared', declared: 2, zero: 5, yield: 0, action: 'keep', reason: 'below min_invocations' },
+  { name: 'exact min and zero threshold', source: 'declared', declared: 3, zero: 5, yield: 0.5, action: 'review', reason: 'policy change' },
+  { name: 'below zero threshold and low yield', source: 'declared', declared: 3, zero: 4, yield: 0.099, action: 'review', reason: 'policy change' },
+  { name: 'exact min yield', source: 'declared', declared: 3, zero: 4, yield: 0.1, action: 'keep', reason: 'meets criteria' },
+  { name: 'normal yield', source: 'declared', declared: 3, zero: 0, yield: 1, action: 'keep', reason: 'meets criteria' },
+] as const;
+
+describe('must-run retirement protection', () => {
+  for (const lens of mustRunNames) {
+    it.each(policyCases)(`${lens}: $name`, (testCase) => {
+      const [result] = recommendLensRetirement([{ lens: ` ${lens.toUpperCase()} `, invocations: 10, declared_invocations: testCase.declared, confirmed_findings: 0, yield_ratio: testCase.yield, consecutive_zero_changes: testCase.zero, action: 'keep', invocation_source: testCase.source }], DEFAULT_LENS_THRESHOLDS);
+      expect(result?.action).toBe(testCase.action);
+      expect(result?.reason).toContain(testCase.reason);
+      if (testCase.action === 'review') {
+        expect(result?.reason).toMatch(/criteria.*execution.*attribution/);
+      }
+    });
+  }
+  it.each(['performance', 'efficiency/performance', 'maintainability / DRY', 'docs-claims', 'parallel-site completeness', 'test-quality', 'security/correctness', 'custom'])('preserves conditional/custom retirement priority for %s', (lens) => {
+    const stat = { lens, invocations: 3, declared_invocations: 3, confirmed_findings: 0, yield_ratio: 0, consecutive_zero_changes: 5, action: 'keep' as const, invocation_source: 'declared' as const };
+    expect(recommendLensRetirement([stat], DEFAULT_LENS_THRESHOLDS)[0]?.action).toBe('retire');
+    expect(recommendLensRetirement([{ ...stat, consecutive_zero_changes: 4 }], DEFAULT_LENS_THRESHOLDS)[0]?.action).toBe('review');
+    expect(recommendLensRetirement([{ ...stat, declared_invocations: 2 }], DEFAULT_LENS_THRESHOLDS)[0]?.action).toBe('keep');
   });
 });

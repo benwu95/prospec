@@ -362,6 +362,7 @@ Review 維持 artifact→metadata，verify 維持 metadata→evidence 的寫入�
   - **重點條列**：依識別碼去重、蓋印各發現的來源輪次（`Origin`）、嚴重度取最大值、跨輪次保留記錄、記錄執行的鏡角清單，並評估 Circuit Breaker（修復引發缺陷比率、震盪翻轉、輪次硬上限、持續測試失敗）於跳閘時輸出升級報告（EscalationReport）。每次合併時，CLI 自動在 `metadata.yaml` 的 `quality_log` 寫入或更新該輪的計數記錄（`criticals_found`、`criticals_fixed`、`majors`、`round`，依輪次冪等）。當累積 findings 表格為 0 列（clean review 輪）時，CLI 亦會自動在 `review.md` 注入符合工件語言（artifact language）的 clean review 總結句。
   - **委派結清**：在任何其他拒收之前先結清 review 委派（`prospec change delegate`）：最新 attempt 尚未收件或已被拒收即拒絕合併且不寫入任何檔案；否則輸出帶一行 delegation 揭露——received、failed 與人類接受的計數及被判 mutated 的 attempt 數，或說明本輪未經委派代理 mutation 偵測。
   - **測試閘門**：在輸入與輪次順序的拒絕（不寫任何檔案）之後，每次合併都要求該變更的 fresh green `test_attempt`，或兩種明確豁免之一（無可解析的測試命令、已證明的 backfill），豁免時以 `tests: not-adjudicated` WARN 合併。初始測試拒絕以 exit 1 結束並印出 `prospec check --record-tests --change <name>`；可寫入 `review.md` metrics 註解內有界的測試失敗 metrics（`test_failures`、`test_failure_ids`）——絕不合併 findings 或推進輪次。計數的是 review merge 自身觀測到的不同失敗 attempt（同一 attempt id 重放不重複計數、fresh green 會重設、豁免或迴圈換代不會）；達預設門檻 3 時拒絕同時回報 `persistent_test_failure` 與 `ESCALATE_TO_HUMAN`。沒有門檻旗標。metrics 註解格式錯誤或重複時在任何寫入前拒絕。 豁免 WARN 已寫入後，若後續操作拒收，該 WARN 仍會留存並回報 warning-only 結果。依拒收原因確認已完成的寫入；已寫入的 artifact 會留在磁碟上。
+  - **Lens 宣告**：成功 merge 且提供 `--lenses` 時，累積的已知別名改用 canonical ID，未知名稱保留字串與順序；省略時不改既有宣告，拒絕的要求不進行正規化。Finding labels、identity、evidence 與 receipt digest 保留原始語意。
 
 - **`prospec verify context --change <name>`**
   - **核心用途**：在變更目錄內投影確定性的驗證上下文快照（`verify-context.json`），不執行測試套件、不修改 `metadata.yaml` 亦不變更生命週期狀態。
@@ -397,7 +398,7 @@ Review 維持 artifact→metadata，verify 維持 metadata→evidence 的寫入�
 
 - **`prospec learn yield [--consecutive-zero <n>] [--min-invocations <n>] [--min-yield <ratio>] [--corpus <dir>] [--json]`**
   - **核心用途**：從歷史封存的審查記錄中計算各審查鏡角（lens）的確認產出率統計與淘汰建議。
-  - **重點條列**：追蹤各鏡角的連續零產出變更數與產出比例；提供 `keep`、`review` 或 `retire` 建議。
+  - **重點條列**：已知 canonical IDs 與明確 aliases 共用統計；未知或混合標籤保留 custom 分組。每個 change 對每個執行過的 lens 只算一次 invocation，confirmed findings 逐筆計數。Rows-only proxy 或 declared runs 不足時維持 `keep`。Declared runs 足夠後，必跑的 correctness、security、spec-architecture 達零產出或低 yield 條件時，建議 `review` 準則、執行與歸因；退休需明確變更必跑政策。Conditional/custom 保留零產出 `retire` 優先於低 yield `review` 的順序。Archive bytes 與 finding identities 不變。
 
 - **`prospec validate <kind> [target] [--change <name>]`**
   - **核心用途**：機械式校驗工件結構完整性（支援 `proposal`、`slug`、`promote-scaffold`、`backfill-draft`、`design-spec`、`module-readme`、`candidates` 等）。`module-readme` 會依 canonical Markdown convention 校驗指定模組的 README。`candidates` 以 schema 校驗變更的 `candidates/option-*.json` 與 `decision.json`，並印出指標表（依 module map `depends_on` 計算的 `direction_violations`、`touched_modules`、`estimated_lines`、`unknown_references`）。校驗失敗時 exit 1。

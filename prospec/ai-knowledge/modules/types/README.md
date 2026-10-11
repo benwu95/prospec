@@ -1,6 +1,6 @@
 # Contract Registry
 
-> Zod schemas, errors, frozen registries — the leaf layer every module imports (25 files)
+> Zod schemas, errors, frozen registries — the leaf layer every module imports (26 files)
 <!-- prospec:module-readme-format 2026-09-01 -->
 
 <!-- prospec:auto-start -->
@@ -9,6 +9,7 @@
 
 | File | Purpose |
 |------|---------|
+| `review-lenses.ts` | Readonly shipped lens IDs, explicit aliases, labels, classification and summaries; shared by yield and template rendering, with detailed criteria owned by references |
 | `history.ts` | Named source/history roots, origin, inventory, strict versioned pointer/operation schemas and per-entry import outcomes; `errors.ts` adds `HistoryError` with actual retained paths and phase |
 | `abandon.ts` | Retry linkage, preservation manifest, operation marker and typed partial/success contracts; `change.ts` owns terminal metadata and `errors.ts` owns `AbandonError` |
 | `change.ts` | Change metadata contract — loose read + strict build views (incl. acceptance baseline schemas `AcceptanceBaselineSchema`, `AcceptanceRevisionSchema`, `AcceptanceScenarioSchema`, shared `computeAcceptanceDigest` validating revision content, `NewQualityLogEntrySchema` with the sink-only `verifier_verdict` stamp (and, on a plan verifier entry, the `audited_option` and `audited_plan_digest` it audited), the sign-off-only `signoff_option` stamp over `PLAN_SIGNOFF_OPTIONS` (`PLAN_DECISION_OPTIONS` + `plan`) with `signoff_plan_digest`, the optional `round` int≥0 that tags a `prospec-review` counts entry — the upsert idempotency key AND the discriminator that tells a merge-written counts entry from a round-less close entry — and `PLANNING_VERDICTS`), `BareModuleNameSchema`, `issue`; its registry half (statuses, scales, artifact matrix, gate/grade enums) is in the sub-module |

@@ -1,6 +1,6 @@
 # Verification Suite
 
-> 4-layer Vitest suite (fast-glob/git bypass memfs — 304 test files, 7,748 tests (unit 5645, contract 1723, integration 159, e2e 221)).
+> 4-layer Vitest suite (fast-glob/git bypass memfs — 305 test files, 7,849 tests (unit 5735, contract 1729, integration 163, e2e 222)).
 <!-- prospec:module-readme-format 2026-09-01 -->
 
 <!-- prospec:auto-start -->
@@ -32,6 +32,8 @@
 **Used by:** none (leaf; the CI pipeline invokes it).
 
 ## Modification Guide
+
+Lens changes require independent eight-lens expectations, alias/custom and threshold matrices, supplied/omitted/rejected merge identity checks, direct renderer and host-sync contracts. Mutations removing the must-run guard or a required lens/classification must fail behavior tests, independently of exact token baselines; retain both aggregate ceiling anchors.
 
 1. **Add a unit test** — `tests/unit/{layer}/{name}.test.ts`; mock `node:fs` with memfs, `vol.reset()` in `beforeEach`.
 2. **Add a contract test** — see [Contract Guards](./contract-guards.md). `skill-format` also pins quantitative target baselines, audited claims, reference-heading removal and retained operational guidance.

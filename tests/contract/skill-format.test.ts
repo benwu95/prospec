@@ -3374,8 +3374,8 @@ describe('Skill Format Contract', () => {
       const c = render();
       const sweep = sectionOf(c, '### Sweep');
       expect(sweep).toContain('prospec learn yield');
-      expect(sweep).toContain('`retire`');
-      expect(sweep).toContain('`review`');
+      expect(sweep).toMatch(/retire/);
+      expect(sweep).toMatch(/review/);
       expect(sweep).toMatch(/declared/);
       expect(c).toContain('learn.lens_thresholds');
       // the ledger is a knowledge file, not a config file — no phantom config path
@@ -4690,6 +4690,10 @@ describe('Startup Loading cache-stable prefix ordering (REQ-TEMPLATES-080/081)',
     expect(baseline.reference_ceiling_tokens).toBeLessThanOrEqual(REFERENCE_CEILING_ANCHOR);
   });
 
+  it('keeps review mandatory context within its independent pre-change ceiling', () => {
+    expect(mandatoryContextTokens('prospec-review')).toBeLessThanOrEqual(8142);
+  });
+
   it('per-skill mandatory context matches the recorded baseline and the cumulative ceiling never rises (REQ-TESTS-116)', () => {
     const measured = Object.fromEntries(
       SKILL_DEFINITIONS.map((skill) => [skill.name, mandatoryContextTokens(skill.name)]),
@@ -5775,7 +5779,7 @@ describe('vendored engineering-heuristic references (REQ-TEMPLATES-084, REQ-TEMP
       expect(c).toContain(UPSTREAM_SHA);
     });
 
-    it('defines the three conditional lenses with concrete criteria', () => {
+    it('defines security and conditional lenses with concrete criteria', () => {
       const c = render();
       expect(c).toContain('Security & Data Integrity Lens');
       expect(c).toContain('Efficiency / Performance Lens');
@@ -6264,9 +6268,9 @@ describe('mechanize-review-gate — review provenance gate + playbook fall-back 
 
   it('prospec-review Review Lenses reference the new docs-claims / parallel-site / test-quality lenses', () => {
     const lenses = sectionOf(renderReview(), '### Review Lenses');
-    expect(lenses).toContain('docs-claims');
-    expect(lenses).toContain('parallel-site');
-    expect(lenses).toContain('test-quality');
+    expect(lenses.toLowerCase()).toContain('docs-claims');
+    expect(lenses.toLowerCase()).toContain('parallel-site');
+    expect(lenses.toLowerCase()).toContain('test-quality');
   });
 });
 
@@ -6752,12 +6756,12 @@ describe('Structured quality_log (issue #61)', () => {
 
     it('keeps each scale exception at the lens that applies it (REQ-TESTS-116)', () => {
       const lenses = sectionOf(review(), '### Review Lenses');
-      // Bounded at the Conditional paragraph: an unbounded slice runs to the end of
-      // the section and would pass with the carve-out moved into the generic block.
       const specStart = lenses.indexOf('**spec-architecture**');
-      const conditional = lenses.indexOf('\nConditional:', specStart);
-      expect(conditional).toBeGreaterThan(specStart);
-      const specArchitecture = lenses.slice(specStart, conditional);
+      const paragraphs = lenses.slice(specStart).trim().split(/\n\s*\n/);
+      expect(paragraphs[0]).toContain('**spec-architecture**');
+      expect(paragraphs[1]).toContain('**Quick degradation**');
+      const specArchitecture = paragraphs.slice(0, 2).join('\n\n');
+      expect(lenses).not.toMatch(/Conditional:\s*(?:the )?spec-architecture/i);
       expect(specArchitecture).not.toContain('**test-quality**');
       // The quick degradation belongs to the lens whose oracle disappears under
       // quick — not to a generic scale block that every lens would have to read.
@@ -8246,13 +8250,14 @@ describe('reuse-and-single-source gate (issue #204)', () => {
 
   it('review-format and prospec-review both trigger the maintainability lens on a re-implemented helper, not only on new abstractions', () => {
     const rows = sectionOf(renderReviewFormat(), '## Reviewer Lenses').split('\n');
-    const cells = splitTableRow(findRow(rows, '| maintainability / DRY |'));
-    expect(cells[1]).toContain('new abstractions introduced');
-    expect(cells[1]).toContain('existing helper / guard / writer re-implemented');
+    const cells = splitTableRow(findRow(rows, '| Maintainability / DRY |'));
+    expect(cells[1]).toBe('conditional');
+    expect(cells[2]).toMatch(/Abstractions/i);
+    expect(cells[2]).toContain('duplicated helpers/guards/writers');
     expect(cells[2]).toContain('documented single-source bypass');
     // parallel site: the skill body names the same trigger (both move together)
     const lenses = sectionOf(renderReviewSkill(), '### Review Lenses');
-    expect(lenses).toContain('existing helper / guard / writer re-implemented');
+    expect(lenses).toContain('duplicated helpers/guards/writers');
   });
 
   it('review-lenses Maintainability table maps the bypass onto the review-format criterion by name — no PB id, no second definition', () => {
@@ -10869,5 +10874,34 @@ describe('review defect-class sweep (REQ-TEMPLATES-249/250, REQ-TESTS-135)', () 
     expect([...fix.matchAll(/^ {3}- \*\*([^*]+)\*\*:/gm)].map((match) => match[1]))
       .toEqual(['Class sweep', 'Fix ripple', 'Shape check']);
     expect(loop.indexOf('\n3. ')).toBeLessThan(loop.indexOf('\n4. '));
+  });
+});
+
+
+describe('unified review lens guidance', () => {
+  const labels = ['Correctness & edge cases', 'Security & data integrity', 'Spec-architecture',
+    'Efficiency / performance', 'Maintainability / DRY', 'Docs-claims', 'Parallel-site completeness', 'Test-quality'];
+  it('renders all eight lenses with independent classifications and summaries in both entry points', () => {
+    const summaryConcepts = [
+      ['logic', 'boundaries', 'errors'], ['injection', 'secrets', 'filesystem', 'preservation', 'model/tool'],
+      ['req contradictions', 'dependencies', 'conventions', 'ripple'], ['hot paths', 'i/o', 'resource'],
+      ['abstractions', 'helpers/guards/writers', 'documented single-source bypass'],
+      ['documentation claims', 'behavior'], ['sibling sites', 'same changed behavior'],
+      ['tests', 'independent oracles', 'failure sensitivity'],
+    ];
+    const skill = sectionOf(renderTemplate('skills/prospec-review.hbs', TEMPLATE_CONTEXT), '### Review Lenses');
+    const format = sectionOf(renderTemplate('skills/references/review-format.hbs', TEMPLATE_CONTEXT), '## Reviewer Lenses');
+    for (const text of [skill, format]) {
+      const rows = text.split('\n').filter((line) => /^\| (?!Lens|---)/.test(line));
+      expect(rows).toHaveLength(8);
+      labels.forEach((label, index) => {
+        const cells = rows[index]!.split('|').map((cell) => cell.trim());
+        expect(cells[1]).toBe(label);
+        expect(cells[2]).toBe(index < 3 ? 'must-run' : 'conditional');
+        for (const concept of summaryConcepts[index]!) expect(cells[3]!.toLowerCase()).toContain(concept);
+      });
+    }
+    expect(skill).toContain('one primary lens');
+    expect(skill).toContain('Check security');
   });
 });

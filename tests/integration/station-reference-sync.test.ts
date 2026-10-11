@@ -253,3 +253,16 @@ describe('review regression pins for unavailable deployments and hidden citation
     expect(result.findings.some((f) => f.detail.includes('Phase 3: Decompose'))).toBe(true);
   });
 });
+
+describe('review lens policy deployment', () => {
+  it.each(Object.keys(baseline.hosts))('%s deploys security as must-run with on-demand detail', async (host) => {
+    const { cwd } = await sync([host]);
+    const root = join(cwd, baseline.hosts[host]!.skill_path, 'prospec-review');
+    const skill = readFileSync(join(root, 'SKILL.md'), 'utf8');
+    const detail = readFileSync(join(root, 'references/review-lenses-content.md'), 'utf8');
+    expect(skill).toMatch(/\| Security & data integrity \| must-run \|/);
+    expect(skill).not.toMatch(/\| Security & data integrity \| conditional \|/);
+    expect(skill).toContain('Otherwise its details stay on demand');
+    expect(detail).toContain('### Web / HTTP — changed surfaces only');
+  });
+});

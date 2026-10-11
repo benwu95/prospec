@@ -13,7 +13,7 @@
 | `review-circuit-breaker.ts` | `ReviewCircuitBreaker` — `persistent_test_failure` (the CLI-fed streak vs `maxConsecutiveTestFailures`, judged first), oscillation flips, 1-5 round ceiling and fix-induced ratio |
 | `lessons-ledger.ts` | Ledger upsert + scoring + playbook TTL and catalog over one `splitPlaybookBlocks` rule (retirement-marked entries skipped; `selectPlaybookEntries` lists every active entry, matching only the Source line's `modules=N (…)` list) |
 | `artifact-validators.ts` | Artifact structural verdicts (promote-scaffold covers promotion's own product, `delta-spec.md`, not only the artifacts backfill forbids); the plan `candidates` verdict — `checkCandidateSet` (schema, file-name and decision ↔ candidate cross-checks; `validate candidates` and `--signoff` share it) plus `validateCandidates` metrics over the injected dependency rules and `moduleAttributor` |
-| `lens-yield.ts` | Calculate confirmed yield per lens, recommend lens retirement (`calculateLensYield`, `recommendLensRetirement`, `buildLensYieldReport`) |
+| `lens-yield.ts` | Project registry aliases into canonical yield groups, protect must-run recommendations, and canonicalize accepted supplied declarations (`canonicalizeDeclaredLenses`); preserve custom names and original finding identities |
 
 ## Public API
 
@@ -22,7 +22,7 @@
 - `renderEvidenceBlock` / `renderEvidenceSection` (heading is a parameter) / `splitEvidenceSection` (→ `{before, blocks, after}`) / `containsEvidenceMarker` / `findUnsafeBlockField`
 - `parseReviewRows` / `parseReviewDocument` / `parseReviewMetrics` / `parseReviewMetricsStrict` / `readTestFailureStreak` / `reduceTestFailureStreak` / `renderReviewMetricsComment` / `replaceReviewMetrics` / `mergeFindings` / `roundCounts` / `renderReviewDocument` / `evidenceBlocksFor` / `applyCleanReviewSentence` / `stripCleanReviewBlock`; `ReviewCircuitBreaker.setTestFailureStreak` / `getMaxConsecutiveTestFailures`
 - `computeGrade` / `resultForGrade` / `gradeAdvancesStatus` / `isSelfVerified` / `applySelfVerifiedCap`; `upsertLesson`; `validateSlug` / `validate*`
-- `normalizeLens` / `isConfirmedFinding` / `calculateLensYield` / `recommendLensRetirement` / `buildLensYieldReport`
+- `normalizeLens` / `canonicalizeDeclaredLenses` / `isConfirmedFinding` / `calculateLensYield` / `recommendLensRetirement` / `buildLensYieldReport`
 
 ## Modification Guide
 
@@ -31,6 +31,8 @@
 3. **Change a station's payload shape** — the schema goes in `types/station.ts` first; these engines consume it, they never define it.
 
 ## Pitfalls
+
+- Lens normalization uses explicit registry aliases only. Statistics deduplicate invocations per change but retain confirmed finding multiplicity; rows proxies and insufficient declared runs stay keep. Must-run lenses review criteria, execution and attribution instead of yield-based retirement. Declaration normalization preserves unknown spelling and exact-string deduplication; never apply it to finding or receipt identity.
 
 - Delegation causal inputs come from `delegationAttemptInputs` in `delegation.ts`; consumed timestamps do not change an accepted attempt.
 

@@ -1,3 +1,4 @@
+import { REVIEW_LENSES } from '../types/review-lenses.js';
 import type { ReviewRow } from './review-merge.js';
 import {
   REVIEW_CONFIRMED_STATUSES,
@@ -9,6 +10,12 @@ import {
   type LensRetirementAction,
 } from '../types/station.js';
 
+const lensesByName = new Map(
+  REVIEW_LENSES.flatMap((lens) =>
+    [lens.id, ...lens.aliases].map((name) => [name.toLowerCase(), lens] as const),
+  ),
+);
+
 export const DEFAULT_LENS_THRESHOLDS: LensYieldThresholds = LensYieldThresholdsSchema.parse({});
 
 export interface ChangeReviewEntry {
@@ -19,10 +26,15 @@ export interface ChangeReviewEntry {
 }
 
 /**
- * Normalize lens identifier (trim whitespace and convert to lowercase for matching).
+ * Normalize explicit shipped aliases; preserve legacy custom grouping.
  */
 export function normalizeLens(lens: string): string {
-  return lens.trim().toLowerCase();
+  const key = lens.trim().toLowerCase();
+  return lensesByName.get(key)?.id ?? key;
+}
+
+export function canonicalizeDeclaredLenses(lenses: readonly string[]): string[] {
+  return [...new Set(lenses.map((lens) => lensesByName.get(normalizeLens(lens))?.id ?? lens))];
 }
 
 /**
@@ -67,7 +79,7 @@ export function calculateLensYield(
     let data = lensMap.get(norm);
     if (!data) {
       data = {
-        displayName: raw.trim(),
+        displayName: lensesByName.get(norm)?.id ?? raw.trim(),
         invocations: 0,
         confirmedFindings: 0,
         changesWithConfirmed: 0,
@@ -189,6 +201,11 @@ export function recommendLensRetirement(
       reason = `Yield ratio (${stat.yield_ratio}) below threshold (${thresholds.min_yield})`;
     } else if (!enough) {
       reason = `Only ${declaredRuns} declared invocation(s) — below min_invocations ${thresholds.min_invocations}`;
+    }
+
+    if (action !== 'keep' && lensesByName.get(normalizeLens(stat.lens))?.classification === 'must-run') {
+      action = 'review';
+      reason += '; Must-run lens: review criteria, execution and attribution; retirement requires an explicit policy change';
     }
 
     return {

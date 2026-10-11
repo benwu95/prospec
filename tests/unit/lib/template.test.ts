@@ -319,3 +319,16 @@ describe('bundled templates integration', () => {
   });
 });
 
+
+
+describe('reviewLenses registry helper', () => {
+  it('renders eight independently specified lens classifications without caller context', () => {
+    const rendered = renderInline('{{#each (reviewLenses)}}{{label}}|{{classification}}\n{{/each}}');
+    expect(rendered.trim().split('\n')).toEqual([
+      'Correctness & edge cases|must-run', 'Security & data integrity|must-run',
+      'Spec-architecture|must-run', 'Efficiency / performance|conditional',
+      'Maintainability / DRY|conditional', 'Docs-claims|conditional',
+      'Parallel-site completeness|conditional', 'Test-quality|conditional',
+    ]);
+  });
+});

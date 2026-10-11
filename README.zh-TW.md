@@ -4,7 +4,7 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg?style=flat-square)](LICENSE)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.9-blue?style=flat-square&logo=typescript)](https://www.typescriptlang.org/)
-[![測試](https://img.shields.io/badge/測試-7748%20總計-success?style=flat-square)](./CONTRIBUTING.md#testing)
+[![測試](https://img.shields.io/badge/測試-7849%20總計-success?style=flat-square)](./CONTRIBUTING.md#testing)
 [![Node](https://img.shields.io/badge/node-%3E%3D22.13-brightgreen?style=flat-square&logo=node.js)](https://nodejs.org/)
 [![pnpm](https://img.shields.io/badge/pnpm-%3E%3D11-orange?style=flat-square&logo=pnpm)](https://pnpm.io/)
 
@@ -47,6 +47,8 @@ Prospec 讓開發者與 AI coding agent **依據專案內的檔案，共用同�
 - **CLI** 是必裝的單一執行檔，**就在** runtime 迴圈內：Skills 需要的每個確定性操作 —— bootstrap、scaffold、生命週期轉換、結構化記錄、drift 檢查、評分、封存同步 —— 都以程式執行、位元可重現。
 
 **適合誰？** 使用 AI coding agent、希望工作在不同 session 或 agent 之間仍容易理解的團隊與個人開發者；新專案（Greenfield）和既有程式碼庫（Brownfield）都適用。
+
+Review 共用八個 lenses：correctness、security 與 spec-architecture 每輪必跑，其餘五個依 diff 適用。Security 詳表依風險面按需載入。`prospec learn yield` 合併已知別名，且不因 yield 建議退休必跑 lens；證據門檻與宣告行為見 [CLI 參考](./docs/reference/cli-reference.zh-TW.md)。
 
 ## 為什麼選擇 Prospec？
 
