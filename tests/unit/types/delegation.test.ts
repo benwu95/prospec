@@ -119,7 +119,7 @@ describe('RepoStateSchema (REQ-TYPES-108)', () => {
   });
 
   it('defines exactly the five facets, in one place', () => {
-    expect(Object.keys(RepoStateSchema.shape)).toEqual([...GIT_STATE_FACETS]);
+    expect(Object.keys(RepoStateSchema.shape)).toEqual([...GIT_STATE_FACETS, 'topology']);
     expect(GIT_OPERATION_MARKERS).toContain('BISECT_LOG');
   });
 });
@@ -156,7 +156,7 @@ describe('DelegationTicketSchema (REQ-TYPES-108)', () => {
 
 describe('the delegation contract holds no restore surface (REQ-TYPES-108)', () => {
   it('has no restore record on the ticket and no ignored list on the checkpoint', () => {
-    expect(Object.keys(DelegationTicketSchema.shape)).not.toContain('restore');
+    for (const schema of DelegationTicketSchema.options) expect(Object.keys(schema.shape)).not.toContain('restore');
     expect(DelegationTicketSchema.safeParse(ticket({ restore: { at_ms: 1, complete: true } })).success).toBe(false);
     expect(Object.keys(CheckpointSchema.shape)).toEqual(['entries', 'index_sha256']);
   });
@@ -177,5 +177,33 @@ describe('delegation constants (REQ-TYPES-108)', () => {
     expect(DELEGATION_STATIONS).toEqual(['review', 'verify']);
     expect(DELEGATION_STATES).toEqual(['open', 'received', 'refused', 'failed', 'consumed']);
     expect(DELEGATION_AWAIT).toEqual({ idleMinutes: 10, maxPolls: 6, maxRespawns: 1 });
+  });
+});
+
+const topology = { current: { root: '/repo', identity: '1:2', branch: 'refs/heads/main' }, siblings: [{ root: '/other', identity: '1:3', branch: null }] };
+const assessment = { mode: 'worktree', protected: [], protected_refs: [], allowed_refs: [], stash_added: [], unreadable: [] };
+const observation = { at_ms: 1, observed: state({ topology }), assessment };
+const v2 = () => ticket({ version: 2, pre_spawn: state({ topology }), assessments: { issue: observation } });
+
+describe('versioned delegation evidence', () => {
+  it('round-trips legacy without topology and accepts optional state topology', () => {
+    expect(DelegationTicketSchema.parse(ticket())).toEqual(ticket());
+    expect(RepoStateSchema.safeParse(state({ topology })).success).toBe(true);
+    expect(DelegationTicketSchema.safeParse(ticket({ pre_spawn: state({ topology }) })).success).toBe(false);
+  });
+  it('requires a readable V2 baseline and an issue observation', () => {
+    expect(DelegationTicketSchema.parse(v2())).toEqual(v2());
+    for (const pre_spawn of [state(), state({ topology: { unreadable: 'missing' } })]) {
+      expect(DelegationTicketSchema.safeParse({ ...v2(), pre_spawn }).success).toBe(false);
+    }
+    expect(DelegationTicketSchema.safeParse({ ...v2(), assessments: {} }).success).toBe(false);
+  });
+  it('allows unreadable observations but bounds slots and closes reason enums', () => {
+    const observed = state({ topology: { unreadable: 'unstable' } });
+    expect(DelegationTicketSchema.safeParse({ ...v2(), assessments: { issue: observation, receive: { ...observation, observed } } }).success).toBe(true);
+    expect(DelegationTicketSchema.safeParse({ ...v2(), assessments: { issue: observation, history: [] } }).success).toBe(false);
+    const bad = { ...observation, assessment: { ...assessment, allowed_refs: [{ name: 'refs/heads/a', before: null, after: OID, reason: 'any-ref' }] } };
+    expect(DelegationTicketSchema.safeParse({ ...v2(), assessments: { issue: bad } }).success).toBe(false);
+    expect(DelegationTicketSchema.safeParse({ ...v2(), version: 3 }).success).toBe(false);
   });
 });

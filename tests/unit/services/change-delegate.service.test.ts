@@ -114,7 +114,7 @@ describe('change delegate service (REQ-SERVICES-120)', () => {
     git('checkout', '--', 'src/a.ts');
     await run({ kind: 'receive', stem: 'review-reviewer-1-1' });
     await run({ kind: 'spawn-failed', stem: 'review-reviewer-1-1', reason: 'will not re-spawn', acceptCurrentTree: true });
-    expect(metadata().quality_log![0]!.warnings[0]).toMatch(/receipt refused \(mutated \[content\]\): delegate mutated the tree/);
+    expect(metadata().quality_log![0]!.warnings[0]).toMatch(/receipt refused \(mutated \[content\]\): protected repository state changed/);
   });
 
   it('writes the WARN before the ticket turns failed: when the WARN cannot be written, the ticket stays open', async () => {
@@ -160,4 +160,17 @@ describe('change delegate runs its git reads without optional locks (REQ-SERVICE
     expect(process.env.GIT_OPTIONAL_LOCKS).toBeUndefined();
     expect(readFileSync(index)).toEqual(before);
   });
+});
+
+it('carries allowed sibling assessment on received and pending service results', async () => {
+  const sibling = realpathSync(mkdtempSync(path.join(os.tmpdir(), 'service-sibling-')));
+  try {
+    git('worktree', 'add', '-qb', 'other', sibling);
+    await issue();
+    gitIn(sibling, 'commit', '--allow-empty', '-qm', 'parallel');
+    const expected = { allowed_refs: [{ name: 'refs/heads/other', reason: 'baseline-sibling' }], protected: [] };
+    expect(await run({ kind: 'receive', stem: 'review-reviewer-1-1' })).toMatchObject({ kind: 'receipt-failed', assessment: expected });
+    put('.prospec/changes/x/.delegated/review-reviewer-1-1.json', FINDINGS);
+    expect(await run({ kind: 'receive', stem: 'review-reviewer-1-1' })).toMatchObject({ kind: 'received', assessment: expected });
+  } finally { rmSync(sibling, { recursive: true, force: true }); }
 });

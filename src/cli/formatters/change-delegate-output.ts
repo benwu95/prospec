@@ -23,17 +23,17 @@ export function formatChangeDelegateOutput(result: ChangeDelegateResult, logLeve
       break;
     case 'received':
       if (logLevel === 'quiet') return;
-      lines.push(`${pc.green('✓')} Received ${pc.cyan(s(result.stem))} — every repository facet matches the one recorded at issue`);
+      lines.push(`${pc.green('✓')} Received ${pc.cyan(s(result.stem))} — repository state satisfies the ticket policy`);
       for (const left of result.unreleased) lines.push(`  ${pc.yellow('!')} could not remove what it held: ${s(left)}`);
       break;
     case 'receipt-failed': {
       const v = result.verdict;
       if (v.kind === 'refused' && v.reason === 'mutated') {
-        lines.push(`${pc.red('✗ refused')} ${pc.cyan(s(result.stem))} (mutated): the delegate changed the repository`);
+        lines.push(`${pc.red('✗ refused')} ${pc.cyan(s(result.stem))} (mutated): protected repository state changed`);
         for (const change of v.facets) lines.push(`  ${change.facet}: pre-spawn ${s(change.before)} → now ${s(change.after)}`);
         lines.push(`  checkpoint: ${s(v.checkpoint)}`);
         lines.push(`  ${MUTATION_HAND_OFF}`);
-        lines.push('  A new attempt is issued only once the tree is back at the pre-spawn state; only the human may end this one with --spawn-failed --accept-current-tree.');
+        lines.push('  A new attempt is issued only once the protected state satisfies the pre-spawn policy; only the human may end this one with --spawn-failed --accept-current-tree.');
         break;
       }
       const label = v.kind === 'refused' ? pc.red('✗ refused') : v.kind === 'pending' ? pc.yellow('… not received') : pc.red('✗ not receivable');
@@ -49,6 +49,12 @@ export function formatChangeDelegateOutput(result: ChangeDelegateResult, logLeve
       for (const left of result.unreleased) lines.push(`  ${pc.yellow('!')} could not remove what it held: ${s(left)}`);
       for (const dir of result.kept) lines.push(`  ${pc.yellow('!')} kept the checkpoint — the issue-time copies of the uncommitted files, for the human: ${s(dir)}`);
       break;
+  }
+  if (result.assessment) {
+    for (const ref of result.assessment.allowed_refs) lines.push(`  allowed ref: ${s(ref.name)} ${s(ref.before ?? 'absent')} → ${s(ref.after ?? 'absent')} (${s(ref.reason)})`);
+    if (result.assessment.stash_added.length) lines.push(`  allowed stash prefix: ${result.assessment.stash_added.length} added entry(s); baseline suffix preserved`);
+    for (const ref of result.assessment.protected_refs) lines.push(`  protected ref: ${s(ref.name)} ${s(ref.before ?? 'absent')} → ${s(ref.after ?? 'absent')}`);
+    for (const fact of result.assessment.unreadable) lines.push(`  unreadable ${s(fact.facet)}: ${s(fact.reason)}`);
   }
   process.stdout.write(lines.join('\n') + '\n');
 }

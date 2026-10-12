@@ -1,36 +1,29 @@
 # Delegation and Physical Receipt Protocol
 
-The one definition of how a station hands work to a delegated agent and takes the result back.
-Every delegating station — review, verify, plan, tasks and ff — applies it; their own text only names
-the payload schema and the command that consumes the payload. It reads the same on every host: the
-guarantee comes from the prospec CLI and git, never from a host permission mechanism.
+Shared protocol; CLI and git, host-neutral.
 
 ---
 
 ## Physical Receipt Verification Protocol
 
-Before any payload a delegate wrote is consumed — by a CLI command or by the next workflow step:
+Before consuming a payload:
 
 1. **Physical Existence & Non-Empty**: the payload path resolves to a readable regular file with
    `size > 0` bytes.
 2. **Target Schema Compliance**: the payload parses as JSON matching the station's executable schema
    and closed enums (the station names its schema; this protocol never redefines it).
-3. **Lifecycle Probe & Bounded Await**: a completion claim without the file means the write may still
-   be landing. Inspect lifecycle state or transcript evidence of the delegate and wait — but never unboundedly:
-   when both the payload file and the transcript have been idle for **{{delegation_idle_minutes}} minutes**,
+3. **Lifecycle Probe & Bounded Await**: Inspect lifecycle state or transcript evidence when the file is absent; wait — never unboundedly:
+   when payload and transcript are idle for **{{delegation_idle_minutes}} minutes**,
    or after **{{delegation_max_polls}} polls**, the delegate has failed. Re-spawn it — re-spawns per
    delegation: at most **{{delegation_max_respawns}}** (at review and verify each under a new ticket, see
    below). When the last re-spawn fails too, record the failure as a `quality_log` WARN and take step 4.
-4. **Explicit Degradation & Honest Disclosure**: on a crash, a spawn failure (a rate-limit refusal
-   included), a timeout, or an exhausted re-spawn, take the station's Harness Degradation path and
+4. **Explicit Degradation & Honest Disclosure**: on crash, spawn failure, timeout or exhausted re-spawn, take Harness Degradation and
    disclose the grading context honestly — `graded_by: in-session` where the sink records it, a plain
    statement where it does not.
 5. **Zero-Mock / No-Dummy Mandate**: never fabricate an empty array `[]`, a mock file or a synthetic
-   pass to get past a missing receipt or a CLI gate. A payload still unreadable or not complete JSON when
-   the bound runs out, or one that fails its schema, fails closed with the concrete I/O, parse or schema
-   error.
+   pass to get past a missing receipt or a CLI gate. Unreadable, incomplete or invalid payloads fail closed with the concrete error.
 
-A spawn failure at a station with no ticket (plan, tasks, ff) is recorded with
+Ticketless spawn failures (plan, tasks, ff) use
 `prospec change log --skill {{delegation_producer}} --result WARN --warning "<station> delegate failed: <reason>"` —
 never under the station's own label, which its verifier gate reads.
 
@@ -38,16 +31,14 @@ never under the station's own label, which its verifier gate reads.
 
 Tickets, payloads and checkpoints live under `.prospec/changes/{name}/{{delegation_dir}}/`.
 
-At review and verify the CLI records every delegation, so a delegate that changes the repository is
-caught the moment it returns — before the orchestrator applies any fix of its own — and what it may
-have destroyed is still on disk for the human.
+Ticket every review/verify delegate before spawning; receive before applying fixes.
 
-1. **Issue** — before each spawn (a reviewer or lens agent, the critical-existence verifier, a grader):
+1. **Issue** — before each spawn:
    `prospec change delegate --station <review|verify> --role <role> --round <n>`. `<n>` is the station's
    own round counter (the review loop round; the verify run). Each delegate of a round gets its own role —
    `lens-<name>`, `verifier-<finding id>` (the CLI lowercases the id; when two findings of a round
    normalize alike, add `-2`, `-3`), `grader` (verify 2/5 and 3/5), `grader-design` (verify dimension 6)
-   — since a second ticket for a role is a re-spawn that retires the first. The CLI records the repository
+  . The CLI records the repository
    state (the facets {{delegation_facets}}; `refs` holds local refs only), a checkpoint — byte copies of
    the uncommitted and untracked files and of the index — and builds a snapshot under the temporary
    directory; it prints the absolute payload path and the absolute snapshot path. Hand the delegate
@@ -73,10 +64,9 @@ have destroyed is still on disk for the human.
    issue and receipt the orchestrator changes nothing in the working tree — no fixes, no count or
    knowledge sync. The receipt compares the repository state first, then checks steps 1–2 above and
    the payload's age:
-   - *a facet changed* (named, with both values and the checkpoint path) → refused as mutated, even with
+   - *protected state changed* (named, with both values and the checkpoint path) → refused as mutated, even with
      no payload; go to step 4;
-   - *a facet cannot be read while every readable one is unchanged* (for example a nested repository or
-     a symlink leaving the tree) → the ticket stays open; name the cause for the human to remove and
+   - *necessary facts cannot be read with no proved protected difference* → the ticket stays open; name the cause for the human to remove and
      receive again; if the human keeps the tree, one `--accept-current-tree` ends that attempt together
      with every sibling that returned the same way;
    - *not written yet, empty, or not yet complete JSON* → the ticket stays open; keep waiting within the
@@ -87,18 +77,25 @@ have destroyed is still on disk for the human.
    the human's consent the orchestrator brings back only what the human agrees to, using git and the
    files under the checkpoint (verify each copy's sha256 first) — never a CLI command, since the CLI
    writes no working tree, index, HEAD or ref. The CLI refuses every new attempt of the change until the
-   tree is back at the refused attempt's pre-spawn state; issue one only on the human's explicit
+   protected state satisfies the refused attempt's pre-spawn policy; issue one only on the human's explicit
    go-ahead — never re-issue after a mutation refusal on your own, so each refusal costs one human
    decision. Such a recovered attempt is not a re-spawn and does not use the re-spawn allowance, which
    counts only spawn failures and exhausted waits. A sibling refused because of a parallel delegate's
-   change, whose tree already equals its own pre-spawn state, goes straight to a new attempt. The human
+   change, whose protected state already satisfies its pre-spawn policy, goes straight to a new attempt. The human
    alone may instead end the attempt with
    `--spawn-failed <stem> --reason "<what was lost>" --accept-current-tree`, which keeps the checkpoint
    and prints its path.
 5. **End a failed delegation** — `prospec change delegate --spawn-failed <stem> --reason "<why>"` for a
    spawn failure, an exhausted wait, or a refused receipt you will not re-spawn. It records the
-   `{{delegation_producer}}` WARN itself before the ticket turns failed, and it refuses while any facet
-   differs from the pre-spawn state — receive it, then hand it off (step 4).
+   `{{delegation_producer}}` WARN itself before the ticket turns failed, and it refuses while protected state differs or necessary facts are unreadable — receive it, then hand it off (step 4).
+   V1 tickets retain exact five-facet equality. V2 uses one policy at all gates:
+   protect content, HEAD, index, tags and current HEAD branches. Allow a branch checked out by a valid sibling at baseline,
+   or a branch absent at baseline and now checked out by a valid sibling; baseline unowned branches remain protected.
+   Allow stash additions only with a valid sibling and an intact baseline suffix (order and duplicates preserved).
+   Single-worktree stash changes remain protected. Protected changes refuse; protected differences take precedence over unreadable topology.
+   Missing topology keeps receipt pending even with zero raw diff; issue requires readable topology.
+   V2 keeps bounded issue, receive and failure observations: allowed ref OIDs and stash prefixes;
+   pending/refused evidence writes must succeed. Ordinary failure refusal writes evidence only, without WARN or cleanup.
 6. **Sink** — `prospec review merge` / `prospec verify record` refuse while any latest attempt is still
    open or refused, and print whether the run was covered by delegate mutation detection. The payloads of
    a round's several delegates — Mode A lenses, verify's `grader` and `grader-design` — are each received
@@ -106,7 +103,7 @@ have destroyed is still on disk for the human.
 
 ## What this guarantees, and what it does not
 
-The CLI detects and preserves: it names every facet a delegate changed and keeps the issue-time copies
+The CLI detects and preserves: it names protected differences and keeps the issue-time copies
 until the human decides. It prevents nothing and restores nothing, and prompt wording is never the
 isolation mechanism. It guards against an accidental or buggy delegate, not a malicious one. The receipt
 does not see ignored files (an ignored `prospec-report.json` included); artifacts under `.prospec/`, tickets and checkpoints included — a delegate
@@ -120,5 +117,6 @@ after the receipt; a change the delegate itself reverted before returning; conte
 or pushes to any remote (remote-tracking refs are not a facet), while tags a `git fetch` auto-follows do
 change the `refs` facet, so a delegate's fetch can refuse an otherwise clean receipt. Delegations of
 several changes running at once in one repository are not isolated from one another: the facets span the
-whole repository, so a sibling worktree's commit or stash during a delegation refuses the receipt.
+whole repository. Allowed changes do not prove who made them: endpoint facts do not identify the actor.
+Topology brackets capture with one retry, not an atomic snapshot. New tickets are V2; older CLIs may not read V2 tickets.
 Snapshots cost a working-tree checkout each and live until their ticket settles.

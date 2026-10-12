@@ -1748,6 +1748,34 @@ describe('CLI E2E — delegation tickets (REQ-TESTS-125, REQ-CLI-057)', () => {
     expect(fs.existsSync(path.join(tmpDir, CHECKPOINT, 'blobs'))).toBe(true);
   });
 
+  it('receives sibling commits and stash additions, then refuses protected changes without writing Git', async () => {
+    await setup();
+    const sibling = `${tmpDir}-sibling`;
+    git('worktree', 'add', '-q', sibling, 'other');
+    try {
+      expect((await issue()).exitCode).toBe(0);
+      gitIn(sibling, 'commit', '--allow-empty', '-qm', 'parallel');
+      fs.writeFileSync(path.join(sibling, 'src/a.ts'), 'stash');
+      gitIn(sibling, 'stash', 'push', '-qm', 'parallel stash');
+      const image = gitImage();
+      write(PAYLOAD, FINDINGS);
+      const received = await receive();
+      expect(received.exitCode, received.stderr).toBe(0);
+      expect(received.stdout).toContain('allowed ref: refs/heads/other');
+      expect(received.stdout).toContain('allowed stash prefix: 1');
+      expect(gitImage()).toEqual(image);
+      expect((await issue('next')).exitCode).toBe(0);
+      gitIn(sibling, 'commit', '--allow-empty', '-qm', 'another');
+      const failed = await runCli(['change', 'delegate', '--spawn-failed', 'review-next-1-1', '--reason', 'spawn failed']);
+      expect(failed.exitCode, failed.stderr).toBe(0);
+      expect((await issue('protected')).exitCode).toBe(0);
+      write('src/a.ts', 'protected change');
+      const refused = await receive('review-protected-1-1');
+      expect(refused.exitCode).toBe(1);
+      expect(refused.stdout).toContain('protected repository state changed');
+    } finally { fs.rmSync(sibling, { recursive: true, force: true }); }
+  });
+
   it.skipIf(process.platform === 'win32' || process.getuid?.() === 0)(
     'issues, receives and ends a delegation under a read-only .git, leaving .git and every facet byte-identical',
     async () => {
@@ -1780,7 +1808,7 @@ describe('CLI E2E — delegation tickets (REQ-TESTS-125, REQ-CLI-057)', () => {
     write('src/a.ts', 'fixed by the orchestrator\n');
     const merge = await runCli(['review', 'merge', '--findings', path.join(tmpDir, PAYLOAD)]);
     expect(merge.exitCode).toBe(0);
-    expect(merge.stdout).toContain('Delegation: 1 received (every repository facet matched at receipt) — review-reviewer-1-1');
+    expect(merge.stdout).toContain('Delegation: 1 received (ticket policy passed at receipt) — review-reviewer-1-1');
     expect(fs.readFileSync(path.join(changeDir, 'review.md'), 'utf8')).not.toBe(SEEDED);
   });
 

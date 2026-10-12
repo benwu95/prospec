@@ -45,7 +45,7 @@
 - Published cleanup-pending bundles are readable but cannot finalize. Missing/corrupt lineage on a marked bundle is never legacy. Complete summaries may be edited; initial inventory is not an immutable-history requirement.
 - Legacy imports are copy-only and retain basename, metadata bytes, manifest origin and retry digests. Their transient pointer disappears only after verified complete publication. Identical trees deduplicate; conflicts refuse without suffixes or overwrite. Marked modern inputs permit canonical no-op or identical canonical copies only.
 - Abandoned reads verify staged/unstaged patches and every regular blob against recorded hashes and safe paths; optional gitlinks must parse. Preservation records work without restoring it or guaranteeing referenced Git objects survive repository deletion.
-- Nonignored `.prospec` work remains in preservation except the current transfer's own destination/staging/journal/claim. Git state capture does not refresh the index; snapshot rechecks exclude exactly the same owned paths.
+- Nonignored `.prospec` work remains in preservation except the current transfer's own destination/staging/journal/claim. Git state capture does not refresh the index and retains exact refs/stash equality even when delegation allows sibling activity; snapshot rechecks exclude exactly the same owned paths.
 
 <!-- prospec:auto-end -->
 

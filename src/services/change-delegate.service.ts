@@ -1,5 +1,5 @@
 import * as path from 'node:path';
-import { formatDelegationRole, type DelegationStation, type DelegationTicket } from '../types/delegation.js';
+import { formatDelegationRole, type DelegationAssessment, type DelegationStation, type DelegationTicket } from '../types/delegation.js';
 import { PrerequisiteError } from '../types/errors.js';
 import { DELEGATION_PRODUCER } from '../types/station.js';
 import { appendQualityLogEntry, readChangeMetadata, writeChangeMetadataDoc } from '../lib/change-metadata.js';
@@ -19,7 +19,7 @@ export interface ChangeDelegateOptions {
   mode: ChangeDelegateMode;
 }
 
-export type ChangeDelegateResult =
+export type ChangeDelegateResult = (
   | {
       kind: 'issued';
       changeName: string;
@@ -31,7 +31,7 @@ export type ChangeDelegateResult =
     }
   | { kind: 'received'; changeName: string; stem: string; unreleased: string[] }
   | { kind: 'receipt-failed'; changeName: string; stem: string; verdict: Exclude<ReceiptVerdict, { kind: 'received' }> }
-  | { kind: 'failed'; changeName: string; stems: string[]; warnings: string[]; accepted: boolean; unreleased: string[]; kept: string[] };
+  | { kind: 'failed'; changeName: string; stems: string[]; warnings: string[]; accepted: boolean; unreleased: string[]; kept: string[] }) & { assessment?: DelegationAssessment };
 
 /** The WARN a failed delegation records — a refusal the CLI holds is copied in,
  *  so the orchestrator's reason can add to it but never replace it. */
@@ -91,15 +91,16 @@ async function run(options: ChangeDelegateOptions): Promise<ChangeDelegateResult
       payloadPath: issued.payloadPath,
       snapshotPath: issued.snapshotProjectPath,
       unreleased: issued.unreleased,
+      ...(issued.ticket.version === 2 ? { assessment: issued.ticket.assessments.issue.assessment } : {}),
     };
   }
 
   if (mode.kind === 'receive') {
     const outcome = await receiveTicket({ cwd, changeDir, stem: mode.stem });
     if (outcome.verdict.kind === 'received') {
-      return { kind: 'received', changeName, stem: outcome.stem, unreleased: outcome.unreleased ?? [] };
+      return { kind: 'received', changeName, stem: outcome.stem, unreleased: outcome.unreleased ?? [], assessment: outcome.assessment };
     }
-    return { kind: 'receipt-failed', changeName, stem: outcome.stem, verdict: outcome.verdict };
+    return { kind: 'receipt-failed', changeName, stem: outcome.stem, verdict: outcome.verdict, assessment: outcome.assessment };
   }
 
   if (mode.reason.trim() === '') {

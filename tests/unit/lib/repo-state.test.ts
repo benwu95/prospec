@@ -2,12 +2,15 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { execFileSync } from 'node:child_process';
 import { mkdirSync, mkdtempSync, realpathSync, rmSync, utimesSync, writeFileSync } from 'node:fs';
 import os from 'node:os';
+import * as fs from 'node:fs';
 import path from 'node:path';
 import type { RepoState } from '../../../src/types/delegation.js';
 import { DRIFT_REPORT_FILENAME } from '../../../src/types/drift-report.js';
 import {
   DELEGATION_REPORT_FILES,
   captureRepoState,
+  captureGitState,
+  parseWorktreeRecords,
   describeFacet,
   describeRefChanges,
   describeStateChanges,
@@ -16,8 +19,17 @@ import {
   sameRepoState,
   sha256,
 } from '../../../src/lib/repo-state.js';
+import * as gitReads from '../../../src/lib/git-read.js';
 import { gitIn } from '../../helpers/git-fixture.js';
 
+const faults = vi.hoisted(() => ({ marker: null as string | null }));
+vi.mock('node:fs', async (original) => {
+  const actual = await original<typeof import('node:fs')>();
+  return { ...actual, lstatSync: (...args: Parameters<typeof actual.lstatSync>) => {
+    if (String(args[0]) === faults.marker) throw Object.assign(new Error('marker permission denied'), { code: 'EACCES' });
+    return actual.lstatSync(...args);
+  } };
+});
 vi.setConfig({ testTimeout: 30_000 });
 
 let repo: string;
@@ -31,6 +43,7 @@ const tempRepo = (name: string) => {
 };
 
 beforeEach(() => {
+  faults.marker = null;
   repo = tempRepo('main');
   git('init', '-q', '-b', 'main');
   put('a.txt', 'one\n');
@@ -40,6 +53,7 @@ beforeEach(() => {
 });
 
 afterEach(() => {
+  vi.restoreAllMocks();
   for (const dir of temps.splice(0)) rmSync(dir, { recursive: true, force: true });
 });
 
@@ -169,11 +183,11 @@ describe('what no facet sees (REQ-LIB-090)', () => {
       git('status', '--porcelain');
       git('fetch', '-q', '--no-tags', 'origin');
     });
-    expect(diff).toEqual({ changed: [], unreadable: [] });
+    expect(diff).toMatchObject({ changed: [], unreadable: [] });
   });
 
   it('does not report a `git maintenance` prefetch ref', () => {
-    expect(changedAfter(() => git('update-ref', 'refs/prefetch/remotes/origin/main', 'HEAD'))).toEqual({ changed: [], unreadable: [] });
+    expect(changedAfter(() => git('update-ref', 'refs/prefetch/remotes/origin/main', 'HEAD'))).toMatchObject({ changed: [], unreadable: [] });
   });
 
   it('does report a tag a fetch auto-follows — it is a local ref', () => {
@@ -245,13 +259,13 @@ describe('diffRepoState / describeFacet are pure (REQ-LIB-090)', () => {
 
   it('returns the changed facets and treats an unreadable side as unreadable, never unchanged', () => {
     const after: RepoState = { ...base, content: { unreadable: 'nested repository' }, stash: { entries: [O('2')] } };
-    expect(diffRepoState(base, after)).toEqual({ changed: ['stash'], unreadable: ['content'] });
+    expect(diffRepoState(base, after)).toMatchObject({ changed: ['stash'], unreadable: ['content'] });
     expect(sameRepoState(base, after)).toBe(false);
   });
 
   it('ignores the order of operation markers', () => {
     const after: RepoState = { ...base, head: { ref: 'refs/heads/main', commit: O('1'), operations: ['BISECT_LOG', 'MERGE_HEAD'] } };
-    expect(diffRepoState(base, after)).toEqual({ changed: [], unreadable: [] });
+    expect(diffRepoState(base, after)).toMatchObject({ changed: [], unreadable: [] });
   });
 
   it('describes a facet value, an unreadable one with its reason', () => {
@@ -282,4 +296,122 @@ describe('diffRepoState / describeFacet are pure (REQ-LIB-090)', () => {
     ]);
     expect(describeStateChanges(base, base)).toEqual([]);
   });
+});
+
+describe('worktree topology observation', () => {
+  it('identifies the current root from a nested project and excludes topology from exact equality', () => {
+    mkdirSync(path.join(repo, 'nested'));
+    const before = captureRepoState(path.join(repo, 'nested'));
+    expect(before.topology).toMatchObject({ current: { root: repo, branch: 'refs/heads/main' }, siblings: [] });
+    const altered = { ...before, topology: { unreadable: 'unknown' } };
+    expect(sameRepoState(before, altered)).toBe(true);
+  });
+  it('captures newline-bearing locked and detached siblings but ignores missing registrations', () => {
+    const sibling = path.join(tempRepo('parent'), 'linked\npath');
+    git('worktree', 'add', '-q', '--detach', sibling);
+    git('worktree', 'lock', '--reason', 'busy\nreason', sibling);
+    const before = captureRepoState(repo);
+    expect(before.topology).toMatchObject({ siblings: [{ root: sibling, branch: null }] });
+    rmSync(sibling, { recursive: true });
+    expect(captureRepoState(repo).topology).toMatchObject({ siblings: [] });
+  });
+});
+
+describe('topology parsing and bounded observation', () => {
+  const records = ['worktree /repo\nname', `HEAD ${'a'.repeat(40)}`, 'branch refs/heads/main', 'locked a\nreason', ''];
+  it('parses lossless fields and bare registrations', () => {
+    expect(parseWorktreeRecords(records)).toEqual([{ root: '/repo\nname', branch: 'refs/heads/main', bare: false, prunable: false }]);
+    expect(parseWorktreeRecords(['worktree /bare', 'bare', ''])).toEqual([{ root: '/bare', branch: null, bare: true, prunable: false }]);
+    expect(parseWorktreeRecords(['worktree /gone', `HEAD ${'a'.repeat(40)}`, 'detached', 'prunable missing', ''])[0]?.prunable).toBe(true);
+  });
+  it.each([
+    ['worktree /a', 'HEAD bad', 'detached'],
+    ['worktree /a', `HEAD ${'a'.repeat(40)}`],
+    ['worktree /a', `HEAD ${'a'.repeat(40)}`, 'detached', 'branch refs/heads/x'],
+    ['worktree /a', 'bare', 'unknown fact'],
+    ['worktree /a', 'bare', 'bare'],
+    ['worktree relative', 'bare'],
+    ['worktree /a', 'bare', '', 'worktree /a', 'bare'],
+    ['worktree /a', 'bare', 'detached'],
+  ])('fails closed on malformed ownership %j', (...fields) => {
+    expect(() => parseWorktreeRecords(fields)).toThrow();
+  });
+  it('does not add topology to preservation captures', () => {
+    expect(captureGitState(repo)).not.toHaveProperty('topology');
+  });
+  it('retries once for unstable membership and records persistent instability', () => {
+    const actual = gitReads.gitReadRecords;
+    let reads = 0;
+    vi.spyOn(gitReads, 'gitReadRecords').mockImplementation((cwd, sub, args) => {
+      const data = actual(cwd, sub, args);
+      if (sub !== 'worktree') return data;
+      reads++;
+      return data.map((field) => field === 'branch refs/heads/main' && reads % 2 === 0 ? 'branch refs/heads/other' : field);
+    });
+    expect(captureRepoState(repo).topology).toEqual({ unreadable: 'Worktree topology changed during capture' });
+    expect(reads).toBe(4);
+  });
+  it('returns unreadable when current registration or topology reads are unavailable', () => {
+    const actual = gitReads.gitReadRecords;
+    vi.spyOn(gitReads, 'gitReadRecords').mockImplementation((cwd, sub, args) => sub === 'worktree' ? [] : actual(cwd, sub, args));
+    expect(captureRepoState(repo).topology).toEqual({ unreadable: 'Current worktree registration unavailable' });
+  });
+});
+
+it('excludes prunable, bare and foreign registrations from sibling eligibility', () => {
+  const foreign = tempRepo('foreign');
+  gitIn(foreign, 'init', '-q', '-b', 'foreign');
+  gitIn(foreign, 'commit', '--allow-empty', '-qm', 'base');
+  const actual = gitReads.gitReadRecords;
+  vi.spyOn(gitReads, 'gitReadRecords').mockImplementation((cwd, sub, args) => {
+    const data = actual(cwd, sub, args);
+    return sub !== 'worktree' ? data : [...data, '', `worktree ${foreign}`, `HEAD ${'a'.repeat(40)}`, 'branch refs/heads/foreign', '', 'worktree /missing-bare', 'bare', '', 'worktree /pruned', `HEAD ${'b'.repeat(40)}`, 'detached', 'prunable missing', ''];
+  });
+  expect(captureRepoState(repo).topology).toMatchObject({ siblings: [] });
+});
+
+it('records topology read failures independently of readable raw facets', () => {
+  const actual = gitReads.gitReadRecords;
+  vi.spyOn(gitReads, 'gitReadRecords').mockImplementation((cwd, sub, args) => {
+    if (sub === 'worktree') throw new Error('topology permission denied');
+    return actual(cwd, sub, args);
+  });
+  const state = captureRepoState(repo);
+  expect(state.topology).toEqual({ unreadable: 'topology permission denied' });
+  expect(isFullyReadable(state)).toBe(true);
+  vi.restoreAllMocks();
+  faults.marker = path.join(repo, '.git');
+  expect(captureRepoState(repo).topology).toEqual({ unreadable: 'marker permission denied' });
+});
+
+it('canonicalizes a symlink alias as the same current worktree', () => {
+  const alias = path.join(tempRepo('aliases'), 'alias');
+  fs.symlinkSync(repo, alias, 'dir');
+  const direct = captureRepoState(repo), aliased = captureRepoState(alias);
+  expect(aliased.topology).toEqual(direct.topology);
+  expect(aliased.topology).toMatchObject({ current: { root: repo, branch: 'refs/heads/main' } });
+  expect(sameRepoState(direct, aliased)).toBe(true);
+});
+
+it('normalizes reordered registrations across capture brackets without a false mutation', () => {
+  git('worktree', 'add', '-qb', 'one', path.join(tempRepo('one'), 'tree'));
+  git('worktree', 'add', '-qb', 'two', path.join(tempRepo('two'), 'tree'));
+  const before = captureRepoState(repo);
+  const actual = gitReads.gitReadRecords;
+  let reads = 0;
+  vi.spyOn(gitReads, 'gitReadRecords').mockImplementation((cwd, sub, args) => {
+    const data = actual(cwd, sub, args);
+    if (sub !== 'worktree' || ++reads % 2 === 0) return data;
+    const groups: string[][] = [];
+    for (const field of data) {
+      if (field.startsWith('worktree ')) groups.push([]);
+      groups.at(-1)?.push(field);
+    }
+    return groups.reverse().flat();
+  });
+  const after = captureRepoState(repo);
+  expect(after.topology).toEqual(before.topology);
+  expect(reads).toBe(2);
+  expect(sameRepoState(before, after)).toBe(true);
+  expect(diffRepoState(before, after)).toMatchObject({ changed: [], unreadable: [] });
 });

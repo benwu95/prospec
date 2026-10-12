@@ -8644,7 +8644,8 @@ describe('split and trim references contract (REQ-TEMPLATES-215~220, REQ-AGNT-04
      * flow it points at, even at the pointer's own length.
      */
     const TICKET_FLOW_PHRASES = [
-      /\bpre-spawn state\b/i,
+      /\bpre-spawn (?:state|policy)\b/i,
+      /endpoint facts|atomic snapshot|older CLIs|V2 tickets|tickets are V2/i,
       /\bcheckpoint (?:path|files?|copies)\b|\bcopies (?:in|under) (?:the )?checkpoint\b|--accept-current-tree/i,
       /\bone human decision\b|\bhuman'?s (?:explicit )?go-ahead\b|\bnever re-issue\b|\bre-issues? (?:after|on its own)\b/i,
       /\bnot a re-spawn\b|\bre-spawn allowance\b/i,
@@ -8918,7 +8919,40 @@ describe('split and trim references contract (REQ-TEMPLATES-215~220, REQ-AGNT-04
     const renderSkillTemplate = (name: string): string => renderTemplate(`skills/${name}.hbs`, TEMPLATE_CONTEXT);
     const renderReference = (name: string): string => renderTemplate(`skills/references/${name}.hbs`, TEMPLATE_CONTEXT);
 
+    const expectWorktreePolicy = (text: string): void => {
+      const flow = sectionOf(text, TICKET_HEADING);
+      const limits = sectionOf(text, LIMITS_HEADING);
+      for (const rule of [
+        /V1 tickets retain exact five-facet equality/,
+        /baseline sibling branch|branch checked out by a valid sibling at baseline/,
+        /absent at baseline.*checked out by a valid sibling/s,
+        /baseline unowned branches remain protected/,
+        /stash additions.*valid sibling.*baseline suffix/s,
+        /protected differences take precedence over unreadable topology/,
+        /issue, receive and failure.*observations/s,
+      ]) expect(flow).toMatch(rule);
+      expect(limits).toMatch(/endpoint facts do not identify the actor/);
+      expect(limits).toMatch(/older CLIs may not read V2 tickets/);
+      expect(limits).not.toMatch(/sibling worktree's commit or stash during a delegation refuses/);
+    };
+
     describe('Single definition (REQ-TEMPLATES-238, REQ-TESTS-107)', () => {
+      it('scopes branch/stash allowances and records versioned evidence', () => expectWorktreePolicy(renderProtocol()));
+      it('kills deletion of every scoped policy clause', () => {
+        const original = renderProtocol();
+        for (const clause of [
+          'V1 tickets retain exact five-facet equality',
+          'baseline unowned branches remain protected',
+          'protected differences take precedence over unreadable topology',
+          'endpoint facts do not identify the actor',
+          'older CLIs may not read V2 tickets',
+        ]) {
+          const mutated = original.replace(clause, 'removed');
+          expect(mutated).not.toBe(original);
+          expect(() => expectWorktreePolicy(mutated)).toThrow();
+        }
+      });
+
       it('delegation-protocol carries every receipt invariant, the bounded wait included', () => {
         expectReceiptProtocol(sectionOf(renderProtocol(), PROTOCOL_HEADING));
       });
@@ -8945,10 +8979,10 @@ describe('split and trim references contract (REQ-TEMPLATES-215~220, REQ-AGNT-04
         expect(handOff).toMatch(/changed facets with both values and the\s+checkpoint path to the human/);
         expect(handOff).toMatch(/with\s+the human's consent the orchestrator brings back only what the human agrees to, using git and the\s+files under the checkpoint/);
         expect(handOff).toMatch(/never a CLI command, since the CLI\s+writes no working tree, index, HEAD or ref/);
-        expect(handOff).toMatch(/The CLI refuses every new attempt of the change until the\s+tree is back at the refused attempt's pre-spawn state/);
+        expect(handOff).toMatch(/The CLI refuses every new attempt of the change until the\s+protected state satisfies the refused attempt's pre-spawn policy/);
         expect(handOff).toMatch(/never re-issue after a mutation refusal on your own, so each refusal costs one human\s+decision/);
         expect(handOff).toMatch(/is not a re-spawn and does not use the re-spawn allowance, which\s+counts only spawn failures and exhausted waits/);
-        expect(handOff).toMatch(/whose tree already equals its own pre-spawn state, goes straight to a new attempt/);
+        expect(handOff).toMatch(/whose protected state already satisfies its pre-spawn policy, goes straight to a new attempt/);
         expect(handOff).toMatch(/The human\s+alone may instead end the attempt with\s+`--spawn-failed <stem> --reason "<what was lost>" --accept-current-tree`, which keeps the checkpoint/);
         expect(flow).toMatch(/when two findings of a round\s+normalize alike, add `-2`, `-3`/);
       });
@@ -8986,7 +9020,7 @@ describe('split and trim references contract (REQ-TEMPLATES-215~220, REQ-AGNT-04
           /pushes to any remote \(remote-tracking refs are not a facet\)/,
           /tags a `git fetch` auto-follows do\s+change the `refs` facet/,
           /Delegations of\s+several changes running at once in one repository are not isolated from one another/,
-          /a sibling worktree's commit or stash during a delegation refuses the receipt/,
+          /endpoint facts do not identify the actor/,
         ]) {
           expect(limits).toMatch(unseen);
         }
@@ -9061,9 +9095,16 @@ describe('split and trim references contract (REQ-TEMPLATES-215~220, REQ-AGNT-04
         return end < 0 ? rest : rest.slice(0, end + 1);
       };
       const THREAT_MODEL_ZH = /防範的是意外或行為出錯的委派代理，而非惡意代理/;
+      const expectSummaryWithoutRawEquality = (file: string): void => {
+        const text = fs.readFileSync(path.join(__dirname, '../..', file), 'utf-8');
+        const rows = text.split('\n').filter((line) => line.startsWith('| `prospec change delegate [options]` |'));
+        expect(rows, `${file} has one command summary`).toHaveLength(1);
+        expect(rows[0]).not.toMatch(/any changed repository facet|任何 repository 面向改變/);
+      };
 
       it.each(['docs/reference/cli-reference.md'])('%s claims detection and preservation only, with the threat model', (file) => {
         expectOnlyDetectionClaims(delegateEntry(file), file);
+        expectSummaryWithoutRawEquality(file);
       });
 
       it.each(['docs/reference/cli-reference.zh-TW.md'])('%s claims detection and preservation only, with the threat model', (file) => {
@@ -9072,6 +9113,7 @@ describe('split and trim references contract (REQ-TEMPLATES-215~220, REQ-AGNT-04
         expect(entry, `${file} claims preservation`).toMatch(/保存/);
         expect(entry, `${file} states the threat model`).toMatch(THREAT_MODEL_ZH);
         expect(entry.replace(/不防止任何事，也不還原任何事/g, ''), `${file} claims prevention or restoration`).not.toMatch(/防止|還原|--restore/);
+        expectSummaryWithoutRawEquality(file);
       });
 
       it('the claim predicate rejects a restoration claim, a prevention claim and a missing threat model', () => {

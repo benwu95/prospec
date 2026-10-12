@@ -29,6 +29,7 @@ import {
   formatDelegationStem,
   parseDelegationStem,
   type DelegationKey,
+  type DelegationAssessment,
   type DelegationRefusalReason,
   type DelegationStation,
   type DelegationTicket,
@@ -55,10 +56,9 @@ import {
   captureRepoState,
   describeFacet,
   describeStateChanges,
-  diffRepoState,
+  assessDelegationState,
   isFullyReadable,
   isUnreadable,
-  sameRepoState,
   type FacetChange,
 } from './repo-state.js';
 
@@ -109,9 +109,27 @@ function changedFacets(pre: RepoState, now: RepoState): string {
     .join('; ');
 }
 
+function assess(ticket: DelegationTicket, current: RepoState): DelegationAssessment {
+  return assessDelegationState(ticket.pre_spawn, current, ticket.version === 1 ? 'legacy' : 'worktree');
+}
+
+function acceptedAssessment(assessment: DelegationAssessment): boolean {
+  return assessment.protected.length === 0 && assessment.unreadable.length === 0;
+}
+
+function projectState(ticket: DelegationTicket, state: RepoState): RepoState {
+  if (ticket.version === 2) return state;
+  return Object.fromEntries(GIT_STATE_FACETS.map((facet) => [facet, state[facet]])) as RepoState;
+}
+
+function observe(ticket: DelegationTicket, slot: 'receive' | 'failure', current: RepoState, at: number): DelegationTicket {
+  if (ticket.version === 1) return ticket;
+  return { ...ticket, assessments: { ...ticket.assessments, [slot]: { at_ms: at, observed: current, assessment: assess(ticket, current) } } };
+}
+
 /** The hand-off every mutation refusal names: the checkpoint, and that the human decides. */
 function handOff(changeDir: string, stem: string): string {
-  return `Stop and hand it to the human: with their consent, bring the tree back to its pre-spawn state using git and the copies in ${checkpointDirOf(changeDir, stem)}, then issue a new attempt — or the human ends it with \`${delegateCommand(changeDir, `--spawn-failed ${stem} --reason "<why>" --accept-current-tree`)}\``;
+  return `Stop and hand it to the human: with their consent, bring the protected state back within its pre-spawn policy using git and the copies in ${checkpointDirOf(changeDir, stem)}, then issue a new attempt — or the human ends it with \`${delegateCommand(changeDir, `--spawn-failed ${stem} --reason "<why>" --accept-current-tree`)}\``;
 }
 
 // --- Pure judgments ---------------------------------------------------------
@@ -148,19 +166,19 @@ export type IssueVerdict = { kind: 'issue'; attempt: number } | { kind: 'refused
 export function judgeIssue(facts: IssueFacts): IssueVerdict {
   const { changeDir, tickets, key, current } = facts;
   const attempt = nextAttempt(tickets, key, facts.leftoverAttempts);
-  if (!isFullyReadable(current)) {
+  if (!isFullyReadable(current) || !current.topology || 'unreadable' in current.topology) {
     const unreadable = GIT_STATE_FACETS.filter((facet) => isUnreadable(current[facet]));
     return {
       kind: 'refused',
-      message: `The repository state cannot be read (${unreadable.map((f) => `${f} ${describeFacet(current, f)}`).join('; ')})`,
+      message: `The repository state cannot be read (${[...unreadable.map((f) => `${f} ${describeFacet(current, f)}`), ...(!current.topology ? ['topology missing'] : 'unreadable' in current.topology ? [`topology ${current.topology.unreadable}`] : [])].join('; ')})`,
       suggestion: "Take the station's Harness Degradation path (in-session) and disclose the round as not covered",
     };
   }
   for (const t of latestLive(tickets)) {
-    if ((t.ticket.state === 'open' || t.ticket.state === 'refused') && !sameRepoState(t.ticket.pre_spawn, current)) {
+    if ((t.ticket.state === 'open' || t.ticket.state === 'refused') && !acceptedAssessment(assess(t.ticket, current))) {
       return {
         kind: 'refused',
-        message: `Attempt ${t.stem} is ${t.ticket.state}, and the tree is not what it started from (${changedFacets(t.ticket.pre_spawn, current)}; its checkpoint: ${checkpointDirOf(changeDir, t.stem)}) — a new ticket is issued only once the tree is back at its pre-spawn state`,
+        message: `Attempt ${t.stem} is ${t.ticket.state}, and the tree is not what it started from (${changedFacets(t.ticket.pre_spawn, current)}; its checkpoint: ${checkpointDirOf(changeDir, t.stem)}) — a new ticket is issued only once the protected state satisfies its pre-spawn policy`,
         suggestion: t.ticket.state === 'open'
           ? `Receive ${t.stem} first (\`${delegateCommand(changeDir, `--receive ${t.stem}`)}\`)`
           : handOff(changeDir, t.stem),
@@ -209,23 +227,23 @@ export function judgeReceipt(facts: ReceiptFacts): ReceiptVerdict {
   if (facts.latestAttempt > ticket.attempt) {
     return { kind: 'not-receivable', reason: 'superseded', detail: `ticket ${stem} was superseded by ${stemOf(ticket, facts.latestAttempt)}` };
   }
-  const diff = diffRepoState(ticket.pre_spawn, current);
-  if (diff.changed.length > 0) {
+  const assessment = assess(ticket, current);
+  if (assessment.protected.length > 0) {
     const checkpoint = checkpointDirOf(facts.changeDir, stem);
     return {
       kind: 'refused',
       reason: 'mutated',
-      detail: `delegate mutated the tree: ${changedFacets(ticket.pre_spawn, current)}; the issue-time copies are in ${checkpoint} — the flow stops here, recovery is the human's`,
-      changed: diff.changed,
-      facets: describeStateChanges(ticket.pre_spawn, current),
+      detail: `protected repository state changed: ${changedFacets(ticket.pre_spawn, current)}; the issue-time copies are in ${checkpoint} — the flow stops here, recovery is the human's`,
+      changed: assessment.protected,
+      facets: describeStateChanges(ticket.pre_spawn, current).filter((change) => assessment.protected.includes(change.facet) || assessment.unreadable.some((fact) => fact.facet === change.facet)),
       checkpoint,
     };
   }
-  if (diff.unreadable.length > 0) {
+  if (assessment.unreadable.length > 0) {
     return {
       kind: 'pending',
       reason: 'unreadable',
-      detail: `${diff.unreadable.map((f) => `${f} ${describeFacet(current, f)}`).join('; ')} — every readable facet is unchanged; remove the cause and receive again, or hand it to the human`,
+      detail: `${assessment.unreadable.map((fact) => `${fact.facet} ${fact.reason}`).join('; ')} — no protected difference was proved; remove the cause and receive again, or hand it to the human`,
     };
   }
   if (payload.kind === 'missing') return { kind: 'pending', reason: 'missing', detail: `payload ${ticket.payload_path} has not been written yet` };
@@ -270,10 +288,10 @@ export function judgeFailure(facts: FailureFacts): FailureVerdict {
     return { kind: 'refused', message: `Ticket ${target.stem} is ${t.state}; only an open or refused ticket can be ended`, suggestion: 'Nothing to end' };
   }
   if (!facts.accept) {
-    if (!sameRepoState(t.pre_spawn, current)) {
+    if (!acceptedAssessment(assess(t, current))) {
       return {
         kind: 'refused',
-        message: `The repository is not what it was when ${target.stem} was issued (${changedFacets(t.pre_spawn, current)}; its checkpoint: ${checkpointDirOf(changeDir, target.stem)}) — ending the attempt now would hide what changed it`,
+        message: `The repository does not satisfy the policy recorded when ${target.stem} was issued (${changedFacets(t.pre_spawn, current)}; its checkpoint: ${checkpointDirOf(changeDir, target.stem)}) — ending the attempt now would hide what changed it`,
         suggestion: t.state === 'refused'
           ? `${handOff(changeDir, target.stem)}; add --accept-current-tree only on the human's instruction`
           : `Receive it (\`${delegateCommand(changeDir, `--receive ${target.stem}`)}\`) so the change is recorded, then stop and hand it to the human — only on the human's instruction add --accept-current-tree`,
@@ -522,18 +540,22 @@ export async function issueTicket(options: { cwd: string; changeDir: string; key
     // The checkpoint and the snapshot were read after `current`: a tree that moved
     // in between would leave the ticket describing one state and the copies another.
     const settled = captureRepoState(cwd);
-    if (!sameRepoState(current, settled)) {
+    const assessment = assessDelegationState(current, settled, 'worktree');
+    if (!acceptedAssessment(assessment)) {
       throw refused('issue', `The repository changed while ticket ${stem} was being issued (${changedFacets(current, settled)})`, 'Let the tree settle, then issue again', stem);
     }
+    const settledVerdict = judgeIssue({ changeDir, tickets, key, current: settled, payloadExists: fs.existsSync(payloadPath), leftoverAttempts });
+    if (settledVerdict.kind === 'refused') throw refused('issue', settledVerdict.message, settledVerdict.suggestion, settledVerdict.ticket);
     ticket = {
-      version: 1,
+      version: 2,
       station: key.station,
       role: key.role,
       round: key.round,
       attempt: verdict.attempt,
       state: 'open',
       issued_at_ms: issuedAt,
-      pre_spawn: current,
+      pre_spawn: current as Extract<DelegationTicket, { version: 2 }>['pre_spawn'],
+      assessments: { issue: { at_ms: (options.now ?? Date.now)(), observed: settled, assessment } },
       payload_path: path.relative(cwd, payloadPath).split(path.sep).join('/'),
       snapshot,
       checkpoint,
@@ -588,6 +610,7 @@ export interface ReceiptOutcome {
   stem: string;
   ticket: DelegationTicket;
   verdict: ReceiptVerdict;
+  assessment: DelegationAssessment;
   /** What a received ticket held that could not be removed. */
   unreleased?: string[];
 }
@@ -599,25 +622,27 @@ export async function receiveTicket(options: { cwd: string; changeDir: string; s
   const now = (options.now ?? Date.now)();
   const current = captureRepoState(cwd);
   const verdict = judgeReceipt({ changeDir, ticket, latestAttempt, payload: payloadFacts(cwd, ticket), current });
+  const assessment = assess(ticket, current);
+  const observedTicket = observe(ticket, 'receive', current, now);
   if (verdict.kind === 'refused') {
     // A refused ticket keeps its snapshot and checkpoint: they are the evidence the human recovers from.
-    const observed = verdict.reason === 'mutated' ? { observed: current, changed: verdict.changed } : {};
-    const next: DelegationTicket = { ...ticket, state: 'refused', refusal: { reason: verdict.reason, detail: verdict.detail, ...observed } };
+    const observed = verdict.reason === 'mutated' ? { observed: projectState(ticket, current), changed: verdict.changed } : {};
+    const next: DelegationTicket = { ...observedTicket, state: 'refused', refusal: { reason: verdict.reason, detail: verdict.detail, ...observed } };
     await transitionTicket(changeDir, stem, ticket, next, 'receive');
-    return { stem, ticket: next, verdict };
+    return { stem, ticket: next, verdict, assessment };
   }
   if (verdict.kind === 'received') {
-    const next: DelegationTicket = { ...ticket, state: 'received', received: { at_ms: now } };
+    const next: DelegationTicket = { ...observedTicket, state: 'received', received: { at_ms: now } };
     await transitionTicket(changeDir, stem, ticket, next, 'receive');
     const unreleased = releaseAttempt(changeDir, { stem, ticket: next });
-    return { stem, ticket: next, verdict, ...(unreleased.length > 0 ? { unreleased } : {}) };
+    return { stem, ticket: next, verdict, assessment, ...(unreleased.length > 0 ? { unreleased } : {}) };
   }
-  if (verdict.kind === 'pending' && verdict.reason === 'unreadable' && ticket.returned_unreadable_at_ms === undefined) {
-    const next: DelegationTicket = { ...ticket, returned_unreadable_at_ms: now };
+  if (verdict.kind === 'pending' && (ticket.version === 2 || (verdict.reason === 'unreadable' && ticket.returned_unreadable_at_ms === undefined))) {
+    const next: DelegationTicket = { ...observedTicket, ...(verdict.reason === 'unreadable' && ticket.returned_unreadable_at_ms === undefined ? { returned_unreadable_at_ms: now } : {}) };
     await transitionTicket(changeDir, stem, ticket, next, 'receive');
-    return { stem, ticket: next, verdict };
+    return { stem, ticket: next, verdict, assessment };
   }
-  return { stem, ticket, verdict };
+  return { stem, ticket, verdict, assessment };
 }
 
 export interface EndedTicket {
@@ -631,7 +656,7 @@ export interface EndedTicket {
 
 /**
  * End an open or refused latest attempt as failed. Without a human acceptance the
- * repository must equal the pre-spawn state again; with one, the acceptance is
+ * protected state must satisfy the ticket policy; with one, the acceptance is
  * recorded and every refused sibling (and every open one whose delegate returned
  * with an unreadable facet) ends in the same operation, each keeping its checkpoint.
  */
@@ -650,18 +675,23 @@ export async function markFailed(options: {
   const current = captureRepoState(cwd);
   const accepted = options.acceptCurrentTree === true;
   const verdict = judgeFailure({ changeDir, target: found, tickets, current, accept: accepted });
-  if (verdict.kind === 'refused') throw refused('fail', verdict.message, verdict.suggestion, stem);
+  if (verdict.kind === 'refused') {
+    if (!accepted && found.ticket.version === 2) {
+      await transitionTicket(changeDir, stem, found.ticket, observe(found.ticket, 'failure', current, (options.now ?? Date.now)()), 'fail');
+    }
+    throw refused('fail', verdict.message, verdict.suggestion, stem);
+  }
   const ended: EndedTicket[] = [];
   for (const endStem of verdict.stems) {
     const stored = tickets.find((t) => t.stem === endStem)!;
     await options.beforeWrite?.({ stem: endStem, before: stored.ticket, accepted });
     const next: DelegationTicket = {
-      ...stored.ticket,
+      ...observe(stored.ticket, 'failure', current, (options.now ?? Date.now)()),
       state: 'failed',
       failure: {
         at_ms: (options.now ?? Date.now)(),
         reason: endStem === stem ? options.reason : `${options.reason} (ended with ${stem})`,
-        ...(accepted ? { accepted: { state: current } } : {}),
+        ...(accepted ? { accepted: { state: projectState(stored.ticket, current) } } : {}),
       },
     };
     await transitionTicket(changeDir, endStem, stored.ticket, next, 'fail');

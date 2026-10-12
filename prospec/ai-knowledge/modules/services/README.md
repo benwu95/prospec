@@ -51,6 +51,8 @@ Also: `quickstart` (init + agentSync), `agent-triggers` + `trigger-localization`
 
 ## Pitfalls
 
+- `change-delegate` forwards typed assessments from lib on issue/receive, including mixed allowed/protected differences; it never reimplements policy. Ordinary failure refusal may persist V2 observation evidence but must not invoke the WARN hook or cleanup. Existing human-acceptance guards and warning-before-failed ordering remain; settlement consumes stored evidence without recapturing repository state.
+
 - Review merge canonicalizes accumulated lens declarations only on accepted requests supplying `lenses`; omission, refusal and failure-only metrics paths do not migrate them. Delegate to `lib/lens-yield.canonicalizeDeclaredLenses`; keep original finding labels, request digests and identity/evidence unchanged.
 
 - Archive/abandon transfer complete bundles to the corresponding main-worktree project; config, active changes, delegation, tests, Knowledge and spec writes remain source-local. History import retains source copies and exact identities; marked inputs support only canonical no-op or identical canonical deduplication.

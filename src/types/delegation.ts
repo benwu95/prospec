@@ -17,8 +17,7 @@ export type DelegationStation = (typeof DELEGATION_STATIONS)[number];
 export const DELEGATION_STATES = ['open', 'received', 'refused', 'failed', 'consumed'] as const;
 export type DelegationState = (typeof DELEGATION_STATES)[number];
 
-/** Refusals that end an attempt. A payload that has not arrived, or a facet that
- *  cannot be read while every readable one is unchanged, leaves the ticket open. */
+/** Refusals that end an attempt. Missing payloads and unreadable policy outcomes stay open. */
 export const DELEGATION_REFUSAL_REASONS = ['schema', 'stale', 'mutated'] as const;
 export type DelegationRefusalReason = (typeof DELEGATION_REFUSAL_REASONS)[number];
 
@@ -120,7 +119,7 @@ const RelativePath = z.string().refine(isNormalizedRelativePath, 'not a normaliz
 /** A facet that could not be read carries its reason — never a stand-in value. */
 const Unreadable = z.strictObject({ unreadable: z.string().min(1) });
 
-export const RepoStateSchema = z.strictObject({
+const LegacyRepoStateSchema = z.strictObject({
   content: z.union([z.strictObject({ digest: Digest }), Unreadable]),
   head: z.union([
     z.strictObject({
@@ -140,7 +139,31 @@ export const RepoStateSchema = z.strictObject({
   ]),
   stash: z.union([z.strictObject({ entries: z.array(ObjectId) }), Unreadable]),
 });
+const WorktreeSchema = z.strictObject({
+  root: z.string().min(1), identity: z.string().min(1), branch: z.string().min(1).nullable(),
+});
+export const ReadableTopologySchema = z.strictObject({
+  current: WorktreeSchema, siblings: z.array(WorktreeSchema),
+});
+export const RepoStateSchema = LegacyRepoStateSchema.extend({
+  topology: z.union([ReadableTopologySchema, Unreadable]).optional(),
+});
 export type RepoState = z.infer<typeof RepoStateSchema>;
+export type WorktreeTopology = z.infer<typeof ReadableTopologySchema>;
+export const RefDeltaSchema = z.strictObject({ name: z.string().min(1), before: ObjectId.nullable(), after: ObjectId.nullable() });
+export type RefDelta = z.infer<typeof RefDeltaSchema>;
+export const DelegationAssessmentSchema = z.strictObject({
+  mode: z.enum(['legacy', 'worktree']),
+  protected: z.array(z.enum(GIT_STATE_FACETS)),
+  protected_refs: z.array(RefDeltaSchema),
+  allowed_refs: z.array(RefDeltaSchema.extend({ reason: z.enum(['baseline-sibling', 'new-sibling']) })),
+  stash_added: z.array(ObjectId),
+  unreadable: z.array(z.strictObject({ facet: z.enum([...GIT_STATE_FACETS, 'topology']), reason: z.string().min(1) })),
+});
+export type DelegationAssessment = z.infer<typeof DelegationAssessmentSchema>;
+const DelegationObservationSchema = z.strictObject({
+  at_ms: Millis, observed: RepoStateSchema, assessment: DelegationAssessmentSchema,
+});
 
 /** One uncommitted path in a checkpoint. A symlink keeps its target here — never a link on disk. */
 export const CheckpointEntrySchema = z.strictObject({
@@ -159,7 +182,7 @@ export const CheckpointSchema = z.strictObject({
 });
 export type Checkpoint = z.infer<typeof CheckpointSchema>;
 
-export const DelegationTicketSchema = z.strictObject({
+const LegacyDelegationTicketSchema = z.strictObject({
   version: z.literal(1),
   station: z.enum(DELEGATION_STATIONS),
   role: z.string().regex(new RegExp(`^${ROLE}$`)),
@@ -167,20 +190,20 @@ export const DelegationTicketSchema = z.strictObject({
   attempt: z.number().int().positive(),
   state: z.enum(DELEGATION_STATES),
   issued_at_ms: Millis,
-  pre_spawn: RepoStateSchema,
+  pre_spawn: LegacyRepoStateSchema,
   /** Project-relative path the delegate must write. */
   payload_path: z.string().min(1),
   /** The snapshot's path comes from mkdtemp, so only the ticket knows it; release still checks three conditions. */
   snapshot: z.strictObject({ path: z.string().min(1), nonce: z.string().regex(/^[0-9a-f]{32}$/) }),
   checkpoint: CheckpointSchema,
-  /** Set when a receipt found every readable facet unchanged but one facet unreadable: the delegate returned. */
+  /** Records the delegate return when the receipt policy outcome is unreadable. */
   returned_unreadable_at_ms: Millis.optional(),
   received: z.strictObject({ at_ms: Millis }).optional(),
   refusal: z
     .strictObject({
       reason: z.enum(DELEGATION_REFUSAL_REASONS),
       detail: z.string().min(1),
-      observed: RepoStateSchema.optional(),
+      observed: LegacyRepoStateSchema.optional(),
       changed: z.array(z.enum(GIT_STATE_FACETS)).optional(),
     })
     .optional(),
@@ -189,9 +212,23 @@ export const DelegationTicketSchema = z.strictObject({
       at_ms: Millis,
       reason: z.string().min(1),
       /** Set when a human accepted the current tree; facets that could not be read stay unreadable. */
-      accepted: z.strictObject({ state: RepoStateSchema }).optional(),
+      accepted: z.strictObject({ state: LegacyRepoStateSchema }).optional(),
     })
     .optional(),
   consumed_at_ms: Millis.optional(),
 });
+const WorktreeDelegationTicketSchema = LegacyDelegationTicketSchema.extend({
+  version: z.literal(2),
+  pre_spawn: RepoStateSchema.extend({ topology: ReadableTopologySchema }),
+  refusal: LegacyDelegationTicketSchema.shape.refusal.unwrap().extend({ observed: RepoStateSchema.optional() }).optional(),
+  failure: LegacyDelegationTicketSchema.shape.failure.unwrap().extend({
+    accepted: z.strictObject({ state: RepoStateSchema }).optional(),
+  }).optional(),
+  assessments: z.strictObject({
+    issue: DelegationObservationSchema,
+    receive: DelegationObservationSchema.optional(),
+    failure: DelegationObservationSchema.optional(),
+  }),
+});
+export const DelegationTicketSchema = z.discriminatedUnion('version', [LegacyDelegationTicketSchema, WorktreeDelegationTicketSchema]);
 export type DelegationTicket = z.infer<typeof DelegationTicketSchema>;
