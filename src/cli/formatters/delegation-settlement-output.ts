@@ -27,7 +27,7 @@ export function formatDelegationSettlement(settlement: DelegationSettlement): st
   if (settlement.unconsumed.length > 0) extras.push(`could not mark as consumed: ${stems(settlement.unconsumed)}`);
   const tail = extras.length > 0 ? `; ${extras.join('; ')}` : '';
   if (settlement.received.length > 0) {
-    const parts = [`${settlement.received.length} received (every repository facet matched at receipt)`];
+    const parts = [`${settlement.received.length} received (ticket policy passed at receipt)`];
     if (settlement.failed.length > 0) parts.push(`${settlement.failed.length} failed`);
     return [`Delegation: ${parts.join(', ')} — ${stems(settlement.received)}${tail}`];
   }

@@ -50,6 +50,8 @@
 
 ## Pitfalls
 
+- Delegation formatters render the service assessment, sanitize every ref/reason, and distinguish allowed refs/stash prefixes from protected changes and unreadable facts. Receipt success and shared settlement output claim ticket-policy acceptance, never raw five-facet equality or actor attribution. Keep `change-delegate-output` and `delegation-settlement-output` wording aligned.
+
 - Abandon human output names the dedicated abandoned destination; its JSON preserves the `archiveDir` key with the same actual path and adds `preservedFileCount`. Normal output reports the captured count, unrestored work tree and human restoration decision using preservation/version control; quiet remains silent.
 
 - History import JSON keeps the complete per-entry report on stdout even with exit 1; command-level errors, including `HistoryError` retained-path details, go to stderr. Quiet suppresses success text, never conflicts or failures.

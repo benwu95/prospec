@@ -13,7 +13,7 @@
  * the checkpoint copies it like any other uncommitted file.
  */
 import { createHash } from 'node:crypto';
-import { existsSync, lstatSync, readFileSync, readlinkSync } from 'node:fs';
+import { existsSync, lstatSync, readFileSync, readlinkSync, realpathSync, statSync } from 'node:fs';
 import * as path from 'node:path';
 import {
   GIT_OPERATION_MARKERS,
@@ -22,6 +22,9 @@ import {
   type GitStateFacet,
   type IndexBlocker,
   type RepoState,
+  type WorktreeTopology,
+  type RefDelta,
+  type DelegationAssessment,
 } from '../types/delegation.js';
 import { DRIFT_REPORT_FILENAME } from '../types/drift-report.js';
 import { computeChangeState, gitProjectPrefix } from './drift-sources.js';
@@ -181,12 +184,97 @@ function readStash(cwd: string): RepoState['stash'] {
   });
 }
 
-/** Read all five facets. A facet that cannot be read carries its reason, never a stand-in. */
+interface WorktreeRegistration {
+  root: string;
+  branch: string | null;
+  bare: boolean;
+  prunable: boolean;
+}
+
+export function parseWorktreeRecords(records: readonly string[]): WorktreeRegistration[] {
+  const groups: string[][] = [];
+  let group: string[] = [];
+  for (const record of records) {
+    if (record === '') { if (group.length) groups.push(group); group = []; }
+    else group.push(record);
+  }
+  if (group.length) groups.push(group);
+  const roots = new Set<string>();
+  return groups.map((fields) => {
+    const values = new Map<string, string>();
+    for (const field of fields) {
+      const split = field.indexOf(' ');
+      const key = split < 0 ? field : field.slice(0, split);
+      const value = split < 0 ? '' : field.slice(split + 1);
+      if (!['worktree', 'HEAD', 'branch', 'detached', 'bare', 'locked', 'prunable'].includes(key) || values.has(key)) {
+        throw new Error('Unknown or duplicate worktree field');
+      }
+      if (['detached', 'bare'].includes(key) && value !== '') throw new Error('Invalid worktree flag');
+      values.set(key, value);
+    }
+    const root = values.get('worktree');
+    const bare = values.has('bare');
+    const branch = values.get('branch') ?? null;
+    if (!fields[0]?.startsWith('worktree ') || !root || !path.isAbsolute(root) || roots.has(root)) throw new Error('Invalid worktree root');
+    roots.add(root);
+    if (bare ? values.has('HEAD') || branch !== null || values.has('detached')
+      : !/^[0-9a-f]{40}(?:[0-9a-f]{24})?$/.test(values.get('HEAD') ?? '') || (branch !== null) === values.has('detached') || (branch !== null && !branch.startsWith('refs/heads/'))) {
+      throw new Error('Invalid worktree ownership');
+    }
+    return { root, branch, bare, prunable: values.has('prunable') };
+  });
+}
+
+function canonicalGitPath(cwd: string, option: string): string {
+  const result = gitRead(cwd, 'rev-parse', ['--path-format=absolute', option]).replace(/\r?\n$/, '');
+  if (!path.isAbsolute(result)) throw new Error(`Non-absolute ${option}`);
+  return realpathSync(result);
+}
+
+function directoryIdentity(root: string): string {
+  const stat = statSync(root, { bigint: true });
+  if (!stat.isDirectory()) throw new Error('Worktree root is not a directory');
+  return `${stat.dev}:${stat.ino}`;
+}
+
+function readTopology(cwd: string): NonNullable<RepoState['topology']> {
+  return readFacet(() => {
+    const root = canonicalGitPath(cwd, '--show-toplevel');
+    const identity = directoryIdentity(root);
+    const common = canonicalGitPath(cwd, '--git-common-dir');
+    const registrations = parseWorktreeRecords(gitReadRecords(cwd, 'worktree', ['list', '--porcelain', '-z']));
+    const valid: WorktreeTopology['siblings'] = [];
+    for (const registration of registrations) {
+      if (registration.bare || registration.prunable) continue;
+      let canonicalRoot: string;
+      try { canonicalRoot = realpathSync(registration.root); }
+      catch (error) { if ((error as NodeJS.ErrnoException).code === 'ENOENT') continue; throw error; }
+      try { lstatSync(path.join(canonicalRoot, '.git')); }
+      catch (error) { if ((error as NodeJS.ErrnoException).code === 'ENOENT') continue; throw error; }
+      const candidateIdentity = directoryIdentity(canonicalRoot);
+      if (canonicalGitPath(canonicalRoot, '--show-toplevel') !== canonicalRoot || canonicalGitPath(canonicalRoot, '--git-common-dir') !== common) continue;
+      if (valid.some((entry) => entry.root === canonicalRoot || entry.identity === candidateIdentity)) throw new Error('Duplicate worktree identity');
+      valid.push({ root: canonicalRoot, identity: candidateIdentity, branch: registration.branch });
+    }
+    const current = valid.find((entry) => entry.root === root && entry.identity === identity);
+    if (!current) throw new Error('Current worktree registration unavailable');
+    return { current, siblings: valid.filter((entry) => entry !== current).sort((a, b) => a.root < b.root ? -1 : a.root > b.root ? 1 : 0) };
+  });
+}
+
+/** Topology brackets the facets; one retry narrows membership races without claiming atomicity. */
 export function captureRepoState(cwd: string): RepoState {
-  return withFixedGitEnv(() => ({
-    content: readContent(cwd),
-    ...captureGitState(cwd),
-  }));
+  return withFixedGitEnv(() => {
+    for (let attempt = 0; ; attempt++) {
+      const before = readTopology(cwd);
+      const state = { content: readContent(cwd), ...captureGitState(cwd) };
+      const after = readTopology(cwd);
+      if ('unreadable' in before) return { ...state, topology: before };
+      if ('unreadable' in after) return { ...state, topology: after };
+      if (JSON.stringify(before) === JSON.stringify(after)) return { ...state, topology: before };
+      if (attempt === 1) return { ...state, topology: { unreadable: 'Worktree topology changed during capture' } };
+    }
+  });
 }
 
 /** Git facets for callers with their own content scope, through the same owners. */
@@ -208,6 +296,8 @@ export interface RepoStateDiff {
   changed: GitStateFacet[];
   /** Facets unreadable on either side — never treated as unchanged. */
   unreadable: GitStateFacet[];
+  refs: RefDelta[];
+  stash: { before: string[]; after: string[] } | null;
 }
 
 function canonical(value: RepoState[GitStateFacet]): string {
@@ -223,7 +313,17 @@ export function diffRepoState(before: RepoState, after: RepoState): RepoStateDif
     if (isUnreadable(before[facet]) || isUnreadable(after[facet])) unreadable.push(facet);
     else if (canonical(before[facet]) !== canonical(after[facet])) changed.push(facet);
   }
-  return { changed, unreadable };
+  const refs: RefDelta[] = [];
+  if (!isUnreadable(before.refs) && !isUnreadable(after.refs)) {
+    const was = new Map(before.refs.entries.map((entry) => [entry.name, entry.oid]));
+    const now = new Map(after.refs.entries.map((entry) => [entry.name, entry.oid]));
+    for (const name of [...new Set([...was.keys(), ...now.keys()])].sort()) {
+      const oldOid = was.get(name) ?? null, newOid = now.get(name) ?? null;
+      if (oldOid !== newOid) refs.push({ name, before: oldOid, after: newOid });
+    }
+  }
+  const stash = isUnreadable(before.stash) || isUnreadable(after.stash) ? null : { before: [...before.stash.entries], after: [...after.stash.entries] };
+  return { changed, unreadable, refs, stash };
 }
 
 /** True only when every facet is readable on both sides and equal. */
@@ -280,13 +380,45 @@ export function describeStateChanges(before: RepoState, after: RepoState): Facet
 
 /** The local refs added, removed or moved between two states, by name; empty when either side is unreadable. */
 export function describeRefChanges(before: RepoState, after: RepoState): string[] {
-  if (isUnreadable(before.refs) || isUnreadable(after.refs)) return [];
-  const was = new Map(before.refs.entries.map((e) => [e.name, e.oid]));
-  const now = new Map(after.refs.entries.map((e) => [e.name, e.oid]));
-  const names = [...new Set([...was.keys(), ...now.keys()])].sort();
-  return names.flatMap((name) => {
-    if (!was.has(name)) return [`${name} added`];
-    if (!now.has(name)) return [`${name} removed`];
-    return was.get(name) === now.get(name) ? [] : [`${name} moved`];
-  });
+  return diffRepoState(before, after).refs.map((ref) => `${ref.name} ${ref.before === null ? 'added' : ref.after === null ? 'removed' : 'moved'}`);
+}
+
+export function assessDelegationState(before: RepoState, after: RepoState, mode: DelegationAssessment['mode']): DelegationAssessment {
+  const diff = diffRepoState(before, after);
+  const result: DelegationAssessment = {
+    mode, protected: [], protected_refs: [], allowed_refs: [], stash_added: [],
+    unreadable: diff.unreadable.map((facet) => ({ facet, reason: [before[facet], after[facet]].filter(isUnreadable).map((value) => value.unreadable).join('; ') })),
+  };
+  if (mode === 'legacy') return { ...result, protected: diff.changed, protected_refs: diff.refs };
+  const topology = [before.topology, after.topology];
+  for (const [i, value] of topology.entries()) {
+    if (!value || 'unreadable' in value) result.unreadable.push({ facet: 'topology', reason: `${i === 0 ? 'before' : 'after'} topology ${value ? value.unreadable : 'missing'}` });
+  }
+  const was = before.topology && !('unreadable' in before.topology) ? before.topology : null;
+  const now = after.topology && !('unreadable' in after.topology) ? after.topology : null;
+  const currentRefs = new Set([before.head, after.head].flatMap((head) => isUnreadable(head) || head.ref === null ? [] : [head.ref]));
+  for (const value of [was, now]) if (value?.current.branch) currentRefs.add(value.current.branch);
+  const protectedFacets = new Set(diff.changed.filter((facet) => !['refs', 'stash'].includes(facet)));
+  for (const ref of diff.refs) {
+    const baselineSibling = was?.siblings.some((sibling) => sibling.branch === ref.name);
+    if (!ref.name.startsWith('refs/heads/') || currentRefs.has(ref.name) || (was && ref.before !== null && !baselineSibling)) result.protected_refs.push(ref);
+    else if (was && now) {
+      const newSibling = ref.before === null && now.siblings.some((sibling) => sibling.branch === ref.name);
+      if (baselineSibling || newSibling) result.allowed_refs.push({ ...ref, reason: baselineSibling ? 'baseline-sibling' : 'new-sibling' });
+      else result.protected_refs.push(ref);
+    }
+  }
+  if (result.protected_refs.length) protectedFacets.add('refs');
+  if (diff.changed.includes('stash') && diff.stash) {
+    const { before: previous, after: current } = diff.stash;
+    const added = current.length - previous.length;
+    const suffix = added >= 0 && previous.every((oid, i) => current[added + i] === oid);
+    if (!suffix) protectedFacets.add('stash');
+    else if (was && now) {
+      if (was.siblings.length || now.siblings.length) result.stash_added = current.slice(0, added);
+      else protectedFacets.add('stash');
+    }
+  }
+  result.protected = GIT_STATE_FACETS.filter((facet) => protectedFacets.has(facet));
+  return result;
 }

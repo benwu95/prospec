@@ -43,6 +43,8 @@
 
 ## Pitfalls
 
+- The shared delegation protocol distinguishes legacy exact equality from V2 branch/stash policy, bounded observations, protected-before-unreadable priority and endpoint limits. Keep new-issue, recovery and ordinary-failure guidance scoped to protected state; topology is not actor attribution or an atomic snapshot, and older CLIs may not read V2. Preserve pointer-only consumers and token ceilings when revising it.
+
 - Archive guidance keeps CLI-returned `archivePath`/`archiveIdentity` for summary, harvest and exact finalize; history/learn/retry guidance resolves canonical roots via `history paths` and names explicit legacy import. Abandon guidance uses the returned canonical abandoned destination; successful archive remains separate. Entry configs inherit its artifact-language scope from `language-policy.ts`.
 
 - New-story/ff review abandoned reasons and author `retry_difference` before validation on every scale. CLI-owned `retry_of` records creation-time history; quick/backfill can use a difference-only Premise. Synchronize both lifecycle copies and refresh exact startup baselines without raising ceilings.

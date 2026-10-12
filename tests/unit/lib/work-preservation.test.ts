@@ -361,3 +361,18 @@ describe('gitlink preservation', () => {
     expect(GitlinkPinsSchema.parse(JSON.parse(fs.readFileSync(path.join(destination, 'preservation/gitlinks.json'), 'utf8')))).toEqual({ version: 1, gitlinks: input.gitlinks });
   });
 });
+
+it.each(['branch', 'stash'])('keeps exact preservation protection for sibling %s changes', async (kind) => {
+  const { captureWork, recheckWork } = await import('../../../src/lib/work-preservation.js');
+  const sibling = `${root}-sibling`;
+  gitIn(root, 'worktree', 'add', '-qb', 'parallel', sibling);
+  try {
+    const input = captureWork(root, destination, sourceDir);
+    if (kind === 'branch') gitIn(sibling, 'commit', '--allow-empty', '-qm', 'parallel');
+    else {
+      fs.writeFileSync(path.join(sibling, 'tracked'), 'stash');
+      gitIn(sibling, 'stash', 'push', '-qm', 'parallel');
+    }
+    expect(() => recheckWork(input)).toThrow(/changed/);
+  } finally { fs.rmSync(sibling, { recursive: true, force: true }); }
+});

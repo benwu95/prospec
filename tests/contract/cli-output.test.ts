@@ -262,6 +262,12 @@ describe('CLI Output Contract', () => {
         expect(order[0]).toBeGreaterThan(output.indexOf('Options:'));
         expect(order[0]).toBeLessThan(order[1]!);
         expect(order[1]).toBeLessThan(order[2]!);
+        if (commandPath === 'change delegate') {
+          expect(output).toContain('ticket policy');
+          expect(output).toContain('protected changes');
+          expect(output).toContain('unreadable');
+          expect(output).not.toMatch(/different tree|every readable one is unchanged|any changed facet|any facet differs/);
+        }
       });
     }
 

@@ -1,6 +1,6 @@
 # Verification Suite
 
-> 4-layer Vitest suite (fast-glob/git bypass memfs — 305 test files, 7,849 tests (unit 5735, contract 1729, integration 163, e2e 222)).
+> 4-layer Vitest suite (fast-glob/git bypass memfs — 307 test files, 7,924 tests (unit 5786, contract 1731, integration 184, e2e 223)).
 <!-- prospec:module-readme-format 2026-09-01 -->
 
 <!-- prospec:auto-start -->
@@ -49,6 +49,8 @@ Lens changes require independent eight-lens expectations, alias/custom and thres
 - Template/skill/service/CLI changes ripple to contract + E2E expectations; public README, `docs/` page or website claims ripple to the section-scoped document contracts; a new station command needs a formatter unit test AND an E2E case.
 
 ## Pitfalls
+
+- Delegation V2 is pinned by `delegation-policy.test.ts` (pure guard pairs), `repo-state.test.ts` (lossless topology, identity exclusions and bounded retry), `delegation-worktrees.test.ts` (real sibling activity, mixed V1/V2, evidence-write faults and retained settlement observations) and issue-race/service/CLI suites. Cover new/renamed sibling branches at every lifecycle gate, stash pop/clear, canonical aliases and reordered registrations, and physical V1 failure/acceptance round-trips. Preservation tests still refuse sibling refs/stash changes. Run policy killing mutations with an applied-change assertion; restore the source before broader tests.
 
 - Terminal history fixtures use real registered worktrees and compare complete inventories (bytes, modes, directory modes and symlink targets). Cover source-origin isolation, same-name exact finalize, pointer/journal failures, missing primary projects and cleanup interruption; fault injection is distinct from a real cross-filesystem run.
 

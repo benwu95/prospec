@@ -51,7 +51,7 @@ const nothingReadable: RepoState = {
   stash: { unreadable: 'x' },
 };
 
-function ticket(role: string, attempt: number, overrides: Partial<DelegationTicket> = {}): StoredTicket {
+function ticket(role: string, attempt: number, overrides: Partial<Extract<DelegationTicket, { version: 1 }>> = {}): StoredTicket {
   const t: DelegationTicket = {
     version: 1,
     station: 'review',
@@ -69,13 +69,14 @@ function ticket(role: string, attempt: number, overrides: Partial<DelegationTick
   return { stem: `review-${role}-1-${attempt}`, ticket: t };
 }
 const key = { station: 'review' as const, role: 'lens-a', round: 1 };
+const withTopology = (state: RepoState): RepoState => ({ ...state, topology: { current: { root: '/repo', identity: '1:1', branch: 'refs/heads/main' }, siblings: [] } });
 const issueFacts = (overrides: Partial<Parameters<typeof judgeIssue>[0]> = {}) => ({
   changeDir: CHANGE_DIR,
   tickets: [] as StoredTicket[],
   key,
-  current: pre,
   payloadExists: false,
   ...overrides,
+  current: withTopology(overrides.current ?? pre),
 });
 
 describe('judgeIssue (REQ-LIB-092)', () => {
@@ -103,7 +104,7 @@ describe('judgeIssue (REQ-LIB-092)', () => {
     const { message, suggestion } = verdict as { message: string; suggestion: string };
     expect(message).toContain(`content (pre-spawn ${D('1')}, now ${D('9')})`);
     expect(message).toContain(checkpointDirOf(CHANGE_DIR, 'review-lens-b-1-1'));
-    expect(message).toMatch(/back at its pre-spawn state/);
+    expect(message).toMatch(/protected state satisfies its pre-spawn policy/);
     expect(suggestion).toContain('--receive review-lens-b-1-1');
   });
 
@@ -315,7 +316,7 @@ describe('judgeSettlement / keepsCheckpoint (REQ-LIB-092)', () => {
     const verdict = judgeSettlement(tickets);
     expect(verdict).toMatchObject({ kind: 'settled', received: [], failed: [], mutated: 1 });
     expect((verdict as { live: StoredTicket[] }).live.map((t) => t.stem)).toEqual(['review-a-1-1']);
-    expect(judgeIssue({ changeDir: '/c/x', tickets, key: { station: 'review', role: 'b', round: 1 }, current: changed, payloadExists: false })).toEqual({ kind: 'issue', attempt: 1 });
+    expect(judgeIssue({ changeDir: '/c/x', tickets, key: { station: 'review', role: 'b', round: 1 }, current: withTopology(changed), payloadExists: false })).toEqual({ kind: 'issue', attempt: 1 });
   });
 
   it('keeps the checkpoint of exactly the attempts a human accepted', () => {
@@ -410,7 +411,7 @@ describe('delegation lifecycle (REQ-LIB-092)', () => {
   it('ends a failed spawn with the hook called before the write, and refuses it over a changed tree', async () => {
     const issued = await issueTicket({ cwd: repo, changeDir, key });
     put('src/a.ts', 'damaged\n');
-    await expect(markFailed({ cwd: repo, changeDir, stem: issued.stem, reason: 'crashed' })).rejects.toThrow(/not what it was/);
+    await expect(markFailed({ cwd: repo, changeDir, stem: issued.stem, reason: 'crashed' })).rejects.toThrow(/does not satisfy the policy/);
     put('src/a.ts', 'uncommitted\n');
     const seen: string[] = [];
     const result = await markFailed({

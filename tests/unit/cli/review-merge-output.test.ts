@@ -239,7 +239,7 @@ describe('review-merge-output delegation line (REQ-SERVICES-121 / REQ-CLI-057)',
     );
     // Every count rides the ONE settlement line (REQ-CLI-037 / REQ-SERVICES-121): the digest grows by exactly one line.
     const line = out.split('\n').find((l) => l.includes('Delegation:'));
-    expect(line).toContain('Delegation: 1 received (every repository facet matched at receipt), 1 failed — review-lens-a-1-2; 1 attempt(s) refused as mutated; 1 attempt(s) ended by a human accepting the current repository state');
+    expect(line).toContain('Delegation: 1 received (ticket policy passed at receipt), 1 failed — review-lens-a-1-2; 1 attempt(s) refused as mutated; 1 attempt(s) ended by a human accepting the current repository state');
     expect(line).toContain('could not mark as consumed: review-lens-a-1-2');
     expect(out.split('\n').filter((l) => /Delegation|attempt\(s\)|consumed/.test(l))).toHaveLength(1);
     expect(out).not.toMatch(/not covered/);
