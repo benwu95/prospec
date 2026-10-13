@@ -2713,8 +2713,8 @@ describe('Skill Format Contract', () => {
       const workflow = htmlSectionById(website, 'v2');
       expect(workflow).toContain('prospec status');
       expect(workflow).toContain('docs/guides/upgrading.md');
-      expect(website).toContain('<span class="ver">2.5.0</span>');
-      expect(website).toContain('"softwareVersion":"2.5.0"');
+      expect(website).toContain('<span class="ver">2.6.0</span>');
+      expect(website).toContain('"softwareVersion":"2.6.0"');
       for (const page of [website, zhOverlay]) {
         expect(page).not.toContain('1.3 → 2.0');
         expect(page).not.toContain("What's new in 2.0");
@@ -2727,7 +2727,7 @@ describe('Skill Format Contract', () => {
       const twitterAlt = website.match(/<meta name="twitter:image:alt" content="([^"]+)">/)?.[1];
       expect(ogAlt).toBeDefined();
       expect(twitterAlt).toBe(ogAlt);
-      expect(ogAlt).toContain('2.5.0');
+      expect(ogAlt).toContain('2.6.0');
       expect(ogAlt).toContain('shared');
       expect(ogAlt).not.toContain('audits itself');
     });

@@ -46,7 +46,7 @@ Lens changes require independent eight-lens expectations, alias/custom and thres
 
 ## Ripple Effects
 
-- Template/skill/service/CLI changes ripple to contract + E2E expectations; public README, `docs/` page or website claims ripple to the section-scoped document contracts; a new station command needs a formatter unit test AND an E2E case.
+- Template/skill/service/CLI changes ripple to contract + E2E expectations; public README, `docs/` page or website claims ripple to the section-scoped document contracts; a new station command needs a formatter unit test AND an E2E case. Release bumps also update the website version and social-preview assertions in `skill-format.test.ts`.
 
 ## Pitfalls
 

@@ -39,6 +39,14 @@ prospec-upgrade                 # Step 2: AI agent migrates drifted doc formats,
 > - **Legacy File Cleanup**: If upgrading from an older pre-1.0 Prospec layout, remove the now-unused legacy files and directories after re-syncing: `GEMINI.md`, `.gemini/skills/`, `.codex/skills/`, `.github/copilot-instructions.md`, and `.github/instructions/`.
 > - **Configuration Version & Triggers**: `.prospec.yaml` `version` tracks the prospec version the project last upgraded to. If you ever need to localize triggers after adding a skill, simply run `prospec agent sync` — it explicitly reports missing `skill_triggers` entries so you fill only the gaps.
 
+## Upgrade to 2.6.0
+
+Update the binary, then run `prospec upgrade` to sync the delegation guidance. No configuration migration is required.
+
+New delegation tickets use V2 and allow bounded sibling-worktree branch and stash activity. Existing V1 tickets remain readable and retain exact comparison. Older CLI versions are not guaranteed to read V2 tickets; coordinate CLI versions before sharing new delegation state. Protected or unreadable differences still require inspection, and recovery remains an explicit human decision. See [Delegation commands](../reference/cli-reference.md) for the policy and its endpoint-detection limits.
+
+Run `prospec status` and `prospec check --strict` after upgrading.
+
 ## Upgrade to 2.5.0
 
 Update the binary before running `prospec upgrade` so the synced Skills can use the new `history` commands. No configuration migration is required.

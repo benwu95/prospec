@@ -39,6 +39,14 @@ prospec-upgrade                 # 步驟 2：AI Agent 依盤點報告遷移格�
 > - **舊版檔案清理**：若從早於 1.0 的舊版 Prospec 升級，完成升級同步後可手動清理不再使用的舊版檔案與目錄：`GEMINI.md`、`.gemini/skills/`、`.codex/skills/`、`.github/copilot-instructions.md` 與 `.github/instructions/`。
 > - **設定檔版本與觸發詞**：`.prospec.yaml` 的 `version` 會記錄專案上次升級的版本。新增 Skill 後若想單獨檢查或在地化觸發詞，只需直接執行 `prospec agent sync`，系統會明確列出缺少的條目供填補，完全無需重新建立設定檔。
 
+## 升級至 2.6.0
+
+先更新 binary，再執行 `prospec upgrade` 同步 delegation guidance。不需要遷移設定。
+
+新的 delegation tickets 使用 V2，允許限定範圍的 sibling worktree branch 與 stash 活動。既有 V1 tickets 仍可讀取，並維持精確比較。舊 CLI 不保證能讀取 V2 tickets；共用新的 delegation state 前，先協調 CLI 版本。Protected 或 unreadable differences 仍需檢查，復原仍由人類明確決定。Policy 與 endpoint detection 限制見 [Delegation commands](../reference/cli-reference.zh-TW.md)。
+
+升級後執行 `prospec status` 與 `prospec check --strict`。
+
 ## 升級至 2.5.0
 
 先更新 binary，再執行 `prospec upgrade`，讓同步後的 Skills 可使用新的 `history` commands。不需要遷移設定。
