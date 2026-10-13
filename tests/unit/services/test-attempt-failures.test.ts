@@ -6,7 +6,7 @@ import { execFileSync } from 'node:child_process';
 import { execute } from '../../../src/services/check.service.js';
 import { runTestCommand } from '../../../src/lib/test-runner.js';
 import { readChangeMetadata, writeChangeMetadataDoc } from '../../../src/lib/change-metadata.js';
-import { computeChangeState } from '../../../src/lib/drift-sources.js';
+import { computeChangeState, computeTestState } from '../../../src/lib/drift-sources.js';
 vi.mock('../../../src/lib/test-runner.js', async (original) => {
   const actual = await original<typeof import('../../../src/lib/test-runner.js')>();
   return { ...actual, runTestCommand: vi.fn(actual.runTestCommand) };
@@ -17,7 +17,7 @@ vi.mock('../../../src/lib/change-metadata.js', async (original) => {
 });
 vi.mock('../../../src/lib/drift-sources.js', async (original) => {
   const actual = await original<typeof import('../../../src/lib/drift-sources.js')>();
-  return { ...actual, computeChangeState: vi.fn(actual.computeChangeState) };
+  return { ...actual, computeTestState: vi.fn(actual.computeTestState) };
 });
 vi.setConfig({ testTimeout: 90_000 });
 let root: string;
@@ -58,11 +58,12 @@ it('keeps running when final write fails, so older PASS never certifies it', asy
 });
 it('persists actual nonzero exit even when after-capture fails', async () => {
   vi.mocked(runTestCommand).mockImplementationOnce(() => {
-    vi.mocked(computeChangeState).mockReturnValueOnce({ digest: null, clean: null, reason: 'unreadable' });
+    vi.mocked(computeTestState).mockReturnValueOnce({ digest: null, clean: null, reason: 'unreadable', identity: { fingerprintVersion: 'snapshot-v2', scope: 'repository-inputs-v2' } });
     return outcome(7);
   });
   expect(await run()).toMatchObject({ recorded: true, exitCode: 7 });
   expect(meta().test_provenance?.exit_code).toBe(7); expect(meta().test_attempt?.outcome).toBe('failed');
+  expect(meta().test_attempt?.after_digest).toBeUndefined();
   expect(await status()).toBe('fail');
 });
 it('migrates a legacy record only through a real successful invocation', async () => {

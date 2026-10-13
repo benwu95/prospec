@@ -41,7 +41,8 @@ import {
   collectTaskStates,
   collectTestProvenance,
   collectChangeTestEvidence,
-  computeChangeState,
+  computeEvidenceStates,
+  computeTestState,
   collectBudgetOverrides,
   collectCanonicalDocDrift,
   collectSkillReferenceMap,
@@ -129,7 +130,9 @@ export async function assessCurrentDrift(cwd: string): Promise<CurrentDriftAsses
 
     // A successful Git-backed snapshot proves work-tree membership. Probe only
     // after failure to distinguish unprovable Git inputs from a non-Git project.
-    const snapshot = computeChangeState(cwd);
+    const command = resolveTestCommand(config, cwd);
+    const states = computeEvidenceStates(cwd, { config, configBytes, command });
+    const snapshot = states.repository;
     const { digest: currentDigest, clean: workingTreeClean } = snapshot;
     const inWorkTree = currentDigest !== null || isGitWorkTree(cwd);
 
@@ -202,11 +205,12 @@ export async function assessCurrentDrift(cwd: string): Promise<CurrentDriftAsses
       // with none skips honestly instead of failing a gate it can never satisfy.
       testProvenance: collectTestProvenance(
         cwd,
-        resolveTestCommand(config, cwd),
-        currentDigest,
+        command,
+        states.test.digest,
         undefined,
         workingTreeClean,
         inWorkTree,
+        states.test,
       ),
       // The Constitution path comes from the canonical resolver, never re-derived here.
       constitutionRules: collectConstitutionRules(paths.constitutionPath, cwd),
@@ -256,7 +260,7 @@ export async function assessCurrentDrift(cwd: string): Promise<CurrentDriftAsses
  * (REQ-LIB-080): the shared policy over ONE change's live facts, plus a recheck
  * over exactly the inputs that verdict observed — the config bytes, the resolved
  * test command, the target's metadata bytes, its backfill draft and, when the
- * verdict rested on it, the whole-tree snapshot. It runs no drift collectors and
+ * verdict rested on it, the effective test-input snapshot. It runs no drift collectors and
  * never spawns the suite. An exemption that needs no Git snapshot rechecks its
  * metadata and policy facts all the same. Unreadable config or metadata throws:
  * an I/O failure is a refusal upstream, never a fabricated no-command fact.
@@ -285,7 +289,8 @@ export async function assessCurrentTestEvidence(
   }
   const command = resolveTestCommand(config, cwd);
   const draftPath = path.join(cwd, '.prospec', 'changes', changeName, 'backfill-draft.md');
-  const observed = collectChangeTestEvidence(cwd, changeName, command, computeChangeState(cwd));
+  const testState = computeTestState(cwd, { config, configBytes, command });
+  const observed = collectChangeTestEvidence(cwd, changeName, command, testState);
   const facts = observed.facts;
   const decision = evaluateChangeTestEvidence(facts);
   const factsJson = JSON.stringify(facts);
@@ -297,11 +302,7 @@ export async function assessCurrentTestEvidence(
         if (!configBytes.equals(readFileSync(configPath))) return false;
         if (resolveTestCommand(config, cwd) !== command) return false;
         if (existsSync(draftPath) !== facts.backfillDraftPresent) return false;
-        // The snapshot is re-proven only when the verdict rested on it; an
-        // exemption outside Git must not start demanding one.
-        const snapshot = facts.currentDigest === null
-          ? { digest: null, clean: null, ...(facts.snapshotReason ? { reason: facts.snapshotReason } : {}) }
-          : computeChangeState(cwd);
+        const snapshot = computeTestState(cwd, { config, configBytes, command });
         const now = collectChangeTestEvidence(cwd, changeName, command, snapshot);
         return observed.metadataBytes.equals(now.metadataBytes) && JSON.stringify(now.facts) === factsJson;
       } catch {

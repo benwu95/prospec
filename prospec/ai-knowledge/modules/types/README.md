@@ -69,7 +69,7 @@ Also: `auto-draft.ts` (drift-drafting options/result, incl. the `created | skipp
 
 - Escalation contracts are additive: typed trigger/resolve/override/consume records and accepted-attempt receipts live in `change.ts`; `cascade.ts` carries shared decisions and truthful partial-write outcomes. Composed entries cannot forge sink-owned fields.
 
-- Evidence uses optional version/scope on loose legacy reads and strict new attempt outcomes; `test_attempt` and `test_provenance.attempt_id` link the latest invocation without inventing an exit code.
+- Evidence uses optional version/scope on loose legacy reads and strict new attempt outcomes; `test_attempt` and `test_provenance.attempt_id` link the latest invocation. `TestPolicySchema` defines the opt-in Knowledge exclusion; read schemas preserve unknown descriptors for fail-closed adjudication. `TestInputState` carries test identity separately from the full snapshot; `TestEvidenceReuse` is the certified original-run payload shared by gates and reports.
 
 - `.optional()` → `T | undefined`, `.default()` → `T`; a new required field breaks existing `.prospec.yaml`. A budget threshold needs BOTH `TokenBudgetSchema` and `DEFAULT_KNOWLEDGE_TOKEN_BUDGET` (less `SHIPPED_BUDGET_FIELDS`, which ship with the version) — the resolver reads the default's keys, so a schema-only field parses then is ignored (a key-set test pins it).
 - `ChangeMetadataSchema` is loose at every level (reads never strip unmodeled keys), but `z.infer` of it gains an index signature that kills tsc's excess-property check — build against strict `NewChangeMetadata`, `satisfies` each spread body.

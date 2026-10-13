@@ -223,6 +223,7 @@ async function readDriftSignal(cwd: string): Promise<DriftSignal | undefined> {
           finding.check === 'knowledge-health' && report.structural.knowledge_health
             ? { ...finding, detail: undefined } : finding),
       },
+      test_evidence: report.test_evidence,
       semantic: report.semantic,
       summary: report.summary,
     },

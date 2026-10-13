@@ -436,6 +436,34 @@ export type NewAcceptanceBaseline = z.infer<typeof NewAcceptanceBaselineSchema>;
 /** Version and scope are explicit; unknown/absent values remain readable legacy evidence. */
 export const FINGERPRINT_VERSION = 'snapshot-v2';
 export const EVIDENCE_SCOPE = 'repository-inputs-v2';
+export const TEST_FINGERPRINT_VERSION = 'test-inputs-v1';
+export const TEST_EVIDENCE_SCOPE = 'repository-inputs-without-knowledge-v1';
+
+export const TestPolicySchema = z.strictObject({
+  version: z.literal(1),
+  excluded_path: z.string().min(1).refine((value) =>
+    !value.includes('\\') && !value.includes('\0') && !/^[A-Za-z]:/.test(value)
+    && value.split('/').every((segment) => segment !== '' && segment !== '.' && segment !== '..'),
+  'must be a normalized project-relative directory'),
+});
+export type TestPolicy = z.infer<typeof TestPolicySchema>;
+
+export const TestEvidenceReuseSchema = z.object({
+  attempt_id: z.string().min(1),
+  date: z.string().min(1),
+  command: z.string().min(1),
+  exit_code: z.literal(0),
+  test_policy: TestPolicySchema,
+  reason: z.string().min(1),
+});
+export type TestEvidenceReuse = z.infer<typeof TestEvidenceReuseSchema>;
+
+export interface TestEvidenceIdentity {
+  fingerprintVersion: string;
+  scope: string;
+  testPolicy?: unknown;
+}
+
 const EvidenceTraceShape = {
   fingerprint_version: z.string().optional(),
   scope: z.string().optional(),
@@ -443,6 +471,8 @@ const EvidenceTraceShape = {
 };
 
 export const NewTestAttemptSchema = z.object({
+  ...EvidenceTraceShape,
+  test_policy: TestPolicySchema.optional(),
   id: z.string().min(1),
   outcome: z.enum(['running', 'passed', 'failed', 'unprovable', 'timeout', 'unavailable']),
   date: z.string().optional(),
@@ -453,7 +483,9 @@ export const NewTestAttemptSchema = z.object({
   signal: z.string().optional(),
   reason: z.string().optional(),
 });
-export const TestAttemptSchema = NewTestAttemptSchema.loose();
+export const TestAttemptSchema = NewTestAttemptSchema.extend({
+  test_policy: z.unknown().optional(),
+}).loose();
 export type TestAttempt = z.infer<typeof NewTestAttemptSchema>;
 
 /** Machine-written review baseline (BL-066). `digest` fingerprints the reviewed
@@ -473,12 +505,18 @@ export const ReviewProvenanceSchema = z.looseObject({
  *  the code state it ran against, `date` is the ISO 8601 record date. */
 export const TestProvenanceSchema = z.looseObject({
   ...EvidenceTraceShape,
+  test_policy: z.unknown().optional(),
   attempt_id: z.string().optional(),
   command: z.string(),
   exit_code: z.number().int(),
   digest: z.string(),
   date: z.string(), // ISO 8601 date
 });
+
+export const NewTestProvenanceSchema = TestProvenanceSchema.extend({
+  test_policy: TestPolicySchema.optional(),
+}).strip();
+export type NewTestProvenance = z.infer<typeof NewTestProvenanceSchema>;
 
 /** Machine-written delta-spec baseline (written by `prospec check --record-review`
  *  in the same document write as `review_provenance`, so the two describe one

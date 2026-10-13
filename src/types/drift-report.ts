@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { TestEvidenceReuseSchema, type TestEvidenceIdentity } from './change.js';
 
 /**
  * Drift report schemas — validates prospec-report.json (REQ-TYPES-027)
@@ -368,6 +369,7 @@ export const DriftReportSchema = z.object({
     head: z.string().optional(),
     reason: z.string().optional(),
   }).optional(),
+  test_evidence: z.record(z.string(), TestEvidenceReuseSchema).optional(),
   structural: z.object({
     checks: z.array(DriftCheckResultSchema).min(1),
     findings: z.array(DriftFindingSchema),
@@ -407,6 +409,15 @@ export interface InputSnapshot {
   reason?: string;
   /** Gitlink (submodule) paths, nested ones included, whose checkout files the digest hashes. */
   gitlinks?: string[];
+}
+
+export interface TestInputState extends InputSnapshot {
+  identity: TestEvidenceIdentity;
+}
+
+export interface EvidenceStates {
+  repository: InputSnapshot;
+  test: TestInputState;
 }
 
 /** Read-only adjudication and its observation-bound write precondition. */

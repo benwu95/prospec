@@ -175,7 +175,7 @@
         "{{constitution_path}}"
       ],
       "mandatory": 0,
-      "mandatory_context_tokens": 10532
+      "mandatory_context_tokens": 10518
     }
   },
   "reference_ceiling_tokens": 51105,
@@ -186,24 +186,24 @@
     "adapter-penpot": 490,
     "archive-format": 1149,
     "candidate-evaluation": 2082,
-    "cascade-protocol": 2763,
+    "cascade-protocol": 2803,
     "circuit-breaker": 1240,
     "debug-recovery-format": 1255,
     "delegated-evidence-format": 3202,
     "delegation-protocol": 2492,
     "delta-spec-format": 1994,
     "design-spec-format": 847,
-    "drift-report-format": 2530,
+    "drift-report-format": 2439,
     "feature-boundary-criteria": 917,
     "feature-spec-format": 1226,
     "human-decision": 709,
     "implementation-guide": 1021,
     "interaction-spec-format": 743,
-    "metadata-format": 4019,
+    "metadata-format": 4054,
     "plan-format": 2828,
     "plan-verifier-rubric": 2226,
     "product-spec-format": 1189,
-    "project-test-runner": 687,
+    "project-test-runner": 661,
     "promotion-format": 1693,
     "proposal-format": 1202,
     "review-format": 2415,
@@ -211,6 +211,6 @@
     "spec-graduation": 835,
     "tasks-format": 1467,
     "tasks-verifier-rubric": 1529,
-    "verify-backfill": 1280
+    "verify-backfill": 1320
   }
 }

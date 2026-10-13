@@ -264,3 +264,12 @@ it('reports an old replay honestly and keeps consumed override reasons visible a
   expect(out).toContain('consumed by attempt-1');
   expect(out).not.toContain(BEL);
 });
+
+it('prints the original certified test reuse and keeps quiet output empty', () => {
+  const testReuse = { attempt_id: 'original', date: '2026-10-13', command: 'node suite.cjs', exit_code: 0 as const,
+    test_policy: { version: 1 as const, excluded_path: 'prospec/ai-knowledge' }, reason: 'compatible test inputs' };
+  const result = baseResult({ testReuse });
+  const out = captureStdout(() => formatVerifyRecordOutput(result));
+  for (const field of ['original', '2026-10-13', 'node suite.cjs', 'exit 0', 'prospec/ai-knowledge']) expect(out).toContain(field);
+  expect(captureStdout(() => formatVerifyRecordOutput(result, 'quiet'))).toBe('');
+});

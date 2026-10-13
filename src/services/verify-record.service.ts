@@ -9,6 +9,7 @@ import {
   type EscalationHistory,
   type VerifyAttemptInputs,
   type QualityDimension,
+  type TestEvidenceReuse,
   type VerifyGrade,
   type GateResult,
 } from '../types/change.js';
@@ -96,8 +97,9 @@ export interface VerifyRecordResult {
   gradeGraduates: boolean;
   /** Grade-input exclusions applied (scale-aware, e.g. proven backfill). */
   excludedFromGrade: string[];
-  /** Repo-relative `verify.md` path, when this run recorded judgment evidence. */
+  /** Repo-relative `verify.md` path, when this run recorded verification evidence. */
   evidencePath?: string;
+  testReuse?: TestEvidenceReuse;
   /** Summary of requirement coverage (e.g. '18/18'), if applicable. */
   coverageSummary?: string;
   /** How this run's verify delegations settled (REQ-SERVICES-121). */
@@ -646,6 +648,9 @@ export async function execute(options: VerifyRecordOptions): Promise<VerifyRecor
     return { name, result, adjudicator: 'machine' as const };
   });
 
+  const testReuse = machineDimensions.some((d) => d.name === 'tests' && d.result === 'PASS')
+    ? report.test_evidence?.[changeName] : undefined;
+
   // Gate D1 — a judgment dimension may not be graded more leniently than its
   // machine counterpart's finding. A report FAIL/WARN floors the judgment; a
   // report pass/skipped/absent sets no floor (a judgment may still be stricter).
@@ -754,6 +759,10 @@ export async function execute(options: VerifyRecordOptions): Promise<VerifyRecor
 
 
   const blocks: EvidenceBlock[] = [];
+  if (testReuse) {
+    const json = JSON.stringify(testReuse, null, 2).replace(/</g, '\\u003c');
+    blocks.push({ key: 'tests', heading: 'tests — PASS', body: `Original successful test run reused:\n\n\`\`\`json\n${json}\n\`\`\`` });
+  }
   if (judgmentInput.length > 0) {
     for (const d of judgmentInput) {
       const block = evidenceBlockFor(
@@ -961,6 +970,7 @@ export async function execute(options: VerifyRecordOptions): Promise<VerifyRecor
     gradeGraduates: gradeAdvancesStatus(grade),
     excludedFromGrade,
     evidencePath,
+    ...(testReuse ? { testReuse } : {}),
     coverageSummary: coverageSummaryStr,
     ...(selfVerifiedCap !== undefined ? { selfVerifiedCap } : {}),
     delegation: await consumeSettlement(path.join(cwd, '.prospec', 'changes', changeName), settlement),

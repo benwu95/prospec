@@ -1,4 +1,4 @@
-import { isProvenanceAudited } from '../types/change.js';
+import { isProvenanceAudited, FINGERPRINT_VERSION, EVIDENCE_SCOPE, TEST_FINGERPRINT_VERSION, TEST_EVIDENCE_SCOPE, TestPolicySchema, type TestEvidenceIdentity, type TestEvidenceReuse } from '../types/change.js';
 import type { TestEvidenceDecision, TestEvidenceFacts } from '../types/station.js';
 import { assessDrops } from './landing-fidelity.js';
 import { KNOWLEDGE_SIZE_RULES, type KnowledgeSizeRule } from '../types/config.js';
@@ -104,6 +104,7 @@ interface CheckOutcome {
   findings: DriftFinding[];
   knowledgeHealth?: KnowledgeHealth;
   constitution?: ConstitutionInventory;
+  testEvidence?: Record<string, TestEvidenceReuse>;
 }
 
 /** Derive allowed-import rules from module-map depends_on declarations. */
@@ -942,6 +943,25 @@ export function evaluateChangeTestEvidence(facts: TestEvidenceFacts): TestEviden
       `legacy or unknown test evidence for change "${facts.changeName}" — run one valid test attempt with \`prospec check --record-tests\``,
     );
   }
+  const current = facts.currentIdentity;
+  const record = facts.recordedIdentity;
+  const projected = current?.fingerprintVersion === TEST_FINGERPRINT_VERSION;
+  const policy = TestPolicySchema.safeParse(current?.testPolicy);
+  const matchesProjection = (value: TestEvidenceIdentity | undefined): boolean => {
+    const parsed = TestPolicySchema.safeParse(value?.testPolicy);
+    return value?.fingerprintVersion === TEST_FINGERPRINT_VERSION && value.scope === TEST_EVIDENCE_SCOPE
+      && policy.success && parsed.success && parsed.data.version === policy.data.version
+      && parsed.data.excluded_path === policy.data.excluded_path;
+  };
+  const legacyIdentity = (value: TestEvidenceIdentity | undefined): boolean => value === undefined
+    || (value.fingerprintVersion === FINGERPRINT_VERSION && value.scope === EVIDENCE_SCOPE && value.testPolicy === undefined);
+  if (projected
+    ? !matchesProjection(current) || !matchesProjection(record) || !matchesProjection(attempt?.identity)
+      || !facts.recordedDate || facts.recordedDate !== attempt?.date
+      || !facts.currentCommand || facts.recordedCommand !== facts.currentCommand || attempt?.command !== facts.currentCommand
+    : !legacyIdentity(current) || !legacyIdentity(record) || !legacyIdentity(attempt?.identity)) {
+    return insufficient(`incompatible test evidence policy or run identity for change "${facts.changeName}" — re-run \`prospec check --record-tests\``);
+  }
   const attemptMatches =
     attempt !== undefined &&
     attempt.id !== '' &&
@@ -959,7 +979,10 @@ export function evaluateChangeTestEvidence(facts: TestEvidenceFacts): TestEviden
       `stale test run for change "${facts.changeName}": code changed since the recorded run or current inputs are unprovable${facts.currentDigest === null && facts.snapshotReason ? ` (${facts.snapshotReason})` : ''} — re-run \`prospec check --record-tests\``,
     );
   }
-  return { verdict: 'pass', attemptId: attempt.id };
+  return { verdict: 'pass', attemptId: attempt.id, ...(projected && policy.success ? { reuse: {
+    attempt_id: attempt.id, date: facts.recordedDate!, command: facts.recordedCommand, exit_code: 0 as const,
+    test_policy: policy.data, reason: 'compatible effective test inputs; Knowledge excluded by policy; original successful run reused',
+  } } : {}) };
 }
 
 /**
@@ -979,7 +1002,12 @@ function testEvidenceFactsOf(
     backfillDraftPresent: c.backfill_draft_present,
     commandUnavailableReason: src.command_unavailable_reason ?? null,
     currentDigest: src.current_digest,
+    currentIdentity: src.current_identity,
+    currentCommand: src.current_command,
+    snapshotReason: src.snapshot_reason,
     recordedDigest: c.recorded_digest,
+    recordedIdentity: c.recorded_identity,
+    recordedDate: c.recorded_date,
     recordedExitCode: c.recorded_exit_code,
     recordedCommand: c.recorded_command,
     recordedAttemptId: c.recorded_attempt_id,
@@ -987,6 +1015,8 @@ function testEvidenceFactsOf(
     latestAttempt: c.attempt_outcome
       ? {
           id: c.attempt_id ?? '',
+          identity: c.attempt_identity,
+          date: c.attempt_date,
           outcome: c.attempt_outcome,
           command: c.attempt_command || undefined,
           exitCode: c.attempt_exit_code,
@@ -1004,6 +1034,7 @@ export function evaluateTestProvenance(src: TestProvenanceSource): CheckOutcome 
     return skipped('test-provenance', src.reason ?? 'source unavailable');
   }
   const findings: DriftFinding[] = [];
+  const testEvidence: Record<string, TestEvidenceReuse> = {};
   const unavailableReasons = src.command_unavailable_reason != null ? [src.command_unavailable_reason] : [];
   // Per-change skips: a change whose run could not be graded because the command
   // was unavailable (machine-wide, or its own latest attempt). When every audited
@@ -1014,7 +1045,10 @@ export function evaluateTestProvenance(src: TestProvenanceSource): CheckOutcome 
   for (const c of src.changes) {
     if (!isProvenanceAudited(c.status)) continue;
     const decision = evaluateChangeTestEvidence(testEvidenceFactsOf(c, src));
-    if (decision.verdict === 'pass') continue;
+    if (decision.verdict === 'pass') {
+      if (decision.reuse) testEvidence[c.name] = decision.reuse;
+      continue;
+    }
     // An attempt-level unavailable command keeps the drift check's historical
     // honest skip whether or not the inputs moved since (the gates alone demand
     // the re-run), and it is judged BEFORE the proven-backfill relaxation — the
@@ -1035,10 +1069,11 @@ export function evaluateTestProvenance(src: TestProvenanceSource): CheckOutcome 
     findings.push({ check: 'test-provenance', severity: 'fail', source_path: c.source_path, detail: decision.reason });
   }
   const subjects = src.changes.map((c) => c.name);
-  if (findings.length === 0 && unavailableReasons.length > 0) {
+  if (findings.length === 0 && unavailableReasons.length > 0 && Object.keys(testEvidence).length === 0) {
     return skipped('test-provenance', unavailableReasons.join('; '), subjects);
   }
-  return outcome('test-provenance', findings, subjects, subjectSkips);
+  return { ...outcome('test-provenance', findings, subjects, subjectSkips),
+    ...(Object.keys(testEvidence).length > 0 ? { testEvidence } : {}) };
 }
 
 /**
@@ -1313,6 +1348,7 @@ export function runChecks(inputs: DriftCheckInputs): DriftReport {
   const report: DriftReport = {
     version: DRIFT_REPORT_VERSION,
     generated_at: inputs.generatedAt,
+    ...(outcomes['test-provenance'].testEvidence ? { test_evidence: outcomes['test-provenance'].testEvidence } : {}),
     structural: {
       checks,
       findings,

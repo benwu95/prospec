@@ -1,6 +1,7 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { z } from 'zod';
+import { TestPolicySchema, type TestPolicy } from '../types/change.js';
 import {
   ProspecConfigSchema,
   DEFAULT_ARTIFACT_LANGUAGE,
@@ -50,6 +51,40 @@ export function resolveBasePaths(config: ProspecConfig, cwd: string): BasePaths 
     constitutionPath: path.resolve(cwd, constitutionPath),
     specsPath: path.resolve(cwd, specsPath),
   };
+}
+
+export function resolveTestEvidencePolicy(config: ProspecConfig, cwd: string): TestPolicy | undefined {
+  if (config.test_evidence?.exclude_knowledge !== true) return undefined;
+  const root = fs.realpathSync.native(cwd);
+  const target = resolveBasePaths(config, root).knowledgePath;
+  const relative = path.relative(root, target);
+  if (relative === '' || relative === '..' || relative.startsWith(`..${path.sep}`) || path.isAbsolute(relative)) {
+    throw new Error('Knowledge exclusion must be a strict descendant of the project root');
+  }
+  const policy = TestPolicySchema.parse({ version: 1, excluded_path: relative.split(path.sep).join('/') });
+  if (policy.excluded_path === CONFIG_FILENAME) {
+    throw new Error('Knowledge exclusion must not cover .prospec.yaml');
+  }
+  let ancestor = root;
+  const segments = relative.split(path.sep);
+  for (const [index, segment] of segments.entries()) {
+    ancestor = path.join(ancestor, segment);
+    let stat;
+    try { stat = fs.lstatSync(ancestor); }
+    catch (error) {
+      if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
+        ancestor = path.join(ancestor, ...segments.slice(index + 1));
+        break;
+      }
+      throw error;
+    }
+    if (!stat.isDirectory() || stat.isSymbolicLink()) {
+      throw new Error(`Knowledge exclusion requires ordinary directory ancestors: ${ancestor}`);
+    }
+    fs.accessSync(ancestor, fs.constants.R_OK | fs.constants.X_OK);
+    ancestor = fs.realpathSync.native(ancestor);
+  }
+  return TestPolicySchema.parse({ ...policy, excluded_path: path.relative(root, ancestor).split(path.sep).join('/') });
 }
 
 /**

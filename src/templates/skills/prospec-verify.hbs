@@ -16,7 +16,7 @@ When triggered, briefly describe:
 
 {{> cli-probe}}
 
-Evidence uses `snapshot-v2` / `repository-inputs-v2`: repository input content, independent of staging and equivalent commit history. Complete Knowledge/count/generated-asset sync before the final review, test record and verification. A legacy record needs one real revalidation; an equivalent commit alone needs no re-record.
+Review/default tests use `snapshot-v2` / `repository-inputs-v2`, independent of staging or equivalent commits. Sync Knowledge/count/generated assets before final review/tests/verify. Revalidate legacy records once.
 
 ## Startup Loading
 
@@ -95,15 +95,16 @@ Every other **SDD-pipeline** skill (new-story → plan → tasks → implement �
 
 ### Step 0: Record the test run (before reading the report)
 
-Run `prospec check --record-tests` (Bash). It runs the project's test command and records
-versioned provenance and a `test_attempt` into `metadata.yaml` — the fact 5/5 is
-adjudicated on, instead of your own claim that the suite passed. It belongs **here**, after the Entry
-Gate: it costs a full suite run and mutates metadata, so a change the gate is about to refuse must
-not pay for it. Run it **after the last code, Knowledge, count or generated-asset edit**, then **re-run `prospec check --json` and re-read
-the report** — the copy loaded at startup predates this record, so 1/5–5/5 must be read from the
-refreshed one.
+Choose exactly one path **after the Entry Gate** and final Knowledge/count/generated-asset sync:
 
-The CLI prewrites a running attempt. Timeout, unavailable or unprovable outcomes cannot reuse an old PASS; only exit 0 with equal provable before/after inputs certifies passing evidence. A known nonzero failure survives later nonpassing attempts until stable success. Carry the reported reason into 5/5; never substitute a self-report.
+1. **Default** — Unless `test_evidence.exclude_knowledge: true`, execute below.
+2. **Opt-in assessment** — Run `prospec check --json`; read fresh `prospec-report.json`, not stdout. Find `test-provenance` in `structural.checks[]`: omit execution only when the target is enumerated in `subjects` and has certified `test_evidence[<name>]`. Otherwise execute below; skipped or exempt evidence never qualifies. Cite its original ID/date/command/exit code/policy/reason in 5/5 without rewriting records.
+
+**Execution and refresh** — For default or uncertified opt-in, run `prospec check --record-tests --change <name>` once, then **re-run `prospec check --json` and re-read the report**. Certified reuse keeps the fresh assessment report. Explicit `--record-tests` always executes.
+
+Reuse preserves full Knowledge-inclusive review/context freshness, Knowledge checks, document review and pre-merge CI.
+
+The CLI prewrites running. Only exit 0 with equal provable before/after inputs certifies PASS. Nonpassing attempts never revive old PASS; known nonzero failure survives until stable success. Cite the reason in 5/5.
 
 ### Verification 1/5: Task Completion — `[machine]`
 
@@ -214,9 +215,7 @@ With no registered modules, cite the engine result and empty module set; a skipp
 
 ### Verification 5/5: Test Verification — `[machine]`
 
-**Adjudicator: the `test-provenance` check.** The suite's outcome is a recorded fact, not a claim:
-`prospec check --record-tests` (Core Workflow Step 0) records the run, and the check fails when no run is
-recorded, when the recorded run predates the current code (stale), or when its exit code is non-zero.
+**Adjudicator: `test-provenance`.** Step 0 records or certifies reuse; absent/stale evidence or nonzero exit fails.
 Read the check, cite the recorded command and exit code, and explain what failed — do **not** report
 5/5 from your own memory of having run the tests, and do not re-grade a recorded failure as a WARN.
 

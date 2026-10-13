@@ -101,12 +101,15 @@ Which statuses `review-provenance`, `test-provenance` and `delta-spec-provenance
 | `archived` | No | unreachable rather than exempt: the bundle has left `.prospec/changes/`, so no collector enumerates it |
 | `abandoned` | No | terminal attempt retained separately from successful workflow provenance |
 
-Evidence identity is `snapshot-v2` / `repository-inputs-v2`: final tracked and non-ignored untracked
+Review and default test evidence identity is `snapshot-v2` / `repository-inputs-v2`: final tracked and non-ignored untracked
 file content, mode and symlink semantics; HEAD and staging are diagnostic only. Complete
 Knowledge/count/generated-asset sync before final review → tests → verify. Equivalent commit or
 amend preserves evidence. Legacy records need one real revalidation. Test attempts certify only
 provable equal before/after inputs with exit 0. Verify/archive read current workflow facts and
 recheck their observations before writing; saved reports are display artifacts, never gate authority.
+Opt-in `test_evidence.exclude_knowledge: true` permits certified test reuse with compatible effective
+inputs; review and verification-context snapshots still include Knowledge. A test reuse does not
+waive Knowledge checks, document review or project-defined pre-merge CI.
 
 ## Rules
 

@@ -91,6 +91,8 @@ When the pipeline completes final Verification with Grade S/A, reaching this bou
 
 ---
 
+With Knowledge exclusion enabled, the shared test gate may reuse compatible evidence; review/context freshness, Knowledge checks and pre-merge CI still apply.
+
 ## Human Escape Hatch
 
 - Developers may pass `--no-cascade` or invoke individual station skills (e.g. `prospec-plan`, `prospec-review`) at any point to step manually.

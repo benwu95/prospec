@@ -38,6 +38,7 @@ describe('config example completeness contract', () => {
       ['project', top.project.shape, obj.project],
       ['tech_stack', top.tech_stack.unwrap().shape, obj.tech_stack],
       ['paths', top.paths.unwrap().shape, obj.paths],
+      ['test_evidence', top.test_evidence.unwrap().shape, obj.test_evidence],
       ['knowledge', knowledgeShape, obj.knowledge],
       [
         'knowledge.token_budget',

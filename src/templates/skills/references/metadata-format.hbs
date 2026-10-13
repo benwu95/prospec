@@ -68,11 +68,7 @@ test_provenance:
   date: 2026-07-28                # bare ISO 8601 date
 ```
 
-Written by the CLI, never by hand: it is what makes `prospec-verify` 5/5 a machine verdict rather
-than a self-report. The `test-provenance` drift check fails when this block is absent, when its
-`digest` no longer matches the code, or when `exit_code` is non-zero. It is deliberately **not** part
-of the `metadata-completeness` required-field floor — requiring it would retroactively fail every
-change archived before the field existed.
+CLI-written, never hand-authored. `test-provenance` fails for absent records, stale effective inputs or nonzero exit. It is **not** part of `metadata-completeness`'s required-field floor.
 
 ### `test_attempt` — latest invocation
 
@@ -85,11 +81,21 @@ test_attempt:
   exit_code: 0                    # absent when no exit was observed
 ```
 
-The CLI writes running before launch. Passing evidence requires equal provable before/after
-snapshots and an attempt_id linked to this latest passed attempt. A failed run keeps its actual
-nonzero exit in test_provenance; subsequent unavailable/timeout/unprovable attempts cannot erase
-that failure. Review provenance also carries fingerprint_version and scope. Old/unknown versions
-remain readable but need one real review/test revalidation, never a stamp-only migration.
+The CLI prewrites running. PASS requires provable equal before/after snapshots linked by attempt_id to the latest passed attempt. Nonzero test_provenance survives later unavailable/timeout/unprovable attempts. Review provenance also carries fingerprint_version/scope. Old/unknown versions remain readable but need real revalidation, never a stamp-only migration.
+
+### Opt-in test identity
+
+With `test_evidence.exclude_knowledge: true`, both `test_attempt` and `test_provenance` carry:
+
+```yaml
+fingerprint_version: test-inputs-v1
+scope: repository-inputs-without-knowledge-v1
+test_policy:
+  version: 1
+  excluded_path: prospec/ai-knowledge
+```
+
+`excluded_path` is the resolved project-relative Knowledge directory. Absent/false keeps the default identity. Reuse preserves records; missing/unknown/changed identity requires a real run. Review stays full-scope.
 
 ### `issue` — the external-tracker registration
 

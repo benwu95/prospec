@@ -3,8 +3,10 @@ import { mkdtempSync, mkdirSync, writeFileSync, rmSync, readFileSync } from 'nod
 import path from 'node:path';
 import os from 'node:os';
 import { execFileSync } from 'node:child_process';
-import { computeChangeState } from '../../../src/lib/drift-sources.js';
+import { computeChangeState, computeTestState } from '../../../src/lib/drift-sources.js';
 import { assessCurrentDrift, assessCurrentTestEvidence } from '../../../src/lib/drift-assessment.js';
+import { validateConfig, resolveTestCommand } from '../../../src/lib/config.js';
+import { assessVerificationContext } from '../../../src/lib/verification-context.js';
 import { DRIFT_CHECK_IDS } from '../../../src/types/drift-report.js';
 const gitCalls = vi.hoisted(() => ({ count: 0, failConfig: false, addAfterListing: false, observedAddition: false, addOnStatus: 0, statusCount: 0, spawns: 0 }));
 const configRace = vi.hoisted(() => ({ onFirstConfigRead: null as (() => void) | null }));
@@ -254,5 +256,73 @@ describe('assessCurrentTestEvidence — narrow target assessment with live reche
     const a = await assessCurrentTestEvidence(root, 'x');
     expect(a.decision.verdict).toBe('pass');
     expect(JSON.stringify(a.facts)).not.toContain('"y"');
+  });
+});
+
+
+describe('Knowledge-excluded assessment scope', () => {
+  function baseline() {
+    const command = `${process.execPath} -e 0`;
+    write('.prospec.yaml', `project:\n  name: t\ntech_stack:\n  test_command: ${command}\ntest_evidence:\n  exclude_knowledge: true\n`);
+    write('prospec/ai-knowledge/README.md', '# Knowledge before\n');
+    const configBytes = readFileSync(path.join(root, '.prospec.yaml'));
+    const config = validateConfig(configBytes.toString(), path.join(root, '.prospec.yaml'));
+    const state = computeTestState(root, { config, configBytes, command: resolveTestCommand(config, root) });
+    expect(state.digest).not.toBeNull();
+    const identity = { fingerprint_version: state.identity.fingerprintVersion, scope: state.identity.scope, test_policy: state.identity.testPolicy };
+    write('.prospec/changes/x/metadata.yaml', JSON.stringify({
+      name: 'x', created_at: '2026-09-01', status: 'implemented', scale: 'full',
+      test_attempt: { ...identity, id: 'original', date: '2026-09-01', outcome: 'passed', command, exit_code: 0, before_digest: state.digest, after_digest: state.digest },
+      test_provenance: { ...identity, attempt_id: 'original', date: '2026-09-01', command, exit_code: 0, digest: state.digest },
+    }));
+    write('.prospec/changes/x/proposal.md', '# Proposal\n');
+    write('.prospec/changes/x/delta-spec.md', '# Delta\n');
+  }
+
+  it('reuses tests through Knowledge edits while full report and grader context remain stale', async () => {
+    baseline();
+    const metadata = readFileSync(path.join(root, '.prospec/changes/x/metadata.yaml'));
+    const narrow = await assessCurrentTestEvidence(root, 'x');
+    expect(narrow.decision).toMatchObject({ verdict: 'pass', reuse: { attempt_id: 'original' } });
+    const full = await assessCurrentDrift(root);
+    const context = assessVerificationContext(root, 'x');
+    expect(context.context.test_attempt.status).toBe('passed');
+    write('prospec/ai-knowledge/README.md', '# Knowledge after\n');
+    expect(narrow.recheck()).toBe(true);
+    expect(full.recheck()).toBe(false);
+    expect(context.recheck()).toBe(false);
+    const current = await assessCurrentDrift(root);
+    expect(current.report.test_evidence?.x).toMatchObject({ attempt_id: 'original' });
+    expect(current.snapshot.digest).not.toBe(full.snapshot.digest);
+    const renewed = assessVerificationContext(root, 'x');
+    expect(renewed.context.test_attempt.status).toBe('passed');
+    expect(renewed.context.context_id).not.toBe(context.context.context_id);
+    expect(renewed.recheck()).toBe(true);
+    expect(readFileSync(path.join(root, '.prospec/changes/x/metadata.yaml'))).toEqual(metadata);
+    write('src/new.ts', 'export const changed = true;');
+    expect(narrow.recheck()).toBe(false);
+    expect((await assessCurrentTestEvidence(root, 'x')).decision.verdict).toBe('refuse');
+  });
+
+  it('rechecks config bytes and refuses unsafe Knowledge policy without fabricating a no-command exemption', async () => {
+    baseline();
+    const narrow = await assessCurrentTestEvidence(root, 'x');
+    const context = assessVerificationContext(root, 'x');
+    const configPath = path.join(root, '.prospec.yaml');
+    write('.prospec.yaml', readFileSync(configPath, 'utf8') + 'knowledge:\n  base_path: ../outside\n');
+    expect(narrow.recheck()).toBe(false);
+    expect(context.recheck()).toBe(false);
+    const invalid = await assessCurrentTestEvidence(root, 'x');
+    expect(invalid.facts.currentDigest).toBeNull();
+    expect(invalid.facts.commandUnavailableReason).toBeNull();
+    expect(invalid.decision.verdict).toBe('refuse');
+    expect(assessVerificationContext(root, 'x').context.test_attempt.status).toBe('stale');
+  });
+
+  it('shares one Git inventory for opt-in full assessment', async () => {
+    baseline();
+    gitCalls.count = 0;
+    await assessCurrentDrift(root);
+    expect(gitCalls.count).toBeLessThanOrEqual(6);
   });
 });

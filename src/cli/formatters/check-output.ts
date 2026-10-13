@@ -15,6 +15,7 @@ import {
   type KnowledgeSizeFinding,
 } from '../../types/drift-report.js';
 import { sanitizeTerminal } from './sanitize.js';
+import { formatTestEvidenceReuse } from './test-gate-output.js';
 
 // Shared terminal sanitiser, re-exported so existing importers (and the
 // contract test) keep their `check-output` import path unchanged.
@@ -113,6 +114,10 @@ export function formatCheckOutput(
     const reason =
       check.status === 'skipped' ? pc.dim(` — ${sanitizeTerminal(check.reason ?? '')}`) : '';
     console.log(`  ${STATUS_LABEL[check.status]}  ${id}${reason}`);
+  }
+
+  for (const [change, reuse] of Object.entries(report.test_evidence ?? {})) {
+    console.log(`  ${sanitizeTerminal(change).replace(/[\r\n\t]/g, ' ')}: ${formatTestEvidenceReuse(reuse)}`);
   }
 
   if (report.structural.findings.length > 0) {

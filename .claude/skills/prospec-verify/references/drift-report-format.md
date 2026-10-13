@@ -1,24 +1,10 @@
 # Drift Report (prospec-report.json) Format Reference
 
-This document describes the **shape of `prospec-report.json`** — the machine-readable
-output of the deterministic, zero-LLM drift engine. It exists so skills that consume the
-report (`prospec-verify`, `prospec-learn`) read the right fields instead of hand-writing
-field paths that drift from the schema.
-
-> **Scope: shape only.** The authoritative schema is the prospec CLI's `DriftReportSchema`
-> (Zod). The `structural.knowledge_health` field is a **frozen contract** consumed downstream
-> (Knowledge Flywheel, MCP server) — changing it is a breaking change. When in doubt about a
-> field's type, read that schema; this reference maps where each fact lives.
-
----
+`DriftReportSchema` owns the report shape; `structural.knowledge_health` is a frozen contract.
 
 ## How the report is produced
 
-`prospec check --json` **writes** the report to `prospec-report.json` in the project root. The
-`--json` flag does **not** print JSON to stdout — stdout is the human-readable summary (per-check
-status lines, a `Findings:` block, a coverage line, a one-line summary), never JSON. **Read
-structured facts from the `prospec-report.json` file**, not stdout. The CLI is required — regenerate
-with `prospec check --json` after edits; never fabricate a report.
+`prospec check --json` **writes** `prospec-report.json` in the project root; stdout is a human-readable summary, **not JSON**. Read the file. Regenerate after edits; never fabricate reports.
 
 ## Top-level shape
 
@@ -34,10 +20,19 @@ with `prospec check --json` after edits; never fabricate a report.
 }
 ```
 
-`change_digest` is observed for this display artifact. Optional snapshot trace identifies version/scope and may include head/reason. Legacy
-reports remain readable. Verify/archive obtain a live assessment and recheck before writing, never
-trust a saved report. Status compares current content and deterministic workflow verdicts; timestamps
-and pure Git trace do not make an otherwise equivalent report stale.
+This display artifact preserves legacy readability. Snapshot trace adds version/scope/head/reason. Verify/archive recheck live inputs; status ignores timestamps/Git trace.
+
+## `test_evidence` — optional certified reuse diagnostics
+
+`test_evidence[changeName]` carries the certified original run:
+
+```json
+{"attempt_id": "run-1", "date": "2026-07-28", "command": "node --test", "exit_code": 0, "test_policy": {"version": 1, "excluded_path": "prospec/ai-knowledge"}, "reason": "Compatible effective inputs; Knowledge excluded by policy"}
+```
+
+Require the target in `test-provenance`'s `subjects` too. Missing/skipped/exempt/unenumerated evidence never certifies reuse. The reason certifies input compatibility, not Knowledge-only differences; metadata stays unchanged.
+
+`change_digest`/`snapshot` still include Knowledge; check IDs and `structural.knowledge_health` are unchanged.
 
 ## `structural.checks[]` — one entry per check, keyed by `id`
 
