@@ -1,17 +1,13 @@
 # Delegation and Physical Receipt Protocol
 
-Shared protocol; CLI and git, host-neutral.
-
----
-
 ## Physical Receipt Verification Protocol
 
-Before consuming a payload:
+Before consumption:
 
 1. **Physical Existence & Non-Empty**: the payload path resolves to a readable regular file with
    `size > 0` bytes.
 2. **Target Schema Compliance**: the payload parses as JSON matching the station's executable schema
-   and closed enums (the station names its schema; this protocol never redefines it).
+   and closed enums (schema owned by the station).
 3. **Lifecycle Probe & Bounded Await**: Inspect lifecycle state or transcript evidence when the file is absent; wait — never unboundedly:
    when payload and transcript are idle for **{{delegation_idle_minutes}} minutes**,
    or after **{{delegation_max_polls}} polls**, the delegate has failed. Re-spawn it — re-spawns per
@@ -29,41 +25,35 @@ never under the station's own label, which its verifier gate reads.
 
 ## Ticketed delegation (review and verify)
 
-Tickets, payloads and checkpoints live under `.prospec/changes/{name}/{{delegation_dir}}/`.
+Tickets/payloads/checkpoints: `.prospec/changes/{name}/{{delegation_dir}}/`.
 
-Ticket every review/verify delegate before spawning; receive before applying fixes.
+Ticket before every review/verify spawn; receive before fixes.
 
-1. **Issue** — before each spawn:
-   `prospec change delegate --station <review|verify> --role <role> --round <n>`. `<n>` is the station's
-   own round counter (the review loop round; the verify run). Each delegate of a round gets its own role —
+1. **Issue**:
+   `prospec change delegate --station <review|verify> --role <role> --round <n>`. `<n>`: station round (review loop or verify run). Each round delegate needs a distinct role —
    `lens-<name>`, `verifier-<finding id>` (the CLI lowercases the id; when two findings of a round
    normalize alike, add `-2`, `-3`), `grader` (verify 2/5 and 3/5), `grader-design` (verify dimension 6)
   . The CLI records the repository
-   state (the facets {{delegation_facets}}; `refs` holds local refs only), a checkpoint — byte copies of
-   the uncommitted and untracked files and of the index — and builds a snapshot under the temporary
-   directory; it prints the absolute payload path and the absolute snapshot path. Hand the delegate
-   exactly those paths.
+   state ({{delegation_facets}}; `refs`: local refs only), checkpoints uncommitted/untracked file bytes
+   and the index, and builds a temporary snapshot. Give the delegate the printed absolute payload and snapshot paths.
    When no ticket can be issued (not a git repository, a shallow repository, a split index, a file marked
    assume-unchanged, no index yet, a sparse or gitlink input,
    a snapshot that does not reproduce the tree), never spawn an unticketed delegate: skip the degraded
    path's fresh-run options too, grade in-session, and let the sink disclose the round as not covered.
-   When a ticket can be issued, a fresh run the degraded path offers is ticketed too, under
+   When issuance succeeds, degraded-path fresh runs are ticketed too, under
    `<role>{{delegation_fresh_suffix}}`.
-2. **Spawn** — with a brief that tells the delegate to:
+2. **Spawn** — brief the delegate to:
    - For review findings: file one finding per failure mode; `location` names the first instance, `repro` is a one-line rerunnable command describing the failure-mode structure and listing its instances, and `evidence` lists known instances.
    - run every test, regression pin, mutation check and repro that writes inside the snapshot path only —
      never in the main working tree;
-   - make ignored dependencies (which the snapshot does not hold) available there per the project test
-     runner without writing the main tree, and report a claim as untested rather than run it in the main
-     tree when that is impossible;
+   - supply ignored dependencies absent from the snapshot per the project test runner without writing
+     the main tree; if impossible, report the claim untested;
    - read change artifacts (`.prospec/`, which the snapshot does not hold) and compute the change diff in
      the main tree, read-only;
    - never run a git command that writes refs, the stash or the config, nor a fetch that writes `.git`
      metadata (`--depth`, `--shallow-*`, `--unshallow`).
-3. **Receive** — the moment the delegate returns: `prospec change delegate --receive <stem>`. Between
-   issue and receipt the orchestrator changes nothing in the working tree — no fixes, no count or
-   knowledge sync. The receipt compares the repository state first, then checks steps 1–2 above and
-   the payload's age:
+3. **Receive** — on delegate return: `prospec change delegate --receive <stem>`. Between
+   issue and receipt the orchestrator changes nothing in the working tree — no fixes/count/knowledge sync. Compare repository state first, then steps 1–2 and payload age:
    - *protected state changed* (named, with both values and the checkpoint path) → refused as mutated, even with
      no payload; go to step 4;
    - *necessary facts cannot be read with no proved protected difference* → the ticket stays open; name the cause for the human to remove and
@@ -73,7 +63,7 @@ Ticket every review/verify delegate before spawning; receive before applying fix
      bound, then end it (step 5);
    - *schema failure or stale payload* → refused; re-spawn under a new ticket, or end it.
 4. **Hand off a mutation** — the flow stops. Present the changed facets with both values and the
-   checkpoint path to the human. The checkpoint's ticket lists every copied path with its sha256; with
+   checkpoint path to the human. The ticket lists copied paths and sha256; with
    the human's consent the orchestrator brings back only what the human agrees to, using git and the
    files under the checkpoint (verify each copy's sha256 first) — never a CLI command, since the CLI
    writes no working tree, index, HEAD or ref. The CLI refuses every new attempt of the change until the
@@ -85,21 +75,17 @@ Ticket every review/verify delegate before spawning; receive before applying fix
    alone may instead end the attempt with
    `--spawn-failed <stem> --reason "<what was lost>" --accept-current-tree`, which keeps the checkpoint
    and prints its path.
-5. **End a failed delegation** — `prospec change delegate --spawn-failed <stem> --reason "<why>"` for a
-   spawn failure, an exhausted wait, or a refused receipt you will not re-spawn. It records the
+5. **End a failed delegation** — `prospec change delegate --spawn-failed <stem> --reason "<why>"` for spawn failure, exhausted wait, or a refusal without re-spawn. It records the
    `{{delegation_producer}}` WARN itself before the ticket turns failed, and it refuses while protected state differs or necessary facts are unreadable — receive it, then hand it off (step 4).
    V1 tickets retain exact five-facet equality. V2 uses one policy at all gates:
-   protect content, HEAD, index, tags and current HEAD branches. Allow a branch checked out by a valid sibling at baseline,
-   or a branch absent at baseline and now checked out by a valid sibling; baseline unowned branches remain protected.
+   Protect the union of before/after current branches from HEAD and topology; content, HEAD, index and non-branch refs (tags included) stay protected. Other local branches are outside protection regardless of sibling activity or baseline existence: additions, moves, renames and deletions use `non-current-branch` with exact ref names and old/new OIDs; before/after HEAD and topology must be readable.
    Allow stash additions only with a valid sibling and an intact baseline suffix (order and duplicates preserved).
    Single-worktree stash changes remain protected. Protected changes refuse; protected differences take precedence over unreadable topology.
    Missing topology keeps receipt pending even with zero raw diff; issue requires readable topology.
    V2 keeps bounded issue, receive and failure observations: allowed ref OIDs and stash prefixes;
    pending/refused evidence writes must succeed. Ordinary failure refusal writes evidence only, without WARN or cleanup.
 6. **Sink** — `prospec review merge` / `prospec verify record` refuse while any latest attempt is still
-   open or refused, and print whether the run was covered by delegate mutation detection. The payloads of
-   a round's several delegates — Mode A lenses, verify's `grader` and `grader-design` — are each received
-   first; the orchestrator then combines them into the one file the sink reads.
+   open or refused, and print whether the run was covered by delegate mutation detection. Receive every round payload first (Mode A lenses, verify `grader`/`grader-design`), then combine them into the sink's one input file.
 
 ## What this guarantees, and what it does not
 
@@ -117,6 +103,6 @@ after the receipt; a change the delegate itself reverted before returning; conte
 or pushes to any remote (remote-tracking refs are not a facet), while tags a `git fetch` auto-follows do
 change the `refs` facet, so a delegate's fetch can refuse an otherwise clean receipt. Delegations of
 several changes running at once in one repository are not isolated from one another: the facets span the
-whole repository. Allowed changes do not prove who made them: endpoint facts do not identify the actor.
-Topology brackets capture with one retry, not an atomic snapshot. New tickets are V2; older CLIs may not read V2 tickets.
+whole repository. Allowed changes: endpoint facts do not identify the actor.
+Topology brackets capture with one retry, not an atomic snapshot. Unused backup branches are also outside V2 protection. V2 is revised directly, without a new ticket version. End outstanding attempts through the existing authorized lifecycle before changing CLI versions; then use consistent CLI versions and issue new tickets. Historical `baseline-sibling` and `new-sibling` reasons remain readable; older CLIs may reject `non-current-branch`. No automatic acceptance, unlocking, ticket migration or historical receipt rewriting/rejudgment. The CLI cannot distinguish the two V2 releases; undrained attempts use the revised policy at their next assessment.
 Snapshots cost a working-tree checkout each and live until their ticket settles.

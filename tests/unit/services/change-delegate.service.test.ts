@@ -168,7 +168,7 @@ it('carries allowed sibling assessment on received and pending service results',
     git('worktree', 'add', '-qb', 'other', sibling);
     await issue();
     gitIn(sibling, 'commit', '--allow-empty', '-qm', 'parallel');
-    const expected = { allowed_refs: [{ name: 'refs/heads/other', reason: 'baseline-sibling' }], protected: [] };
+    const expected = { allowed_refs: [{ name: 'refs/heads/other', reason: 'non-current-branch' }], protected: [] };
     expect(await run({ kind: 'receive', stem: 'review-reviewer-1-1' })).toMatchObject({ kind: 'receipt-failed', assessment: expected });
     put('.prospec/changes/x/.delegated/review-reviewer-1-1.json', FINDINGS);
     expect(await run({ kind: 'receive', stem: 'review-reviewer-1-1' })).toMatchObject({ kind: 'received', assessment: expected });

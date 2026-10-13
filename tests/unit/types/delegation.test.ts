@@ -186,6 +186,11 @@ const observation = { at_ms: 1, observed: state({ topology }), assessment };
 const v2 = () => ticket({ version: 2, pre_spawn: state({ topology }), assessments: { issue: observation } });
 
 describe('versioned delegation evidence', () => {
+  it.each(['baseline-sibling', 'new-sibling', 'non-current-branch'])('round-trips reason %s without rewriting historical observations', (reason) => {
+    const recorded = { ...observation, assessment: { ...assessment, allowed_refs: [{ name: 'refs/heads/backup', before: OID, after: null, reason }] } };
+    const input = { ...v2(), assessments: { issue: observation, receive: recorded } };
+    expect(DelegationTicketSchema.parse(input)).toEqual(input);
+  });
   it('round-trips legacy without topology and accepts optional state topology', () => {
     expect(DelegationTicketSchema.parse(ticket())).toEqual(ticket());
     expect(RepoStateSchema.safeParse(state({ topology })).success).toBe(true);
