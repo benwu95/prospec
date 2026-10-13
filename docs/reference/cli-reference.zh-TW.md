@@ -365,6 +365,9 @@ Review 維持 artifact→metadata，verify 維持 metadata→evidence 的寫入�
   - **測試閘門**：在輸入與輪次順序的拒絕（不寫任何檔案）之後，每次合併都要求該變更的 fresh green `test_attempt`，或兩種明確豁免之一（無可解析的測試命令、已證明的 backfill），豁免時以 `tests: not-adjudicated` WARN 合併。初始測試拒絕以 exit 1 結束並印出 `prospec check --record-tests --change <name>`；可寫入 `review.md` metrics 註解內有界的測試失敗 metrics（`test_failures`、`test_failure_ids`）——絕不合併 findings 或推進輪次。計數的是 review merge 自身觀測到的不同失敗 attempt（同一 attempt id 重放不重複計數、fresh green 會重設、豁免或迴圈換代不會）；達預設門檻 3 時拒絕同時回報 `persistent_test_failure` 與 `ESCALATE_TO_HUMAN`。沒有門檻旗標。metrics 註解格式錯誤或重複時在任何寫入前拒絕。 豁免 WARN 已寫入後，若後續操作拒收，該 WARN 仍會留存並回報 warning-only 結果。依拒收原因確認已完成的寫入；已寫入的 artifact 會留在磁碟上。
   - **Lens 宣告**：成功 merge 且提供 `--lenses` 時，累積的已知別名改用 canonical ID，未知名稱保留字串與順序；省略時不改既有宣告，拒絕的要求不進行正規化。Finding labels、identity、evidence 與 receipt digest 保留原始語意。
 
+  - **收斂**：歷史 ratio（所有非 dismissed findings，包含已 resolved）與 oscillation trials 均保留。完整合併 snapshot 為 all resolved（含空表），或 unresolved rows 全為已知 `minor`／`major` 且明確 `round_activity=false` 時，僅抑制這兩類觸發。未知 unresolved severity 或缺少 activity 不構成 advisory 收斂；缺省／未知 status 仍視為 unresolved。新增、重新開啟或 severity 提升會使整輪保持 active。這不豁免 `persistent_test_failure`、fresh-test gate 或 current-event admission：需要 review grant 時，必須先取得授權，接受且未觸發 breaker 的 attempt 才解除 pending review event；review grant 不授權 verify，verify 仍執行自身 gates。
+  - **當輪活動**：CLI 擁有的 `round_activity="true|false"` 必須搭配有效正安全整數 `round`；不合法的顯式值在寫入前拒收。新輪依 merge activity 初始化；同輪 true 不可清除，false 遇到活動變 true，legacy 缺值保持 unknown，除非活動使其變 true；duplicate-id 後續更新不能抹除中間活動。未改變的 advisory 重報與純文字／位置更新不算活動。相符的 artifact-only repair 與 current accepted replay 沿用保存值；metrics splice 與 receipt digest 保留活動，較舊的 accepted replay 不覆蓋較新 artifact 或 metadata。
+
 - **`prospec verify context --change <name>`**
   - **核心用途**：在變更目錄內投影確定性的驗證上下文快照（`verify-context.json`），不執行測試套件、不修改 `metadata.yaml` 亦不變更生命週期狀態。
   - **捕捉的事實**：

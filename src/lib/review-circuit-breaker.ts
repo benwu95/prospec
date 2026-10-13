@@ -159,7 +159,8 @@ export class ReviewCircuitBreaker {
    */
   checkCircuitBreaker(options?: {
     round?: number;
-    findings?: readonly { origin_round?: number; severity?: string; status?: string }[];
+    roundActivity?: boolean;
+    findings?: readonly { origin_round?: number; severity?: string; status?: string; unrecognizedSeverity?: string }[];
     baseRound?: number;
   }): CircuitBreakerState {
     const roundNumber = options?.round ?? this.currentReviewRounds;
@@ -176,6 +177,14 @@ export class ReviewCircuitBreaker {
         !hasReviewStatus(REVIEW_RESOLVED_STATUSES, f.status),
     ).length;
 
+    const unresolved = options?.findings?.filter(
+      (finding) => !hasReviewStatus(REVIEW_RESOLVED_STATUSES, finding.status),
+    );
+    const converged = unresolved !== undefined && (
+      unresolved.length === 0 || (options?.roundActivity === false &&
+        unresolved.every((finding) => finding.unrecognizedSeverity === undefined &&
+          (finding.severity === 'minor' || finding.severity === 'major')))
+    );
     const oscillating = this.getOscillatingSignatures();
     let escalationReport: EscalationReport | undefined;
 
@@ -195,7 +204,7 @@ export class ReviewCircuitBreaker {
       };
     }
     // 1. Check oscillation breaker
-    else if (oscillating.length > 0) {
+    else if (!converged && oscillating.length > 0) {
       escalationReport = {
         type: 'oscillation',
         message: `Oscillation detected across ${oscillating.length} signature(s): ${oscillating.join(', ')}`,
@@ -209,7 +218,7 @@ export class ReviewCircuitBreaker {
       };
     }
     // 2. Check fix-induced ratio in round > 1
-    else if (roundNumber > 1 && fixInducedRatio > this.config.maxFixInducedRatio) {
+    else if (!converged && roundNumber > 1 && fixInducedRatio > this.config.maxFixInducedRatio) {
       escalationReport = {
         type: 'fix_induced_threshold_exceeded',
         message: `Fix-induced defect ratio (${(fixInducedRatio * 100).toFixed(1)}%) exceeded threshold (${(this.config.maxFixInducedRatio * 100).toFixed(1)}%) in round ${roundNumber}.`,

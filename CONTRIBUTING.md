@@ -60,7 +60,7 @@ Never lower it to make a probe pass — that lets an older binary without those 
 # Watch mode (recompile on change)
 pnpm run dev
 
-# Run all tests (7952 total)
+# Run all tests (8022 total)
 pnpm test
 
 # Run tests in watch mode
@@ -96,9 +96,9 @@ pnpm knowledge:check
 
 Passed and skipped counts depend on the host environment; consult the test run or CI report for execution results. Static counts below describe the test inventory.
 
-**Test Coverage**: 7952 total tests across 4 categories:
-- Unit tests (types + lib + services + cli): 5792 tests
-- Contract tests (CLI output + Skill format): 1741 tests
+**Test Coverage**: 8022 total tests across 4 categories:
+- Unit tests (types + lib + services + cli): 5857 tests
+- Contract tests (CLI output + Skill format): 1746 tests
 - Integration tests: 196 tests
 - E2E tests: 223 tests
 

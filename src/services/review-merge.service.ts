@@ -19,7 +19,7 @@ import {
   withReviewReceipt,
   reviewArtifactDigest,
   parseReviewDocument,
-  mergeFindings,
+  mergeFindingsWithActivity,
   roundCounts,
   escapedCellsFor,
   renderReviewDocument,
@@ -440,7 +440,12 @@ export async function execute(options: ReviewMergeOptions): Promise<ReviewMergeR
   if (decision.verdict === 'exempt' && replay) testGate = { verdict: 'exempt', exemption: decision.exemption, reason: decision.reason, warningRecorded: false };
   const warningRecorded = testGate.warningRecorded;
 
-  const merged = mergeFindings(rows, findings, finalRoundNumber);
+  const { rows: merged, activity } = mergeFindingsWithActivity(rows, findings, finalRoundNumber);
+  // The receipt already includes this payload's intermediate transitions. Reapplying
+  // them to the resulting table could invent a reopen during artifact-only repair.
+  const roundActivity = artifactMatches ? docMetrics.roundActivity
+    : docMetrics.round === finalRoundNumber ? (activity || docMetrics.roundActivity)
+    : activity;
 
   const trials: Record<string, (boolean | undefined)[]> = loopClosedSinceLastMerge
     ? {}
@@ -466,6 +471,7 @@ export async function execute(options: ReviewMergeOptions): Promise<ReviewMergeR
   const circuitBreaker = breaker.checkCircuitBreaker({
     round: inLoopRound,
     findings: merged,
+    roundActivity,
     baseRound,
   });
 
@@ -491,6 +497,7 @@ export async function execute(options: ReviewMergeOptions): Promise<ReviewMergeR
   // round's sentence would otherwise persist into this round when it has findings.
   let rendered = renderReviewDocument(stripCleanReviewBlock(existingContent), merged, changeName, {
       round: finalRoundNumber,
+      roundActivity,
       loopBase,
       provenanceDigest: provenanceDigest ?? docMetrics.provenanceDigest,
       lenses: combinedLenses && combinedLenses.length > 0 ? combinedLenses : undefined,
