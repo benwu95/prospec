@@ -95,7 +95,7 @@ describe('issueTicket while the tree moves (REQ-LIB-092)', () => {
     ['open', 'second'],
     ['refused', 'first'],
     ['refused', 'second'],
-  ] as const)('retains the %s prior ticket and checkpoint when issuing role %s', async (priorState, role) => {
+  ] as const)('admits late checkout against a %s prior ticket when issuing role %s', async (priorState, role) => {
     race = 'stable';
     const key = { station: 'review' as const, role: 'first', round: 1 };
     git('branch', 'backup');
@@ -110,19 +110,14 @@ describe('issueTicket while the tree moves (REQ-LIB-092)', () => {
     const beforeCopies = captureRepoState(repo);
     expect(judgeIssue({ changeDir, tickets: readTickets(changeDir, 'issue'), key: { ...key, role }, current: beforeCopies, payloadExists: false }).kind).toBe('issue');
     race = 'sibling';
-    let outcome: 'issued' | 'refused' = 'issued';
-    try {
-      await issueTicket({ cwd: repo, changeDir, key: { ...key, role } });
-    } catch (error) {
-      expect(error).toMatchObject({ operation: 'issue', ticket: first.stem });
-      outcome = 'refused';
-    }
+    const issued = await issueTicket({ cwd: repo, changeDir, key: { ...key, role } });
     const settled = captureRepoState(repo);
     expect(assessDelegationState(beforeCopies, settled, 'worktree').protected).toEqual([]);
-    expect(assessDelegationState(first.ticket.pre_spawn, settled, 'worktree')).toMatchObject({ protected: ['refs'], protected_refs: [{ name: 'refs/heads/backup' }] });
-    expect.soft(outcome).toBe('refused');
-    expect.soft(fs.existsSync(checkpointDirOf(changeDir, first.stem))).toBe(true);
-    expect.soft(readTickets(changeDir, 'issue').map((stored) => stored.stem)).toEqual([first.stem]);
+    expect(assessDelegationState(first.ticket.pre_spawn, settled, 'worktree')).toMatchObject({ protected: [], allowed_refs: [{ name: 'refs/heads/backup', reason: 'non-current-branch' }] });
+    expect(issued.ticket.state).toBe('open');
+    expect(fs.existsSync(checkpointDirOf(changeDir, first.stem))).toBe(role !== 'first');
+    expect(readTickets(changeDir, 'issue').map((stored) => stored.stem)).toContain(first.stem);
+    expect(readTickets(changeDir, 'issue')).toHaveLength(2);
   });
 
   describe.each(['new', 'rename'] as const)('issue-time sibling %s branch', (movement) => {

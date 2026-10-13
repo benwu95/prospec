@@ -400,12 +400,9 @@ export function assessDelegationState(before: RepoState, after: RepoState, mode:
   for (const value of [was, now]) if (value?.current.branch) currentRefs.add(value.current.branch);
   const protectedFacets = new Set(diff.changed.filter((facet) => !['refs', 'stash'].includes(facet)));
   for (const ref of diff.refs) {
-    const baselineSibling = was?.siblings.some((sibling) => sibling.branch === ref.name);
-    if (!ref.name.startsWith('refs/heads/') || currentRefs.has(ref.name) || (was && ref.before !== null && !baselineSibling)) result.protected_refs.push(ref);
-    else if (was && now) {
-      const newSibling = ref.before === null && now.siblings.some((sibling) => sibling.branch === ref.name);
-      if (baselineSibling || newSibling) result.allowed_refs.push({ ...ref, reason: baselineSibling ? 'baseline-sibling' : 'new-sibling' });
-      else result.protected_refs.push(ref);
+    if (!ref.name.startsWith('refs/heads/') || currentRefs.has(ref.name)) result.protected_refs.push(ref);
+    else if (was && now && !isUnreadable(before.head) && !isUnreadable(after.head)) {
+      result.allowed_refs.push({ ...ref, reason: 'non-current-branch' });
     }
   }
   if (result.protected_refs.length) protectedFacets.add('refs');

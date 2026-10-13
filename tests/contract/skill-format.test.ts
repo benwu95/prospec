@@ -8646,6 +8646,7 @@ describe('split and trim references contract (REQ-TEMPLATES-215~220, REQ-AGNT-04
     const TICKET_FLOW_PHRASES = [
       /\bpre-spawn (?:state|policy)\b/i,
       /endpoint facts|atomic snapshot|older CLIs|V2 tickets|tickets are V2/i,
+      /outside V2 protection|V2 is revised|outstanding attempts|consistent CLI versions|Historical `baseline-sibling`|automatic acceptance|two V2 releases|undrained attempts/i,
       /\bcheckpoint (?:path|files?|copies)\b|\bcopies (?:in|under) (?:the )?checkpoint\b|--accept-current-tree/i,
       /\bone human decision\b|\bhuman'?s (?:explicit )?go-ahead\b|\bnever re-issue\b|\bre-issues? (?:after|on its own)\b/i,
       /\bnot a re-spawn\b|\bre-spawn allowance\b/i,
@@ -8919,33 +8920,49 @@ describe('split and trim references contract (REQ-TEMPLATES-215~220, REQ-AGNT-04
     const renderSkillTemplate = (name: string): string => renderTemplate(`skills/${name}.hbs`, TEMPLATE_CONTEXT);
     const renderReference = (name: string): string => renderTemplate(`skills/references/${name}.hbs`, TEMPLATE_CONTEXT);
 
+    const branchScopeClauses = [
+      'Protect the union of before/after current branches from HEAD and topology',
+      'content, HEAD, index and non-branch refs (tags included) stay protected',
+      'Other local branches are outside protection regardless of sibling activity or baseline existence',
+      'additions, moves, renames and deletions use `non-current-branch` with exact ref names and old/new OIDs',
+      'before/after HEAD and topology must be readable',
+    ];
+    const transitionClauses = [
+      'V2 is revised directly, without a new ticket version',
+      'End outstanding attempts through the existing authorized lifecycle before changing CLI versions',
+      'then use consistent CLI versions and issue new tickets',
+      'Historical `baseline-sibling` and `new-sibling` reasons remain readable',
+      'older CLIs may reject `non-current-branch`',
+      'No automatic acceptance, unlocking, ticket migration or historical receipt rewriting/rejudgment',
+      'The CLI cannot distinguish the two V2 releases; undrained attempts use the revised policy at their next assessment',
+    ];
+    const backupClause = 'Unused backup branches are also outside V2 protection';
     const expectWorktreePolicy = (text: string): void => {
       const flow = sectionOf(text, TICKET_HEADING);
       const limits = sectionOf(text, LIMITS_HEADING);
+      for (const clause of branchScopeClauses) expect(flow).toContain(clause);
       for (const rule of [
         /V1 tickets retain exact five-facet equality/,
-        /baseline sibling branch|branch checked out by a valid sibling at baseline/,
-        /absent at baseline.*checked out by a valid sibling/s,
-        /baseline unowned branches remain protected/,
         /stash additions.*valid sibling.*baseline suffix/s,
         /protected differences take precedence over unreadable topology/,
         /issue, receive and failure.*observations/s,
       ]) expect(flow).toMatch(rule);
+      for (const clause of transitionClauses) expect(limits).toContain(clause);
+      expect(limits).toContain(backupClause);
       expect(limits).toMatch(/endpoint facts do not identify the actor/);
-      expect(limits).toMatch(/older CLIs may not read V2 tickets/);
       expect(limits).not.toMatch(/sibling worktree's commit or stash during a delegation refuses/);
     };
 
     describe('Single definition (REQ-TEMPLATES-238, REQ-TESTS-107)', () => {
-      it('scopes branch/stash allowances and records versioned evidence', () => expectWorktreePolicy(renderProtocol()));
-      it('kills deletion of every scoped policy clause', () => {
+      it('delegation scopes branch/stash allowances and records versioned evidence', () => expectWorktreePolicy(renderProtocol()));
+      it('delegation kills deletion of every scoped policy clause', () => {
         const original = renderProtocol();
+        expectWorktreePolicy(original);
         for (const clause of [
+          ...branchScopeClauses, ...transitionClauses, backupClause,
           'V1 tickets retain exact five-facet equality',
-          'baseline unowned branches remain protected',
           'protected differences take precedence over unreadable topology',
           'endpoint facts do not identify the actor',
-          'older CLIs may not read V2 tickets',
         ]) {
           const mutated = original.replace(clause, 'removed');
           expect(mutated).not.toBe(original);
@@ -9094,6 +9111,37 @@ describe('split and trim references contract (REQ-TEMPLATES-215~220, REQ-AGNT-04
         const end = rest.slice(1).search(/^- \*\*`|^#/m);
         return end < 0 ? rest : rest.slice(0, end + 1);
       };
+      const zhPolicyClauses = [
+        '保護 before／after HEAD 與 topology 所指目前 branches 的聯集',
+        'content、HEAD、index 與非 branch refs（包含 tags）持續受保護',
+        '其他 local branches 不受保護，與 sibling 活動及 baseline 是否存在無關',
+        '新增、移動、rename 與刪除使用 `non-current-branch`，記錄確切 ref 名稱及 old/new OIDs',
+        'before／after HEAD 與 topology 必須可讀',
+        '未使用的 backup branches 也不在 V2 保護範圍內',
+        '直接修訂 V2，不新增票據版本',
+        '切換 CLI 版本前，先依既有授權生命週期結束所有未完成 attempts',
+        '再統一 CLI 版本並重新發票',
+        '歷史 `baseline-sibling` 與 `new-sibling` reasons 保持可讀',
+        '舊 CLI 可能拒絕 `non-current-branch`',
+        '不自動 acceptance、解鎖、遷移票據或重寫／重判歷史 receipt',
+        'CLI 無法辨識兩種 V2 發行版本；未結束 attempts 的下次 assessment 會使用修訂後 policy',
+      ];
+      it.each([
+        ['docs/reference/cli-reference.md', [...branchScopeClauses, backupClause, ...transitionClauses]],
+        ['docs/reference/cli-reference.zh-TW.md', zhPolicyClauses],
+      ] as const)('delegation policy and killing mutations in %s', (file, clauses) => {
+        const entry = delegateEntry(file);
+        const policy = entry.split('\n').filter((line) => /\*\*(?:Versioned policy|版本化 policy)/.test(line)).join('\n');
+        const check = (text: string): void => {
+          for (const clause of clauses) expect(text).toContain(clause);
+        };
+        check(policy);
+        for (const clause of clauses) {
+          const mutated = policy.replace(clause, 'removed');
+          expect(mutated).not.toBe(policy);
+          expect(() => check(mutated)).toThrow();
+        }
+      });
       const THREAT_MODEL_ZH = /防範的是意外或行為出錯的委派代理，而非惡意代理/;
       const expectSummaryWithoutRawEquality = (file: string): void => {
         const text = fs.readFileSync(path.join(__dirname, '../..', file), 'utf-8');
@@ -9355,6 +9403,7 @@ describe('split and trim references contract (REQ-TEMPLATES-215~220, REQ-AGNT-04
         ['a fresh-role rule', `a fresh run goes under <role>${FRESH_ROLE_SUFFIX}`],
         ['a role-collision rule', 'add `-2`, `-3` on a clash'],
         ['a detection limit', 'remote-tracking refs are not a facet'],
+        ...[backupClause, ...transitionClauses].map((clause) => ['a revised V2 limit', clause]),
       ])('the ticket-flow predicate rejects %s restated at an equal-length review pointer', (_label, restated) => {
         const real = renderSkillTemplate('prospec-review');
         const pointerWords = 'its bounded wait and the hand-off of a mutation to the human';

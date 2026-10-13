@@ -1,6 +1,6 @@
 # Verification Suite
 
-> 4-layer Vitest suite (fast-glob/git bypass memfs — 307 test files, 7,924 tests (unit 5786, contract 1731, integration 184, e2e 223)).
+> 4-layer Vitest suite (fast-glob/git bypass memfs — 307 test files, 7,952 tests (unit 5792, contract 1741, integration 196, e2e 223)).
 <!-- prospec:module-readme-format 2026-09-01 -->
 
 <!-- prospec:auto-start -->
@@ -50,7 +50,7 @@ Lens changes require independent eight-lens expectations, alias/custom and thres
 
 ## Pitfalls
 
-- Delegation V2 is pinned by `delegation-policy.test.ts` (pure guard pairs), `repo-state.test.ts` (lossless topology, identity exclusions and bounded retry), `delegation-worktrees.test.ts` (real sibling activity, mixed V1/V2, evidence-write faults and retained settlement observations) and issue-race/service/CLI suites. Cover new/renamed sibling branches at every lifecycle gate, stash pop/clear, canonical aliases and reordered registrations, and physical V1 failure/acceptance round-trips. Preservation tests still refuse sibling refs/stash changes. Run policy killing mutations with an applied-change assertion; restore the source before broader tests.
+- Delegation V2 is pinned by `delegation-policy.test.ts` (pure guard pairs), `repo-state.test.ts` (lossless topology, identity exclusions and bounded retry), `delegation-worktrees.test.ts` (real sibling activity, mixed V1/V2, evidence-write faults and retained settlement observations) and issue-race/service/CLI suites. Cover non-current branch additions/moves/renames/deletions without siblings and late checkout of existing branches followed by commit/rebase and worktree retention/switch/removal; pair lifecycle admission with current-branch, non-branch-ref and unreadable guards. Pin historical reason round-trips and new `non-current-branch` evidence through service/formatter output, plus stash pop/clear, canonical aliases, reordered registrations and physical V1 failure/acceptance round-trips. Preservation tests still refuse sibling refs/stash changes. Run policy killing mutations with an applied-change assertion; restore the source before broader tests.
 
 - Terminal history fixtures use real registered worktrees and compare complete inventories (bytes, modes, directory modes and symlink targets). Cover source-origin isolation, same-name exact finalize, pointer/journal failures, missing primary projects and cleanup interruption; fault injection is distinct from a real cross-filesystem run.
 

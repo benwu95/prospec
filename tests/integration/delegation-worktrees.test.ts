@@ -41,7 +41,7 @@ describe('V2 delegation lifecycle in shared repositories', () => {
     fs.writeFileSync(issued.payloadPath, '[]');
     const received = await receiveTicket({ cwd: repo, changeDir, stem: issued.stem });
     expect(received.verdict.kind).toBe('received');
-    expect(received.ticket).toMatchObject({ version: 2, assessments: { issue: {}, receive: { assessment: { allowed_refs: [{ name: 'refs/heads/other', reason: 'baseline-sibling' }] } } } });
+    expect(received.ticket).toMatchObject({ version: 2, assessments: { issue: {}, receive: { assessment: { allowed_refs: [{ name: 'refs/heads/other', reason: 'non-current-branch' }] } } } });
   });
   it('admits another issue and ordinary failure after sibling activity', async () => {
     const first = await issue(); moveSibling();
@@ -117,7 +117,7 @@ describe('versioned evidence persistence boundaries', () => {
   });
 });
 
-it('allows sibling branch rename but protects a baseline backup later checked out there', async () => {
+it('allows branch rename and a baseline backup later checked out there', async () => {
   gitIn(repo, 'branch', 'backup');
   const issued = await issue();
   gitIn(sibling, 'branch', '-m', 'renamed');
@@ -125,9 +125,10 @@ it('allows sibling branch rename but protects a baseline backup later checked ou
   expect(pending.verdict.kind).toBe('pending');
   expect(pending.assessment.allowed_refs.map((ref) => ref.name)).toEqual(['refs/heads/other', 'refs/heads/renamed']);
   gitIn(sibling, 'checkout', '-q', 'backup'); moveSibling();
-  const refused = await receiveTicket({ cwd: repo, changeDir, stem: issued.stem });
-  expect(refused.verdict).toMatchObject({ kind: 'refused', changed: ['refs'] });
-  expect(refused.assessment.protected_refs.map((ref) => ref.name)).toEqual(['refs/heads/backup', 'refs/heads/renamed']);
+  fs.writeFileSync(issued.payloadPath, '[]');
+  const received = await receiveTicket({ cwd: repo, changeDir, stem: issued.stem });
+  expect(received.verdict.kind).toBe('received');
+  expect(received.assessment.allowed_refs.map((ref) => ref.name)).toEqual(['refs/heads/backup', 'refs/heads/other', 'refs/heads/renamed']);
 });
 
 it('refuses stash store in a single worktree even when files and index remain unchanged', async () => {
@@ -142,13 +143,19 @@ it('refuses stash store in a single worktree even when files and index remain un
   expect(refused.verdict).toMatchObject({ kind: 'refused', changed: ['stash'] });
 });
 
-describe.each(['new', 'rename'] as const)('sibling %s branch across lifecycle gates', (movement) => {
+describe.each(['new', 'rename', 'late-existing'] as const)('sibling %s branch across lifecycle gates', (movement) => {
   it.each(['receive', 'issue', 'failure'] as const)('allows movement at %s and refuses a neighboring protected tag change', async (gate) => {
+    if (movement === 'late-existing') {
+      gitIn(repo, 'worktree', 'remove', sibling);
+      gitIn(repo, 'branch', 'backup');
+    }
     const target = await issue('allowed');
     const control = await issue('protected');
     if (movement === 'new') gitIn(sibling, 'checkout', '-qb', 'created');
-    else gitIn(sibling, 'branch', '-m', 'renamed');
+    else if (movement === 'rename') gitIn(sibling, 'branch', '-m', 'renamed');
+    else gitIn(repo, 'worktree', 'add', '-q', sibling, 'backup');
     moveSibling();
+    if (movement === 'late-existing') gitIn(repo, 'worktree', 'remove', sibling);
     if (gate === 'receive') {
       fs.writeFileSync(target.payloadPath, '[]');
       expect((await receiveTicket({ cwd: repo, changeDir, stem: target.stem })).verdict.kind).toBe('received');
@@ -207,4 +214,61 @@ describe.each(['open', 'refused'] as const)('physical V1 %s ticket compatibility
     expect(JSON.stringify(validated)).not.toContain('topology');
     expect(validated.failure?.accepted !== undefined).toBe(acceptCurrentTree);
   });
+});
+
+
+describe.each(['keep', 'switch', 'remove'] as const)('late existing branch worktree %s', (ending) => {
+  it.each(['commit', 'rebase'] as const)('admits %s without retaining worktree history', async (operation) => {
+    gitIn(repo, 'worktree', 'remove', sibling);
+    gitIn(repo, 'branch', 'backup');
+    const base = gitIn(repo, 'rev-parse', 'HEAD').trim();
+    const issued = await issue();
+    gitIn(repo, 'worktree', 'add', '-q', sibling, 'backup');
+    gitIn(sibling, 'commit', '--allow-empty', '-qm', 'one');
+    const first = gitIn(sibling, 'rev-parse', 'HEAD').trim();
+    gitIn(sibling, 'commit', '--allow-empty', '-qm', 'two');
+    if (operation === 'rebase') gitIn(sibling, 'rebase', '--onto', base, first, 'backup');
+    const tip = gitIn(sibling, 'rev-parse', 'HEAD').trim();
+    expect(tip).not.toBe(base);
+    if (ending === 'switch') gitIn(sibling, 'checkout', '-q', 'other');
+    if (ending === 'remove') gitIn(repo, 'worktree', 'remove', sibling);
+    fs.writeFileSync(issued.payloadPath, '[]');
+    const result = await receiveTicket({ cwd: repo, changeDir, stem: issued.stem });
+    expect(result.verdict.kind).toBe('received');
+    expect(result.assessment.allowed_refs).toEqual([{ name: 'refs/heads/backup', before: base, after: tip, reason: 'non-current-branch' }]);
+  });
+});
+
+it('admits unattached branch create/move/rename/delete with no sibling', async () => {
+  gitIn(repo, 'worktree', 'remove', sibling);
+  gitIn(repo, 'branch', 'deleted');
+  gitIn(repo, 'branch', 'renamed');
+  gitIn(repo, 'branch', 'moved');
+  const issued = await issue();
+  const tree = gitIn(repo, 'rev-parse', 'HEAD^{tree}').trim();
+  const tip = gitIn(repo, 'commit-tree', tree, '-p', 'HEAD', '-m', 'outside scope').trim();
+  gitIn(repo, 'branch', 'created', tip);
+  gitIn(repo, 'branch', '-f', 'moved', tip);
+  gitIn(repo, 'branch', '-m', 'renamed', 'new-name');
+  gitIn(repo, 'branch', '-D', 'deleted');
+  fs.writeFileSync(issued.payloadPath, '[]');
+  const result = await receiveTicket({ cwd: repo, changeDir, stem: issued.stem });
+  expect(result.verdict.kind).toBe('received');
+  expect(result.assessment.allowed_refs.map((ref) => ref.name)).toEqual(['refs/heads/created', 'refs/heads/deleted', 'refs/heads/moved', 'refs/heads/new-name', 'refs/heads/renamed']);
+});
+
+it.each(['baseline-sibling', 'new-sibling'] as const)('retains historical %s evidence through read and settlement', async (reason) => {
+  const issued = await issue(); moveSibling(); fs.writeFileSync(issued.payloadPath, '[]');
+  const result = await receiveTicket({ cwd: repo, changeDir, stem: issued.stem });
+  if (result.ticket.version !== 2) throw new Error('expected V2');
+  const historical = structuredClone(result.ticket);
+  historical.assessments.receive!.assessment.allowed_refs[0]!.reason = reason;
+  const file = path.join(changeDir, '.delegated', `${issued.stem}.ticket.json`);
+  fs.writeFileSync(file, JSON.stringify(historical));
+  expect(readTickets(changeDir, 'settle')[0]!.ticket).toEqual(historical);
+  const admitted = admitSettlement(changeDir, 'review');
+  fs.writeFileSync(path.join(repo, 'a.txt'), 'later fix');
+  await consumeSettlement(changeDir, admitted);
+  const stored = readTickets(changeDir, 'settle')[0]!.ticket;
+  expect(stored).toMatchObject({ state: 'consumed', assessments: historical.assessments });
 });

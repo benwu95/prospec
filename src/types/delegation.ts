@@ -156,7 +156,7 @@ export const DelegationAssessmentSchema = z.strictObject({
   mode: z.enum(['legacy', 'worktree']),
   protected: z.array(z.enum(GIT_STATE_FACETS)),
   protected_refs: z.array(RefDeltaSchema),
-  allowed_refs: z.array(RefDeltaSchema.extend({ reason: z.enum(['baseline-sibling', 'new-sibling']) })),
+  allowed_refs: z.array(RefDeltaSchema.extend({ reason: z.enum(['baseline-sibling', 'new-sibling', 'non-current-branch']) })),
   stash_added: z.array(ObjectId),
   unreadable: z.array(z.strictObject({ facet: z.enum([...GIT_STATE_FACETS, 'topology']), reason: z.string().min(1) })),
 });

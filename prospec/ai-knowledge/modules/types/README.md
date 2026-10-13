@@ -57,7 +57,7 @@ Also: `auto-draft.ts` (drift-drafting options/result, incl. the `created | skipp
 
 ## Pitfalls
 
-- Delegation tickets are a strict V1/V2 discriminated union. V1 states retain their original five-facet shape; V2 requires readable baseline topology and bounded `assessments.issue/receive/failure` observations. `RepoStateSchema.topology` is optional observation metadata, not a sixth facet; `DelegationAssessmentSchema` carries protected facets/ref deltas, allowed-ref reasons, stash prefixes and unreadable facts. Delegation command help references the ticket policy rather than duplicating its branch/stash rules.
+- Delegation tickets are a strict V1/V2 discriminated union. V1 states retain their original five-facet shape; V2 requires readable baseline topology and bounded `assessments.issue/receive/failure` observations. `RepoStateSchema.topology` is optional observation metadata, not a sixth facet; `DelegationAssessmentSchema` carries protected facets/ref deltas, allowed-ref reasons, stash prefixes and unreadable facts. New V2 allowed-ref evidence uses `non-current-branch`; retain historical `baseline-sibling` and `new-sibling` reasons without rewriting observations or adding a ticket version. Delegation command help references the ticket policy rather than duplicating its branch/stash rules.
 
 - Terminal operation origin includes Git common-dir, source worktree, project prefix and change name. Keep `HISTORY_POINTER` reserved; missing marked lineage must not degrade to legacy history. Legacy retry metadata remains byte-identical during import.
 

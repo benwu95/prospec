@@ -23,22 +23,44 @@ describe('directional delegation policy', () => {
   it('allows baseline sibling moves/deletions while raw equality remains strict', () => {
     for (const oid of [b, null]) {
       const { before, after } = changed('refs/heads/other', oid);
-      expect(judge(before, after)).toMatchObject({ protected: [], allowed_refs: [{ name: 'refs/heads/other', before: a, after: oid, reason: 'baseline-sibling' }] });
+      expect(judge(before, after)).toMatchObject({ protected: [], allowed_refs: [{ name: 'refs/heads/other', before: a, after: oid, reason: 'non-current-branch' }] });
       expect(sameRepoState(before, after)).toBe(false);
       expect(diffRepoState(before, after).changed).toEqual(['refs']);
       expect(assessDelegationState(before, after, 'legacy').protected).toEqual(['refs']);
     }
   });
-  it('allows new sibling branches but never transfers baseline backup protection', () => {
-    for (const name of ['refs/heads/new', 'refs/heads/backup']) {
-      const { before, after } = changed(name);
-      if (after.topology && 'siblings' in after.topology) after.topology.siblings[0]!.branch = name;
-      expect(judge(before, after).protected).toEqual(name.endsWith('/new') ? [] : ['refs']);
+  it.each(['refs/heads/new', 'refs/heads/backup', 'refs/heads/other'])('allows %s regardless of sibling presence or checkout history', (name) => {
+    for (const oid of [b, null]) {
+      const { before, after } = changed(name, oid);
+      for (const observation of [before, after]) if (observation.topology && 'siblings' in observation.topology) observation.topology.siblings = [];
+      expect(judge(before, after).protected).toEqual([]);
+      expect(judge(before, after).allowed_refs).toEqual(name.endsWith('/new') && oid === null ? [] : [{ name, before: name.endsWith('/new') ? null : a, after: oid, reason: 'non-current-branch' }]);
     }
   });
-  it.each(['refs/heads/main', 'refs/tags/v1', 'refs/custom/x', 'refs/heads/backup'])('protects %s', (name) => {
+  it.each(['refs/heads/main', 'refs/tags/v1', 'refs/custom/x'])('protects %s', (name) => {
     const { before, after } = changed(name);
     expect(judge(before, after).protected_refs).toEqual([{ name, before: name.startsWith('refs/heads/') ? a : null, after: b }]);
+  });
+  it('protects the union of current HEAD and topology branches at both endpoints', () => {
+    for (const endpoint of ['before', 'after'] as const) {
+      for (const owner of ['head', 'topology'] as const) {
+        const pair = changed('refs/heads/backup');
+        if (owner === 'head') pair[endpoint].head = { ref: 'refs/heads/backup', commit: a, operations: [] };
+        else pair[endpoint].topology = { current: { root: '/main', identity: '1:1', branch: 'refs/heads/backup' }, siblings: [] };
+        expect(judge(pair.before, pair.after).protected_refs).toEqual([{ name: 'refs/heads/backup', before: a, after: b }]);
+      }
+    }
+  });
+  it('does not infer branch ownership from detached HEAD commit OIDs', () => {
+    const { before, after } = changed('refs/heads/backup');
+    for (const observation of [before, after]) {
+      observation.head = { ref: null, commit: a, operations: [] };
+      observation.topology = { current: { root: '/main', identity: '1:1', branch: null }, siblings: [] };
+    }
+    expect(judge(before, after)).toMatchObject({ protected: [], allowed_refs: [{ name: 'refs/heads/backup', reason: 'non-current-branch' }] });
+    after.head = { ref: null, commit: b, operations: [] };
+    after.index = { digest: 'b'.repeat(64), blockers: [] };
+    expect(judge(before, after).protected).toEqual(['head', 'index']);
   });
   it('protects current HEAD even if topology also attributes that branch to a sibling', () => {
     const { before, after } = changed('refs/heads/other');
@@ -58,7 +80,8 @@ describe('directional delegation policy', () => {
     expect(judge(before, after)).toMatchObject({ protected: ['refs', 'stash'], unreadable: [{ facet: 'topology' }] });
     const branch = changed('refs/heads/backup');
     branch.after.topology = { unreadable: 'unknown' };
-    expect(judge(branch.before, branch.after).protected).toEqual(['refs']);
+    expect(judge(branch.before, branch.after).protected).toEqual([]);
+    expect(judge(branch.before, branch.after).allowed_refs).toEqual([]);
     expect(judge(branch.before, branch.after).unreadable.length).toBeGreaterThan(0);
   });
   it('allows only prefix additions with sibling evidence, preserving duplicates and empty baseline', () => {
@@ -94,18 +117,15 @@ function receipt(before: RepoState, after: RepoState) {
 }
 
 describe('protected evidence priority and stash sequence', () => {
-  it.each([b, null])('refuses a proven baseline unowned mutation ending at %s despite unknown topology', (oid) => {
-    const { before, after } = changed('refs/heads/backup', oid);
-    after.topology = { unreadable: 'permission denied' };
-    expect(judge(before, after)).toMatchObject({
-      protected: ['refs'], protected_refs: [{ name: 'refs/heads/backup', before: a, after: oid }],
-      allowed_refs: [], unreadable: [{ facet: 'topology' }],
-    });
-    expect(receipt(before, after)).toMatchObject({ kind: 'refused', reason: 'mutated', changed: ['refs'] });
-    for (const unproved of [changed('refs/heads/new'), { before: state(), after: state() }]) {
-      unproved.after.topology = { unreadable: 'unknown' };
-      expect(judge(unproved.before, unproved.after).protected).toEqual([]);
-      expect(receipt(unproved.before, unproved.after)).toMatchObject({ kind: 'pending', reason: 'unreadable' });
+  it.each(['head', 'topology'] as const)('keeps non-current scope unproved when either %s endpoint is unreadable', (facet) => {
+    for (const endpoint of ['before', 'after'] as const) {
+      const { before, after } = changed('refs/heads/backup');
+      const observation = endpoint === 'before' ? before : after;
+      observation[facet] = { unreadable: 'permission denied' };
+      expect(judge(before, after)).toMatchObject({ protected: [], allowed_refs: [], unreadable: [{ facet }] });
+      if (endpoint === 'after') expect(receipt(before, after)).toMatchObject({ kind: 'pending', reason: 'unreadable' });
+      if ('entries' in after.refs) after.refs.entries.push({ name: 'refs/tags/protected', oid: b });
+      if (endpoint === 'after') expect(receipt(before, after)).toMatchObject({ kind: 'refused', reason: 'mutated', changed: ['refs'] });
     }
   });
   it('rejects suffix reordering and changed duplicate multiplicities with or without additions', () => {

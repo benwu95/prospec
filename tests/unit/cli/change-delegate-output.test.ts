@@ -120,11 +120,11 @@ describe('change delegate help (REQ-CLI-054, REQ-CLI-057)', () => {
 });
 
 it('describes accepted policy with sanitized allowed differences instead of raw equality or actor attribution', () => {
-  const assessment = { mode: 'worktree' as const, protected: [], protected_refs: [], allowed_refs: [{ name: 'refs/heads/\u001b[31mparallel', before: 'a'.repeat(40), after: 'b'.repeat(40), reason: 'baseline-sibling' as const }], stash_added: ['c'.repeat(40)], unreadable: [] };
+  const assessment = { mode: 'worktree' as const, protected: [], protected_refs: [], allowed_refs: [{ name: 'refs/heads/\u001b[31mparallel', before: 'a'.repeat(40), after: 'b'.repeat(40), reason: 'non-current-branch' as const }], stash_added: ['c'.repeat(40)], unreadable: [] };
   const out = captureStdout(() => formatChangeDelegateOutput({ kind: 'received', changeName: 'x', stem: 'review-r-1-1', unreleased: [], assessment }));
   expect(out).toContain('repository state satisfies the ticket policy');
   expect(out).toContain('allowed ref: refs/heads/');
-  expect(out).toContain('baseline-sibling');
+  expect(out).toContain('non-current-branch');
   expect(out).toContain('allowed stash prefix: 1');
   expect(out).not.toContain('\u001b');
   expect(out).not.toMatch(/every repository facet matches|delegate changed/);
