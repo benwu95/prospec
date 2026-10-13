@@ -41,8 +41,13 @@ so that verify's test dimension is a machine verdict instead of an agent's self-
 - WHEN a current test record lacks a recognized fingerprint version/scope or its linked latest passed attempt, THEN require normal revalidation; legacy records remain readable and known non-zero failures are never suppressed
 - WHEN an actual non-zero result was persisted and a later attempt is running, unavailable, timed out or unprovable, THEN the durable failed test_provenance still yields FAIL before any skip or old PASS; only a later certified stable successful run supersedes that failure
 - WHEN lifecycle entry gates adjudicate a target, THEN they call the shared status-independent single-change policy directly; the normal drift evaluator retains PROVENANCE_AUDITED_STATUSES and its existing backfill and skipped output mapping.
+- WHEN a compatible opt-in target and an unavailable sibling are both enumerated, THEN retain the target's certified test evidence and PASS adjudication while marking the sibling in subject_skips; without certified reuse preserve the existing whole-check skip mapping.
 - WHEN the policy is reused by a station, THEN an explicit exemption is surfaced as not-adjudicated rather than certified green, while known non-zero failures still take precedence.
 - WHEN collecting target facts for a station outside Git, THEN validate metadata and command policy before deciding an explicit exemption; unavailable required observations are not silently converted into a no-command fact.
+- WHEN the Knowledge exclusion policy is enabled, THEN collect and compare the test-specific effective-input identity defined by REQ-TYPES-115; the full repository digest remains separate, and both normal drift and target gates use the same record mapping and certification predicate.
+- WHEN opt-in evidence has a compatible identity and its latest linked passed attempt has exit zero and equal before/after/recorded/current test digests, THEN return certified reuse with the original attempt id, date, command, result and policy reason without mutating either run record.
+- WHEN a retained symlink resolves into excluded Knowledge or excluded topology contains a symlink/gitlink, THEN the test capture is unprovable; full inventory and integrity failures are not hidden by exclusion.
+- WHEN opt-in identity is missing, unknown or incompatible, THEN no reuse PASS is produced; recognized snapshot-v2 evidence remains usable under the default policy, with the existing failure and exemption precedence unchanged.
 
 #### REQ-SERVICES-068: check.service collector injection + the --record-tests write path
 `check.service.execute` injects test-provenance and Constitution collectors through the shared read-only assessment owner and remains read-only without an explicit side-effect flag. Its sole `--record-tests` writer persists a running attempt before execution and certifies only an unchanged, provable effective-input snapshot.
@@ -74,5 +79,29 @@ A `windows-smoke` job (`windows-latest`) makes the shim gate's Windows behavior 
 - WHEN the fixture's test command is a Windows `.cmd` shim, THEN `check --record-tests` reports the honest not-recorded reason and `test-provenance` is `skipped`, not `fail`
 - WHEN a failure unrelated to the shim surfaces during the observation period, THEN `continue-on-error: true` keeps it from blocking the PR while the failure is enumerated with its own conclusion — the flag is an observation window, never a permanent mute
 - WHEN the fixture script runs on a POSIX host, THEN it takes the recorded branch and still asserts the same outcome, so it is verifiable before it ever reaches a Windows runner
+
+---
+
+#### REQ-TYPES-115: Opt-in Knowledge test input policy
+The optional boolean `test_evidence.exclude_knowledge` enables a fixed Knowledge exclusion for test evidence only. Absence or false retains the existing repository-input policy; the project declares that its tests do not consume the excluded Knowledge tree.
+- WHEN enabled, THEN derive the excluded root from `resolveBasePaths(config, cwd).knowledgePath`, identify it by a normalized project-relative path using the filesystem identity of existing ordinary ancestors and policy version, and bind the test fingerprint to that descriptor, the raw config bytes and resolved test command.
+- WHEN the root is not a provably safe strict project descendant, covers the config, crosses symlink or gitlink boundaries, or its required observations are unreadable, THEN test inputs are unprovable rather than a successful exclusion; same-prefix sibling directories remain included.
+- WHEN a missing Knowledge tree has provably safe existing ancestors and an unchanged normalized scope, THEN its absence or recreation as ordinary directories does not itself change the policy identity; recreated unsafe topology refuses capture.
+- WHEN policy, resolved scope, command, config bytes or fingerprint version differ from a baseline's identity, THEN that incompatible baseline cannot certify current inputs; old formats are never upgraded by rewriting their digest.
+- WHEN enabling the policy is documented, THEN explain its declaration prerequisite, custom base paths, explicit test execution, and that it does not replace pre-merge CI or exempt tests that consume Knowledge; Prospec's own configuration remains disabled.
+
+---
+
+
+#### REQ-TESTS-137: Knowledge test evidence reuse regression coverage
+Real-Git fixtures exercise the opt-in policy through the shared assessment and normal service/CLI entry points, with invocation counters and original run-record comparisons.
+- WHEN only eligible Knowledge files change after a compatible successful baseline, THEN the opt-in test assessment passes without another suite invocation or changes to the original test attempt/provenance fields; the default policy becomes stale and review evidence still becomes stale in both modes.
+- WHEN source, tests, dependency manifests/lockfiles or test configuration changes in committed, staged, unstaged or non-ignored untracked form, THEN refuse reuse; equivalent staging/commits alone preserve compatible input identity.
+- WHEN testing custom paths.base_dir and independent knowledge.base_path, THEN cover segment-prefix siblings, missing/deleted/recreated roots, root/external targets, symlink ancestors and retained links into excluded inputs, gitlinks, unreadable inputs and policy/config changes.
+- WHEN baseline or attempt identity is missing, unsupported or mismatched, or the latest attempt is non-passing, THEN no reuse PASS occurs; known failures precede existing no-command/backfill exemptions, which stay non-adjudicated.
+- WHEN input/config/command/policy/metadata observations change across capture, execution or pre-write recheck, THEN retain the existing refusal, supersession and durable-failure protections.
+- WHEN review merge, test-provenance and verify evaluate the same fixture, THEN their freshness decisions agree, reuse diagnostics preserve original run information, Knowledge checks retain their inputs and verify context remains bound to the full repository snapshot.
+- WHEN explicit --record-tests runs against already reusable evidence, THEN the invocation counter increases and a real new attempt is recorded.
+- WHEN implementation is delivered, THEN the existing unit, contract, integration, e2e, lint, typecheck, coverage of at least 80 percent, counts, generated-agent, Knowledge-sync and strict drift gates pass.
 
 ---
