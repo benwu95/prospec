@@ -10,11 +10,11 @@ Name files by **user-facing feature**, not by implementation module:
 
 | Feature Name | Covers |
 |-------------|--------|
-| `sdd-workflow.md` | Story, Plan, Tasks, Archive, Verify, Fast-Forward |
-| `ai-knowledge.md` | Knowledge Init, Generate, Update, Quality Gate |
-| `project-setup.md` | CLI, Init, Config, Base Directory |
-| `agent-integration.md` | Agent Sync, Skill Generation, Progressive Disclosure |
-| `design-phase.md` | Generate Mode, Extract Mode, Platform Adapters |
+| `authentication.md` | Sign-in, Sign-out, Session Management |
+| `orders.md` | Cart, Checkout, Order Tracking |
+| `billing.md` | Invoices, Payments, Refunds |
+| `notifications.md` | Email, Push, Delivery Preferences |
+| `reporting.md` | Dashboards, Exports, Scheduled Reports |
 
 New features can be added as the product grows.
 

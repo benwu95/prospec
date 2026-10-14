@@ -312,7 +312,7 @@ function registerTools(server: McpServer, ctx: McpServerContext): void {
       description:
         'Quote only the requirements a change touches — by REQ id or story — ' +
         'instead of reading a whole feature spec. ' +
-        'Example: `{ "feature": "sdd-workflow", "req": ["REQ-CLI-028"] }` or `{ "feature": "sdd-workflow", "story": ["US-36"] }`. ' +
+        'Example: `{ "feature": "authentication", "req": ["REQ-AUTH-001"] }` or `{ "feature": "authentication", "story": ["US-1"] }`. ' +
         'Returns `{ feature, slices, misses }` — the selected slices plus the selectors that matched nothing; with no selector it refuses and points at `spec://feature/{name}`.',
       inputSchema: GetSpecRequirementsInputShape,
       outputSchema: SpecRequirementsResultSchema,

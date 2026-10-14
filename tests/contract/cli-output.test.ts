@@ -42,6 +42,18 @@ afterEach(() => {
 });
 
 describe('CLI Output Contract', () => {
+  it('spec show help uses a project-independent feature and requirement example', async () => {
+    const program = createProgram();
+    try {
+      await program.parseAsync(['node', 'prospec', 'spec', 'show', '--help']);
+    } catch (err) {
+      if ((err as { exitCode?: number }).exitCode !== 0) throw err;
+    }
+    const output = stdoutOutput.join('');
+    expect(output).toContain('prospec spec show authentication --req REQ-AUTH-001,REQ-AUTH-002');
+    expect(output).not.toMatch(/REQ-CLI-\d+|sdd-workflow/);
+  });
+
   describe('prospec --version', () => {
     it('should output version number', async () => {
       const program = createProgram();

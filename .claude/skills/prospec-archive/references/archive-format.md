@@ -54,8 +54,8 @@ Extract from `delta-spec.md`, listing all modules with changes:
 
 | Module | Impact | Description |
 |--------|--------|-------------|
-| types | High | Added archived status to ChangeStatus |
-| services | High | New archive.service.ts |
+| auth | High | Added session rotation |
+| api | High | Updated session refresh endpoint |
 ```
 
 ---

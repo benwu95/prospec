@@ -1,7 +1,7 @@
 ---
 feature: mcp-server
 status: active
-last_updated: 2026-10-09
+last_updated: 2026-10-14
 story_count: 4
 req_count: 15
 ---
@@ -51,6 +51,7 @@ _(None)_
 
 | Date | Change | Impact | Stories/REQs |
 |------|--------|--------|-------------|
+| 2026-10-14 | remove-downstream-repo-leaks | MODIFIED REQ-MCP-010 | REQ-MCP-010 |
 | 2026-10-09 | slim-readme-into-docs | MODIFIED REQ-MCP-008 | REQ-MCP-008 |
 | 2026-09-16 | enrich-help-and-skill-descriptions | ADDED REQ-MCP-010 | REQ-MCP-010 |
 | 2026-09-01 | standardize-module-readme-format | MODIFIED REQ-MCP-002 | REQ-MCP-002 |

@@ -148,7 +148,7 @@ export const COMMAND_HELP_SPECS: Record<HelpEnrichedCommand, CommandHelpSpec> = 
   'spec show': {
     whenToUse:
       'When a station needs the requirement text a change touches — pass the delta-spec\'s REQ ids or story ids instead of reading a whole feature spec. Not for editing a spec (archive is its sole writer).',
-    example: 'prospec spec show sdd-workflow --req REQ-CLI-028,REQ-CLI-037',
+    example: 'prospec spec show authentication --req REQ-AUTH-001,REQ-AUTH-002',
     returns:
       'Prints the selected requirement slices as Markdown on stdout (read-only). Each unmatched selector is named on stderr and the exit is non-zero; with no selector at all the whole spec prints.',
   },

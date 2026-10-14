@@ -59,7 +59,7 @@ Prioritize review: match `impact_modules` to stale `structural.knowledge_health.
 
 Required Source field: `modules=M (…)`; follow with `- **Stations**: <s1>, <s2>` or `all` (SDD stations/skill aliases). `learn playbook --station` catalogs all active entries and selects bodies; `--modules` only sorts. All-undeclared uses legacy module selection. `--modules` alone stays legacy; `--id` reads an entry.
 
-Advisory cap: {{playbook_entry_token_limit}} `estimateTokens` over the full entry (heading, metadata, Landing, body). Warn on stderr only above cap; never truncate stdout. No override.
+Advisory cap: {{playbook_entry_token_limit}} tokens = `ceil(UTF-16 code units / 4)` for the full entry (heading, metadata, Landing, body). `prospec learn playbook`: stderr warning only above cap; never truncate stdout. No override.
 
 Mechanized compact form: permanent PB id/one-line rule, Source/Criteria/Kind/approval, Stations, `Landing:`, TTL. Remove covered Guidance and Re-evidence/Strengthened/Broadened narrative; retain clauses the mechanism and executor do not cover. History: see Sweep.
 
@@ -85,7 +85,7 @@ Shared writes record **source changes**, **criteria fired**, **approver**, **dat
 | contradicted | conflicts? | quote both rules for arbitration |
 | desynchronized | inlined but absent from gate? | `Landing:` and missing gate clause |
 | mechanized compaction | compact form possible? | complete before/after, mechanism AND executor, clause coverage, history |
-| over-limit cleanup | over cap, splittable? | `estimateTokens`, before/after, retained clause coverage |
+| over-limit cleanup | over cap, splittable? | token formula above, before/after, retained clause coverage |
 | zero-yield lens | `prospec learn yield` says retire/review? | declared invocations ≥ min_invocations |
 
 - **Ledger retirement**: A row is **never deleted, never re-keyed**. Set `status: retired`; `frequency`, `impact_modules` and `source_changes` stay untouched; it is never re-opened.

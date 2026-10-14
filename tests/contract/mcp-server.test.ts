@@ -355,8 +355,9 @@ describe('tools (REQ-MCP-005)', () => {
     expect(dep).toContain('Example: `{ "from": "cli", "to": "lib" }`');
     expect(dep).toContain('Returns `{ allowed, direction, source }`');
     const spec = tools.find((t) => t.name === 'get_spec_requirements')!.description!;
-    expect(spec).toContain('"req": ["REQ-CLI-028"]');
-    expect(spec).toContain('"story": ["US-36"]');
+    expect(spec).toContain('"feature": "authentication"');
+    expect(spec).toContain('"req": ["REQ-AUTH-001"]');
+    expect(spec).toContain('"story": ["US-1"]');
     // the field name must be the one the result schema actually carries
     expect(spec).toContain('`{ feature, slices, misses }`');
     expect(spec).not.toContain('unmatched');
@@ -365,7 +366,9 @@ describe('tools (REQ-MCP-005)', () => {
     expect(describes).toContain('auth service');
     expect(describes).not.toContain('drift checker');
     expect(describes).toContain('`cli`');
-    expect(describes).toContain('`REQ-CLI-028`');
+    expect(describes).toContain('`REQ-AUTH-001`');
+    expect(describes).toContain('`authentication`');
+    expect(spec + describes).not.toMatch(/REQ-CLI-\d+|sdd-workflow/);
   });
 
   it('search_modules: separator-normalized matching with ranked structured output', async () => {

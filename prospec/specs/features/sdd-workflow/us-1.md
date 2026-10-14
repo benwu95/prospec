@@ -64,11 +64,11 @@ Track status via metadata.yaml, with `ai-knowledge/_status-lifecycle.md` as the 
 - WHEN authoring or re-entering a proposal, THEN the skill follows the sourced-premise authoring and same-change handoff in REQ-TEMPLATES-245.
 
 #### REQ-TEMPLATES-150: metadata.yaml Format Reference
-`references/metadata-format.hbs` is the single authority for the metadata.yaml serialization format (canonical field order, minimal quoting, `created_at` ISO 8601, `quality_log` entry shape); semantics defer to `ChangeMetadataSchema` (`src/types/change.ts`) and `_status-lifecycle.md`, without restating them.
+`references/metadata-format.hbs` is the single authority for the metadata.yaml serialization format (canonical field order, minimal quoting, `created_at` ISO 8601, `quality_log` entry shape); semantics remain owned by the CLI schema and `_status-lifecycle.md`; downstream guidance uses public commands/help and the deployed lifecycle document rather than requiring access to Prospec source files.
 - WHEN new-story/ff scaffold metadata.yaml, THEN follow the reference's canonical field order and serialization conventions (loaded MANDATORY at new-story Startup Loading / on-demand at ff Phase 2)
 - WHEN a downstream skill (plan/tasks/implement/review/verify/archive) appends a `quality_log` entry or edits `status`, THEN follow the reference's entry shape — `result` stays the gate three-state, the verify grade lives in `grade`, never in `result`
-- WHEN the reference documents field domains, THEN it points to the schema/`_status-lifecycle.md` rather than restating them (avoids the templates restatement-contract failure)
-- WHEN documenting acceptance metadata, THEN describe pending, frozen and late-capture states, revision identity and amendment audit fields by reference to the executable schema; never teach manual YAML serialization
+- WHEN the reference documents field domains, THEN it preserves CLI schema ownership and points readers to public commands/help or the deployed lifecycle document for operations, without requiring Prospec source files or restating the executable schema
+- WHEN documenting acceptance metadata, THEN describe pending, frozen and late-capture states, revision identity and amendment audit fields through the CLI-owned freeze/amend workflow; never teach manual YAML serialization
 - WHEN describing quality_log entries, THEN the reference does not impose a one-entry-per-station cardinality
 - WHEN documenting abandonment and retry linkage, THEN the reference names the CLI-owned fields and their schema owner without teaching manual metadata mutation.
 
