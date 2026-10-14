@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { vol } from 'memfs';
-import { parseReviewDocument, parseReviewMetricsStrict } from '../../../src/lib/review-merge.js';
+import { renderReviewDocument, parseReviewDocument, parseReviewMetricsStrict } from '../../../src/lib/review-merge.js';
+import { admitEscalation, reduceEscalationHistory } from '../../../src/lib/escalation.js';
 import { execute } from '../../../src/services/review-merge.service.js';
 import { readChangeMetadata, writeChangeMetadataDoc } from '../../../src/lib/change-metadata.js';
 import { DelegationRefusedError, PrerequisiteError, ProspecError, TestGateError } from '../../../src/types/errors.js';
@@ -1516,5 +1517,132 @@ describe('declaration canonicalization boundary', () => {
     await expect(execute({ cwd: CWD, findingsPath: FINDINGS, round: 1, lenses: [] })).rejects.toThrow();
     expect(vol.readFileSync(METADATA, 'utf8')).toBe(before + '# concurrent edit\n');
     expect(parseReviewMetricsStrict(String(vol.readFileSync(REVIEW, 'utf8'))).lenses).toEqual(['correctness', 'security', 'Custom', 'custom']);
+  });
+});
+
+
+describe('review convergence activity and event recovery', () => {
+  const carried = (severity: 'minor' | 'major' = 'minor') => [
+    { id: 'A', location: 'a:1', severity, lens: 'correctness', status: 'open', summary: 'a', origin_round: 2 },
+    { id: 'B', location: 'b:1', severity: 'major' as const, lens: 'correctness', status: 'open', summary: 'b', origin_round: 2 },
+  ];
+  const metrics = () => parseReviewMetricsStrict(String(vol.readFileSync(REVIEW, 'utf8')));
+  const log = () => readChangeMetadata(METADATA, 'add-widget').metadata.quality_log!;
+  const put = (findings: unknown) => vol.writeFileSync(FINDINGS, JSON.stringify(findings));
+  async function setup(severity: 'minor' | 'major' = 'minor', activity?: boolean) {
+    await reviewGrantFixture();
+    vol.writeFileSync(REVIEW, renderReviewDocument('', carried(severity), 'add-widget', { round: 2, roundActivity: activity }));
+    put([]);
+  }
+
+  it.each(['minor', 'major'] as const)('resolves two-event history after unchanged %s confirmation and permits verify', async severity => {
+    await setup(severity);
+    expect(admitEscalation(reduceEscalationHistory(log(), 3), log(), 'prospec-verify', 'verify-new').kind).toBe('refused');
+    const result = await execute({ cwd: CWD, findingsPath: FINDINGS, round: 3 });
+    expect(result.circuitBreaker).toMatchObject({ tripped: false, fixInducedRatio: 1 });
+    expect(metrics().roundActivity).toBe(false);
+    expect(log().filter(e => e.escalation?.kind === 'consume')).toHaveLength(1);
+    expect(log().filter(e => e.escalation?.kind === 'resolve')).toHaveLength(1);
+    expect(reduceEscalationHistory(log(), 3).pending).toBeNull();
+    expect(admitEscalation(reduceEscalationHistory(log(), 3), log(), 'prospec-verify', 'verify-new').kind).toBe('accept');
+  });
+
+  it('keeps legacy same-round activity unknown until a fresh confirmation round', async () => {
+    seed([], renderReviewDocument('', carried(), 'add-widget', { round: 2 }));
+    const same = await execute({ cwd: CWD, findingsPath: FINDINGS, round: 2 });
+    expect(same.circuitBreaker?.tripped).toBe(true);
+    expect(metrics().roundActivity).toBeUndefined();
+    const next = await execute({ cwd: CWD, findingsPath: FINDINGS, round: 3 });
+    expect(next.circuitBreaker?.tripped).toBe(false);
+    expect(metrics().roundActivity).toBe(false);
+  });
+
+  it('retains new finding activity on an empty same-round payload', async () => {
+    seed(carried(), renderReviewDocument('', [], 'add-widget', { round: 1 }));
+    await execute({ cwd: CWD, findingsPath: FINDINGS, round: 2 });
+    expect(metrics().roundActivity).toBe(true);
+    put([]);
+    const same = await execute({ cwd: CWD, findingsPath: FINDINGS, round: 2 });
+    expect(same.circuitBreaker?.tripped).toBe(true);
+    expect(metrics().roundActivity).toBe(true);
+    const next = await execute({ cwd: CWD, findingsPath: FINDINGS, round: 3 });
+    expect(next.circuitBreaker?.tripped).toBe(false);
+    expect(metrics().roundActivity).toBe(false);
+  });
+
+  it.each([false, true])('reuses persisted activity=%s on duplicate-id artifact repair and accepted replay', async active => {
+    await setup();
+    const a = carried()[0]!;
+    put([...(active ? [{ ...a, id: 'C' }] : []), a, { ...a, status: 'fixed' }]);
+    writes.failOn = p => p === METADATA;
+    await expect(execute({ cwd: CWD, findingsPath: FINDINGS, round: 3 })).rejects.toThrow('disk full');
+    const artifact = vol.readFileSync(REVIEW, 'utf8');
+    expect(metrics().roundActivity).toBe(active);
+    expect(log().some(e => e.accepted || e.escalation?.kind === 'consume')).toBe(false);
+    const repaired = await execute({ cwd: CWD, findingsPath: FINDINGS, round: 3 });
+    expect(repaired.circuitBreaker?.tripped).toBe(active);
+    expect(vol.readFileSync(REVIEW, 'utf8')).toBe(artifact);
+    const before = vol.readFileSync(METADATA, 'utf8');
+    const replay = await execute({ cwd: CWD, findingsPath: FINDINGS, round: 3 });
+    expect(replay.replay).toBe(true);
+    expect(replay.circuitBreaker?.tripped).toBe(active);
+    expect(vol.readFileSync(REVIEW, 'utf8')).toBe(artifact);
+    expect(vol.readFileSync(METADATA, 'utf8')).toBe(before);
+    expect(log().filter(e => e.accepted)).toHaveLength(1);
+    expect(log().filter(e => e.escalation?.kind === 'consume')).toHaveLength(1);
+  });
+
+  it.each(['reopen', 'severity', 'critical'] as const)('does not exempt %s from the historical ratio', async mode => {
+    const rows = carried();
+    if (mode === 'reopen') rows[0]!.status = 'fixed';
+    seed([], renderReviewDocument('', rows, 'add-widget', { round: 2, roundActivity: false }));
+    put([{ ...rows[0], status: 'open', severity: mode === 'critical' ? 'critical' : mode === 'severity' ? 'major' : 'minor', repro: 'false' }]);
+    const result = await execute({ cwd: CWD, findingsPath: FINDINGS, round: 3 });
+    expect(result.circuitBreaker).toMatchObject({ tripped: true, fixInducedRatio: 1 });
+    expect(metrics().roundActivity).toBe(true);
+  });
+
+  it('resolves the current event with an all-resolved snapshot while retaining history', async () => {
+    await setup();
+    put(carried().map(row => ({ ...row, status: 'fixed' })));
+    const result = await execute({ cwd: CWD, findingsPath: FINDINGS, round: 2 });
+    expect(result.circuitBreaker).toMatchObject({ tripped: false, fixInducedRatio: 1 });
+    expect(reduceEscalationHistory(log(), 3)).toMatchObject({ pending: null });
+    expect(reduceEscalationHistory(log(), 3).events).toHaveLength(2);
+  });
+
+  it.each(['urgent', '', '   '])('retains the historical breaker across merges for artifact severity %j', async severity => {
+    const artifact = renderReviewDocument('', carried('major'), 'add-widget', { round: 2 });
+    seed([], artifact.replace('| major |', `| ${severity} |`));
+    for (const round of [3, 4]) {
+      const result = await execute({ cwd: CWD, findingsPath: FINDINGS, round });
+      expect(result.circuitBreaker).toMatchObject({ tripped: true, fixInducedRatio: 1 });
+      expect(metrics().roundActivity).toBe(false);
+      expect(reduceEscalationHistory(log(), 3).pending).not.toBeNull();
+    }
+  });
+
+  it.each([
+    'round="2" round_activity=false', "round=\"2\" round_activity='false'",
+    'round="2" round_activity="true" round_activity="false"',
+    'round="2" round_activity="false" round_activity="true"',
+    'round="1" round="2" round_activity="false"',
+    'round=2 round_activity="false"', 'round="2"round_activity="false"',
+    'round="2" round_activity="false" garbage',
+    'round="2" round_activity="false" -->\n<!-- prospec:review-metrics round_activity=false',
+  ])('refuses malformed activity before any write: %s', async attrs => {
+    const artifact = renderReviewDocument('', carried(), 'add-widget', { round: 2, roundActivity: true });
+    seed([], artifact.replace(/<!-- prospec:review-metrics .*? -->/, `<!-- prospec:review-metrics ${attrs} -->`));
+    const before = vol.toJSON();
+    await expect(execute({ cwd: CWD, findingsPath: FINDINGS, round: 2 })).rejects.toBeInstanceOf(PrerequisiteError);
+    expect(vol.toJSON()).toEqual(before);
+  });
+
+  it('preserves activity through a refused red-test metrics splice', async () => {
+    seed([], renderReviewDocument('', carried(), 'add-widget', { round: 2, roundActivity: true }), FAILED('red'));
+    await expect(execute({ cwd: CWD, findingsPath: FINDINGS, round: 3 })).rejects.toBeInstanceOf(TestGateError);
+    expect(metrics().roundActivity).toBe(true);
+    expect(metrics().round).toBe(2);
+    expect(metrics().consecutiveTestFailures).toBe(1);
   });
 });

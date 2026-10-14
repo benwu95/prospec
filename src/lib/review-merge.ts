@@ -1,5 +1,7 @@
 import {
   REVIEW_SEVERITIES,
+  REVIEW_RESOLVED_STATUSES,
+  hasReviewStatus,
   normalizeReviewStatus,
   type ReviewFinding,
   type ReviewSeverity,
@@ -47,6 +49,7 @@ export interface ReviewRow {
   id?: string;
   location: string;
   severity: ReviewSeverity;
+  unrecognizedSeverity?: string;
   lens: string;
   status: string;
   /** Review round in which this finding was first detected. */
@@ -99,11 +102,11 @@ const FINDINGS_TABLE: FindTableOptions = {
   isTarget: (headers) => headers.includes('location') && headers.includes('severity'),
 };
 
-function toSeverity(value: string): ReviewSeverity {
+function toSeverity(value: string): ReviewSeverity | undefined {
   const v = value.trim().toLowerCase();
   return (REVIEW_SEVERITIES as readonly string[]).includes(v)
     ? (v as ReviewSeverity)
-    : 'major';
+    : undefined;
 }
 
 /** Parse the cumulative table out of an existing review.md (empty file → []).
@@ -115,11 +118,16 @@ export function parseReviewRows(content: string): ReviewRow[] {
   const columnFor = table.headers.map((h) => COLUMN_ALIASES[h.toLowerCase()]);
   return table.rows
     .map((cells) => {
-      const row: ReviewRow = { location: '', severity: 'major', lens: '', status: 'open', summary: '' };
+      const row: ReviewRow = { location: '', severity: 'major', unrecognizedSeverity: '', lens: '', status: 'open', summary: '' };
       cells.forEach((cell, i) => {
         const key = columnFor[i];
         if (!key) return;
-        if (key === 'severity') row.severity = toSeverity(cell);
+        if (key === 'severity') {
+          const severity = toSeverity(cell);
+          row.severity = severity ?? 'major';
+          if (severity === undefined) row.unrecognizedSeverity = cell;
+          else delete row.unrecognizedSeverity;
+        }
         else if (key === 'origin_round') {
           const n = parseInt(cell.trim(), 10);
           if (!Number.isNaN(n) && n > 0) row.origin_round = n;
@@ -183,6 +191,15 @@ export function mergeFindings(
   incoming: ReviewFinding[],
   currentRound: number = 1,
 ): ReviewRow[] {
+  return mergeFindingsWithActivity(existing, incoming, currentRound).rows;
+}
+
+export function mergeFindingsWithActivity(
+  existing: ReviewRow[],
+  incoming: ReviewFinding[],
+  currentRound: number = 1,
+): { rows: ReviewRow[]; activity: boolean } {
+  let activity = false;
   const merged = existing.map((r) => ({ ...r }));
   const byId = new Map<string, ReviewRow>();
   const byFallback = new Map<string, ReviewRow[]>();
@@ -224,7 +241,13 @@ export function mergeFindings(
       // keeping it unconditional makes "a claimed row is out of the index" a
       // local guarantee, not one that depends on that pass staying exhaustive.
       claim(target);
-      target.severity = severityMax(target.severity, finding.severity);
+      const severity = severityMax(target.severity, finding.severity);
+      activity ||= severity !== target.severity || (
+        hasReviewStatus(REVIEW_RESOLVED_STATUSES, target.status) &&
+        !hasReviewStatus(REVIEW_RESOLVED_STATUSES, status)
+      );
+      target.severity = severity;
+      delete target.unrecognizedSeverity;
       target.location = finding.location;
       target.status = status;
       target.summary = finding.summary;
@@ -247,11 +270,12 @@ export function mergeFindings(
         repro: finding.repro,
         evidence: finding.evidence,
       };
+      activity = true;
       merged.push(row);
       if (row.id) byId.set(row.id, row);
     }
   }
-  return merged;
+  return { rows: merged, activity };
 }
 
 /** One round's structured counts (for `prospec change log` review fields) —
@@ -276,7 +300,7 @@ function reviewRowCells(r: ReviewRow): string[] {
   return [
     r.id ?? '',
     r.location,
-    r.severity,
+    r.unrecognizedSeverity ?? r.severity,
     r.lens,
     r.status,
     r.origin_round !== undefined ? String(r.origin_round) : '1',
@@ -351,6 +375,7 @@ export interface ReviewAttemptReceipt {
 export interface ReviewMetrics {
   receipt?: ReviewAttemptReceipt;
   round?: number;
+  roundActivity?: boolean;
   loopBase?: number;
   provenanceDigest?: string;
   lenses?: string[];
@@ -361,12 +386,16 @@ export interface ReviewMetrics {
   testFailureAttemptIds?: string[];
 }
 
-const METRICS_COMMENT = /<!--\s*prospec:review-metrics\s+((?:\w+="[^"]*"\s*)*)-->/g;
+const METRICS_COMMENT = /<!--\s*prospec:review-metrics\b([\s\S]*?)(?:-->|$)/g;
 
-function metricsAttributes(content: string): Array<Record<string, string>> {
-  return [...content.matchAll(METRICS_COMMENT)].map((match) =>
-    Object.fromEntries([...match[1]!.matchAll(/(\w+)="([^"]*)"/g)].map(([, k, v]) => [k!, v!])),
-  );
+function metricsAttributes(content: string): Array<Record<string, string> | undefined> {
+  return [...content.matchAll(METRICS_COMMENT)].map((match) => {
+    const body = match[1]!.trim();
+    if (!match[0].endsWith('-->') || !/^(?:\w+="[^"]*"(?:\s+|$))*$/.test(body)) return undefined;
+    const entries = [...body.matchAll(/(\w+)="([^"]*)"/g)].map(([, k, v]) => [k!, v!] as const);
+    if (new Set(entries.map(([key]) => key)).size !== entries.length) return undefined;
+    return Object.fromEntries(entries);
+  });
 }
 
 /** Strict read of the test-failure attributes; `null` when they are malformed. */
@@ -378,6 +407,13 @@ function readTestFailureAttributes(attrs: Record<string, string>): Pick<ReviewMe
     : attrs.test_failure_ids.split(',').map((s) => decodeToken(s.trim()));
   if (ids.some((id) => id === '')) return null;
   return { consecutiveTestFailures: parseInt(attrs.test_failures, 10), testFailureAttemptIds: ids };
+}
+
+function readRoundActivity(attrs: Record<string, string>): Pick<ReviewMetrics, 'roundActivity'> | null {
+  if (attrs.round_activity === undefined) return {};
+  if (!['true', 'false'].includes(attrs.round_activity) ||
+      !/^[1-9]\d*$/.test(attrs.round ?? '') || !Number.isSafeInteger(Number(attrs.round))) return null;
+  return { roundActivity: attrs.round_activity === 'true' };
 }
 
 function receiptFromAttributes(attrs: Record<string, string>): ReviewAttemptReceipt | undefined {
@@ -426,6 +462,7 @@ function metricsFromAttributes(attrs: Record<string, string>): ReviewMetrics {
     // Lenient: a malformed test field reads as absent here; the strict parser
     // the merge writes through refuses it instead.
     ...(readTestFailureAttributes(attrs) ?? {}),
+    ...(readRoundActivity(attrs) ?? {}),
   };
 }
 
@@ -450,12 +487,24 @@ export function parseReviewMetricsStrict(content: string): ReviewMetrics {
       'Delete the stale review-metrics comment(s) by hand so one remains, then re-run the merge',
     );
   }
+  if (all.length === 0) return {};
   const attrs = all[0];
-  if (!attrs) return {};
+  if (!attrs) {
+    throw new PrerequisiteError(
+      'review.md carries malformed or duplicate attributes in its `prospec:review-metrics` comment',
+      'Restore the last CLI-written review.md before retrying',
+    );
+  }
   if (readTestFailureAttributes(attrs) === null) {
     throw new PrerequisiteError(
       'review.md carries malformed test-failure metrics (`test_failures` must be a non-negative integer and every `test_failure_ids` token non-empty) in its `prospec:review-metrics` comment',
       'Repair or remove the `test_failures` / `test_failure_ids` attributes by hand, then re-run the merge',
+    );
+  }
+  if (readRoundActivity(attrs) === null) {
+    throw new PrerequisiteError(
+      'review.md carries malformed round activity (round_activity must be true or false with a positive safe integer round)',
+      'Restore the last CLI-written review.md before retrying',
     );
   }
   return { ...metricsFromAttributes(attrs), receipt: receiptFromAttributes(attrs) };
@@ -503,6 +552,9 @@ export function renderReviewMetricsComment(metrics: ReviewMetrics): string {
   const attrs: string[] = [];
   if (metrics.round !== undefined) {
     attrs.push(`round="${metrics.round}"`);
+  }
+  if (metrics.roundActivity !== undefined) {
+    attrs.push(`round_activity="${metrics.roundActivity}"`);
   }
   if (metrics.loopBase !== undefined && metrics.loopBase > 0) {
     attrs.push(`loop_base="${metrics.loopBase}"`);
@@ -594,6 +646,10 @@ export function renderReviewDocument(
     ? {
         receipt: metrics.receipt,
         round: metrics.round ?? existingMetrics.round,
+        roundActivity: metrics.roundActivity ?? (
+          metrics.round === undefined || metrics.round === existingMetrics.round
+            ? existingMetrics.roundActivity : undefined
+        ),
         loopBase: metrics.loopBase ?? existingMetrics.loopBase,
         provenanceDigest: metrics.provenanceDigest ?? existingMetrics.provenanceDigest,
         lenses: metrics.lenses ?? existingMetrics.lenses,

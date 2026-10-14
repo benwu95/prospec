@@ -1,6 +1,6 @@
 # Circuit Breakers & Runaway Cost Protection Reference
 
-**Circuit Breaker & Escalation Protocol** for `prospec-review` (evaluated on every `prospec review merge`) and autonomous `prospec-ff`.
+Breakers for every `prospec review merge` and autonomous `prospec-ff`.
 
 ---
 
@@ -12,14 +12,14 @@
 - **Action**: Trip the breaker, halt automated execution, and emit an `EscalationReport`.
 
 ### 2. Oscillation Breaker (Flip-Flop Defect Detection)
-- **Mechanism**: `prospec review merge` records, in `review.md`'s metrics comment, each finding `id`'s per-round resolved/unresolved history and evaluates it on every merge — this half is CLI-owned. Test-identifier oscillation (`test_file:test_name` flipping across fix rounds) is observed by you from the suite output and MUST be reported as a finding (so it enters the CLI-tracked set); it is not machine-tracked on its own.
-- **Oscillation Pattern**: A signature that alternates states (e.g. `FAIL → PASS → FAIL` or `PASS → FAIL → PASS`, `>= 2` flips) indicates an oscillating fix (fixing one bug reintroduces another).
-- **Rule**: When oscillation is detected on any active signature, the circuit breaker trips immediately.
+- **Mechanism**: `prospec review merge` stores each finding `id`'s per-round resolved/unresolved history in `review.md` metrics. Report test-identifier oscillation (`test_file:test_name`) from suite output as a finding; it is not independently machine-tracked.
+- **Oscillation Pattern**: `FAIL → PASS → FAIL` or `PASS → FAIL → PASS` (`>= 2` flips).
+- **Rule**: Trip on a signature reaching the flip threshold unless Findings-Based Recovery applies.
 - **Action**: Stop automated retry and present the CLI decision with the oscillating signatures; any rollback requires a separate developer decision.
 
 ### 3. Fix-Induced Defect Ratio
-- **Mechanism**: In round `R > 1` of the current review loop, the CLI computes `fix_induced_ratio` as the proportion of active (non-dismissed) findings whose `origin_round` is later than this loop's first round (newly surfaced findings).
-- **Rule**: Trip when `fix_induced_ratio` exceeds the threshold (default **0.5** / 50%); the ratio does not establish causation.
+- **Mechanism**: In loop round `R > 1`, `fix_induced_ratio` divides newly surfaced findings (non-dismissed, `origin_round` after the loop's first round) by all non-dismissed findings, resolved ones included.
+- **Rule**: Trip when `fix_induced_ratio` exceeds the threshold (default **0.5** / 50%) unless Findings-Based Recovery applies; the ratio does not establish causation.
 - **Action**: Trip immediately; present the CLI `EscalationReport`. Its lifetime ordinal takes priority over trigger for exits.
 
 ### 4. Early-Stop Conditions & Regression Pin Gate
@@ -28,9 +28,20 @@
 - **Per-Critical Regression Pin Gate**: Confirmed criticals require a fail-then-pass mutation-verified test pin before fix application to guard against subsequent regressions.
 
 ### 5. Persistent Test Failure (`persistent_test_failure`)
-- **Mechanism**: CLI-owned. `prospec review merge` requires the change's fresh green `test_attempt` (recorded by `prospec check --record-tests --change <name>` with the project's own test command); a refusal on a failed attempt with a non-zero exit counts once per distinct attempt id in `review.md`'s metrics (a replayed id never counts twice), and a fresh green resets the streak.
+- **Mechanism**: CLI-owned. `prospec review merge` requires a fresh green `test_attempt` from `prospec check --record-tests --change <name>`. Refused non-zero failures count once per distinct attempt id in `review.md` metrics (replays never count twice); fresh green resets the streak.
 - **Rule**: streak ≥ threshold (default **3**, independent of the round and flip caps) trips `persistent_test_failure` on that refusal.
 - **Action**: the merge exits non-zero printing `ESCALATE_TO_HUMAN` with `count / threshold`; stop automated retries and record no review round.
+
+---
+
+## Findings-Based Recovery
+
+Preserve ratio and trial history; suppress only ratio/oscillation triggers through either path:
+
+- **All resolved**: the complete snapshot is all resolved, including an explicit empty snapshot; no activity evidence needed.
+- **Carried advisory**: unresolved rows have known severity of only `minor` or `major` with `round_activity=false`; majors stay advisory WARN. New, reopened or severity-increased findings make the whole round active; later updates cannot erase activity.
+- **Boundaries**: a missing snapshot, unknown unresolved severity or missing/unknown activity never establishes advisory recovery; missing/unknown status remains unresolved. Recovery never suppresses `persistent_test_failure` or bypasses the fresh-test gate. An empty payload alone proves no convergence.
+- **Authorization**: admission still requires any current-event review grant before the attempt. An accepted non-tripping review resolves its pending event; a review grant never authorizes verify, which retains its own gates.
 
 ---
 
