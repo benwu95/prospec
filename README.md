@@ -157,7 +157,7 @@ Guides and reference material beyond the first change live in [`docs/`](./docs/R
 - **[How It Works](./docs/concepts/how-it-works.md)** — how Skills, AI Knowledge and the CLI divide the work, what is enforced and by what, and the core principles.
 - **[AI Skills and the Workflow](./docs/concepts/workflow.md)** — the Skill catalog, quality gates, right-sized process, sourced premises and cascade pauses.
 - **Guides** — [Upgrading Prospec](./docs/guides/upgrading.md) (including what changed in 2.0), [Backfill](./docs/guides/backfill.md), and [Customizing Module READMEs](./docs/guides/customizing-module-readmes.md).
-- **[CLI Reference](./docs/reference/cli-reference.md)** — the commands, the configuration keys most often tuned, the generated layout and the architecture.
+- **[CLI Reference](./docs/reference/cli-reference.md)** — commands, generated layout and architecture; see the [Configuration Reference](./docs/reference/configuration.md) for configuration fields.
 
 ## Contributing
 

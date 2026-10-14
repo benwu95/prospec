@@ -26,5 +26,5 @@ These pages hold the detail, grouped by what you are trying to do.
 
 ## Reference
 
-- [CLI Reference](./reference/cli-reference.md) — the commands, the configuration keys most
-  often tuned, the generated layout, and the architecture.
+- [CLI Reference](./reference/cli-reference.md) — the commands, generated layout and architecture.
+- [Configuration Reference](./reference/configuration.md) — grouped tables of configuration fields, types, defaults and constraints.
