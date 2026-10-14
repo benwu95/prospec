@@ -85,11 +85,11 @@ export const DependencyDirectionResultSchema = z.object({
  * would stop the plain whole-spec read from matching its own template.
  */
 export const GetSpecRequirementsInputShape = {
-  feature: z.string().min(1).describe('Feature slug — the spec filename without `.md`, e.g. `sdd-workflow`'),
+  feature: z.string().min(1).describe('Feature slug — the spec filename without `.md`, e.g. `authentication`'),
   req: z
     .array(z.string().min(1))
     .optional()
-    .describe('REQ ids to quote, e.g. `REQ-CLI-028`; an entry may be a comma-separated list'),
+    .describe('REQ ids to quote, e.g. `REQ-AUTH-001`; an entry may be a comma-separated list'),
   story: z
     .array(z.string().min(1))
     .optional()

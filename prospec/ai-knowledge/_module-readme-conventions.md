@@ -31,7 +31,7 @@ Every module README is split by HTML-comment markers into a generated block and 
 
 ## Title and summary
 
-- Title is the module's proper name: `# Knowledge Engine`, `# Agent Sync` — **not** `# Module: services` and not the raw directory slug.
+- Title is the module's proper name: `# Authentication`, `# Billing` — **not** `# Module: services` and not the raw directory slug.
 - Exactly one `>` blockquote line — the first non-blank line under the title: a single sentence on what the module does.
 - `2026-09-01` is the compatible grammar release, not the document modification date. Clarifications and registered optional extensions keep it; incompatible title/summary placement, marker semantics, or Core grammar changes require a new date.
 
@@ -92,7 +92,7 @@ of trimming it away.
   2. There is a self-contained sub-area — rich enough to warrant its own Key Files / Public API /
      Pitfalls, and independent enough to be understood on its own.
 - **Layout**: `modules/{module}/{sub-module}.md` — a sibling of the module's `README.md`, kebab-case
-  name after the sub-area (e.g. `modules/services/spec-sync.md`). Same Recipe-First structure and
+  name after the sub-area (e.g. `modules/services/session-management.md`). Same Recipe-First structure and
   same budget as a README — `prospec check` measures every `{sub-module}.md` as L2
   against the same `l2_per_module` / `readme_max_lines`, so extraction moves knowledge without
   moving it out of the budget's sight. If a sub-module would itself overflow, split it
@@ -100,8 +100,8 @@ of trimming it away.
 - **Link from the main README**: keep a `## Sub-Modules` section (inside the auto block) listing each:
   ```markdown
   ## Sub-Modules
-  - [Spec Sync](./spec-sync.md) — archive → Feature / Product spec synchronisation
-  - [Knowledge Engine](./knowledge-engine.md) — module scan + Recipe-First generation
+  - [Session Management](./session-management.md) — session creation and rotation
+  - [Billing](./billing.md) — invoice generation and payment reconciliation
   ```
   The main README keeps the module overview and cross-cutting sections; the extracted detail moves
   into the sub-module file (do not duplicate it back into the README).

@@ -11,7 +11,7 @@ composing structured CLI input) knows what each field means.
 > `ChangeMetadataSchema` (owned by the prospec CLI); `status` values and their transitions
 > by `{{knowledge_base_path}}/_status-lifecycle.md`; the required-field floor is enforced by
 > the `metadata-completeness` drift check (`prospec check`). This reference does **not**
-> restate any of them. When in doubt about a value's meaning, read those sources.
+> restate any of them. Consult command `--help` for inputs and the lifecycle guide for transitions.
 
 ---
 
@@ -49,7 +49,7 @@ take precedence over canonical ordering. Comments and unknown fields remain pres
 
 ### `acceptance` — versioned acceptance baseline
 
-The `acceptance:` contract is owned by `AcceptanceBaselineSchema` and its revision/scenario schemas in `src/types/change.ts`; those executable schemas define the fields and domains. Do not serialize a second schema by hand.
+The CLI owns `acceptance:` through `AcceptanceBaselineSchema`; use `prospec change story --help` for inputs. Never serialize revisions by hand.
 - **Pending**: New scaffolds have no frozen revision. The `current_revision` pointer and `revisions` history are populated only after substantive scenarios are authored; pending contracts block plan (or quick tasks).
 - **Freeze**: Run `prospec change story <name> --freeze-scenarios` after authoring the proposal.
 - **Amend**: Run `prospec change story <name> --amend-scenarios --reason "<text>" --expected-digest <sha256>` to append a controlled revision. Every revision's origin follows its own `captured_status`; capture after story is disclosed as late-capture, including amendments.

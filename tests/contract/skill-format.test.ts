@@ -139,6 +139,28 @@ const TEMPLATE_CONTEXT = {
   })),
 };
 
+const DOWNSTREAM_CONTEXT = {
+  ...TEMPLATE_CONTEXT,
+  change_name: 'session-renewal',
+  description: 'Renew authenticated sessions',
+  module_name: 'authentication',
+  modules: [{ name: 'authentication', description: 'Session management', paths: ['src/auth/**'], keywords: ['session'] }],
+  related_modules: [{ name: 'authentication' }],
+  features: [{ name: 'authentication', description: 'User sign-in' }],
+};
+
+const PROSPEC_PACKAGE_TOPOLOGY = ['@benwu95', 'Types → Lib → Services', 'cli → services → lib → types'];
+const packageTopologyHits = (content: string) => PROSPEC_PACKAGE_TOPOLOGY.filter((text) => content.includes(text));
+
+function shippedTemplateBodies(): [string, string][] {
+  return Object.entries(BUNDLED_TEMPLATES).flatMap(([name, source]) => [
+    [`${name} (source)`, source] as [string, string],
+    ...(!path.basename(name).startsWith('_')
+      ? [[`${name} (rendered)`, renderTemplate(name, DOWNSTREAM_CONTEXT)] as [string, string]]
+      : []),
+  ]);
+}
+
 // Sentinels owned by skills/_harness-capabilities.hbs — the single source for
 // harness-degradation wording. Each lives in exactly one branch of that partial,
 // so a consuming skill that re-inlines the prose (or a branch that leaks into the
@@ -1678,40 +1700,19 @@ describe('Skill Format Contract', () => {
       expect(flat(criteria)).toContain('project-test-runner');
     });
 
-    // issue #226: no shipped skill/reference body may present prospec's own layer
-    // topology or dependency direction as an example — a leak that reads as
-    // prescriptive to a downstream (esp. weak) model. `tasks-format.hbs` used to be
-    // allowlisted for showing `Types → Lib → Services → CLI → Tests` as one `e.g.`;
-    // that example is now neutral, so the sweep covers every shipped template with
-    // no allowlist (REQ-TEMPLATES-188 / REQ-TEMPLATES-213).
-    it('no skill or reference body hardcodes prospec-specific layer topology/direction (issue #226, sweep)', () => {
-      const templates = Object.keys(BUNDLED_TEMPLATES).filter(
-        (k) => /^skills\/[^/]+\.hbs$/.test(k) || /^skills\/references\/[^/]+\.hbs$/.test(k),
-      );
-      // Non-empty guard: an empty list would make this test vacuously pass.
-      expect(templates.length).toBeGreaterThan(20);
-      for (const key of templates) {
-        const content = render(key);
-        expect(content, `${key} hardcodes forward layer topology`).not.toContain(
-          'Types → Lib → Services',
-        );
-        expect(content, `${key} hardcodes dependency direction`).not.toContain(
-          'cli → services → lib → types',
-        );
+    it('no shipped template names the prospec package or hardcodes its layer topology', () => {
+      const bodies = shippedTemplateBodies();
+      expect(bodies.length).toBeGreaterThan(0);
+      for (const [name, content] of bodies) {
+        expect(packageTopologyHits(content), name).toEqual([]);
       }
     });
 
-    // issue #226: no shipped skill/reference body may name this repo's own package.
-    // `prospec-upgrade.hbs` used to carry a source-repo `@benwu95/prospec` dogfood
-    // short-circuit; a downstream project is never the prospec package, so the
-    // clause was pure leak (REQ-TEMPLATES-213).
-    it('no skill or reference body names the prospec package (issue #226, sweep)', () => {
-      const templates = Object.keys(BUNDLED_TEMPLATES).filter(
-        (k) => /^skills\/[^/]+\.hbs$/.test(k) || /^skills\/references\/[^/]+\.hbs$/.test(k),
-      );
-      expect(templates.length).toBeGreaterThan(20);
-      for (const key of templates) {
-        expect(render(key), `${key} names the prospec package`).not.toContain('@benwu95');
+    it.each(PROSPEC_PACKAGE_TOPOLOGY)('detects an applied fixed-text leak: %s', (leak) => {
+      for (const [name, source] of Object.entries(BUNDLED_TEMPLATES)) {
+        const mutated = `${source}\n${leak}`;
+        expect(mutated, name).not.toEqual(source);
+        expect(packageTopologyHits(mutated), name).toContain(leak);
       }
     });
 
@@ -3540,7 +3541,10 @@ describe('Skill Format Contract', () => {
       const entry = sectionOf(format, '## Team Playbook Entry (`_playbook.md`)');
       expect(entry).toContain('- **Stations**:');
       expect(entry).toContain('300');
-      expect(entry).toContain('estimateTokens');
+      expect(entry).toContain('ceil(UTF-16 code units / 4)');
+      expect(entry).toContain('prospec learn playbook');
+      expect(entry).toContain('stderr warning only above cap');
+      expect(entry).toContain('never truncate stdout');
       expect(entry).toContain('Landing:');
       const sweep = sectionOf(format, '## Staleness Sweep (pre-Collect)');
       expect(sweep).toContain('| mechanized compaction |');
@@ -4858,12 +4862,8 @@ describe('scale adapter — ff quick path and lifecycle (BL-004)', () => {
       '**Executable copy**: `prospec status` computes',
       // Review F4 ruling: the router does not suggest design under quick.
       'Under `scale: quick` the router does not suggest design',
-      // The matrix rationale ships to every downstream project — pinning only the
-      // symbol name would let the surrounding claim drift between the copies.
-      'is the **executable copy**: `prospec change plan` / `prospec change tasks` refuse from it before writing anything',
-      'so the table and the registry cannot disagree',
+      '`prospec change plan` / `prospec change tasks` enforce these restrictions before writing anything',
       'routes it to the `promote` station (`prospec-promote-backfill`), never to plan or tasks',
-      "That a station actually honours a given row is proven by that station's own tests, not by this table",
       // The two reasons a status sits outside the audit scope are different facts;
       // collapsing `archived` into "exempt" is how the gap stayed unacknowledged.
       'unreachable rather than exempt',
@@ -4975,7 +4975,7 @@ describe('scale adapter — ff quick path and lifecycle (BL-004)', () => {
       expect(parseMatrix(copy)).toEqual(registry);
     });
 
-    it('names the registry as the executable copy, so the table is not a second source', () => {
+    it('names the public commands that enforce the artifact restrictions', () => {
       for (const doc of [
         renderLifecycle(),
         fs.readFileSync(
@@ -4983,9 +4983,9 @@ describe('scale adapter — ff quick path and lifecycle (BL-004)', () => {
           'utf-8',
         ),
       ]) {
-        expect(sectionOf(doc, '## Light-scale artifact matrix')).toContain(
-          'SCALE_FORBIDDEN_ARTIFACTS',
-        );
+        const matrix = sectionOf(doc, '## Light-scale artifact matrix');
+        expect(matrix).toContain('`prospec change plan` / `prospec change tasks`');
+        expect(matrix).toContain('enforce these restrictions before writing anything');
       }
     });
   });
@@ -5056,7 +5056,7 @@ describe('scale adapter — ff quick path and lifecycle (BL-004)', () => {
       expect(parseScope(copy)).toEqual(expected);
     });
 
-    it('names the registry as the executable copy, so the table is not a second source', () => {
+    it('names all three public provenance checks covered by the audit table', () => {
       for (const doc of [
         renderLifecycle(),
         fs.readFileSync(
@@ -5064,9 +5064,11 @@ describe('scale adapter — ff quick path and lifecycle (BL-004)', () => {
           'utf-8',
         ),
       ]) {
-        expect(sectionOf(doc, '## Provenance audit scope')).toContain(
-          'PROVENANCE_AUDITED_STATUSES',
-        );
+        const scope = sectionOf(doc, '## Provenance audit scope');
+        for (const check of ['review-provenance', 'test-provenance', 'delta-spec-provenance']) {
+          expect(scope).toContain('`' + check + '`');
+        }
+        expect(scope).toContain('All three gates audit the same statuses below');
       }
     });
   });
@@ -8317,35 +8319,82 @@ describe('reuse-and-single-source gate (issue #204)', () => {
 });
 
 describe('shipped templates carry no prospec-internal governance identifiers', () => {
-  // A shipped skill or reference renders verbatim into every downstream project. A
-  // playbook id (PB-006), a backlog id (BL-031), an issue number, or one of THIS
-  // repo's module-prefixed REQ ids is meaningless noise there — the rule must stand
-  // on its own words. Generic format examples (REQ-AUTH-001) and the playbook id
-  // FORMAT token (`PB-{NNN}`, digits unbound) are the downstream project's own.
-  // `\s+` after "issue" catches a reference split across a line wrap; `(#nnn)` a bare
-  // parenthesised issue number; the REQ alternative also catches a `-*` wildcard.
   const GOVERNANCE_ID =
-    /\bPB-\d{3}\b|\bBL-\d{3}\b|\bissue\s+#\d+\b|\(#\d{2,4}\)|\bREQ-(?:TYPES|LIB|SERVICES|CLI|TEMPLATES|TESTS|CHNG|AGNT|SPEC|DSGN|MCP)-(?:\d+|\*)/gi;
-  const shipped = Object.keys(BUNDLED_TEMPLATES).filter(
-    (name) => name.startsWith('skills/') && !name.includes('/_'),
-  );
+    /\bPB-\d{3}\b|\bBL-\d{3}\b|\bissue\s+#\d+\b|\(#\d{2,4}\)|\bREQ-(?:AGNT|CHNG|CLI|DOCS|DSGN|KNOW|LIB|MCP|MEASURE|REF|SERVICES|SETUP|SKILL|SPEC|SPECS|TEMPLATES|TESTS|TYPES)-(?:\d+|\*)/gi;
+  const hits = (text: string) => [...new Set(text.match(GOVERNANCE_ID) ?? [])];
+  const scan = (corpus: Record<string, string>) => Object.entries(corpus)
+    .flatMap(([name, source]) => hits(source).map((id) => ({ name, id })));
+  const shipped = Object.keys(BUNDLED_TEMPLATES);
 
-  it('scans exactly the shipped set: every skill plus every registered reference template', () => {
-    const expected =
-      SKILL_DEFINITIONS.length +
-      new Set(SKILL_DEFINITIONS.flatMap((s) => getSkillReferences(s.name).map((r) => r.templateName)))
-        .size;
-    expect(shipped.length).toBe(expected);
+  it('enumerates every bundled source, with bundle key/byte parity owned by bundled-templates-sync', () => {
+    expect(shipped.length).toBeGreaterThan(0);
+    expect(new Set(shipped.map((name) => name.split('/')[0]))).toEqual(
+      new Set(['agent-configs', 'change', 'init', 'knowledge', 'references', 'skills']),
+    );
+    expect(shipped.some((name) => path.basename(name).startsWith('_'))).toBe(true);
   });
 
   for (const name of shipped) {
-    it(`${name} names no PB/BL/issue/prospec-module REQ id`, () => {
-      const rendered = renderTemplate(name, TEMPLATE_CONTEXT);
-      expect(rendered.length).toBeGreaterThan(0);
-      const hits = [...new Set(rendered.match(GOVERNANCE_ID) ?? [])];
-      expect(hits, `${name} leaks governance ids: ${hits.join(', ')}`).toEqual([]);
+    it(`${name} fixed source names no PB/BL/issue/prospec-module REQ id`, () => {
+      expect(BUNDLED_TEMPLATES[name]!.length).toBeGreaterThan(0);
+      expect(scan({ [name]: BUNDLED_TEMPLATES[name]! })).toEqual([]);
+    });
+    if (!path.basename(name).startsWith('_')) {
+      it(`${name} renders without governance identifiers in neutral downstream data`, () => {
+        const rendered = renderTemplate(name, DOWNSTREAM_CONTEXT);
+        expect(rendered.length).toBeGreaterThan(0);
+        expect(hits(rendered)).toEqual([]);
+      });
+    }
+  }
+
+  const mutationTargets = [
+    ...new Set(shipped.map((name) => name.split('/')[0]!)),
+  ].map((category) => shipped.find((name) => name.startsWith(`${category}/`))!);
+  mutationTargets.push(shipped.find((name) => path.basename(name).startsWith('_'))!);
+  for (const name of mutationTargets) {
+    it(`detects an applied governance mutation in ${name}`, () => {
+      const corpus = { ...BUNDLED_TEMPLATES, [name]: `${BUNDLED_TEMPLATES[name]}\nREQ-LIB-999` };
+      expect(corpus[name]).not.toEqual(BUNDLED_TEMPLATES[name]);
+      expect(corpus[name]).toContain('REQ-LIB-999');
+      expect(scan(corpus)).toContainEqual({ name, id: 'REQ-LIB-999' });
     });
   }
+
+  it('automatically scans a newly added template key', () => {
+    const name = 'future-category/new-template.hbs';
+    expect(BUNDLED_TEMPLATES).not.toHaveProperty(name);
+    const corpus = { ...BUNDLED_TEMPLATES, [name]: 'REQ-SETUP-999' };
+    expect(Object.keys(corpus)).toContain(name);
+    expect(scan(corpus)).toContainEqual({ name, id: 'REQ-SETUP-999' });
+  });
+
+  it.each(['AGNT', 'CHNG', 'CLI', 'DOCS', 'DSGN', 'KNOW', 'LIB', 'MCP', 'MEASURE',
+    'REF', 'SERVICES', 'SETUP', 'SKILL', 'SPEC', 'SPECS', 'TEMPLATES', 'TESTS', 'TYPES'])(
+    'rejects numeric and wildcard references for the %s requirement family', (prefix) => {
+      expect(hits(`REQ-${prefix}-001 REQ-${prefix}-*`)).toEqual([
+        `REQ-${prefix}-001`, `REQ-${prefix}-*`,
+      ]);
+    },
+  );
+
+  it.each(['PB-001', 'BL-031', 'issue #12', 'issue\n#123', '(#123)'])(
+    'rejects bound governance reference %s', (id) => {
+      expect(hits(id)).toEqual([id]);
+    },
+  );
+
+  it('accepts generic examples, unbound format tokens, tracker formats and installation links', () => {
+    expect(hits('REQ-AUTH-001 REQ-API-011 REQ-AUTH-{NNN} PB-{NNN} BL-{NNN} "#412" '
+      + 'https://github.com/benwu95/prospec/releases')).toEqual([]);
+  });
+
+  it('does not runtime-filter downstream-authored interpolation values', () => {
+    const rendered = renderTemplate('change/tasks.md.hbs', {
+      ...DOWNSTREAM_CONTEXT, change_name: 'REQ-LIB-123',
+    });
+    expect(rendered).toContain('# Tasks: REQ-LIB-123');
+  });
 });
 
 describe('split and trim references contract (REQ-TEMPLATES-215~220, REQ-AGNT-042)', () => {
@@ -8478,12 +8527,12 @@ describe('split and trim references contract (REQ-TEMPLATES-215~220, REQ-AGNT-04
       '{YYYY-MM-DD}-{change-name}.md',
       '{date}-{name}.md',
       '{archiveIdentity}.md',
-      // Shipped feature specs cited in examples
-      'sdd-workflow.md',
-      'ai-knowledge.md',
-      'project-setup.md',
-      'agent-integration.md',
-      'design-phase.md',
+      // Generic feature filenames in the naming-convention examples.
+      'authentication.md',
+      'orders.md',
+      'billing.md',
+      'notifications.md',
+      'reporting.md',
     ]);
 
     const extractReferencedMdFiles = (content: string): string[] => {
@@ -8545,7 +8594,8 @@ describe('split and trim references contract (REQ-TEMPLATES-215~220, REQ-AGNT-04
       const content = renderTemplate('skills/prospec-learn.hbs', TEMPLATE_CONTEXT);
       const section = sectionOf(content, '### Promote');
       expect(section).toContain('contract test promotion');
-      expect(section).toContain('tests/contract/');
+      expect(section).toContain("project's existing test layout");
+      expect(section).toContain('directory-enumerated contract test');
     });
 
     it('promotion-format reference defines criteria for Regression Pin Promotion to Contract Tests', () => {
