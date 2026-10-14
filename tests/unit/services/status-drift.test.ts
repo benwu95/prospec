@@ -237,3 +237,13 @@ it('refuses stale workflow conclusions even when content digest matches', async 
   worktreeDigest.value = 'digest-now'; worktreeDigest.report = JSON.parse(reportWithFindings(2));
   expect((await execute({ cwd })).drift).toMatchObject({ state: 'unusable', reason: 'stale' });
 });
+
+
+it('rejects changed certified reuse diagnostics with unchanged content and verdicts', async () => {
+  const cwd = '/test-project';
+  const previous = JSON.parse(reportWithFindings(1));
+  previous.test_evidence = { x: { attempt_id: 'original', date: '2026-09-01', command: 'node --test', exit_code: 0, test_policy: { version: 1, excluded_path: 'prospec/ai-knowledge' }, reason: 'compatible inputs' } };
+  vol.fromJSON({ ...PROJECT, 'prospec-report.json': JSON.stringify(previous) }, cwd);
+  worktreeDigest.report = { ...previous, test_evidence: undefined };
+  expect((await execute({ cwd })).drift).toMatchObject({ state: 'unusable', reason: 'stale' });
+});

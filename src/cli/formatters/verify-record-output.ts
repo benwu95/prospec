@@ -5,6 +5,7 @@ import type { LogLevel } from '../../types/config.js';
 import type { VerifyRecordResult } from '../../services/verify-record.service.js';
 import type { VerifyContextResult } from '../../services/verify-context.service.js';
 import { sanitizeTerminal } from './sanitize.js';
+import { formatTestEvidenceReuse } from './test-gate-output.js';
 import { formatDelegationSettlement } from './delegation-settlement-output.js';
 
 /** Format the VerifyRecordResult: the two ledgers, the grade, the status effect. */
@@ -23,6 +24,7 @@ export function formatVerifyRecordOutput(
     `Judgment ledger: ${judgment.map((d) => `${sanitizeTerminal(d.name)}=${d.result}`).join(' · ')}`,
     `Quality Grade: ${gradeColor(result.grade)} (result: ${result.result})`,
   ];
+  if (result.testReuse) lines.push(formatTestEvidenceReuse(result.testReuse));
   lines.push(...formatPremiseNotice(result.premise));
   if (result.replay) lines.unshift('Accepted replay — no new grade or grant consumption; missing evidence may be repaired');
   lines.push(...(result.escalation ? formatEscalationDecision(result.escalation) : []), ...formatEscalationHistoryLines(result.escalationHistory));
@@ -50,7 +52,7 @@ export function formatVerifyRecordOutput(
   // it does not travel back through a context. Telling the developer where it
   // landed is the whole report it gets here.
   if (result.evidencePath !== undefined) {
-    lines.push(`Judgment evidence: ${pc.cyan(sanitizeTerminal(result.evidencePath))}`);
+    lines.push(`${result.testReuse ? 'Verification' : 'Judgment'} evidence: ${pc.cyan(sanitizeTerminal(result.evidencePath))}`);
   }
   lines.push(...formatDelegationSettlement(result.delegation));
   const changeName = sanitizeTerminal(result.changeName);

@@ -443,3 +443,30 @@ describe('snapshot trace compatibility', () => {
     expect(report.structural.checks.map((c) => c.id)).toEqual(DRIFT_CHECK_IDS);
   });
 });
+
+
+describe('certified test reuse report', () => {
+  const reuse = {
+    attempt_id: 'run-1', date: '2026-10-13T00:00:00Z', command: 'node test.js', exit_code: 0,
+    test_policy: { version: 1, excluded_path: 'prospec/ai-knowledge' },
+    reason: 'Compatible effective inputs; Knowledge excluded by policy',
+  };
+
+  it('retains target-scoped run facts alongside the full repository identity', () => {
+    const report = {
+      ...baseReport, change_digest: 'full-digest',
+      snapshot: { fingerprint_version: 'snapshot-v2', scope: 'repository-inputs-v2' },
+      test_evidence: { target: reuse },
+    };
+    expect(DriftReportSchema.parse(report)).toEqual(report);
+    expect(DriftReportSchema.parse(baseReport)).not.toHaveProperty('test_evidence');
+  });
+
+  it.each([
+    { exit_code: 1 }, { attempt_id: '' }, { date: '' }, { command: '' }, { reason: '' },
+    { test_policy: { version: 2, excluded_path: 'knowledge' } },
+    { test_policy: undefined },
+  ])('rejects an incomplete or uncertified reuse payload %j', (patch) => {
+    expect(DriftReportSchema.safeParse({ ...baseReport, test_evidence: { target: { ...reuse, ...patch } } }).success).toBe(false);
+  });
+});

@@ -10,6 +10,8 @@ import {
   AcceptanceScenarioSchema,
   type DimensionResult,
   type GateResult,
+  type TestEvidenceIdentity,
+  type TestEvidenceReuse,
 } from './change.js';
 
 export type { DimensionResult };
@@ -207,6 +209,8 @@ export type TestEvidenceExemption = (typeof TEST_EVIDENCE_EXEMPTIONS)[number];
 
 /** The latest `test_attempt` as the gate reads it. */
 export interface TestEvidenceAttempt {
+  identity?: TestEvidenceIdentity;
+  date?: string;
   id: string;
   outcome: string;
   command?: string;
@@ -225,20 +229,24 @@ export interface TestEvidenceFacts {
   backfillDraftPresent: boolean;
   /** Why the test command cannot run here, or null when it resolves. */
   commandUnavailableReason: string | null;
-  /** The current whole-tree snapshot digest; null when unprovable / not Git. */
+  /** The current effective test-input digest; null when unprovable / not Git. */
   currentDigest: string | null;
+  currentIdentity?: TestEvidenceIdentity;
+  currentCommand?: string | null;
   snapshotReason?: string;
   /** Durable `test_provenance` — the last certified run, pass or fail. */
   recordedDigest: string | null;
   recordedExitCode: number | null;
   recordedCommand: string;
   recordedAttemptId?: string;
+  recordedIdentity?: TestEvidenceIdentity;
+  recordedDate?: string;
   versionSupported: boolean;
   latestAttempt?: TestEvidenceAttempt;
 }
 
 export type TestEvidenceDecision =
-  | { verdict: 'pass'; attemptId: string }
+  | { verdict: 'pass'; attemptId: string; reuse?: TestEvidenceReuse }
   | {
       verdict: 'exempt';
       exemption: TestEvidenceExemption;
@@ -265,6 +273,7 @@ export type TestEvidenceDecision =
 /** How a gate admitted an entrance — the result both services report and the
  *  formatters render (a refusal is the thrown `TestGateError`, never a result). */
 export interface TestGateOutcome {
+  reuse?: TestEvidenceReuse;
   verdict: 'pass' | 'exempt';
   /** Set on an exemption: which explicit policy admitted it, and why. */
   exemption?: TestEvidenceExemption;

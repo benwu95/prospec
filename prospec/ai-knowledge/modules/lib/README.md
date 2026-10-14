@@ -51,7 +51,7 @@ The drift and station engines are detailed in the linked sub-modules; other sing
 1. **Add a utility** — pure, stateless; `template.ts`'s latches are the sole exception.
 2. **Add a Handlebars helper/partial** — register in `template.ts`; `pnpm bundle` to ship it. Prose-only template audits also regenerate `bundled-templates.ts`; stamp this module after reviewing the generated diff.
 3. **Add a drift check, or a generated artifact** — see [Drift Engine](./drift-engine.md).
-4. **Change config resolution** — edit `resolveBasePaths()`/`resolveTestCommand()` + callers.
+4. **Change config resolution** — edit `resolveBasePaths()`/`resolveTestCommand()` + callers. `resolveTestEvidencePolicy()` validates the fixed opt-in Knowledge exclusion; unsafe topology produces unprovable test capture, never a no-command exemption.
 5. **Add a table-bearing doc** — reuse `markdown-table.ts`; own only the header predicate + columns. `needsTableEscape` is the one predicate that says whether a cell is rewritten — count escaped cells with it (`escapedCellsFor` in `review-merge` / `lessons-ledger`), never a second regex.
 6. **Add a routing decision** — insert a rule into `ROUTING_TABLE` at its precedence, then `pnpm routing-flow`; see the checklist in [Routing Flow](./routing-flow.md).
 

@@ -136,7 +136,7 @@ export async function execute(options: ChangeStatusOptions): Promise<ChangeStatu
       const warningRecorded = appendTestGateWarning(doc, metadata, 'implemented', decision.reason);
       testGate = { verdict: 'exempt', exemption: decision.exemption, reason: decision.reason, warningRecorded };
     } else {
-      testGate = { verdict: 'pass', warningRecorded: false };
+      testGate = { verdict: 'pass', warningRecorded: false, ...(decision.reuse ? { reuse: decision.reuse } : {}) };
     }
     if (!assessment.recheck() || !metadataBytes.equals(fs.readFileSync(metadataPath))) {
       throw new TestGateError({

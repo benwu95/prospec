@@ -12,7 +12,7 @@ import { mergeContent } from './content-merger.js';
 import { ARCHIVE_NATIVE_GLOB, ABANDONED_NATIVE_GLOB, compareLanguagePolicy, type LanguagePolicyComparison } from './language-policy.js';
 import type { LanguageScope } from '../types/constitution.js';
 import { parseConstitutionRules } from './constitution-parser.js';
-import { defaultExecutableProbe, unspawnableReason, type ExecutableProbe } from './test-runner.js';
+import { defaultExecutableProbe, unspawnableReason, tokenizeCommand, type ExecutableProbe } from './test-runner.js';
 import { parseTaskLine, type TaskKind } from './task-markers.js';
 import {
   indexSpec,
@@ -47,11 +47,12 @@ import { estimateTokens } from './token-accounting.js';
 import { DRIFT_REPORT_FILENAME, type ConstitutionRuleEntry } from '../types/drift-report.js';
 import type { ModuleMap } from '../types/module-map.js';
 import type { FeatureMap } from '../types/feature-map.js';
-import { FINGERPRINT_VERSION, EVIDENCE_SCOPE } from '../types/change.js';
+import { FINGERPRINT_VERSION, EVIDENCE_SCOPE, TEST_FINGERPRINT_VERSION, TEST_EVIDENCE_SCOPE, type TestEvidenceIdentity, type TestPolicy } from '../types/change.js';
 import type { TestEvidenceFacts } from '../types/station.js';
 import { readChangeMetadata } from './change-metadata.js';
 import { PrerequisiteError } from '../types/errors.js';
-import type { InputSnapshot } from '../types/drift-report.js';
+import type { InputSnapshot, TestInputState, EvidenceStates } from '../types/drift-report.js';
+import { resolveTestEvidencePolicy } from './config.js';
 import { AGENT_CONFIGS, SKILL_DEFINITIONS } from '../types/skill.js';
 import type { KnowledgeSizeBudget, KnowledgeSizeKind, ProspecConfig } from '../types/config.js';
 import { CANONICAL_INIT_DOCS } from '../types/conventions.js';
@@ -330,6 +331,10 @@ export interface TestProvenanceChange {
   /** `test_provenance.attempt_id` — the attempt the durable record certifies. */
   recorded_attempt_id?: string;
   version_supported?: boolean;
+  recorded_identity?: TestEvidenceIdentity;
+  recorded_date?: string;
+  attempt_identity?: TestEvidenceIdentity;
+  attempt_date?: string;
   attempt_id?: string;
   attempt_outcome?: string;
   attempt_before_digest?: string;
@@ -350,6 +355,9 @@ export interface TestProvenanceChange {
 }
 
 export interface TestProvenanceSource {
+  current_identity?: TestEvidenceIdentity;
+  current_command?: string | null;
+  snapshot_reason?: string;
   available: boolean;
   reason?: string;
   /** Why the test command cannot run on this machine (unset / unspawnable shim),
@@ -1865,10 +1873,67 @@ export function workTreePaths(cwd: string): { changed: string[]; deleted: Set<st
 
 export type ChangeState = InputSnapshot;
 
+export interface TestInputContext {
+  config: ProspecConfig;
+  configBytes: Buffer;
+  command: string | null;
+}
+
+function validateExcludedTopology(root: string): void {
+  let stat;
+  try { stat = lstatSync(root); }
+  catch (error) {
+    if ((error as NodeJS.ErrnoException).code === 'ENOENT') return;
+    throw error;
+  }
+  if (!stat.isDirectory() && !stat.isFile()) throw new Error(`Unsupported Knowledge exclusion topology: ${root}`);
+  if (stat.isDirectory()) {
+    for (const child of readdirSync(root)) validateExcludedTopology(path.join(root, child));
+  }
+}
+
 /** Hash the final represented files, never Git history/index/diff representation. */
-export function computeChangeState(cwd: string): ChangeState {
+export function computeEvidenceStates(cwd: string, context?: TestInputContext): EvidenceStates {
+  const enabled = context?.config.test_evidence?.exclude_knowledge === true;
+  let identity: TestEvidenceIdentity = enabled
+    ? { fingerprintVersion: TEST_FINGERPRINT_VERSION, scope: TEST_EVIDENCE_SCOPE }
+    : { fingerprintVersion: FINGERPRINT_VERSION, scope: EVIDENCE_SCOPE };
+  let policy: TestPolicy | undefined;
+  let testReason: string | undefined;
+  const testHash = enabled ? createHash('sha256') : undefined;
+  const describeError = (error: unknown): string => error instanceof Error ? error.message : String(error);
+  const inputPath = (file: string): string => {
+    try { return path.relative(cwd, realpathSync.native(path.resolve(cwd, file))).split(path.sep).join('/'); }
+    catch (error) {
+      if ((error as NodeJS.ErrnoException).code !== 'ENOENT') testReason ??= describeError(error);
+      return file;
+    }
+  };
+  const excluded = (file: string): boolean => {
+    if (policy === undefined) return false;
+    const excludedRoot = policy.excluded_path;
+    return [file, inputPath(file)].some((candidate) => candidate === excludedRoot || candidate.startsWith(`${excludedRoot}/`));
+  };
+  const validatePolicy = (): void => {
+    if (!context || !enabled) return;
+    if (!readFileSync(path.join(cwd, '.prospec.yaml')).equals(context.configBytes)) {
+      throw new Error('Configuration changed during test input capture');
+    }
+    const current = resolveTestEvidencePolicy(context.config, cwd);
+    if (policy !== undefined && JSON.stringify(current) !== JSON.stringify(policy)) {
+      throw new Error('Knowledge exclusion changed during test input capture');
+    }
+    policy = current;
+    if (policy === undefined) throw new Error('Knowledge exclusion policy is unavailable');
+    identity = { ...identity, testPolicy: policy };
+    validateExcludedTopology(path.join(cwd, policy.excluded_path));
+  };
+  const validateTest = (validate: () => void): void => {
+    try { validate(); } catch (error) { testReason ??= describeError(error); }
+  };
   try {
     cwd = realpathSync(cwd);
+    validateTest(validatePolicy);
     const { files, gitlinks } = inputFiles(cwd);
     const state = workTreePaths(cwd);
     const listed = new Set(files);
@@ -1901,13 +1966,24 @@ export function computeChangeState(cwd: string): ChangeState {
       return deleted;
     };
     const hash = createHash('sha256');
-    const frame = (data: string | Buffer) => {
+    let retain = false;
+    const update = (target: ReturnType<typeof createHash>, data: string | Buffer) => {
       const bytes = typeof data === 'string' ? Buffer.from(data) : data;
       const length = Buffer.alloc(8); length.writeBigUInt64BE(BigInt(bytes.length));
-      hash.update(length).update(bytes);
+      target.update(length).update(bytes);
+    };
+    const frame = (data: string | Buffer): void => {
+      update(hash, data);
+      if (retain && testHash) update(testHash, data);
     };
     frame(FINGERPRINT_VERSION); frame(EVIDENCE_SCOPE);
+    if (testHash && policy && context) {
+      update(testHash, TEST_FINGERPRINT_VERSION); update(testHash, TEST_EVIDENCE_SCOPE);
+      update(testHash, JSON.stringify(policy)); update(testHash, context.configBytes);
+      update(testHash, JSON.stringify(context.command));
+    }
     for (const { key: file, absolute, gitlink, deletedIn: repository } of entries) {
+      retain = enabled && !excluded(file);
       if (gitlink !== undefined) { frame(file); frame('gitlink'); frame(gitlink); continue; }
       let stat;
       try { stat = lstatSync(absolute); }
@@ -1933,6 +2009,9 @@ export function computeChangeState(cwd: string): ChangeState {
       if (stat.isSymbolicLink()) {
         const target = realpathSync(absolute);
         if (!represented.has(target)) throw new Error(`Symlink target is outside represented inputs: ${file}`);
+        if (enabled && (excluded(file) || excluded(path.relative(cwd, target).split(path.sep).join('/')))) {
+          testReason ??= `Symlink crosses Knowledge exclusion: ${file}`;
+        }
         frame(readlinkSync(absolute, { encoding: 'buffer' }));
       } else frame(readFileSync(absolute));
       const after = lstatSync(absolute);
@@ -1942,10 +2021,28 @@ export function computeChangeState(cwd: string): ChangeState {
     }
     const gitlinkKeys = entries.filter((entry) => entry.gitlink !== undefined).map((entry) => entry.key);
     for (const file of gitlinks) if (!gitlinkKeys.includes(file)) gitlinkKeys.push(file);
-    return { digest: hash.digest('hex'), clean: state.changed.length === 0, ...(gitlinkKeys.length > 0 ? { gitlinks: gitlinkKeys } : {}) };
+    const repository = { digest: hash.digest('hex'), clean: state.changed.length === 0, ...(gitlinkKeys.length > 0 ? { gitlinks: gitlinkKeys } : {}) };
+    if (policy && gitlinkKeys.some((file) => excluded(file) || policy!.excluded_path.startsWith(`${inputPath(file)}/`))) {
+      testReason ??= 'Knowledge exclusion intersects a Git submodule';
+    }
+    validateTest(validatePolicy);
+    const test: TestInputState = testReason !== undefined
+      ? { digest: null, clean: repository.clean, identity, reason: testReason }
+      : { ...repository, digest: testHash ? testHash.digest('hex') : repository.digest, identity };
+    return { repository, test };
   } catch (error) {
-    return { digest: null, clean: null, reason: error instanceof Error ? error.message : String(error) };
+    const repository = { digest: null, clean: null, reason: describeError(error) };
+    return { repository, test: { ...repository, identity } };
   }
+}
+
+
+export function computeChangeState(cwd: string): ChangeState {
+  return computeEvidenceStates(cwd).repository;
+}
+
+export function computeTestState(cwd: string, context?: TestInputContext): TestInputState {
+  return computeEvidenceStates(cwd, context).test;
 }
 
 export function computeChangeDigest(cwd: string): string | null {
@@ -2192,9 +2289,9 @@ export function collectDeltaSpecLandingFidelity(
 
 /**
  * Collect test-provenance facts for every change in `.prospec/changes/`
- * (REQ-LIB-033). Sibling of collectReviewProvenance — same whole-tree digest
- * comparison, reading the baseline `--record-tests` wrote. Unavailable (not a git
- * repo, no `.prospec/changes/`, or the digest cannot be computed) → the check
+ * (REQ-LIB-033). Reads the effective test-input identity and the baseline
+ * `--record-tests` wrote; review retains the full repository scope. Unavailable (not a git
+ * repo or no `.prospec/changes/`) → the check
  * skips, never a fabricated pass. An unresolvable test command is NOT source
  * unavailability — it lands in `command_unavailable_reason` while the changes are
  * still enumerated, so recorded failures survive it (issue #103).
@@ -2217,6 +2314,7 @@ export function collectTestProvenance(
    *  callers keep working. Defaults to probing; check.service shares its once-computed
    *  value across the git-backed collectors. */
   inWorkTree: boolean = isGitWorkTree(cwd),
+  testState?: TestInputState,
 ): TestProvenanceSource {
   const unavailable = (reason: string): TestProvenanceSource => ({
     available: false,
@@ -2260,6 +2358,10 @@ export function collectTestProvenance(
       status: readString(entry.meta.status),
       scale: readString(entry.meta.scale),
       version_supported: record.versionSupported,
+      recorded_identity: record.recordedIdentity,
+      recorded_date: record.recordedDate,
+      attempt_identity: attempt?.identity,
+      attempt_date: attempt?.date,
       attempt_id: attempt?.id,
       attempt_outcome: attempt?.outcome ?? '',
       attempt_command: attempt?.command ?? '',
@@ -2281,6 +2383,9 @@ export function collectTestProvenance(
     available: true,
     command_unavailable_reason,
     current_digest,
+    current_identity: testState?.identity,
+    current_command: testCommand === null ? null : tokenizeCommand(testCommand).join(' '),
+    snapshot_reason: testState?.reason,
     working_tree_clean: workingTreeClean,
     changes,
   };
@@ -2290,20 +2395,29 @@ export function collectTestProvenance(
  *  drift collector and the target gate collector (one mapping, not two). */
 export type TestEvidenceRecord = Pick<
   TestEvidenceFacts,
-  'recordedDigest' | 'recordedExitCode' | 'recordedCommand' | 'recordedAttemptId' | 'versionSupported' | 'latestAttempt'
+  'recordedDigest' | 'recordedExitCode' | 'recordedCommand' | 'recordedAttemptId' | 'recordedIdentity' | 'recordedDate' | 'versionSupported' | 'latestAttempt'
 >;
 
 export function readTestEvidenceRecord(meta: Record<string, unknown>): TestEvidenceRecord {
   const prov = meta.test_provenance as Record<string, unknown> | undefined;
   const attempt = meta.test_attempt as Record<string, unknown> | undefined;
+  const identity = (value: Record<string, unknown> | undefined): TestEvidenceIdentity | undefined => value ? {
+    fingerprintVersion: readString(value.fingerprint_version), scope: readString(value.scope),
+    ...(value.test_policy !== undefined ? { testPolicy: value.test_policy } : {}),
+  } : undefined;
   return {
+    recordedIdentity: identity(prov),
+    recordedDate: prov && typeof prov.date === 'string' ? prov.date : undefined,
     recordedDigest: prov && typeof prov.digest === 'string' ? prov.digest : null,
     recordedExitCode: prov && typeof prov.exit_code === 'number' ? prov.exit_code : null,
     recordedCommand: prov ? readString(prov.command) : '',
     recordedAttemptId: prov && typeof prov.attempt_id === 'string' ? prov.attempt_id : undefined,
-    versionSupported: prov?.fingerprint_version === FINGERPRINT_VERSION && prov?.scope === EVIDENCE_SCOPE,
+    versionSupported: (prov?.fingerprint_version === FINGERPRINT_VERSION && prov?.scope === EVIDENCE_SCOPE)
+      || (prov?.fingerprint_version === TEST_FINGERPRINT_VERSION && prov?.scope === TEST_EVIDENCE_SCOPE),
     latestAttempt: attempt
       ? {
+          ...(attempt.fingerprint_version !== undefined || attempt.scope !== undefined || attempt.test_policy !== undefined ? { identity: identity(attempt) } : {}),
+          date: typeof attempt.date === 'string' ? attempt.date : undefined,
           id: readString(attempt.id),
           outcome: readString(attempt.outcome),
           command: typeof attempt.command === 'string' ? attempt.command : undefined,
@@ -2338,7 +2452,7 @@ export function collectChangeTestEvidence(
   cwd: string,
   changeName: string,
   testCommand: string | null,
-  snapshot: ChangeState,
+  snapshot: ChangeState | TestInputState,
   probe: ExecutableProbe = defaultExecutableProbe(process.env, process.platform, cwd),
 ): ChangeTestEvidenceObservation {
   const changeDir = path.join(cwd, '.prospec', 'changes', changeName);
@@ -2374,6 +2488,8 @@ export function collectChangeTestEvidence(
       backfillDraftPresent: existsSync(path.join(changeDir, 'backfill-draft.md')),
       commandUnavailableReason,
       currentDigest: snapshot.digest,
+      ...('identity' in snapshot ? { currentIdentity: snapshot.identity } : {}),
+      currentCommand: testCommand === null ? null : tokenizeCommand(testCommand).join(' '),
       ...(snapshot.reason ? { snapshotReason: snapshot.reason } : {}),
       ...readTestEvidenceRecord(metadata as unknown as Record<string, unknown>),
     },

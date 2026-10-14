@@ -23,6 +23,12 @@ tech_stack:
   # test_command: {{#if tech_stack.package_manager}}{{tech_stack.package_manager}} test{{else}}<your test command>{{/if}}
 {{/if}}
 
+# Enable only when Knowledge is not an input to the project's tests.
+# Absent/false preserves full-scope evidence; true permits certified test reuse.
+# Review, verification-context freshness, Knowledge checks and CI still apply.
+# test_evidence:
+#   exclude_knowledge: false
+
 paths:
   base_dir: {{base_dir}}
 

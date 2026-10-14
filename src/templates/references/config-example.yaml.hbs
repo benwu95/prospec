@@ -29,6 +29,12 @@ tech_stack:
   # runner); on POSIX-only projects `pnpm test` also works.
   test_command: node --test
 
+# Enable only when Knowledge is not an input to the project's tests.
+# Absent/false preserves full-scope evidence; true permits certified test reuse.
+# Review, verification-context freshness, Knowledge checks and CI still apply.
+test_evidence:
+  exclude_knowledge: false
+
 paths:
   # Root of the prospec artifact tree (Constitution, index.md, specs, knowledge).
   # Defaults to `prospec`.

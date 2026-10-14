@@ -272,6 +272,9 @@ export const ProspecConfigSchema = z
     }).optional(),
     exclude: z.array(z.string()).optional(),
     agents: z.array(z.enum(VALID_AGENTS)).optional(),
+    test_evidence: z.object({
+      exclude_knowledge: z.boolean().optional(),
+    }).optional(),
     knowledge: KnowledgeSchema,
     workflow: WorkflowSchema,
     artifact_language: z.string().optional(),

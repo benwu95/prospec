@@ -195,3 +195,20 @@ describe('single-source: index.md declares the DEFAULT budget numbers', () => {
     );
   });
 });
+
+
+describe('test evidence policy configuration', () => {
+  const config = { project: { name: 'example' } };
+
+  it('keeps the policy absent by default and accepts explicit booleans', () => {
+    expect(ProspecConfigSchema.parse(config)).not.toHaveProperty('test_evidence');
+    for (const exclude_knowledge of [true, false]) {
+      expect(ProspecConfigSchema.parse({ ...config, test_evidence: { exclude_knowledge } }).test_evidence)
+        .toEqual({ exclude_knowledge });
+    }
+  });
+
+  it.each(['true', 1, null, [], {}])('rejects nonboolean exclusion %j', (exclude_knowledge) => {
+    expect(ProspecConfigSchema.safeParse({ ...config, test_evidence: { exclude_knowledge } }).success).toBe(false);
+  });
+});

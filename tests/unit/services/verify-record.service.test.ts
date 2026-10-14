@@ -1932,3 +1932,29 @@ it('preserves fenced history evidence across an accepted verify replay', async (
   expect((await execute({ cwd: CWD, dimensionsPath: payload, warnings: [] })).replay).toBe(true);
   expect([vol.readFileSync(META, 'utf8'), vol.readFileSync(verify, 'utf8')]).toEqual(before);
 });
+
+
+describe('certified test reuse diagnostics', () => {
+  const reuse = { attempt_id: 'original', date: '2026-09-01', command: 'node --test', exit_code: 0, test_policy: { version: 1, excluded_path: 'prospec/ai-knowledge' }, reason: 'compatible effective inputs' };
+
+  it('returns the target original run and records machine evidence safely', async () => {
+    const hostile = { ...reuse, command: 'node "<!-- prospec:evidence-end -->"\n```\n<!-- prospec:escalation-history -->' };
+    const current = JSON.parse(report());
+    current.test_evidence = { 'add-widget': hostile, sibling: { ...reuse, attempt_id: 'other' } };
+    seed({ reportJson: JSON.stringify(current) });
+    const result = await execute({ cwd: CWD, judgmentDimensions: judgment(), warnings: [] });
+    expect(result.testReuse).toEqual(hostile);
+    const evidence = vol.readFileSync('/repo/.prospec/changes/add-widget/verify.md', 'utf8') as string;
+    const json = evidence.match(/```json\n([\s\S]*?)\n```/);
+    expect(JSON.parse(json![1]!)).toEqual(hostile);
+    expect(evidence).not.toContain('other');
+  });
+
+  it.each(['skipped', 'fail', 'sibling', 'backfill'])('never reports reuse when tests are %s', async (mode) => {
+    const current = JSON.parse(report({ tp: mode === 'skipped' || mode === 'backfill' ? 'skipped' : mode === 'fail' ? 'fail' : 'pass' }));
+    current.test_evidence = { [mode === 'sibling' ? 'sibling' : 'add-widget']: reuse };
+    seed({ reportJson: JSON.stringify(current), ...(mode === 'backfill' ? { scale: 'backfill', draft: true } : {}) });
+    const result = await execute({ cwd: CWD, judgmentDimensions: judgment(), warnings: [] });
+    expect(result.testReuse).toBeUndefined();
+  });
+});

@@ -4,6 +4,11 @@ import * as path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
   CHANGE_SCALES,
+  TestPolicySchema,
+  NewTestAttemptSchema,
+  TestAttemptSchema,
+  TestProvenanceSchema,
+  NewTestProvenanceSchema,
   computeAcceptanceDigest,
   CHANGE_STATUSES,
   ChangeMetadataSchema,
@@ -1025,3 +1030,37 @@ describe('quality_log signoff_option stamp (REQ-TYPES-022)', () => {
   });
 });
 
+
+
+describe('test policy evidence contracts', () => {
+  const test_policy = { version: 1, excluded_path: 'docs/ai-knowledge' };
+  const attempt = {
+    id: 'run-1', outcome: 'passed', fingerprint_version: 'test-inputs-v1',
+    scope: 'repository-inputs-without-knowledge-v1', test_policy,
+  };
+
+  it('retains explicit identity on newly built attempts', () => {
+    expect(NewTestAttemptSchema.parse(attempt)).toEqual(attempt);
+  });
+
+  it.each(['', '.', '..', '/docs', 'docs/../knowledge', 'docs//knowledge', 'docs/', 'docs/./knowledge', 'docs\\knowledge'])('rejects nonnormalized descriptor path %j', (excluded_path) => {
+    expect(TestPolicySchema.safeParse({ version: 1, excluded_path }).success).toBe(false);
+  });
+
+  it('requires a recognized descriptor for new attempts', () => {
+    expect(TestPolicySchema.parse(test_policy)).toEqual(test_policy);
+    expect(NewTestAttemptSchema.safeParse({ ...attempt, test_policy: { version: 2 } }).success).toBe(false);
+    expect(NewTestAttemptSchema.safeParse({ ...attempt, test_policy: {} }).success).toBe(false);
+    const provenance = { command: 'test', exit_code: 0, digest: 'abc', date: 'today', test_policy };
+    expect(NewTestProvenanceSchema.parse(provenance)).toEqual(provenance);
+    expect(NewTestProvenanceSchema.safeParse({ ...provenance, test_policy: { version: 2 } }).success).toBe(false);
+  });
+
+  it('keeps missing and unknown policy readable without upgrading it', () => {
+    expect(TestAttemptSchema.parse({ id: 'old', outcome: 'passed' })).not.toHaveProperty('test_policy');
+    for (const policy of [{ version: 2, future: true }, null, 'unknown']) {
+      expect(TestAttemptSchema.parse({ ...attempt, test_policy: policy }).test_policy).toEqual(policy);
+      expect(TestProvenanceSchema.parse({ command: 'test', exit_code: 0, digest: 'abc', date: 'today', test_policy: policy }).test_policy).toEqual(policy);
+    }
+  });
+});

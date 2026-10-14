@@ -205,8 +205,8 @@ describe('contained read is single-sourced (REQ-MCP-006 / REQ-LIB-014)', () => {
       reads,
       'a new readFileSync in drift-sources must go through readTextOrSkip / readContainedText — ' +
         'update this baseline only when you have re-argued the failure mode',
-    ).toBe(5);
-    // the five: readTextOrSkip's own wrapped read, computeChangeDigest's hash read
+    ).toBe(6);
+    // The first five: readTextOrSkip's own wrapped read, computeChangeDigest's hash read
     // (already try-wrapped), the metadata read (already try-wrapped),
     // computeDeltaSpecDigest's single-file hash read, and collectChangeTestEvidence's
     // metadata-bytes read. The fourth is argued, not waved through: its whole body
@@ -217,7 +217,10 @@ describe('contained read is single-sourced (REQ-MCP-006 / REQ-LIB-014)', () => {
     // reader, not a drift source — the failure mode this budget guards ("an
     // unreadable file aborts the drift run") does not apply, and the gate's own
     // contract (REQ-LIB-080) requires an unreadable target record to refuse loudly
-    // rather than degrade into a no-command exemption.
+    // rather than degrade into a no-command exemption. The sixth is the opt-in
+    // config-byte fence: validateTest catches it into a null test digest without
+    // invalidating the independent full capture. test-input-snapshot exercises
+    // both unreadable and missing ignored config bytes through that boundary.
     for (const fn of [
       'function readTextOrSkip',
       'function computeChangeDigest',

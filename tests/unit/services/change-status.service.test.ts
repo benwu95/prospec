@@ -19,13 +19,16 @@ vi.mock('../../../src/lib/drift-sources.js', async (original) => {
   const actual = await original<typeof import('../../../src/lib/drift-sources.js')>();
   return {
     ...actual,
-    computeChangeState: () => {
+    computeTestState: (_cwd: string, context: import('../../../src/lib/drift-sources.js').TestInputContext) => {
       snapshot.calls++;
       if (snapshot.sequence.length > 1) snapshot.digest = snapshot.sequence.shift()!;
       else if (snapshot.sequence.length === 1) snapshot.digest = snapshot.sequence[0]!;
+      const identity = context.config.test_evidence?.exclude_knowledge
+        ? { fingerprintVersion: 'test-inputs-v1', scope: 'repository-inputs-without-knowledge-v1', testPolicy: { version: 1, excluded_path: 'prospec/ai-knowledge' } }
+        : { fingerprintVersion: 'snapshot-v2', scope: 'repository-inputs-v2' };
       return snapshot.digest === null
-        ? { digest: null, clean: null, reason: 'not a git repository' }
-        : { digest: snapshot.digest, clean: true };
+        ? { digest: null, clean: null, reason: 'not a git repository', identity }
+        : { digest: snapshot.digest, clean: true, identity };
     },
   };
 });
@@ -393,4 +396,18 @@ describe('change-status test gate — implemented requires fresh green evidence 
     expect(result.testGate).toBeUndefined();
     expect(snapshot.calls).toBe(0);
   });
+});
+
+
+it('propagates certified Knowledge-excluded reuse without rewriting the original run', async () => {
+  const policy = '  test_policy: { version: 1, excluded_path: prospec/ai-knowledge }\n';
+  const evidence = FRESH_GREEN.replace('snapshot-v2', 'test-inputs-v1')
+    .replace('repository-inputs-v2', 'repository-inputs-without-knowledge-v1')
+    .replace('  attempt_id:', policy + '  attempt_id:')
+    .replace('test_attempt:\n', 'test_attempt:\n  date: "2026-09-01"\n  fingerprint_version: test-inputs-v1\n  scope: repository-inputs-without-knowledge-v1\n' + policy);
+  seed('tasks', evidence, WITH_COMMAND + 'test_evidence:\n  exclude_knowledge: true\n');
+  const result = await execute({ cwd: CWD, to: 'implemented' });
+  const written = vol.readFileSync(PATH, 'utf8') as string;
+  expect(result.testGate?.reuse).toMatchObject({ attempt_id: 'a1', date: '2026-09-01', command: 'node -e 0', exit_code: 0 });
+  expect(written).toContain(evidence);
 });

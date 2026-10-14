@@ -1,9 +1,9 @@
 ---
 feature: drift-detection
 status: active
-last_updated: 2026-10-09
+last_updated: 2026-10-13
 story_count: 21
-req_count: 88
+req_count: 90
 ---
 
 # Deterministic Drift Check
@@ -62,6 +62,7 @@ _(None)_
 
 | Date | Change | Impact | Stories/REQs |
 |------|--------|--------|--------------|
+| 2026-10-13 | reuse-knowledge-test-evidence | ADDED REQ-TYPES-115; ADDED REQ-TESTS-137; MODIFIED REQ-LIB-033; MODIFIED REQ-LIB-024; MODIFIED REQ-LIB-070; MODIFIED REQ-TYPES-095; MODIFIED REQ-CLI-052 | REQ-TYPES-115, REQ-TESTS-137, REQ-LIB-033, REQ-LIB-024, REQ-LIB-070, REQ-TYPES-095, REQ-CLI-052 |
 | 2026-10-09 | slim-readme-into-docs | MODIFIED REQ-CLI-052 | REQ-CLI-052 |
 | 2026-10-06 | hash-gitlink-contents | MODIFIED REQ-LIB-024 | REQ-LIB-024 |
 | 2026-10-06 | prove-gitlink-provenance | MODIFIED REQ-LIB-024 | REQ-LIB-024 |

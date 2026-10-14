@@ -12,7 +12,7 @@ import path from 'node:path';
 import { resolveConfigPath, resolveTestCommand, validateConfig } from './config.js';
 import { readChangeMetadata } from './change-metadata.js';
 import {
-  computeChangeState,
+  computeEvidenceStates,
   collectChangeTestEvidence,
 } from './drift-sources.js';
 import { evaluateChangeTestEvidence } from './drift-checker.js';
@@ -147,7 +147,8 @@ export function assessVerificationContext(
     baseline = { status: 'unavailable' };
   }
 
-  const snapshotState = computeChangeState(cwd);
+  const states = computeEvidenceStates(cwd, { config, configBytes, command: testCommand });
+  const snapshotState = states.repository;
   if (snapshotState.digest === null) {
     throw new PrerequisiteError(
       `repository snapshot is unprovable for change "${changeName}": ${snapshotState.reason ?? 'not a git repository'}`,
@@ -158,7 +159,7 @@ export function assessVerificationContext(
     scope: 'repository-inputs-v2',
   };
 
-  const testObs = collectChangeTestEvidence(cwd, changeName, testCommand, snapshotState);
+  const testObs = collectChangeTestEvidence(cwd, changeName, testCommand, states.test);
   const decision = evaluateChangeTestEvidence(testObs.facts);
   const attempt = testObs.facts.latestAttempt;
 
@@ -203,7 +204,7 @@ export function assessVerificationContext(
       attempt_id: attempt.id,
       exit_code: 0,
       command: attempt.command,
-      summary: 'test run passed against current repository inputs',
+      summary: decision.reuse?.reason ?? 'test run passed against current repository inputs',
     };
   } else if (decision.verdict === 'refuse') {
     test_attempt = {
@@ -259,9 +260,12 @@ export function assessVerificationContext(
         } else if (fs.existsSync(deltaPath)) {
           return false;
         }
-        const currentSnapshot = computeChangeState(cwd);
-        if (currentSnapshot.digest !== snapshot.digest) return false;
-        return true;
+        if (resolveTestCommand(config, cwd) !== testCommand) return false;
+        const current = computeEvidenceStates(cwd, { config, configBytes, command: testCommand });
+        if (current.repository.digest !== snapshot.digest) return false;
+        const currentTests = collectChangeTestEvidence(cwd, changeName, testCommand, current.test);
+        return testObs.metadataBytes.equals(currentTests.metadataBytes)
+          && JSON.stringify(currentTests.facts) === JSON.stringify(testObs.facts);
       } catch {
         return false;
       }

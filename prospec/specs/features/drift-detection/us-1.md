@@ -234,6 +234,7 @@ Within one drift run, git facts are gathered once and reused. The git work-tree 
 - WHEN the batched timestamp walk covers a repository with excluded generated artifacts, extra sub-module knowledge files, and a module untouched within the walk window, THEN each module's last_src_commit / last_readme_commit / last_sub_module_commit is byte-identical to the per-module `git log -1` result
 - WHEN a capture required for identity fails, THEN its digest is null with a reason; WHEN only the diagnostic clean capture fails, THEN cleanliness is null and never supplies evidence validity
 - WHEN a caller passes an already-filtered module set to `collectGitTimestamps`, THEN only those modules' timestamps are gathered
+- WHEN opt-in test evidence needs a narrower projection, THEN derive full and test digests from one shared inventory/capture rather than independently enumerating Git inputs for each; default consumers continue sharing the full snapshot, and the existing full-check Git-subprocess bound remains unchanged.
 
 ---
 
@@ -243,6 +244,8 @@ The existing report schema accepts optional snapshot fingerprint version/scope a
 - WHEN a new report is produced, THEN change_digest represents snapshot-v2 identity and its recognized version/scope are explicit; optional HEAD trace and generated_at do not participate in content-equivalence comparison
 - WHEN the current-assessment contract crosses a module boundary, THEN its required report/snapshot/receipt fields and validity reasons are named types owned by types, with no filesystem/service imports
 - WHEN report compatibility is checked, THEN existing check ids remain in their frozen order and knowledge_health fields remain present with their existing names and order; no new drift check id is introduced for the internal assessment
+- WHEN the report exposes opt-in reuse, THEN its optional per-change test_evidence data contains only certified reuse payloads from the shared test decision, including original run information and the policy reason; missing diagnostics never establish reuse.
+- WHEN an older report omits test_evidence, THEN it remains parseable; change_digest and snapshot metadata continue identifying the full repository inputs, and Knowledge checks retain their existing observation scope.
 
 ---
 

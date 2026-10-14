@@ -403,7 +403,7 @@ export async function execute(options: ReviewMergeOptions): Promise<ReviewMergeR
   // Exemption: the WARN lands FIRST through the metadata owner, then the facts are
   // re-assessed and the review bytes re-read; a refusal after that point keeps the
   // truthful warning (the one disclosed metadata exception) and writes nothing else.
-  let testGate: TestGateOutcome = { verdict: 'pass', warningRecorded: false };
+  let testGate: TestGateOutcome = { verdict: 'pass', warningRecorded: false, ...(decision.verdict === 'pass' && decision.reuse ? { reuse: decision.reuse } : {}) };
   if (decision.verdict === 'exempt' && !replay) {
     // An exemption ALWAYS persists its WARN: `assessCurrentTestEvidence` above
     // refuses an unreadable target record, so a document is always in hand here.

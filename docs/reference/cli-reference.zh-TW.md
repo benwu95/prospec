@@ -541,7 +541,12 @@ claude mcp add -s user prospec-b -- prospec mcp serve --cwd /path/to/B
 - 舊版紀錄仍可讀，但需要實際重新審查與測試一次。
 - verify/archive 會評估目前輸入與工作流程事實，並在寫入前重新確認；archive dry-run 使用相同拒絕條件。僅有一份儲存的報告不足以允許操作。
 
-證據格式為 `snapshot-v2`／`repository-inputs-v2`；精確的輸入範圍與支援檔案類型見[輸入快照規格](../../prospec/specs/features/drift-detection/us-5.md)。測試輸出應宣告於 Git ignore，已追蹤輸出仍算輸入。不支援或不可讀的輸入會維持 unprovable。執行前後的檢查無法偵測所有短暫修改後還原（change-and-restore），也不涵蓋被忽略的依賴、外部服務或儲存庫輸入之外的工具鏈變更。
+Review 與預設測試證據格式為 `snapshot-v2`／`repository-inputs-v2`；精確的輸入範圍與支援檔案類型見[輸入快照規格](../../prospec/specs/features/drift-detection/us-5.md)。測試輸出應宣告於 Git ignore，已追蹤輸出仍算輸入。不支援或不可讀的輸入會維持 unprovable。執行前後的檢查無法偵測所有短暫修改後還原（change-and-restore），也不涵蓋被忽略的依賴、外部服務或儲存庫輸入之外的工具鏈變更。
+
+
+僅在測試不讀取 Knowledge 時，將 `test_evidence.exclude_knowledge` 設為 `true`。未設定或 `false` 保留既有完整輸入範圍。排除目錄依 `knowledge.base_path` 解析，未設定時使用 `{paths.base_dir}/ai-knowledge`；不安全或無法證明的路徑會拒絕認證。Opt-in 身分為 `test-inputs-v1`／`repository-inputs-without-knowledge-v1`，attempt 與 provenance 均帶有 `test_policy: {version: 1, excluded_path: <專案相對路徑>}`。Policy、config bytes、解析後命令或任何保留輸入改變，證據即失效；缺少或未知身分必須真正重跑。
+
+Review、`implemented`、`test-provenance` 與 verify 共用測試閘門。通過認證的重用保留原 attempt ID、日期、命令與 exit code，並回報 policy／reason。Verify 的 opt-in Step 0 讀取新產生的 `prospec check --json` 報告，要求目標列於 `test-provenance` 的 `subjects` 且存在 `test_evidence[<name>]`；skipped／exempt 或缺失證據不符合條件。明確指定 `--record-tests` 一律真正執行測試。較新的失敗或未完成 attempt 不會恢復舊 PASS。Review 與 verification-context snapshots 仍包含 Knowledge；Knowledge 檢查、文件 review 與專案定義的 pre-merge CI 照常執行。
 
 #### 檢查結果與驗證裁決
 
