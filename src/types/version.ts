@@ -21,20 +21,10 @@ try {
 export const PROSPEC_VERSION: string = process.env.PROSPEC_VERSION || pkgVersion;
 
 /**
- * The oldest CLI version the deployed skills' cli-first delegation works against.
- *
- * Injected into skill templates as the probe floor (`{{minimum_cli_version}}`):
- * every skill's startup probe STOPs when the installed `prospec --version` is
- * older, because the skill's deterministic steps call commands this version
- * introduced. Bump ONLY when a skill starts calling a CLI surface added in a
- * newer published version — never as a routine release chore or ahead of an
- * unfinished release. Unreleased command additions are exercised from source
- * while developing this repository. `2.4.0` is the release that
- * ships the command contract used by the current skills — `prospec-new-story`,
- * `prospec-explore` and `prospec-ff` call `prospec validate proposal`, and the
- * escalation guidance shared by plan, tasks, ff, review, verify and archive calls
- * `prospec change abandon`, surfaces 2.3.x does not have — so a lower floor would
- * let a 2.3.x binary pass the probe and then die mid-station on commander's
- * unknown-command error.
+ * The oldest CLI supporting the deployed skills' command and evidence contracts.
+ * Injected into every startup probe as `{{minimum_cli_version}}`.
+ * The opt-in verify path consumes certified test_evidence from the 2.7 report;
+ * an older binary cannot supply that assessment. Raise this floor when the
+ * shipped skills require a newer contract, independently of package releases.
  */
-export const MINIMUM_CLI_VERSION = '2.4.0';
+export const MINIMUM_CLI_VERSION = '2.7.0';

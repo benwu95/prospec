@@ -79,6 +79,8 @@ Lens changes require independent eight-lens expectations, alias/custom and thres
 - [Contract Guards](./contract-guards.md) — the `tests/contract/` pins and the assertion discipline that keeps them falsifiable
 - [Workflow Evaluator](./workflow-evaluator.md) — the instruction-grading harness's suites, and why they are never model evidence
 
+The release contract pins the 2.7.0 website and social-preview version; the version unit test pins the matching minimum CLI evidence contract.
+
 <!-- prospec:auto-end -->
 
 <!-- prospec:user-start -->

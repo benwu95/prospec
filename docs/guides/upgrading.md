@@ -39,6 +39,21 @@ prospec-upgrade                 # Step 2: AI agent migrates drifted doc formats,
 > - **Legacy File Cleanup**: If upgrading from an older pre-1.0 Prospec layout, remove the now-unused legacy files and directories after re-syncing: `GEMINI.md`, `.gemini/skills/`, `.codex/skills/`, `.github/copilot-instructions.md`, and `.github/instructions/`.
 > - **Configuration Version & Triggers**: `.prospec.yaml` `version` tracks the prospec version the project last upgraded to. If you ever need to localize triggers after adding a skill, simply run `prospec agent sync` — it explicitly reports missing `skill_triggers` entries so you fill only the gaps.
 
+## Upgrade to 2.7.0
+
+Update the binary before running `prospec upgrade`: the synced Skills now require CLI 2.7.0 or later for the test evidence assessment contract. No configuration change is required for existing behavior.
+
+If your tests do not consume AI Knowledge, optionally add this to `.prospec.yaml`:
+
+```yaml
+test_evidence:
+  exclude_knowledge: true
+```
+
+Record a successful test run with the new policy before expecting reuse. Subsequent Knowledge-only edits can reuse compatible evidence; changes to the policy, configuration, command or other test inputs require a new run. Explicit `prospec check --record-tests --change <name>` always executes tests. Review and pre-merge CI still apply. See [Review and test evidence](../reference/cli-reference.md#review-and-test-evidence) for scope and limits.
+
+Run `prospec status` and `prospec check --strict` after upgrading.
+
 ## Upgrade to 2.6.0
 
 Update the binary, then run `prospec upgrade` to sync the delegation guidance. No configuration migration is required.
