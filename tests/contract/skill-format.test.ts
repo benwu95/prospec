@@ -9640,12 +9640,45 @@ describe('verified input evidence guidance', () => {
     }
   });
 
-  it('relocates the command/config/layout detail to a bilingual reference pair with parity (REQ-TEMPLATES-230)', () => {
+  it('separates command and configuration references with bilingual field-table parity (REQ-TEMPLATES-230)', () => {
     const pair = {
       en: fs.readFileSync(path.resolve('docs/reference/cli-reference.md'), 'utf8'),
       zh: fs.readFileSync(path.resolve('docs/reference/cli-reference.zh-TW.md'), 'utf8'),
     };
-    // Both halves carry the same four relocated sections, and each links the other.
+    const example = parseYaml(renderTemplate('references/config-example.yaml.hbs', {}));
+    const fieldPaths = (value: unknown, prefix = ''): string[] => {
+      if (prefix === 'skill_triggers' || prefix === 'skill_exclusions') return [`${prefix}.<skill-name>`];
+      if (value !== null && typeof value === 'object' && !Array.isArray(value)) {
+        return Object.entries(value).flatMap(([key, child]) => fieldPaths(child, prefix ? `${prefix}.${key}` : key));
+      }
+      return [prefix];
+    };
+    const expectedFields = fieldPaths(example).sort();
+    for (const lang of ['en', 'zh'] as const) {
+      const suffix = lang === 'zh' ? '.zh-TW' : '';
+      const config = fs.readFileSync(path.resolve(`docs/reference/configuration${suffix}.md`), 'utf8');
+      const groups = config.split(/(?=^## )/m).slice(1);
+      const fields: string[] = [];
+      for (const group of groups) {
+        const table = findTable(group.split('\n'), {
+          isTarget: (headers) => headers[0] === (lang === 'en' ? 'field' : '欄位'),
+        });
+        if (!table) continue;
+        expect(table.headers).toHaveLength(4);
+        expect(table.rows.length).toBeGreaterThan(0);
+        for (const row of table.rows) {
+          expect(row).toHaveLength(4);
+          expect(row.every((cell) => cell.length > 0)).toBe(true);
+          expect(row[0]).toMatch(/^`[^`]+`$/);
+          fields.push(row[0]!.slice(1, -1));
+        }
+      }
+      expect(fields.sort(), `${lang}: complete configurable field tables`).toEqual(expectedFields);
+      const configSection = sectionOf(pair[lang], lang === 'en' ? '## Configuration' : '## 設定 (Configuration)');
+      expect(configSection).toContain(`](./configuration${suffix}.md)`);
+      expect(configSection).not.toMatch(/```yaml|^\|/m);
+    }
+
     const sections = {
       en: ['## Generated project layout', '## CLI Commands', '## Configuration', '## Architecture'],
       zh: ['## 產生的專案佈局', '## CLI 命令', '## 設定 (Configuration)', '## 架構'],
@@ -9656,8 +9689,8 @@ describe('verified input evidence guidance', () => {
       const commands = pair[lang].slice(pair[lang].indexOf(`\n${sections[lang][1]!}`));
       // Bounded by the NEXT heading in this language: an English delimiter never
       // matches the zh file, so the slice would run to EOF and pass on a stub.
-      const end = commands.indexOf(`\n${sections[lang][2]!}`);
-      expect(end, `${lang}: Configuration heading must follow the command detail`).toBeGreaterThan(0);
+      const end = commands.indexOf(`\n${sections[lang][3]!}`);
+      expect(end, `${lang}: Architecture heading must follow the command detail`).toBeGreaterThan(0);
       expect(commands.slice(0, end).length).toBeGreaterThan(2000);
     }
     expect(pair.en).toContain('./cli-reference.zh-TW.md');

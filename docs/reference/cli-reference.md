@@ -1,7 +1,7 @@
 # Prospec CLI Reference
 [繁體中文](./cli-reference.zh-TW.md) • [Documentation](../README.md)
 
-> The command, configuration, layout and architecture detail for
+> The command, layout and architecture detail for
 > [prospec](../../README.md). The README and the [docs pages](../README.md) keep the onboarding and guides;
 > this file keeps the reference tables.
 
@@ -549,7 +549,7 @@ Evidence connects a recorded review or test result to the repository contents it
 
 The review and default test evidence format is `snapshot-v2` / `repository-inputs-v2`; see the [input snapshot specification](../../prospec/specs/features/drift-detection/us-5.md) for the precise scope and supported file types. Ignore test outputs in Git (tracked outputs still count as inputs). Unsupported or unreadable inputs remain unprovable. The before/after checks cannot detect every transient change-and-restore, or changes to ignored dependencies, external services and toolchains outside repository inputs.
 
-Set `test_evidence.exclude_knowledge` to `true` only when Knowledge is not consumed by your tests. Absent or `false` preserves existing full-scope evidence. The excluded directory resolves from `knowledge.base_path`, falling back to `{paths.base_dir}/ai-knowledge`; an unsafe or unprovable path is refused. The opt-in identity is `test-inputs-v1` / `repository-inputs-without-knowledge-v1`, with `test_policy: {version: 1, excluded_path: <project-relative path>}` on both attempt and provenance. Changing the policy, config bytes, resolved command or any retained input invalidates it; missing or unknown identities require a real run.
+For the opt-in conditions and path restrictions of `test_evidence.exclude_knowledge`, see the [Configuration Reference](./configuration.md#test-evidence). Opt-in evidence uses `test-inputs-v1` / `repository-inputs-without-knowledge-v1`, with `test_policy: {version: 1, excluded_path: <project-relative path>}` on both attempt and provenance. Changing the policy, config bytes, resolved command or any retained input invalidates it; missing or unknown identities require a real run.
 
 Review, `implemented`, `test-provenance` and verify share the same test gate. Certified reuse preserves the original attempt ID, date, command and exit code and reports its policy/reason. Verify's opt-in Step 0 reads a fresh `prospec check --json` report and requires the target in `test-provenance`'s `subjects` plus `test_evidence[<name>]`; skipped/exempt or absent evidence does not qualify. Explicit `--record-tests` always runs the suite. A newer failed or unfinished attempt cannot revive an older PASS. Knowledge remains in review and verification-context snapshots; Knowledge checks, document review and project-defined pre-merge CI still apply.
 
@@ -561,23 +561,7 @@ Honesty rules: an unavailable source degrades the check to `skipped` with an exp
 
 #### Tuning the `knowledge-size` budgets
 
-`knowledge-size` grades **every load surface an agent actually reads**, not just the module knowledge: L1 files, module READMEs and sub-modules, Feature Specs and `product.md`, the load-on-demand governance files, and — only where your project holds the skill template sources — every deployed `SKILL.md` and its references — hand-authored skills included, since the harness loads those too. Each per-project surface has its own threshold, overridable **per field** in `.prospec.yaml` `knowledge.token_budget`. Set only the fields you want to change; anything unset falls back to the default. The skill and reference budgets are the exception: they describe the skill files prospec itself generates, so they ship with the prospec version (12,500 / 2,500 tokens) and are not project settings — a key written for them binds nothing and `unjustified-budget-override` asks you to remove it:
-
-```yaml
-# .prospec.yaml
-knowledge:
-  token_budget:
-    l1_per_file: 1800               # max tokens per L1 file (index.md + each core convention)
-    l2_per_module: 1000             # max tokens per module file (README and each sub-module)
-    readme_max_lines: 100           # max lines per module file
-    spec_per_file: 5000             # max tokens per Feature Spec (and product.md)
-    demand_knowledge_per_file: 10000 # max tokens per load-on-demand knowledge file
-    headroom: 0.85                  # ratio of the budget at which the pressure signal triggers (0.85 = 85%)
-```
-
-A freshly initialized project's `.prospec.yaml` carries no `token_budget` block, so every threshold resolves from the shipped default above; run `prospec config example` for the fully annotated block to copy the fields you want to change. Over-budget files only WARN (a pressure signal against silent regrowth — never a build breaker, and never affecting `--strict`'s exit code), and each finding names the convergence path for its surface rather than a generic "please compress": slice a Feature Spec under `specs/features/{feature}/`, run `prospec-learn`'s Staleness Sweep on a governance file, extract a sub-module from an L2 file.
-
-Two of these deserve their own note. **Feature Specs grow monotonically** — every archived change appends graduated REQs and nothing ever removes them — so the surface that dominates a mature project's load is the one that had no budget at all before; slices under `specs/features/{feature}/` are measured against the same `spec_per_file`, so splitting a spec cannot move it out of the budget's sight. **Skill files are measured only in authoring projects**, detected by the presence of the skill template sources: a project that merely consumes generated skills cannot act on a finding about one, and an unactionable WARN is exactly what this check exists to avoid.
+`knowledge-size` reports over-budget files as WARN without affecting the `--strict` exit code. See the [Configuration Reference](./configuration.md#knowledge-budgets) for per-surface defaults, `knowledge.token_budget` fields, fixed skill/reference budgets and remedies for over-budget files.
 
 <details>
 <summary>Mutation testing (on-demand audit — NOT a gate)</summary>
@@ -637,66 +621,7 @@ The harness makes the token-efficiency claim verifiable instead of asserted: for
 
 ## Configuration
 
-Prospec can be configured via a `.prospec.yaml` file in the project root. This is the primary way to customize how AI Knowledge is generated and how the workflow operates. It holds the project's language, agents, token budgets and test command; the schema in `src/types/config.ts` is what actually validates the file, and `prospec config example` prints every field with an example value.
-
-Key configurations you can tweak:
-
-- **`artifact_language`**: Sets the language for change artifacts under `.prospec/changes/` and their archived summaries (e.g. `Traditional Chinese (Taiwan)`). Code, identifiers, technical terms, and git commit messages always stay English; the trust zone follows `trust_zone_language`. `prospec init` seeds a path-scoped Language Policy rule into `CONSTITUTION.md` from the same paths and languages your agent's entry config (`CLAUDE.md`/`AGENTS.md`) renders, and `prospec check` (`language-policy-drift`) warns when the Constitution's Description drifts from them.
-- **`trust_zone_language`**: Sets the language of the trust zone — the AI Knowledge base, `specs/features/`, `specs/product.md`, `index.md`, `README.md`, `CONSTITUTION.md`. Defaults to English when absent (the behavior every project had before the key existed). `prospec init` writes it: interactive init asks for it only when `artifact_language` is non-English, defaulting to that same language; `--trust-zone-language` sets it without a prompt, and CI mode (`--agents`) without the flag keeps English. Set it to the same value as `artifact_language` for a project whose whole documentation set is one language.
-- **`exclude`**: Glob patterns for directories to exclude from AI knowledge scanning. Defaults include node_modules, .git, and common build directories.
-- **`agents`**: Specifies which AI agent configs to generate (`claude`, `antigravity`, `codex`, `copilot`).
-- **`tech_stack`**: Overrides auto-detected tech stack (e.g., `language: zig`, `package_manager: zig build`).
-- **`knowledge.strategy`**: Determines how the project is split into modules during knowledge generation (`auto`, `architecture`, `domain`, `package`).
-- **`knowledge.token_budget`**: Controls the per-file token/line limits `knowledge-size` grades, one per load surface — L1 files, L2 module knowledge, Feature Specs, load-on-demand knowledge, and (in skill-authoring projects) every deployed skill and its references, hand-authored ones included.
-- **`knowledge.generated_artifacts`**: Paths (repo-relative) of files your build generates into the source tree. `knowledge-health` ignores their commit timestamps, so regenerating a bundle no longer reports every module that "changed" as stale. Unset means nothing is excluded — the check has no built-in idea of what your build emits.
-- **`knowledge.additional_core_conventions`**: Prospec's knowledge system loads `_conventions.md` (and `CONSTITUTION.md`) by default when the Agent starts. If you have other globally shared convention files (e.g., API guidelines, security rules) that you want to be pre-loaded as Core Conventions, you can list them here. These paths are relative to the `ai-knowledge/` directory.
-- **`skill_triggers`**: Allows customizing the activation keywords for specific AI Skills to match your native language.
-- **`skill_exclusions`**: Same shape as `skill_triggers` — native-language phrases naming what a skill is NOT for; `prospec agent sync` renders them as a `Not for:` clause after the skill description (absent = no clause).
-- **`workflow.max_station_retries`**: Bounds consecutive station recovery loops (verify below-bar, plan verifier flaws, tasks verifier flaws) before `status` halts and escalates to human (default 3, constant `DEFAULT_MAX_STATION_RETRIES`).
-- **`workflow.pause_at`**: Stations to pause after for a human sign-off — only `plan`, for `standard` and `full` changes (default: none; a change whose verified Premise is `ai-proposed` pauses regardless). Set `pause_at: [plan]` to have every standard and full change confirm its direction before tasks. The `PROSPEC_PAUSE_AT` environment variable decides alone per run (comma-separated; an empty value or `none` disables the pause — use `none` on Windows, whose shells unset an empty variable), so a local session can pause while cloud or scheduled agents stay autonomous. An invalid value is an error, never a silent no-pause; likewise a `.prospec.yaml` that exists but cannot be read or is not parseable YAML is assumed to pause (`prospec status` says so) until the file is fixed, while one failing validation in another field still has its `workflow.pause_at` read.
-- **`workflow.always_escalate`**: Decision categories a general delegation ("follow your recommendation") never decides — `re-scope`, `break-glass-override`, `breaking-change` (taking back or narrowing behavior a graduated requirement promises); omitted means all three, `[]` none. An invalid value is an error. An `AWAITING_HUMAN_PLAN_SIGNOFF` route lists the categories in force.
-
-Example `.prospec.yaml` (for the full annotated reference of every field, run `prospec config example`):
-```yaml
-version: "1.0"
-project:
-  name: my-project
-tech_stack:
-  language: typescript
-  package_manager: pnpm
-paths:
-  base_dir: prospec
-artifact_language: Traditional Chinese (Taiwan)
-exclude:
-  - "*.env*"
-  - "node_modules"
-agents:
-  - claude
-  - antigravity
-workflow:
-  max_station_retries: 3
-  pause_at: [plan]
-knowledge:
-  base_path: prospec/ai-knowledge
-  strategy: domain
-  token_budget:
-    l1_per_file: 1800
-    l2_per_module: 1000
-    readme_max_lines: 100
-  additional_core_conventions:
-    - my-custom-api-rules.md
-skill_triggers:
-  prospec-explore:
-    - explore
-    - 探索
-skill_exclusions:
-  prospec-review:
-    - ad-hoc PR review
-```
-
----
-
----
+For `.prospec.yaml` fields, types, defaults and constraints, see the [Configuration Reference](./configuration.md).
 
 ## Architecture
 

@@ -50,7 +50,7 @@ test_evidence:
   exclude_knowledge: true
 ```
 
-先依新 policy 記錄一次成功測試，之後僅修改 Knowledge 時才能重用相容證據；policy、設定、命令或其他測試輸入改變時，必須重新執行。明確執行 `prospec check --record-tests --change <name>` 一律真正跑測試。Review 與 pre-merge CI 照常執行。範圍與限制詳見 [CLI 參考](../reference/cli-reference.zh-TW.md)。
+先依新 policy 記錄一次成功測試，之後僅修改 Knowledge 時才能重用相容證據；policy、設定、命令或其他測試輸入改變時，必須重新執行。明確執行 `prospec check --record-tests --change <name>` 一律真正跑測試。Review 與 pre-merge CI 照常執行。設定條件與路徑限制詳見[設定參考](../reference/configuration.zh-TW.md)；證據流程見 [CLI 參考](../reference/cli-reference.zh-TW.md)。
 
 升級後執行 `prospec status` 與 `prospec check --strict`。
 

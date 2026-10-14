@@ -25,4 +25,5 @@
 
 ## 參考
 
-- [CLI 參考](./reference/cli-reference.zh-TW.md) —— 命令、最常調整的設定鍵、產生的專案佈局與架構。
+- [CLI 參考](./reference/cli-reference.zh-TW.md) —— 命令、產生的專案佈局與架構。
+- [設定參考](./reference/configuration.zh-TW.md) —— 依用途分組的設定欄位、型別、預設值與限制表格。

@@ -1,7 +1,7 @@
 # Prospec CLI 參考
 [English](./cli-reference.md) • [文件](../README.zh-TW.md)
 
-> [prospec](../../README.zh-TW.md) 的命令、設定、目錄佈局與架構細節。README 與[文件頁面](../README.zh-TW.md)保留上手與指南，
+> [prospec](../../README.zh-TW.md) 的命令、目錄佈局與架構細節。README 與[文件頁面](../README.zh-TW.md)保留上手與指南，
 > 這份文件保留參考表格。
 
 ## 目錄
@@ -544,7 +544,7 @@ claude mcp add -s user prospec-b -- prospec mcp serve --cwd /path/to/B
 Review 與預設測試證據格式為 `snapshot-v2`／`repository-inputs-v2`；精確的輸入範圍與支援檔案類型見[輸入快照規格](../../prospec/specs/features/drift-detection/us-5.md)。測試輸出應宣告於 Git ignore，已追蹤輸出仍算輸入。不支援或不可讀的輸入會維持 unprovable。執行前後的檢查無法偵測所有短暫修改後還原（change-and-restore），也不涵蓋被忽略的依賴、外部服務或儲存庫輸入之外的工具鏈變更。
 
 
-僅在測試不讀取 Knowledge 時，將 `test_evidence.exclude_knowledge` 設為 `true`。未設定或 `false` 保留既有完整輸入範圍。排除目錄依 `knowledge.base_path` 解析，未設定時使用 `{paths.base_dir}/ai-knowledge`；不安全或無法證明的路徑會拒絕認證。Opt-in 身分為 `test-inputs-v1`／`repository-inputs-without-knowledge-v1`，attempt 與 provenance 均帶有 `test_policy: {version: 1, excluded_path: <專案相對路徑>}`。Policy、config bytes、解析後命令或任何保留輸入改變，證據即失效；缺少或未知身分必須真正重跑。
+啟用 `test_evidence.exclude_knowledge` 的條件與路徑限制見[設定參考](./configuration.zh-TW.md#測試證據)。Opt-in 證據使用 `test-inputs-v1`／`repository-inputs-without-knowledge-v1`，attempt 與 provenance 均記錄 `test_policy: {version: 1, excluded_path: <專案相對路徑>}`。Policy、config bytes、解析後命令或任何保留輸入改變，證據即失效；缺少或未知身分必須真正重跑。
 
 Review、`implemented`、`test-provenance` 與 verify 共用測試閘門。通過認證的重用保留原 attempt ID、日期、命令與 exit code，並回報 policy／reason。Verify 的 opt-in Step 0 讀取新產生的 `prospec check --json` 報告，要求目標列於 `test-provenance` 的 `subjects` 且存在 `test_evidence[<name>]`；skipped／exempt 或缺失證據不符合條件。明確指定 `--record-tests` 一律真正執行測試。較新的失敗或未完成 attempt 不會恢復舊 PASS。Review 與 verification-context snapshots 仍包含 Knowledge；Knowledge 檢查、文件 review 與專案定義的 pre-merge CI 照常執行。
 
@@ -556,23 +556,7 @@ Review、`implemented`、`test-provenance` 與 verify 共用測試閘門。通�
 
 #### 調整 `knowledge-size` 預算
 
-`knowledge-size` 量的是**agent 實際會讀的每一個載入面**，不只模組知識：L1 檔、模組 README 與 sub-module、Feature Spec 與 `product.md`、load-on-demand 治理知識檔，以及——僅在專案本身持有 skill 樣板原始碼時——每一份已部署的 `SKILL.md` 與其 references —— 含手寫的 skill，因為 harness 同樣會載入它們。每個 per-project 載入面有各自的門檻，可在 `.prospec.yaml` `knowledge.token_budget` **逐欄**覆寫。只設你要改的欄位，未設的回退預設。skill 與 reference 預算是例外：它們描述的是 prospec 自己生成的 skill 檔，所以隨 prospec 版本出貨（12,500 / 2,500 tokens）、不是專案設定 —— 寫了也不綁定，`unjustified-budget-override` 會要求你刪掉該行：
-
-```yaml
-# .prospec.yaml
-knowledge:
-  token_budget:
-    l1_per_file: 1800               # 每個 L1 檔（index.md + 各 core convention）的 token 上限
-    l2_per_module: 1000             # 每個模組知識檔（README 與各 sub-module）的 token 上限
-    readme_max_lines: 100           # 每個模組知識檔的行數上限
-    spec_per_file: 5000             # 每份 Feature Spec（與 product.md）的 token 上限
-    demand_knowledge_per_file: 10000 # 每個 load-on-demand 知識檔的 token 上限
-    headroom: 0.85                  # 觸發壓力預警的預算水位比例（0.85 = 85%）
-```
-
-新初始化的專案，其 `.prospec.yaml` 不含 `token_budget` 區塊，因此每個門檻都回退到上面的 shipped default；要改哪幾欄，跑 `prospec config example` 取得完整逐欄註解的區塊再複製過去。超標檔案只 WARN（防止無聲回彈的壓力訊號 —— 絕非 build breaker，也不影響 `--strict` 的 exit code），且每則 finding 會指出該載入面的具名收斂路徑，而不是泛泛的「請壓縮」：Feature Spec 切到 `specs/features/{feature}/`、治理知識檔跑 `prospec-learn` 的 Staleness Sweep、L2 檔抽出 sub-module。
-
-其中兩項值得單獨說明。**Feature Spec 是單調成長的** —— 每次歸檔都會 append 畢業的 REQ，而沒有任何機制會移除 —— 所以在成熟專案裡支配載入量的那一層，正是先前完全沒有預算的那一層；切出來的 slice 以同一個 `spec_per_file` 量測，因此分割不可能把它移出預算視線。**skill 檔只在 authoring 專案量測**，以 skill 樣板原始碼是否存在來偵測：純消費生成 skill 的專案對這種 finding 無法行動，而「無法行動的 WARN」正是這個檢查存在要避免的東西。
+`knowledge-size` 回報超標檔案為 WARN，不影響 `--strict` 的 exit code。各載入面的預設值、`knowledge.token_budget` 欄位、固定的 skill／reference 預算，以及各類超標檔案的處理方式，見[設定參考](./configuration.zh-TW.md#knowledge-預算)。
 
 <details>
 <summary>隨選變異測試（Mutation Testing）</summary>
@@ -632,66 +616,7 @@ harness 讓 token 效率主張可驗證而非空口宣稱：對每個 corpus 任
 
 ## 設定 (Configuration)
 
-Prospec 的核心設定檔為專案根目錄的 `.prospec.yaml`。這是客製化 AI Knowledge 生成方式以及工作流程的主要途徑。它保存專案語言、agents、token 預算與測試命令；真正驗證這個檔案的是 `src/types/config.ts` 的 schema，`prospec config example` 會印出每個欄位與範例值。
-
-你可以調整的關鍵設定包含：
-
-- **`artifact_language`**：控制 `.prospec/changes/` 下的變更文件與其封存摘要所使用的語言（例如 `Traditional Chinese (Taiwan)`）。程式碼、變數名稱、專業術語與 git commit message 一律維持英文；trust zone 的語言由 `trust_zone_language` 決定。`prospec init` 會以與 agent entry config（`CLAUDE.md`/`AGENTS.md`）相同的路徑與語言把路徑式的 Language Policy 規則寫入 `CONSTITUTION.md`，且 `prospec check`（`language-policy-drift`）會在憲法的 Description 與之漂移時提出 WARN。
-- **`trust_zone_language`**：控制 trust zone —— AI Knowledge base、`specs/features/`、`specs/product.md`、`index.md`、`README.md`、`CONSTITUTION.md` —— 的語言。未設定時預設為 English（此設定出現前所有專案的既有行為）。`prospec init` 會寫入它：互動式 init 只在 `artifact_language` 非英文時追問，預設與該語言相同；`--trust-zone-language` 可直接指定不提問，CI 模式（`--agents`）未給 flag 則維持 English。若整套文件都要用同一種語言，將它設成與 `artifact_language` 相同的值即可。
-- **`exclude`**：設定在產生 AI Knowledge 時，要忽略掃描的目錄或檔案特徵（例如 `["*.env*", "node_modules"]`）。預設會排除 `.git` 與常見的編譯目錄。
-- **`agents`**：指定專案要產生哪些 AI Agent 的設定檔（`claude`, `antigravity`, `codex`, `copilot`）。
-- **`tech_stack`**：可手動覆寫自動偵測的技術堆疊（例如 `language: zig`, `package_manager: zig build`）。
-- **`knowledge.strategy`**：決定在產生知識庫時，專案模組的切分策略（`auto`, `architecture`, `domain`, `package`）。
-- **`knowledge.token_budget`**：控制 `knowledge-size` 逐檔評分的 token 數與行數上限，每個載入面各一個 —— L1 檔、L2 模組知識、Feature Spec、load-on-demand 知識，以及（在自行撰寫 skill 的專案）每一份已部署的 skill 與其 references，含手寫的。
-- **`knowledge.generated_artifacts`**：由 build 產生、但會落在原始碼樹裡的檔案路徑（相對於 repo 根目錄）。`knowledge-health` 會忽略這些檔案的 commit 時間戳，因此重新產生 bundle 不再讓每個模組都被判定為 stale。未設定即不排除任何檔案 —— 這個檢查對「你的 build 會吐出什麼」沒有任何內建假設。
-- **`knowledge.additional_core_conventions`**：Prospec 的知識系統會在 Agent 啟動時預設載入 `_conventions.md`（與 `CONSTITUTION.md`）。如果你有其他全域共用的規範檔案（例如 API 規範、資安規範等）也希望能做為 Core Conventions (L1) 強制預先載入，可以將相對於 `ai-knowledge/` 的檔名加在這裡。
-- **`skill_triggers`**：允許客製化修改觸發特定 AI Skill 的關鍵字（可加入母語觸發詞）。
-- **`skill_exclusions`**：與 `skill_triggers` 同形狀——以母語說明該 skill「不負責什麼」的短語；`prospec agent sync` 會渲染為 skill description 之後的 `Not for:` 子句（未設定即無此子句）。
-- **`workflow.max_station_retries`**：限制站點恢復迴圈（verify below-bar、plan verifier flaws、tasks verifier flaws）的連續失敗次數，達上限時 `status` 會停止循環並交接給人類（預設 3，常數 `DEFAULT_MAX_STATION_RETRIES`）。
-- **`workflow.pause_at`**：在哪些站之後停下等人簽核——目前只有 `plan`，對 `standard` 與 `full` 變更生效（預設不停；已驗證 Premise 為 `ai-proposed` 的變更無論如何都會停）。設定 `pause_at: [plan]` 可讓每個 standard 與 full 變更在 tasks 前確認方向。環境變數 `PROSPEC_PAUSE_AT` 逐次單獨決定（逗號分隔；空值或 `none` 代表不停——Windows shell 會把空值變數移除，請用 `none`），讓本機 session 停下、雲端或排程 agent 仍全自動。值無效時會報錯，絕不靜默地不停；同理，`.prospec.yaml` 存在卻無法讀取或不是可解析的 YAML 時，會假定停頓（`prospec status` 會說明原因）直到檔案修好，而只是其他欄位驗證失敗時仍會讀取 `workflow.pause_at`。
-- **`workflow.always_escalate`**：概括授權（「都照建議」）不能替你決定的決策類別——`re-scope`、`break-glass-override`、`breaking-change`（收回或縮小已畢業需求所承諾的行為）；省略代表三類全部，`[]` 代表不設。值無效時會報錯。`AWAITING_HUMAN_PLAN_SIGNOFF` 路由會列出目前生效的類別。
-
-`.prospec.yaml` 範例（每個欄位的完整逐欄註解參考，執行 `prospec config example`）：
-```yaml
-version: "1.0"
-project:
-  name: my-project
-tech_stack:
-  language: typescript
-  package_manager: pnpm
-paths:
-  base_dir: prospec
-artifact_language: Traditional Chinese (Taiwan)
-exclude:
-  - "*.env*"
-  - "node_modules"
-agents:
-  - claude
-  - antigravity
-workflow:
-  max_station_retries: 3
-  pause_at: [plan]
-knowledge:
-  base_path: prospec/ai-knowledge
-  strategy: domain
-  token_budget:
-    l1_per_file: 1800
-    l2_per_module: 1000
-    readme_max_lines: 100
-  additional_core_conventions:
-    - my-custom-api-rules.md
-skill_triggers:
-  prospec-explore:
-    - explore
-    - 探索
-skill_exclusions:
-  prospec-review:
-    - 臨時 PR 審查
-```
-
----
-
----
+`.prospec.yaml` 的完整欄位、型別、預設值與限制已移至[設定參考](./configuration.zh-TW.md)。
 
 ## 架構
 

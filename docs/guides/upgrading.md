@@ -50,7 +50,7 @@ test_evidence:
   exclude_knowledge: true
 ```
 
-Record a successful test run with the new policy before expecting reuse. Subsequent Knowledge-only edits can reuse compatible evidence; changes to the policy, configuration, command or other test inputs require a new run. Explicit `prospec check --record-tests --change <name>` always executes tests. Review and pre-merge CI still apply. See [Review and test evidence](../reference/cli-reference.md#review-and-test-evidence) for scope and limits.
+Record a successful test run with the new policy before expecting reuse. Subsequent Knowledge-only edits can reuse compatible evidence; changes to the policy, configuration, command or other test inputs require a new run. Explicit `prospec check --record-tests --change <name>` always executes tests. Review and pre-merge CI still apply. See the [Configuration Reference](../reference/configuration.md) for configuration conditions and path restrictions, and [Review and test evidence](../reference/cli-reference.md#review-and-test-evidence) for the evidence workflow.
 
 Run `prospec status` and `prospec check --strict` after upgrading.
 

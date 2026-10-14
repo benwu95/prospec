@@ -1,7 +1,7 @@
 ---
 feature: agent-integration
 status: active
-last_updated: 2026-10-11
+last_updated: 2026-10-14
 story_count: 26
 req_count: 116
 ---
@@ -143,6 +143,7 @@ The repository's English and Traditional Chinese root READMEs are an equivalent 
 - WHEN a root README, the contributor guide or a docs page links inside the repository, THEN the link is a file-relative path whose target exists with the exact case, and its `#anchor`, when present, resolves to a heading of the target
 - WHEN describing guarantees, THEN accurately attribute CLI-enforced schema/per-target checks, skill-directed gates and model judgment, including quick Knowledge impact review; do not claim broader model reliability than the recorded evaluation demonstrates.
 - WHEN moving detailed content, THEN maintain bilingual parity and keep canonical skill identity and host-specific invocation guidance intact
+- WHEN looking up project configuration, THEN a dedicated bilingual Configuration Reference presents supported fields in grouped tables with their types, defaults or required conditions, and purpose or constraints; CLI command behavior links to these field definitions.
 
 ---
 
@@ -181,6 +182,7 @@ The repository's English and Traditional Chinese root READMEs are an equivalent 
 
 | Date | Change | Impact | Stories/REQs |
 |------|--------|--------|-------------|
+| 2026-10-14 | extract-config-reference | MODIFIED REQ-TEMPLATES-230 | REQ-TEMPLATES-230 |
 | 2026-10-11 | unify-review-lenses | MODIFIED REQ-TEMPLATES-084; MODIFIED REQ-TEMPLATES-232 | REQ-TEMPLATES-084, REQ-TEMPLATES-232 |
 | 2026-10-10 | remove-stale-skill-count-claims | MODIFIED REQ-TESTS-029; MODIFIED REQ-TEMPLATES-143 | REQ-TESTS-029, REQ-TEMPLATES-143 |
 | 2026-10-10 | remove-stale-spec-claims | MODIFIED REQ-AGNT-015; MODIFIED REQ-AGNT-022; MODIFIED REQ-AGNT-037; MODIFIED REQ-AGNT-023; MODIFIED REQ-TYPES-032; MODIFIED REQ-TYPES-035; MODIFIED REQ-SERVICES-030; MODIFIED REQ-AGNT-039; MODIFIED REQ-AGNT-040; MODIFIED REQ-AGNT-041; MODIFIED REQ-AGNT-042 | REQ-AGNT-015, REQ-AGNT-022, REQ-AGNT-037, REQ-AGNT-023, REQ-TYPES-032, REQ-TYPES-035, REQ-SERVICES-030, REQ-AGNT-039, REQ-AGNT-040, REQ-AGNT-041, REQ-AGNT-042 |

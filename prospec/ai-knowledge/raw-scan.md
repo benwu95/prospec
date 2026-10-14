@@ -233,11 +233,11 @@ tests/
 - `planning/` — 10 files: `.md`
 - `docs/guides/` — 6 files: `.md`
 - `docs/concepts/` — 4 files: `.md`
-- `docs/reference/` — 2 files: `.md`
+- `docs/reference/` — 4 files: `.md`
 
 ## File Stats
 
 | Metric | Value |
 |--------|-------|
-| Total files | 1697 |
+| Total files | 1699 |
 | Scan depth | 10 |

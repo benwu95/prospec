@@ -157,7 +157,7 @@ Worktree 模式下，active changes 留在來源的 `.prospec/changes/`；完整
 - **[運作原理](./docs/concepts/how-it-works.zh-TW.md)** —— Skills、AI Knowledge 與 CLI 如何分工、誰在強制什麼，以及核心原則。
 - **[AI Skills 與工作流程](./docs/concepts/workflow.zh-TW.md)** —— Skill 目錄、品質閘門、相稱流程、具來源的需求前提與 cascade 的暫停點。
 - **指南** —— [升級 Prospec](./docs/guides/upgrading.zh-TW.md)（含 2.0 的變動）、[Backfill](./docs/guides/backfill.zh-TW.md) 與[客製化 Module README](./docs/guides/customizing-module-readmes.zh-TW.md)。
-- **[CLI 參考](./docs/reference/cli-reference.zh-TW.md)** —— 命令、最常調整的設定鍵、產生的專案佈局與架構。
+- **[CLI 參考](./docs/reference/cli-reference.zh-TW.md)** —— 命令、產生的專案佈局與架構；設定欄位見[設定參考](./docs/reference/configuration.zh-TW.md)。
 
 ## 貢獻
 
