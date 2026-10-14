@@ -214,7 +214,7 @@ tests/
 
 ## Directories Without Source Files
 
-> Directories that hold files but no source file. `module-detector.ts` counts a file as source
+> Directories that hold files but no source file. The scanner counts a file as source
 > only when it carries an extension AND that extension is not on its non-source denylist — so a
 > directory whose only content is extensionless files (a `bin/` of scripts) qualifies too, its
 > files reported as `(no extension)`. Root-level files belong to no directory and are never listed.
@@ -229,7 +229,7 @@ tests/
 > alphabetically first.
 
 - `tests/fixtures/` — 635 files: `.md`, `.yaml`, `.json`, `.txt`
-- `prospec/` — 349 files: `.md`, `.yaml`
+- `prospec/` — 350 files: `.md`, `.yaml`
 - `planning/` — 10 files: `.md`
 - `docs/guides/` — 6 files: `.md`
 - `docs/concepts/` — 4 files: `.md`
@@ -239,5 +239,5 @@ tests/
 
 | Metric | Value |
 |--------|-------|
-| Total files | 1699 |
+| Total files | 1700 |
 | Scan depth | 10 |

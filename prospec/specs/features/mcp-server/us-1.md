@@ -158,5 +158,6 @@ Every tool registered by `mcp.service` carries a description with one concrete c
 - WHEN `tools/list` is called, THEN `search_modules` shows a separator-normalized query example (a query such as `auth service` also matches a keyword `auth-service`) that names no project-specific data, and returns ranked `matches[]` with categories
 - WHEN `tools/list` is called, THEN `get_dependency_direction` shows a `from`/`to` example and returns `{allowed, direction, source}`, and `get_spec_requirements` shows a feature with a `req` or `story` selector and returns `{ feature, slices, misses }` — the field names the result schema actually carries
 - WHEN a tool description loses its example or its `Returns` sentence, THEN the contract assertion turns red
+- WHEN get_spec_requirements is described through tools/list, THEN its tool example and input field examples use consistent generic application feature/requirement identifiers, not Prospec’s own feature/spec ids, while preserving req/story selection syntax and result shape.
 
 ---
