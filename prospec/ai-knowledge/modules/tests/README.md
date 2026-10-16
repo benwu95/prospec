@@ -1,6 +1,6 @@
 # Verification Suite
 
-> 4-layer Vitest suite (fast-glob/git bypass memfs — 316 test files, 8,295 tests (unit 5958, contract 1890, integration 224, e2e 223)).
+> 4-layer Vitest suite (fast-glob/git bypass memfs — 317 test files, 8,359 tests (unit 6007, contract 1901, integration 224, e2e 227)).
 <!-- prospec:module-readme-format 2026-09-01 -->
 
 <!-- prospec:auto-start -->
@@ -49,6 +49,8 @@ Lens changes require independent eight-lens expectations, alias/custom and thres
 - Template/skill/service/CLI changes ripple to contract + E2E expectations; public README, `docs/` page or website claims ripple to the section-scoped document contracts; a new station command needs a formatter unit test AND an E2E case. Release bumps also update the website version and social-preview assertions in `skill-format.test.ts`.
 
 ## Pitfalls
+
+- Scope regressions distinguish omitted, empty and non-empty declarations, legacy replacement/no-op, independent blockers and partial auto-draft failure. Workflow fixtures declare their actual module scope before recording evidence.
 
 - Delegation V2 is pinned by `delegation-policy.test.ts` (pure guard pairs), `repo-state.test.ts` (lossless topology, identity exclusions and bounded retry), `delegation-worktrees.test.ts` (real sibling activity, mixed V1/V2, evidence-write faults and retained settlement observations) and issue-race/service/CLI suites. Cover non-current branch additions/moves/renames/deletions without siblings and late checkout of existing branches followed by commit/rebase and worktree retention/switch/removal; pair lifecycle admission with current-branch, non-branch-ref and unreadable guards. Pin historical reason round-trips and new `non-current-branch` evidence through service/formatter output, plus stash pop/clear, canonical aliases, reordered registrations and physical V1 failure/acceptance round-trips. Preservation tests still refuse sibling refs/stash changes. Run policy killing mutations with an applied-change assertion; restore the source before broader tests.
 

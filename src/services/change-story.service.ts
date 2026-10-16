@@ -11,17 +11,14 @@ import {
   normalizeIssueRef,
   writeChangeMetadataObject,
 } from '../lib/change-metadata.js';
-import { stripCellEmphasis } from '../lib/knowledge-reader.js';
+import { readIndex, parseIndexModules } from '../lib/knowledge-reader.js';
 import type { ChangeScale, NewChangeMetadata } from '../types/change.js';
-import { INDEX_COLUMN, INDEX_TABLE_COLUMNS } from '../types/knowledge.js';
 
 export interface ChangeStoryOptions {
   name: string;
   description?: string;
-  /** Explicit related modules — overrides keyword auto-matching (e.g. the
-   *  promote-backfill path, whose modules come from traced file:line, not the
-   *  change name). An empty array is an answer, not an absence: it suppresses
-   *  the keyword fallback. Omit the key to ask for keyword matching. */
+  /** Caller-declared scope. Empty explicitly declares no related modules;
+   *  omission is refused because scope has not been determined. */
   relatedModules?: string[];
   /** External-tracker registration: the issue this change belongs to. Free-form
    *  (`#131`, a URL, another tracker's id) and never validated. */
@@ -61,7 +58,7 @@ export interface ChangeStoryResult {
  *
  * 1. Read config to validate project is initialized
  * 2. Validate change directory does not exist → AlreadyExistsError
- * 3. Match related modules from index.md keywords
+ * 3. Resolve descriptions for the explicitly declared modules
  * 4. Render proposal.md and metadata.yaml templates
  * 5. Validate the metadata, THEN write both artifacts to .prospec/changes/{name}/
  *    — the directory included, so a validation failure leaves nothing behind
@@ -69,6 +66,12 @@ export interface ChangeStoryResult {
  *    caller previewing a create sees exactly the failures a real run would)
  */
 export async function execute(options: ChangeStoryOptions): Promise<ChangeStoryResult> {
+  if (!Array.isArray(options.relatedModules)) {
+    throw new PrerequisiteError(
+      'Related module scope is unspecified or not an array',
+      'Determine the complete scope and pass --related-module <name> for each module, or --no-related-modules for an explicitly empty scope',
+    );
+  }
   const cwd = options.cwd ?? process.cwd();
   const changeName = options.name;
 
@@ -87,19 +90,13 @@ export async function execute(options: ChangeStoryOptions): Promise<ChangeStoryR
   }
   const priorAttempts = matchingAbandoned(history, options.issue);
 
-  // 3. Explicit modules win over keyword auto-matching from index.md.
-  // Keyed on the KEY's presence, not on the array being non-empty: a caller
-  // that resolved the modules itself and found none is stating a fact, and
-  // falling back to keyword guessing there attaches modules it just ruled out.
   const baseDir = resolveBasePaths(config, cwd).baseDir;
-  const relatedModules =
-    options.relatedModules !== undefined
-      ? options.relatedModules.map((name) => ({
-          name,
-          description:
-            matchRelatedModules(name, baseDir).find((m) => m.name === name)?.description ?? '',
-        }))
-      : matchRelatedModules(changeName, baseDir);
+  const index = readIndex(baseDir);
+  const indexedModules = index === null ? [] : parseIndexModules(index);
+  const relatedModules = options.relatedModules.map((name) => ({
+    name,
+    description: indexedModules.find((module) => module.name === name)?.description ?? '',
+  }));
 
   // 5. Write artifacts — proposal.md renders from its Markdown template;
   // metadata.yaml is pure data, serialized with the yaml library (the same
@@ -138,9 +135,7 @@ export async function execute(options: ChangeStoryOptions): Promise<ChangeStoryR
       revisions: [],
     },
     ...(options.scale ? ({ scale: options.scale } satisfies Partial<NewChangeMetadata>) : {}),
-    ...(relatedModules.length > 0
-      ? ({ related_modules: relatedModules.map((m) => m.name) } satisfies Partial<NewChangeMetadata>)
-      : {}),
+    related_modules: relatedModules.map((m) => m.name),
     ...(options.description
       ? ({ description: options.description } satisfies Partial<NewChangeMetadata>)
       : {}),
@@ -192,84 +187,4 @@ export async function execute(options: ChangeStoryOptions): Promise<ChangeStoryR
     description: options.description,
     priorAttempts,
   };
-}
-
-/**
- * Match related modules by comparing change name keywords against index.md.
- *
- * Reads the index.md Markdown table and matches keywords from module entries
- * against words extracted from the kebab-case change name.
- */
-function matchRelatedModules(
-  changeName: string,
-  baseDir: string,
-): RelatedModule[] {
-  const indexPath = path.join(baseDir, 'index.md');
-
-  let indexContent: string;
-  try {
-    indexContent = fs.readFileSync(indexPath, 'utf-8');
-  } catch {
-    // No index.md — return empty (not an error, just no modules to match)
-    return [];
-  }
-
-  // Extract words from kebab-case change name
-  const changeWords = changeName
-    .toLowerCase()
-    .split('-')
-    .filter((w) => w.length > 1);
-
-  if (changeWords.length === 0) return [];
-
-  // Parse index.md table rows against the canonical column schema
-  // (types/knowledge.ts): | Module | Keywords | Aliases | Status | Description | Rationale | Depends On |
-  const lines = indexContent.split('\n');
-  const modules: RelatedModule[] = [];
-
-  for (const line of lines) {
-    if (!line.startsWith('|')) continue;
-
-    // Position-stable cells: drop only the boundary empties from the surrounding
-    // pipes; keep empty middle cells so column indices stay aligned. Rows with
-    // fewer columns than the canonical schema (e.g. the Loading Rules table) are
-    // not module rows — skip them.
-    const cells = line.split('|').slice(1, -1).map((c) => c.trim());
-
-    // Skip header/separator rows by their ROW ROLE, not a whole-line substring:
-    // the separator row is all dash/colon cells; the header row's first cell is
-    // the literal 'Module' label. A data row whose Description contains '---'
-    // must NOT be mistaken for a separator (it was, under the old includes check).
-    if (cells.length > 0 && cells.every((c) => /^:?-+:?$/.test(c))) continue;
-    if (cells[INDEX_COLUMN.MODULE]?.toLowerCase() === 'module') continue;
-
-    if (cells.length < INDEX_TABLE_COLUMNS.length) continue;
-
-    // The Module cell is rendered bold (`**types**`); the module NAME is the
-    // undecorated text. Forwarding the cell verbatim writes a name no consumer
-    // can resolve to a directory, and proposal.md.hbs bolds it a second time.
-    const moduleName = stripCellEmphasis(cells[INDEX_COLUMN.MODULE] ?? '');
-    if (!moduleName) continue;
-    const keywordsCell = cells[INDEX_COLUMN.KEYWORDS];
-    if (!keywordsCell) continue;
-    // Drop empty keywords from stray/double commas — an empty keyword makes
-    // `word.includes(keyword)` true for every change, matching every module.
-    const keywords = keywordsCell
-      .toLowerCase()
-      .split(',')
-      .map((k) => k.trim())
-      .filter((k) => k.length > 0);
-    const description = cells[INDEX_COLUMN.DESCRIPTION] ?? '';
-
-    // Check if any change word matches any module keyword
-    const isMatch = changeWords.some((word) =>
-      keywords.some((keyword) => keyword.includes(word) || word.includes(keyword)),
-    );
-
-    if (isMatch) {
-      modules.push({ name: moduleName, description });
-    }
-  }
-
-  return modules;
 }

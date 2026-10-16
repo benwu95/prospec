@@ -1,4 +1,4 @@
-import { InvalidArgumentError, type Command } from 'commander';
+import { InvalidArgumentError, Option, type Command } from 'commander';
 import { formatChangeStoryOutput, formatChangeAcceptanceOutput } from '../formatters/change-story-output.js';
 import { handleError } from '../formatters/error-output.js';
 import type { GlobalOptions } from '../index.js';
@@ -8,7 +8,7 @@ import { resolveLogLevel } from '../log-level.js';
  * Register the `change` command group with `story` subcommand.
  *
  * Usage:
- *   prospec change story <name> [--description <desc>]
+ *   prospec change story <name> (--related-module <name> | --no-related-modules) [--description <desc>]
  *   prospec change story <name> --freeze-scenarios
  *   prospec change story <name> --amend-scenarios --reason <text> --expected-digest <sha256>
  *
@@ -27,10 +27,11 @@ export function registerChangeCommand(program: Command): void {
     .option('--description <desc>', 'Change description')
     .option(
       '--related-module <name>',
-      'Explicit related module (repeatable; overrides keyword auto-matching)',
+      'Declared related module (repeatable; or use --no-related-modules)',
       (value: string, previous: string[]) => [...previous, value],
       [] as string[],
     )
+    .addOption(new Option('--no-related-modules', 'Declare that no modules are related').conflicts('relatedModule'))
     .option(
       '--issue <ref>',
       'External tracker item this change belongs to (free-form: `#131`, a URL, another tracker id)',
@@ -57,6 +58,7 @@ export function registerChangeCommand(program: Command): void {
         options: {
           description?: string;
           relatedModule: string[];
+          relatedModules: boolean;
           issue?: string;
           freezeScenarios?: boolean;
           amendScenarios?: boolean;
@@ -71,9 +73,10 @@ export function registerChangeCommand(program: Command): void {
           if (
             options.description !== undefined ||
             options.relatedModule.length > 0 ||
+            options.relatedModules === false ||
             options.issue !== undefined
           ) {
-            throw new InvalidArgumentError(
+            program.error(
               'Mutation flags (--freeze-scenarios, --amend-scenarios) cannot be combined with create options',
             );
           }
@@ -113,14 +116,16 @@ export function registerChangeCommand(program: Command): void {
           return;
         }
 
+        if (options.relatedModule.length === 0 && options.relatedModules !== false) {
+          program.error('Declare scope with --related-module <name> or --no-related-modules');
+        }
+
         try {
           const { execute } = await import('../../services/change-story.service.js');
           const result = await execute({
             name,
             description: options.description,
-            ...(options.relatedModule.length > 0
-              ? { relatedModules: options.relatedModule }
-              : {}),
+            relatedModules: options.relatedModule,
             // `!== undefined`, not truthiness: a blank value is forwarded so the
             // service's `normalizeIssueRef` stays the ONE place blank is judged.
             ...(options.issue !== undefined ? { issue: options.issue } : {}),

@@ -16,10 +16,17 @@ export function registerChangeRelatedModulesCommand(program: Command): void {
 
   changeCmd
     .command('related-modules')
-    .description("Correct an existing change's related modules (registered names only; never drops one)")
-    .argument('<module...>', 'Every module the change affects')
+    .description("Replace an existing change's related-module scope (registered names or explicit empty)")
+    .argument('[module...]', 'Complete list of registered modules the change affects')
+    .option('--no-related-modules', 'Declare that no modules are related')
     .option('--change <name>', 'Specify the change name')
-    .action(async (modules: string[], options: { change?: string }) => {
+    .action(async (modules: string[], options: { change?: string; relatedModules: boolean }) => {
+      if (modules.length > 0 && options.relatedModules === false) {
+        program.error('Cannot combine module names with --no-related-modules');
+      }
+      if (modules.length === 0 && options.relatedModules !== false) {
+        program.error('Declare scope with module names or --no-related-modules');
+      }
       const globalOpts = program.opts<GlobalOptions>();
       const logLevel = resolveLogLevel(globalOpts);
       try {

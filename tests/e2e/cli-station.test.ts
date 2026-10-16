@@ -42,7 +42,7 @@ describe('CLI E2E — station commands', () => {
       JSON.stringify({ name: 'station-test' }),
     );
     await runCli(['init', '--name', 'station-test', '--agents', 'claude']);
-    await runCli(['change', 'story', name, '--description', 'station test change']);
+    await runCli(['change', 'story', name, '--no-related-modules', '--description', 'station test change']);
       await authorPremise(name);
     return path.join(tmpDir, '.prospec', 'changes', name);
   }
@@ -68,7 +68,7 @@ describe('CLI E2E — station commands', () => {
       );
       await runCli(['init', '--name', 'station-test', '--agents', 'claude']);
       const { exitCode, stderr } = await runCli([
-        'change', 'story', 'fix-it', '--description', 'x', '--introduced-by', 'offender',
+        'change', 'story', 'fix-it', '--no-related-modules', '--description', 'x', '--introduced-by', 'offender',
       ]);
       expect(exitCode).not.toBe(0);
       expect(stderr).toContain("unknown option '--introduced-by'");
@@ -199,7 +199,7 @@ describe('CLI E2E — station commands', () => {
       it('names the configured host root, not a hardcoded one', async () => {
         await fs.promises.writeFile(path.join(tmpDir, 'package.json'), JSON.stringify({ name: 'station-test' }));
         await runCli(['init', '--name', 'station-test', '--agents', 'codex']);
-        await runCli(['change', 'story', 'codex-change', '--description', 'host test']);
+        await runCli(['change', 'story', 'codex-change', '--no-related-modules', '--description', 'host test']);
       await authorPremise('codex-change');
         const change = await mapOf('codex-change');
         expect(change.nextSkillPath?.startsWith('.agents/skills/')).toBe(true);
@@ -319,7 +319,7 @@ describe('CLI E2E — station commands', () => {
         tplReadme,
         '# Templates\n\n<!-- prospec:auto-start -->\ncontent\n<!-- prospec:auto-end -->\n',
       );
-      await runCli(['change', 'story', 'my-change', '--description', 'x']);
+      await runCli(['change', 'story', 'my-change', '--no-related-modules', '--description', 'x']);
       await authorPremise('my-change');
       const changeDir = path.join(tmpDir, '.prospec', 'changes', 'my-change');
       // delta-spec names ONLY a templates REQ (module-prefix → templates)
@@ -925,7 +925,7 @@ quality_log:
 
 it('reports source mutation during tests and refuses archive through normal command entry', async () => {
   await runCli(['init', '--name', 'mutation', '--agents', 'claude']);
-  await runCli(['change', 'story', 'mutation', '--description', 'fixture']);
+  await runCli(['change', 'story', 'mutation', '--no-related-modules', '--description', 'fixture']);
       await authorPremise('mutation');
   await recordCliEvidence(tmpDir, 'mutation');
   await runCli(['change', 'status', 'implemented']);
@@ -961,7 +961,7 @@ describe('change log --verifier-report (REQ-CLI-053, issue #266)', () => {
   };
   async function initChange(): Promise<string> {
     await runCli(['init', '--name', 'e2e', '--agents', 'claude']);
-    await runCli(['change', 'story', 'plan-me', '--description', 'fixture']);
+    await runCli(['change', 'story', 'plan-me', '--no-related-modules', '--description', 'fixture']);
       await authorPremise('plan-me');
     const proposalPath = path.join(tmpDir, '.prospec/changes/plan-me/proposal.md');
     await fs.promises.writeFile(
@@ -1049,7 +1049,7 @@ describe('opt-in plan sign-off pause through the CLI (REQ-TESTS-124)', () => {
   };
   async function initFullPlan(): Promise<string> {
     await runCli(['init', '--name', 'e2e', '--agents', 'claude']);
-    await runCli(['change', 'story', 'pick-arch', '--description', 'fixture']);
+    await runCli(['change', 'story', 'pick-arch', '--no-related-modules', '--description', 'fixture']);
       await authorPremise('pick-arch');
     const dir = path.join(tmpDir, '.prospec/changes/pick-arch');
     await fs.promises.writeFile(
@@ -1114,7 +1114,7 @@ describe('opt-in plan sign-off pause through the CLI (REQ-TESTS-124)', () => {
   it('standard: pause → `--signoff plan` without candidates → tasks; a plan edit needs a new verifier report first', async () => {
     await runCli(['init', '--name', 'e2e', '--agents', 'claude']);
     fs.appendFileSync(path.join(tmpDir, '.prospec.yaml'), 'workflow:\n  pause_at: [plan]\n');
-    await runCli(['change', 'story', 'steer', '--description', 'fixture']);
+    await runCli(['change', 'story', 'steer', '--no-related-modules', '--description', 'fixture']);
     const dir = path.join(tmpDir, '.prospec/changes/steer');
     fs.writeFileSync(
       path.join(dir, 'proposal.md'),
@@ -1167,7 +1167,7 @@ describe('fresh-test gates through the CLI (REQ-SERVICES-103, REQ-CLI-028, REQ-C
   async function initTasksDone(name: string): Promise<void> {
     fs.writeFileSync(path.join(tmpDir, 'package.json'), JSON.stringify({ name: 'gate-test' }));
     await runCli(['init', '--name', 'gate-test', '--agents', 'claude']);
-    await runCli(['change', 'story', name, '--description', 'gate fixture']);
+    await runCli(['change', 'story', name, '--no-related-modules', '--description', 'gate fixture']);
       await authorPremise(name);
     fs.writeFileSync(path.join(tmpDir, '.prospec/changes', name, 'tasks.md'), '- [x] T1 done ~1 lines\n');
     await runCli(['change', 'status', 'tasks']);
@@ -1279,7 +1279,7 @@ describe('fresh-test gates through the CLI (REQ-SERVICES-103, REQ-CLI-028, REQ-C
         JSON.stringify({ name: 'review-counts-test' }),
       );
       await runCli(['init', '--name', 'review-counts-test', '--agents', 'claude']);
-      await runCli(['change', 'story', name, '--description', 'review counts change']);
+      await runCli(['change', 'story', name, '--no-related-modules', '--description', 'review counts change']);
       await authorPremise(name);
       return path.join(tmpDir, '.prospec', 'changes', name);
     }
@@ -1363,7 +1363,7 @@ describe('fresh-test gates through the CLI (REQ-SERVICES-103, REQ-CLI-028, REQ-C
       await runCli(['agent', 'sync']);
 
       // Create a change
-      await runCli(['change', 'story', 'clean-change', '--description', 'clean change test']);
+      await runCli(['change', 'story', 'clean-change', '--no-related-modules', '--description', 'clean change test']);
       await authorPremise('clean-change');
 
       const emptyFindings = path.join(tmpDir, 'empty.json');
@@ -1438,7 +1438,7 @@ describe('fresh-test gates through the CLI (REQ-SERVICES-103, REQ-CLI-028, REQ-C
       git('commit', '-qm', 'initial');
 
       // 1. Authored story
-      await runCli(['change', 'story', 'feat-auth', '--description', 'User authentication flow']);
+      await runCli(['change', 'story', 'feat-auth', '--no-related-modules', '--description', 'User authentication flow']);
       await authorPremise('feat-auth');
       const proposalPath = path.join(tmpDir, '.prospec', 'changes', 'feat-auth', 'proposal.md');
       const proposalContent = [
@@ -1616,7 +1616,7 @@ describe('CLI E2E — delegation tickets (REQ-TESTS-125, REQ-CLI-057)', () => {
   async function setup(): Promise<string> {
     write('package.json', JSON.stringify({ name: 'delegation-test' }));
     await runCli(['init', '--name', 'delegation-test', '--agents', 'claude']);
-    await runCli(['change', 'story', 'my-change', '--description', 'delegation test change']);
+    await runCli(['change', 'story', 'my-change', '--no-related-modules', '--description', 'delegation test change']);
       await authorPremise('my-change');
     write('.gitignore', '.prospec/\n');
     git('init', '-q', '-b', 'main');

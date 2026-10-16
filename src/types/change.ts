@@ -550,6 +550,7 @@ const ChangeMetadataShape = {
   // Written by new-story after user-confirmed complexity assessment (BL-004).
   // Optional keeps existing metadata valid; absent reads as `standard`.
   scale: z.enum(CHANGE_SCALES).optional(),
+  // Absence is unspecified scope; [] preserves the caller's declaration of none.
   related_modules: z.array(BareModuleNameSchema).optional(),
   description: z.string().optional(),
   // Entry/Exit gate trail (BL-003).

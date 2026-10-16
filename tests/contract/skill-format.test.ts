@@ -5527,8 +5527,11 @@ describe('scale adapter — archive quick gates and kind-aware completion (REQ-T
     const gate = sectionOf(render(), '## Entry Gate');
     expect(gate).toContain('**actual diff file paths**');
     expect(gate).toContain('module-map.yaml');
-    expect(gate).toContain('empty set and would silently pass');
-    expect(gate).toContain('The path mapping is deterministic');
+    const quick = gate.split('\n').find((line) => line.includes('**`metadata.scale: quick`**'));
+    expect(quick).toBeDefined();
+    expect(quick).toContain('The CLI derives its set from `metadata.related_modules` only');
+    expect(quick).toContain('absent scope refuses as `KNOWLEDGE_INPUT_INVALID`');
+    expect(quick).toContain('explicit empty does **not** backstop this diff-path check');
   });
 
   it('Entry Gate quick spec-impact check blocks on impact and records no-impact diagnostics', () => {

@@ -57,7 +57,7 @@ function seed(opts: {
   scale?: string;
 } = {}): void {
   const files: Record<string, string> = {
-    [META]: `name: ${CHANGE}\ncreated_at: 2026-07-01T00:00:00.000Z\nstatus: verified\nscale: ${opts.scale ?? 'standard'}\n`,
+    [META]: `name: ${CHANGE}\ncreated_at: 2026-07-01T00:00:00.000Z\nstatus: verified\nscale: ${opts.scale ?? 'standard'}\nrelated_modules: [lib]\n`,
     [`/repo/.prospec/changes/${CHANGE}/delta-spec.md`]:
       '# Delta\n\n## ADDED\n\n### REQ-LIB-001: x\n\n**Feature:** alpha\n**Story:** US-1\n\n**Description:**\nd.\n\n---\n',
   };
@@ -75,6 +75,22 @@ describe('archive Entry Gate (mechanized)', () => {
     const result = await run();
     expect(result.refused).toEqual([]);
     expect(result.planned.length).toBeGreaterThan(0);
+  });
+
+  it.each([false, true])('refuses legacy unspecified scope with a public correction remedy (delta present %s)', async (hasDelta) => {
+    seed();
+    const metadata = String(vol.readFileSync(META, 'utf8')).replace('related_modules: [lib]\n', '');
+    vol.writeFileSync(META, metadata);
+    if (!hasDelta) vol.unlinkSync(`/repo/.prospec/changes/${CHANGE}/delta-spec.md`);
+    const result = await run();
+    expect(result.archived).toEqual([]);
+    expect(result.planned).toEqual([]);
+    expect(result.refused).toHaveLength(1);
+    expect(result.refused[0]!.reason).toContain('KNOWLEDGE_INPUT_INVALID');
+    expect(result.refused[0]!.reason).toContain('scope is unspecified');
+    expect(result.refused[0]!.reason).toContain(`prospec change related-modules <module...> --change ${CHANGE}`);
+    expect(result.refused[0]!.reason).toContain(`prospec change related-modules --no-related-modules --change ${CHANGE}`);
+    expect(vol.readFileSync(META, 'utf8')).toBe(metadata);
   });
 
   it('refuses on metadata-completeness FAIL, naming it', async () => {

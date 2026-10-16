@@ -2,6 +2,7 @@ import * as path from 'node:path';
 import { PrerequisiteError } from '../types/errors.js';
 import { readConfig, resolveBasePaths } from '../lib/config.js';
 import { readChangeMetadata, writeChangeMetadataDoc } from '../lib/change-metadata.js';
+import { captureFileInputs } from '../lib/fs-utils.js';
 import { readKnownModules } from '../lib/knowledge-sync.js';
 import { resolveChange } from './change-resolver.js';
 
@@ -21,19 +22,12 @@ export interface ChangeRelatedModulesResult {
   changed: boolean;
 }
 
-/**
- * `prospec change related-modules <module...>` — replace an existing change's
- * `related_modules`, the one field `prospec change story` otherwise writes only
- * at creation. Names are judged by the module map the knowledge-sync gate
- * reads, and a registered module can never be removed: the gate checks every
- * `related_modules` name, so dropping one would let this command narrow it.
- * Every refusal happens before the write, leaving the file byte-identical.
- */
+/** Replace the complete declared scope, preserving every other metadata field. */
 export async function execute(options: ChangeRelatedModulesOptions): Promise<ChangeRelatedModulesResult> {
-  if (options.modules.length === 0) {
+  if (!Array.isArray(options.modules)) {
     throw new PrerequisiteError(
-      'no module named',
-      'Pass every module the change affects: `prospec change related-modules <module...>`',
+      'Related module scope is unspecified or not an array',
+      'Pass the complete list with `prospec change related-modules <module...>`, or --no-related-modules for an explicitly empty scope',
     );
   }
   const cwd = options.cwd ?? process.cwd();
@@ -44,6 +38,7 @@ export async function execute(options: ChangeRelatedModulesOptions): Promise<Cha
     'Which change should the related modules be written to?',
   );
   const metadataPath = path.join(cwd, '.prospec', 'changes', changeName, 'metadata.yaml');
+  const inputs = captureFileInputs({ metadata: metadataPath });
   const { doc, metadata } = readChangeMetadata(metadataPath, changeName);
 
   const { knowledgePath } = resolveBasePaths(await readConfig(cwd), cwd);
@@ -64,19 +59,17 @@ export async function execute(options: ChangeRelatedModulesOptions): Promise<Cha
 
   const modules = [...new Set(options.modules.map((m) => known.get(m.toLowerCase())!))];
   const from = metadata.related_modules ?? [];
-  const kept = new Set(modules.map((m) => m.toLowerCase()));
-  const dropped = from.filter((m) => known.has(m.toLowerCase()) && !kept.has(m.toLowerCase()));
-  if (dropped.length > 0) {
-    throw new PrerequisiteError(
-      `removing a registered module would narrow the knowledge-sync gate: ${dropped.join(', ')}`,
-      `Keep ${dropped.join(', ')} in the list; only a name module-map.yaml does not register may be dropped`,
-    );
-  }
 
-  if (from.length === modules.length && from.every((m, i) => m === modules[i])) {
+  if (doc.has('related_modules') && from.length === modules.length && from.every((m, i) => m === modules[i])) {
     return { changeName, from, modules, changed: false };
   }
   doc.set('related_modules', modules);
+  if (!inputs.recheck()) {
+    throw new PrerequisiteError(
+      'Change metadata changed while determining related modules',
+      'Review the current metadata and retry the complete scope declaration',
+    );
+  }
   await writeChangeMetadataDoc(metadataPath, doc, changeName);
   return { changeName, from, modules, changed: true };
 }

@@ -348,6 +348,15 @@ export async function execute(options: AutoDraftOptions = {}): Promise<AutoDraft
       remedies,
     };
 
+    if (module === undefined) {
+      results.push({
+        ...base,
+        action: 'failed',
+        skipReason: 'Module scope is unknown; determine the complete scope and create the change explicitly with `prospec change story <name> --related-module <module>` or --no-related-modules',
+      });
+      continue;
+    }
+
     const proposalContent = buildAutoDraftProposal({
       target,
       checkId,
@@ -368,10 +377,7 @@ export async function execute(options: AutoDraftOptions = {}): Promise<AutoDraft
       await changeStoryExecute({
         cwd,
         name: changeName,
-        // ALWAYS passed, empty included: an omitted key falls through to
-        // change-story's index.md keyword matching, which would attach four
-        // guessed modules to a change whose subject could not be attributed.
-        relatedModules: module !== undefined ? [module] : [],
+        relatedModules: [module],
         scale,
         proposalBody: proposalContent,
         ...(options.issue !== undefined ? { issue: normalizeIssueRef(options.issue) } : {}),

@@ -4,7 +4,7 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg?style=flat-square)](LICENSE)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.9-blue?style=flat-square&logo=typescript)](https://www.typescriptlang.org/)
-[![測試](https://img.shields.io/badge/測試-8295%20總計-success?style=flat-square)](./CONTRIBUTING.md#testing)
+[![測試](https://img.shields.io/badge/測試-8359%20總計-success?style=flat-square)](./CONTRIBUTING.md#testing)
 [![Node](https://img.shields.io/badge/node-%3E%3D22.13-brightgreen?style=flat-square&logo=node.js)](https://nodejs.org/)
 [![pnpm](https://img.shields.io/badge/pnpm-%3E%3D11-orange?style=flat-square&logo=pnpm)](https://pnpm.io/)
 
@@ -143,7 +143,7 @@ Agent 接手需求並執行 prospec-ff：
                            → 你核准 commit 與 archive ✓
 ```
 
-cascade 只會在需要釐清、gate 或 circuit breaker 失敗、適用時的 plan 簽核，以及最後的 Tastemaker 簽核時暫停；沒有你明確同意，它不會 commit、push 或 archive。暫停規則見 [AI Skills 與工作流程](./docs/concepts/workflow.zh-TW.md#cascade-與暫停)；自己逐站驅動，以及完整的 Greenfield／Brownfield 流程，見[入門指南](./docs/getting-started.zh-TW.md#3-跑你的第一個變更在-ai-agent-中)。
+cascade 只會在需要釐清、gate 或 circuit breaker 失敗、適用時的 plan 簽核，以及最後的 Tastemaker 簽核時暫停；沒有你明確同意，它不會 commit、push 或 archive。暫停規則見 [AI Skills 與工作流程](./docs/concepts/workflow.zh-TW.md#cascade-與暫停)；自己逐站驅動，以及完整的 Greenfield／Brownfield 流程，見[入門指南](./docs/getting-started.zh-TW.md#3-跑你的第一個變更在-ai-agent-中)。 直接用 CLI 建立時必須明確宣告 scope：`prospec change story <name> --related-module <module>`（可重複），或判斷無關聯後用 `prospec change story <name> --no-related-modules`。Skills 在建立骨架前判斷 scope，並於 proposal 具體化後對帳。Legacy 或錯誤 scope 透過 `prospec change related-modules` 更正；breaking changes 與遷移方式見 [CLI 參考](./docs/reference/cli-reference.zh-TW.md)。
 
 Worktree 模式下，active changes 留在來源的 `.prospec/changes/`；完整 archive／abandoned bundles 保存於 main worktree 對應專案的 `.prospec/archive/`／`.prospec/abandoned/`。用 `prospec history paths --json` 查看實際位置；既有本地歷史先以 `prospec history import --from <project-root> --dry-run` 檢查。Summary 編輯使用回傳的 `archivePath`，並在移除來源 worktree 前以 `prospec archive finalize <name> --bundle <archiveIdentity>` 完成來源 spec history。此保存機制不等於 Git 備份，也不會還原工作。
 

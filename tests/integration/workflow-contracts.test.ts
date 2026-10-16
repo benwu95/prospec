@@ -39,7 +39,7 @@ const bytes = (): Record<string, string> =>
       .map((e) => [path.relative(root, path.join(e.parentPath, e.name)), readFileSync(path.join(e.parentPath, e.name)).toString('base64')]),
   );
 const seedChange = (name: string, extra: Record<string, string> = {}) => {
-  write(`.prospec/changes/${name}/metadata.yaml`, `name: ${name}\ncreated_at: "2026-09-05"\nstatus: implemented\nscale: full\n`);
+  write(`.prospec/changes/${name}/metadata.yaml`, `name: ${name}\ncreated_at: "2026-09-05"\nstatus: implemented\nscale: full\nrelated_modules: []\n`);
   write(`.prospec/changes/${name}/delta-spec.md`, '# Delta Spec\n\n## ADDED\n');
   write(`.prospec/changes/${name}/tasks.md`, '- [x] T1 Implement fixture behavior\n');
   for (const [file, text] of Object.entries(extra)) write(`.prospec/changes/${name}/${file}`, text);
@@ -73,7 +73,7 @@ describe('per-change gates (REQ-LIB-071, REQ-SERVICES-102, REQ-TEMPLATES-131)', 
     // current evidence — the shape that used to refuse A at archive.
     write(
       '.prospec/changes/b/metadata.yaml',
-      'name: b\ncreated_at: "2026-09-05"\nstatus: verified\nscale: full\nquality_log:\n  - skill: prospec-verify\n    date: 2026-09-05\n    result: PASS\n    warnings: []\n    grade: A\n',
+      'name: b\ncreated_at: "2026-09-05"\nstatus: verified\nscale: full\nrelated_modules: []\nquality_log:\n  - skill: prospec-verify\n    date: 2026-09-05\n    result: PASS\n    warnings: []\n    grade: A\n',
     );
 
     // repo-wide check still names B's gaps
@@ -96,7 +96,7 @@ describe('per-change gates (REQ-LIB-071, REQ-SERVICES-102, REQ-TEMPLATES-131)', 
   });
 
   it('a proven backfill (no tasks.md by contract) is not refused for task-completion; an unproven one is', async () => {
-    write('.prospec/changes/bf/metadata.yaml', 'name: bf\ncreated_at: "2026-09-05"\nstatus: implemented\nscale: backfill\n');
+    write('.prospec/changes/bf/metadata.yaml', 'name: bf\ncreated_at: "2026-09-05"\nstatus: implemented\nscale: backfill\nrelated_modules: []\n');
     write('.prospec/changes/bf/delta-spec.md', '# Delta Spec\n\n## ADDED\n');
     write('.prospec/changes/bf/backfill-draft.md', '**Feature:** legacy\n**Story:** US-1\n');
     git('add', '.');

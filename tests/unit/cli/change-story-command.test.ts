@@ -1,8 +1,13 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { Command } from 'commander';
+import { registerChangeRelatedModulesCommand } from '../../../src/cli/commands/change-related-modules.js';
+import { execute as executeRelated } from '../../../src/services/change-related-modules.service.js';
 import { registerChangeCommand } from '../../../src/cli/commands/change-story.js';
 import { execute as executeAcceptance } from '../../../src/services/change-acceptance.service.js';
 import { execute as executeStory } from '../../../src/services/change-story.service.js';
+
+vi.mock('../../../src/services/change-related-modules.service.js', () => ({ execute: vi.fn() }));
+vi.mock('../../../src/cli/formatters/change-related-modules-output.js', () => ({ formatChangeRelatedModulesOutput: vi.fn() }));
 
 vi.mock('../../../src/services/change-acceptance.service.js', () => ({
   execute: vi.fn(),
@@ -112,7 +117,7 @@ describe('change story command grammar and mutation delegation (REQ-SERVICES-114
   });
 
   it('refuses when --freeze-scenarios is combined with create-only options', async () => {
-    const program = new Command();
+    const program = new Command().exitOverride();
     registerChangeCommand(program);
 
     await expect(
@@ -163,5 +168,53 @@ describe('change story command grammar and mutation delegation (REQ-SERVICES-114
         'some reason',
       ]),
     ).rejects.toThrow(/--amend-scenarios requires --expected-digest/i);
+  });
+});
+
+
+describe('explicit scope command inputs', () => {
+  const programForScope = () => {
+    const program = new Command().exitOverride().configureOutput({ writeErr: () => {} });
+    registerChangeCommand(program);
+    registerChangeRelatedModulesCommand(program);
+    return program;
+  };
+  beforeEach(() => { vi.mocked(executeStory).mockReset(); vi.mocked(executeRelated).mockReset(); });
+  it('refuses omitted creation scope before invoking the creator', async () => {
+    await expect(programForScope().parseAsync(['node', 'prospec', 'change', 'story', 'scoped'])).rejects.toThrow(/related-module|scope/i);
+    expect(executeStory).not.toHaveBeenCalled();
+  });
+  it('forwards a declared complete list', async () => {
+    await programForScope().parseAsync(['node', 'prospec', 'change', 'story', 'scoped', '--related-module', 'lib', '--related-module', 'services']);
+    expect(executeStory).toHaveBeenCalledWith(expect.objectContaining({ name: 'scoped', relatedModules: ['lib', 'services'] }));
+  });
+  it('forwards an explicit empty creation scope', async () => {
+    await programForScope().parseAsync(['node', 'prospec', 'change', 'story', 'scoped', '--no-related-modules']);
+    expect(executeStory).toHaveBeenCalledWith(expect.objectContaining({ relatedModules: [] }));
+  });
+  it.each([
+    ['--related-module', 'lib', '--no-related-modules'],
+    ['--no-related-modules', '--related-module', 'lib'],
+  ])('refuses conflicting creation declarations %j', async (...flags) => {
+    await expect(programForScope().parseAsync(['node', 'prospec', 'change', 'story', 'scoped', ...flags])).rejects.toThrow(/cannot|conflict/i);
+    expect(executeStory).not.toHaveBeenCalled();
+  });
+  it.each(['--freeze-scenarios', '--amend-scenarios'])('rejects explicit empty in mutation mode %s', async mode => {
+    await expect(programForScope().parseAsync(['node', 'prospec', 'change', 'story', 'scoped', mode, '--no-related-modules'])).rejects.toThrow(/create options/i);
+    expect(executeStory).not.toHaveBeenCalled();
+  });
+  it('refuses correction with no declaration', async () => {
+    await expect(programForScope().parseAsync(['node', 'prospec', 'change', 'related-modules', '--change', 'scoped'])).rejects.toThrow(/related-module|scope|module/i);
+    expect(executeRelated).not.toHaveBeenCalled();
+  });
+  it('forwards complete correction and explicit empty through the existing service', async () => {
+    await programForScope().parseAsync(['node', 'prospec', 'change', 'related-modules', 'lib', '--change', 'scoped']);
+    expect(executeRelated).toHaveBeenLastCalledWith(expect.objectContaining({ change: 'scoped', modules: ['lib'] }));
+    await programForScope().parseAsync(['node', 'prospec', 'change', 'related-modules', '--change', 'scoped', '--no-related-modules']);
+    expect(executeRelated).toHaveBeenLastCalledWith(expect.objectContaining({ change: 'scoped', modules: [] }));
+  });
+  it('rejects correction mixing names and empty', async () => {
+    await expect(programForScope().parseAsync(['node', 'prospec', 'change', 'related-modules', 'lib', '--change', 'scoped', '--no-related-modules'])).rejects.toThrow(/cannot|conflict/i);
+    expect(executeRelated).not.toHaveBeenCalled();
   });
 });

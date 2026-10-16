@@ -63,6 +63,7 @@ function metadataYaml(fields: { name: string; status: string; scale?: string; ex
     `created_at: 2026-01-01T00:00:00.000Z\n` +
     `status: ${fields.status}\n` +
     (fields.scale === undefined ? '' : `scale: ${fields.scale}\n`) +
+    (fields.extra?.includes('related_modules:') ? '' : 'related_modules: []\n') +
     (fields.extra ?? '')
   );
 }
@@ -423,7 +424,7 @@ describe('status.service — issue registration (issue #131)', () => {
 });
 
 describe('status.service — knowledge-aware routing at verified', () => {
-  it('routes verified to archive when change has no affected modules', async () => {
+  it('routes verified to archive with declared empty scope and no delta-spec', async () => {
     vol.fromJSON({
       [`${CWD}/.prospec/changes/a-change/metadata.yaml`]: metadataYaml({
         name: 'a-change',
@@ -433,6 +434,21 @@ describe('status.service — knowledge-aware routing at verified', () => {
     const report = await execute({ cwd: CWD });
     expect(report.changes[0]?.next).toBe('archive');
     expect(routedFacts[0]?.knowledgeSyncReasons).toEqual([]);
+  });
+
+  it.each(['standard', 'quick'])('halts legacy unspecified scope at verified for %s and leaves metadata unchanged', async (scale) => {
+    const metadata = metadataYaml({ name: 'legacy', status: 'verified', scale }).replace('related_modules: []\n', '');
+    const metadataPath = `${CWD}/.prospec/changes/legacy/metadata.yaml`;
+    vol.fromJSON({ [metadataPath]: metadata });
+    const report = await execute({ cwd: CWD });
+    expect(report.errors).toEqual([]);
+    expect(report.changes[0]).toMatchObject({ next: null, code: 'KNOWLEDGE_INPUT_INVALID' });
+    const reasons = routedFacts[0]!.knowledgeSyncReasons;
+    expect(reasons.map((reason) => reason.code)).toEqual(['KNOWLEDGE_INPUT_INVALID']);
+    expect(reasons[0]!.message).toContain('scope is unspecified');
+    expect(reasons[0]!.remediation).toContain('prospec change related-modules <module...> --change legacy');
+    expect(reasons[0]!.remediation).toContain('prospec change related-modules --no-related-modules --change legacy');
+    expect(vol.readFileSync(metadataPath, 'utf8')).toBe(metadata);
   });
 
   // #310 R1-5: knowledge-update cannot register a mistyped related_modules name,
@@ -578,7 +594,7 @@ describe('status.service — knowledge-aware routing at verified', () => {
     expect(routedFacts[0]?.knowledgeSyncReasons).toEqual([]);
   });
 
-  it('derives affected modules from delta-spec.md when related_modules is omitted', async () => {
+  it('derives affected modules from delta-spec.md with declared empty scope', async () => {
     vol.fromJSON({
       [`${CWD}/.prospec/changes/a-change/metadata.yaml`]: metadataYaml({
         name: 'a-change',

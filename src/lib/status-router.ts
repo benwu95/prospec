@@ -434,7 +434,7 @@ const VERIFIED_BRANCH: RouteBranch = {
       code: 'KNOWLEDGE_INPUT_INVALID',
       next: null,
       gates: () => [
-        `knowledge-sync inputs repaired — every delta-spec REQ id canonical, module-map.yaml readable; resolve ${RELATED_MODULE_HALT_CONDITION}`,
+        `knowledge-sync inputs repaired — related_modules scope declared, every delta-spec REQ id canonical, module-map.yaml readable; resolve ${RELATED_MODULE_HALT_CONDITION}`,
       ],
       reasons: (c) => [
         'status `verified` — a knowledge-sync input no station repairs blocks archive; prospec-knowledge-update cannot fix it, so repair it and re-run prospec status',

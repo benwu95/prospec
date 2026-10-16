@@ -50,6 +50,8 @@
 
 ## Pitfalls
 
+- Story creation requires repeatable `--related-module` or `--no-related-modules`; freeze/amend reject creation options. Related-modules correction accepts a complete registered list or explicit empty, with missing/conflicting declarations refused.
+
 - `formatTestEvidenceReuse` renders the original attempt/date/command/exit/policy from certified service facts on check, review, change-status and verify. Sanitize each field to one terminal line; formatters never infer reuse from missing findings.
 
 - Delegation formatters render the service assessment, sanitize every ref/reason, and distinguish allowed refs/stash prefixes from protected changes and unreadable facts. Receipt success and shared settlement output claim ticket-policy acceptance, never raw five-facet equality or actor attribution. Keep `change-delegate-output` and `delegation-settlement-output` wording aligned.

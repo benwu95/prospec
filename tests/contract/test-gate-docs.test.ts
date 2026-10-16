@@ -87,12 +87,7 @@ describe('docs/reference/cli-reference*.md — knowledge update never retires a 
 
 describe('docs/reference/cli-reference*.md — related_modules correction and the knowledge-sync input halt (REQ-CLI-060, REQ-CLI-039)', () => {
   const docs = { en: read('docs/reference/cli-reference.md'), zh: read('docs/reference/cli-reference.zh-TW.md') };
-  const neverRemoves = { en: 'never removes a registered module', zh: '絕不移除已註冊模組' } as const;
-  // the Behavior sentence, not a token: an entry inverted to "may remove" must go red
-  const entryRule = {
-    en: 'It never removes a registered module — that would narrow the knowledge-sync gate',
-    zh: '絕不移除已註冊模組——那會讓 knowledge-sync 閘門變窄',
-  } as const;
+  const replacement = { en: 'complete replacement', zh: '完整取代' } as const;
   // a related_modules name an ADDED REQ also produces is knowledge-update's to create:
   // only the related-only name halts, so the qualifier is part of the rule
   const haltRoute = {
@@ -119,16 +114,18 @@ describe('docs/reference/cli-reference*.md — related_modules correction and th
     },
   );
 
-  it.each(Object.entries(docs))('%s documents `prospec change related-modules` and its no-narrowing rule', (lang, doc) => {
+  it.each(Object.entries(docs))('%s documents `prospec change related-modules` and its complete replacement and explicit empty modes', (lang, doc) => {
     const entry = entryOf(doc, 'prospec change related-modules');
     expect(entry).toContain('related_modules');
     expect(entry).toContain('module-map.yaml');
-    expect(entry).toContain(entryRule[lang as keyof typeof entryRule]);
+    expect(entry).toContain(replacement[lang as keyof typeof replacement]);
+    expect(entry).toContain('--no-related-modules');
+    expect(entry).toMatch(/omitt|省略/);
     // every refusal of an untrustworthy map, the outside-root one included
     expect(entry).toContain(lang === 'en' ? 'resolves outside the knowledge root, refuses' : '解析到 knowledge root 之外時，以該原因拒收');
     const row = doc.split('\n').find((l) => l.startsWith('| `prospec change related-modules'));
     expect(row, 'summary row missing').toBeDefined();
-    expect(row).toContain(neverRemoves[lang as keyof typeof neverRemoves]);
+    expect(row).toContain('--no-related-modules');
     const story = entryOf(doc, 'prospec change story');
     expect(story.split('\n').find((l) => l.includes('--related-module'))).toContain('prospec change related-modules');
   });
@@ -146,4 +143,28 @@ describe('docs/reference/cli-reference*.md — related_modules correction and th
     expect(bullet).not.toMatch(haltClauseRoutesToUpdate);
     expect(entry).toMatch(/`AWAITING_HUMAN_PLAN_SIGNOFF`[^\n]*`KNOWLEDGE_INPUT_INVALID`[^\n]*`code`/);
   });
+});
+
+describe('public documentation — explicit scope migration', () => {
+  it.each(['docs/reference/cli-reference.md', 'docs/reference/cli-reference.zh-TW.md'])(
+    '%s separates creation scope from baseline modes and documents the intentional breaks', (file) => {
+      const doc = read(file);
+      const story = entryOf(doc, 'prospec change story');
+      for (const token of ['--related-module', '--no-related-modules', '--freeze-scenarios', '--amend-scenarios']) expect(story).toContain(token);
+      expect(story).not.toMatch(/auto-matching|自動比對/);
+      const migration = doc.split('\n').find((line) => line.includes('related_modules') && line.includes('breaking'));
+      expect(migration).toBeDefined();
+      for (const token of ['KNOWLEDGE_INPUT_INVALID', 'prospec change related-modules', '--no-related-modules', 'auto-draft']) expect(migration).toContain(token);
+      const draft = entryOf(doc, 'prospec change auto-draft');
+      expect(draft).toContain('failed');
+    },
+  );
+  it.each(['README.md', 'README.zh-TW.md'])(
+    '%s tells direct CLI callers to declare scope explicitly', (file) => {
+      const doc = read(file);
+      expect(doc).toContain('prospec change story <name> --related-module <module>');
+      expect(doc).toContain('prospec change story <name> --no-related-modules');
+      expect(doc).toContain('prospec change related-modules');
+    },
+  );
 });

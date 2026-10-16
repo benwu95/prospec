@@ -81,7 +81,7 @@ describe('terminal history survives normal Git worktree removal', () => {
     expect(report.clean).toBe(false);
     expect(report.errors.length).toBeGreaterThan(0);
     expect(report.changes.map(change => change.name)).toContain('active');
-    await expect(story({ cwd: source, name: 'retry', issue: '#366', scale: 'quick' })).rejects.toThrow(/history/i);
+    await expect(story({ relatedModules: [], cwd: source, name: 'retry', issue: '#366', scale: 'quick' })).rejects.toThrow(/history/i);
     expect(image(root)).toEqual(before);
   });
   it('archives full artifacts, finalizes only source specs, and preserves canonical inventory for sibling learn', async () => {
@@ -136,7 +136,7 @@ describe('terminal history survives normal Git worktree removal', () => {
     expect(inventoryTree(bundle)).toEqual(savedInventory);
     const archived = readAbandonedAttempt(sibling, path.basename(bundle));
     expect(archived.reason).toBe('Premise disproved');
-    const retry = await story({ cwd: sibling, name: 'retry', issue: '#366', scale: 'full', proposalBody: premiseProposal({ ...verifiedPremise, source: 'user-observation', retry_difference: 'This attempt preserves full bundles in canonical history before removing the source worktree.' }) });
+    const retry = await story({ relatedModules: [], cwd: sibling, name: 'retry', issue: '#366', scale: 'full', proposalBody: premiseProposal({ ...verifiedPremise, source: 'user-observation', retry_difference: 'This attempt preserves full bundles in canonical history before removing the source worktree.' }) });
     expect(retry.priorAttempts).toHaveLength(1);
     const metadata = readChangeMetadata(path.join(retry.changeDir, 'metadata.yaml'), 'retry').metadata;
     expect(metadata.retry_of).toEqual([{archive:path.basename(bundle),digest:archived.digest}]);

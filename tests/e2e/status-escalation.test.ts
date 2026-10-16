@@ -55,7 +55,7 @@ describe('status CLI e2e — escalation loops and output formatting (T19, REQ-CL
   });
 
   it('escalates on 3 consecutive plan verifier FLAWS (Loop 1)', async () => {
-    await runCli(['change', 'story', 'loop1', '--description', 'loop 1 test']);
+    await runCli(['change', 'story', 'loop1', '--no-related-modules', '--description', 'loop 1 test']);
     const proposalPath1 = path.join(tmpDir, '.prospec', 'changes', 'loop1', 'proposal.md');
     await fs.promises.writeFile(
       proposalPath1,
@@ -97,7 +97,7 @@ describe('status CLI e2e — escalation loops and output formatting (T19, REQ-CL
   });
 
   it('escalates on 3 consecutive tasks verifier FLAWS (Loop 2)', async () => {
-    await runCli(['change', 'story', 'loop2', '--description', 'loop 2 test']);
+    await runCli(['change', 'story', 'loop2', '--no-related-modules', '--description', 'loop 2 test']);
     const proposalPath2 = path.join(tmpDir, '.prospec', 'changes', 'loop2', 'proposal.md');
     await fs.promises.writeFile(
       proposalPath2,
@@ -121,7 +121,7 @@ describe('status CLI e2e — escalation loops and output formatting (T19, REQ-CL
   });
 
   it('escalates on 3 consecutive below-bar verify grades (Loop 3)', async () => {
-    await runCli(['change', 'story', 'loop3', '--description', 'loop 3 test']);
+    await runCli(['change', 'story', 'loop3', '--no-related-modules', '--description', 'loop 3 test']);
     const metaPath = path.join(tmpDir, '.prospec', 'changes', 'loop3', 'metadata.yaml');
     const content = [
       'name: loop3',
@@ -153,7 +153,7 @@ describe('status CLI e2e — escalation loops and output formatting (T19, REQ-CL
 
   it('distinguishes escalated output from terminal archived output', async () => {
     // 1. Terminal archived change in clean directory
-    await runCli(['change', 'story', 'done-change', '--description', 'done change test']);
+    await runCli(['change', 'story', 'done-change', '--no-related-modules', '--description', 'done change test']);
     const metaPath = path.join(tmpDir, '.prospec', 'changes', 'done-change', 'metadata.yaml');
     await fs.promises.writeFile(
       metaPath,

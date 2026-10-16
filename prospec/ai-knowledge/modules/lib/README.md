@@ -61,6 +61,8 @@ The drift and station engines are detailed in the linked sub-modules; other sing
 
 ## Pitfalls
 
+- Knowledge-sync reports absent scope through optional `scopeUnspecified` and `KNOWLEDGE_INPUT_INVALID`; explicit empty still validates an existing module map and retains independently classified modules.
+
 - `repo-state.ts` owns `parseWorktreeRecords`, topology-bracketed `captureRepoState` (one retry), raw ref/stash deltas and pure `assessDelegationState`. V2 protects the union of before/after current branches from readable HEAD and topology facts, plus non-branch refs. With both HEAD and topology endpoints readable, all other local branch differences use `non-current-branch`, independent of sibling presence or baseline ownership; unused backup branches are outside protection. Required unreadable facts prevent admission, while proven protected changes retain refusal priority. Stash prefixes still require sibling evidence and preserve the complete ordered baseline suffix, including repeated OIDs. `captureGitState` and `sameRepoState` stay exact for preservation; topology never enters raw equality. Ticket writers retain V1 shape and persist V2 pending/refused observations before returning; failed evidence writes fail the operation.
 
 - Preservation uses separate binary patches and raw changed bytes; gitlinks require clean recursive checkouts and retain pins. Shared terminal roots, transfer phases and reader admission live in [Terminal History](./terminal-history.md). `premise.ts` captures each linked metadata/manifest input with its own allowed root and rechecks before advancing; never widen containment to a shared ancestor.

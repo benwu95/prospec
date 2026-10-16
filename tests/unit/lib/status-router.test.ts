@@ -180,6 +180,7 @@ describe('status-router — lifecycle edges', () => {
       expect(route.blockingGates.join(' ')).toMatch(/REQ id/);
       expect(route.blockingGates.join(' ')).toContain('module-map.yaml');
       expect(route.blockingGates.join(' ')).toContain('related_modules');
+      expect(route.blockingGates.join(' ')).toContain('scope declared');
       expect(route.blockingGates.join(' ')).toContain(RELATED_MODULE_HALT_CONDITION);
       for (const reason of knowledgeSyncReasons) {
         // each reason keeps its own code — the formatter prefixes every line with the route's

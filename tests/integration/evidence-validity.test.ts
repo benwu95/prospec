@@ -24,7 +24,7 @@ beforeEach(async () => {
   write('.prospec.yaml', `version: "1.0"\nproject:\n  name: fixture\ntech_stack:\n  test_command: ${process.execPath} suite.cjs\n`);
   write('suite.cjs', "const fs=require('fs');const p='.prospec/suite-count';fs.writeFileSync(p,String(Number(fs.existsSync(p)?fs.readFileSync(p,'utf8'):0)+1));");
   write('prospec/CONSTITUTION.md', '# Constitution\n\n## Principles\n\n### [MUST] Tests\n\n**Description**: Test the behavior.\n\n**Verify**: Tests pass.\n');
-  write('.prospec/changes/x/metadata.yaml', 'name: x\ncreated_at: "2026-09-05"\nstatus: implemented\nscale: full\n');
+  write('.prospec/changes/x/metadata.yaml', 'name: x\ncreated_at: "2026-09-05"\nstatus: implemented\nscale: full\nrelated_modules: []\n');
   write('.prospec/changes/x/delta-spec.md', '# Delta Spec\n\n## ADDED\n');
   write('.prospec/changes/x/tasks.md', '- [x] T1 Implement fixture behavior\n');
   git('add', '.'); git('commit', '-qm', 'fixture');
@@ -141,7 +141,7 @@ describe('fresh-test lifecycle gates over real Git evidence (REQ-LIB-080, REQ-LI
   });
 
   it('a sibling change with red evidence never touches the target verdict', async () => {
-    write('.prospec/changes/y/metadata.yaml', 'name: y\ncreated_at: "2026-09-05"\nstatus: implemented\nscale: full\ntest_provenance:\n  command: node -e 1\n  exit_code: 1\n  digest: Z\n  date: "2026-09-05"\n');
+    write('.prospec/changes/y/metadata.yaml', 'name: y\ncreated_at: "2026-09-05"\nstatus: implemented\nscale: full\nrelated_modules: []\ntest_provenance:\n  command: node -e 1\n  exit_code: 1\n  digest: Z\n  date: "2026-09-05"\n');
     backToTasks();
     expect((await changeStatus({ cwd: root, change: 'x', quiet: true, to: 'implemented' })).testGate?.verdict).toBe('pass');
     expect((await merge()).testGate.verdict).toBe('pass');
