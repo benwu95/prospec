@@ -23,8 +23,8 @@ export const PROSPEC_VERSION: string = process.env.PROSPEC_VERSION || pkgVersion
 /**
  * The oldest CLI supporting the deployed skills' command and evidence contracts.
  * Injected into every startup probe as `{{minimum_cli_version}}`.
- * The opt-in verify path consumes certified test_evidence from the 2.7 report;
- * an older binary cannot supply that assessment. Raise this floor when the
- * shipped skills require a newer contract, independently of package releases.
+ * Explicit empty scope uses --no-related-modules, which older CLIs reject.
+ * Raise this floor when shipped skills require a newer contract,
+ * independently of package releases.
  */
-export const MINIMUM_CLI_VERSION = '2.7.0';
+export const MINIMUM_CLI_VERSION = '2.8.0';

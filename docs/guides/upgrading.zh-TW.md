@@ -39,6 +39,18 @@ prospec-upgrade                 # 步驟 2：AI Agent 依盤點報告遷移格�
 > - **舊版檔案清理**：若從早於 1.0 的舊版 Prospec 升級，完成升級同步後可手動清理不再使用的舊版檔案與目錄：`GEMINI.md`、`.gemini/skills/`、`.codex/skills/`、`.github/copilot-instructions.md` 與 `.github/instructions/`。
 > - **設定檔版本與觸發詞**：`.prospec.yaml` 的 `version` 會記錄專案上次升級的版本。新增 Skill 後若想單獨檢查或在地化觸發詞，只需直接執行 `prospec agent sync`，系統會明確列出缺少的條目供填補，完全無需重新建立設定檔。
 
+## 升級至 2.8.0
+
+先更新 binary，再執行 `prospec upgrade`：同步後的 Skills 要求 CLI 2.8.0 以上，以支援明確的 related-module scope。不需要修改設定。
+
+建立 Story 不再依 keyword 推測模組。呼叫端腳本須傳入 `--related-module <module>`（可重複），或在判定沒有相關模組時傳入 `--no-related-modules`。兩者皆未提供時，CLI 會在寫入 artifacts 前拒絕建立。
+
+既有 change 若缺少 `related_modules` 宣告，仍可讀取，但會阻擋 knowledge-sync 與 archive。使用 `prospec change related-modules <modules...> --change <name>` 宣告完整 scope，或在判定沒有相關模組後使用 `prospec change related-modules --no-related-modules --change <name>`。此指令會取代整份清單；明確空清單代表 none，缺少宣告代表 unknown。獨立的 requirement-based gates 仍然適用。
+
+無法歸屬模組的 auto-draft groups 現在會失敗，且不建立 scaffold。判定 scope 後明確建立；已歸屬的 groups 照常處理。指令契約見[變更管理](../reference/cli-reference.zh-TW.md#變更管理命令)。
+
+升級後執行 `prospec status` 與 `prospec check --strict`。
+
 ## 升級至 2.7.0
 
 先更新 binary，再執行 `prospec upgrade`：同步後的 Skills 現在要求 CLI 2.7.0 以上，以支援測試證據認證契約。維持既有行為不需要修改設定。

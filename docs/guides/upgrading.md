@@ -39,6 +39,18 @@ prospec-upgrade                 # Step 2: AI agent migrates drifted doc formats,
 > - **Legacy File Cleanup**: If upgrading from an older pre-1.0 Prospec layout, remove the now-unused legacy files and directories after re-syncing: `GEMINI.md`, `.gemini/skills/`, `.codex/skills/`, `.github/copilot-instructions.md`, and `.github/instructions/`.
 > - **Configuration Version & Triggers**: `.prospec.yaml` `version` tracks the prospec version the project last upgraded to. If you ever need to localize triggers after adding a skill, simply run `prospec agent sync` — it explicitly reports missing `skill_triggers` entries so you fill only the gaps.
 
+## Upgrade to 2.8.0
+
+Update the binary before running `prospec upgrade`: the synced Skills require CLI 2.8.0 or later for explicit related-module scope. No configuration change is required.
+
+Story creation no longer infers modules from keywords. Update scripts to pass `--related-module <module>` (repeatable), or `--no-related-modules` when none apply. Creation without either option is refused before writing artifacts.
+
+Existing changes with an absent `related_modules` declaration remain readable but block knowledge-sync and archive. Declare their complete scope with `prospec change related-modules <modules...> --change <name>`, or `prospec change related-modules --no-related-modules --change <name>` after determining none apply. This replaces the complete list; an explicit empty list means none, while an absent declaration means unknown. Independent requirement-based gates still apply.
+
+Unattributed auto-draft groups now fail without creating scaffolds. Determine their scope and create explicitly; attributed groups continue normally. See [Change management](../reference/cli-reference.md#change-management-commands) for the command contracts.
+
+Run `prospec status` and `prospec check --strict` after upgrading.
+
 ## Upgrade to 2.7.0
 
 Update the binary before running `prospec upgrade`: the synced Skills now require CLI 2.7.0 or later for the test evidence assessment contract. No configuration change is required for existing behavior.
