@@ -61,7 +61,7 @@ describe('Change Management Flow Integration', () => {
     });
 
     // Step 1: Create story
-    const storyResult = await storyExecute({
+    const storyResult = await storyExecute({ relatedModules: ['lib'],
       name: 'add-feature',
       description: 'A new feature',
       cwd: '/project',
@@ -125,7 +125,7 @@ describe('Change Management Flow Integration', () => {
         parseYaml(fs.readFileSync(metadataPath, 'utf-8') as string, metadataPath),
       );
 
-    await storyExecute({ name: 'add-feature', description: 'A new feature', cwd: '/project' });
+    await storyExecute({ relatedModules: ['lib'], name: 'add-feature', description: 'A new feature', cwd: '/project' });
     const afterStory = parseMetadata();
     expect(afterStory.success).toBe(true);
     // The bold Module cell must not reach metadata as part of the name.
@@ -165,7 +165,7 @@ describe('Change Management Flow Integration', () => {
     });
 
     // Create story first
-    await storyExecute({
+    await storyExecute({ relatedModules: [],
       name: 'partial-flow',
       cwd: '/project',
     });
@@ -182,7 +182,7 @@ describe('Change Management Flow Integration', () => {
       '/project/.prospec.yaml': 'project:\n  name: test\n',
     });
 
-    await storyExecute({ name: 'quick-flow', cwd: '/project', description: 'quick' });
+    await storyExecute({ relatedModules: [], name: 'quick-flow', cwd: '/project', description: 'quick' });
     await scaleExecute({ change: 'quick-flow', cwd: '/project', scale: 'quick' });
     await acceptanceExecute({ change: 'quick-flow', cwd: '/project', mode: 'freeze' });
 
@@ -227,7 +227,7 @@ describe('Change Management Flow Integration', () => {
       '/project/.prospec.yaml': 'project:\n  name: test\n',
     });
 
-    await storyExecute({ name: 'quick-flow', cwd: '/project', description: 'quick' });
+    await storyExecute({ relatedModules: [], name: 'quick-flow', cwd: '/project', description: 'quick' });
     await scaleExecute({ change: 'quick-flow', cwd: '/project', scale: 'quick' });
 
     await expect(

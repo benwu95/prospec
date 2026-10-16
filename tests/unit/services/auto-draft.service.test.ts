@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { vol } from 'memfs';
 import { execute } from '../../../src/services/auto-draft.service.js';
+import { execute as createStory } from '../../../src/services/change-story.service.js';
 import { PrerequisiteError } from '../../../src/types/errors.js';
 import type { DriftFinding } from '../../../src/types/drift-report.js';
 
@@ -20,12 +21,12 @@ vi.mock('../../../src/services/change-story.service.js', async (importOriginal) 
     await importOriginal<typeof import('../../../src/services/change-story.service.js')>();
   return {
     ...actual,
-    execute: async (options: Parameters<typeof actual.execute>[0]) => {
+    execute: vi.fn(async (options: Parameters<typeof actual.execute>[0]) => {
       if (failCreateNamed.name !== null && options.name === failCreateNamed.name) {
         throw new Error('EACCES: permission denied');
       }
       return actual.execute(options);
-    },
+    }),
   };
 });
 
@@ -60,8 +61,7 @@ const MODULE_MAP = [
 const PROJECT: Record<string, string> = {
   '.prospec.yaml': CONFIG,
   'prospec/CONSTITUTION.md': '# Constitution\n',
-  // A REAL module table: with an empty index.md the keyword fallback matches
-  // nothing, and every "no phantom modules" assertion below passes vacuously.
+  // Matching index keywords must not turn unknown attribution into a declaration.
   'prospec/index.md': [
     '# Index',
     '',
@@ -82,6 +82,7 @@ describe('auto-draft.service', () => {
     vol.reset();
     vol.fromJSON(PROJECT, cwd);
     failCreateNamed.name = null;
+    vi.mocked(createStory).mockClear();
   });
 
   afterEach(() => {
@@ -196,12 +197,10 @@ describe('auto-draft.service', () => {
     });
 
     expect(result.changes[0]!.target).toBe('sdd-workflow');
-    const metadata = vol.readFileSync(
-      `${changeDir('fix-sdd-workflow-file-paths')}/metadata.yaml`,
-      'utf-8',
-    ) as string;
-    // A feature is a subject, never a module.
-    expect(metadata).not.toContain('related_modules');
+    expect(result.changes[0]!.action).toBe('failed');
+    expect(result.changes[0]!.skipReason).toMatch(/scope|related-module/i);
+    expect(vol.existsSync(changeDir('fix-sdd-workflow-file-paths'))).toBe(false);
+    expect(createStory).not.toHaveBeenCalled();
   });
 
   it('never names a phantom module: an unattributable path groups under `general`', async () => {
@@ -218,16 +217,12 @@ describe('auto-draft.service', () => {
     });
 
     expect(result.changes[0]!.name).toBe('fix-general-canonical-doc-drift');
-    const metadata = vol.readFileSync(
-      `${changeDir('fix-general-canonical-doc-drift')}/metadata.yaml`,
-      'utf-8',
-    ) as string;
-    // `general` is not in module-map, so it must not be written as a module —
-    // and the index.md keyword fallback (which WOULD match `services`/`lib` off
-    // this change name) must not be reached either.
-    expect(metadata).not.toContain('related_modules');
-    expect(metadata).not.toContain('services');
-    expect(metadata).not.toContain('lib');
+    expect(result.failedCount).toBe(1);
+    expect(result.createdCount).toBe(0);
+    expect(result.changes[0]!.action).toBe('failed');
+    expect(result.changes[0]!.skipReason).toMatch(/scope|related-module/i);
+    expect(vol.existsSync(changeDir('fix-general-canonical-doc-drift'))).toBe(false);
+    expect(createStory).not.toHaveBeenCalled();
   });
 
   it('groups multiple findings for the same target and check into a single change', async () => {
@@ -334,7 +329,7 @@ describe('auto-draft.service', () => {
         {
           check: 'file-paths',
           severity: 'warn',
-          source_path: 'prospec/specs/features/auth.md',
+          source_path: 'src/services/auth.ts',
           detail: 'Broken link to missing file',
         },
       ],
@@ -343,9 +338,9 @@ describe('auto-draft.service', () => {
 
     expect(result.dryRun).toBe(true);
     expect(result.createdCount).toBe(1);
-    expect(result.changes[0]!.name).toBe('fix-auth-file-paths');
+    expect(result.changes[0]!.name).toBe('fix-services-file-paths');
     // A metadata-only leftover would suppress every later draft for this finding.
-    expect(vol.existsSync(changeDir('fix-auth-file-paths'))).toBe(false);
+    expect(vol.existsSync(changeDir('fix-services-file-paths'))).toBe(false);
   });
 
   it('still refuses a collision under dry run — a preview that hides it is not a preview', async () => {
@@ -367,6 +362,7 @@ describe('auto-draft.service', () => {
   });
 
   it('keeps an explicit --target verbatim instead of re-deriving it from a path', async () => {
+    vol.writeFileSync(`${cwd}/prospec/ai-knowledge/module-map.yaml`, `${MODULE_MAP}  - name: custom-module\n    paths: [src/custom/**]\n    keywords: [custom]\n`);
     const result = await execute({
       cwd,
       target: 'custom-module',
@@ -386,11 +382,11 @@ describe('auto-draft.service', () => {
     ) as string;
     expect(metadata).toMatch(/issue:\s*"?#185"?/);
     expect(metadata).toContain('scale: full');
-    // Not a module-map name, so it is not claimed as one.
-    expect(metadata).not.toContain('related_modules');
+    expect(metadata).toMatch(/related_modules:\n\s+- custom-module/);
   });
 
   it('keeps two targets that slug to the same name in two distinct changes', async () => {
+    vol.writeFileSync(`${cwd}/prospec/ai-knowledge/module-map.yaml`, `${MODULE_MAP}  - name: 使用者\n    paths: [src/first/**]\n    keywords: [first]\n  - name: модуль\n    paths: [src/second/**]\n    keywords: [second]\n`);
     // Neither survives `sanitizeChangeSlug`, so both would become `fix-general-*`
     // and the second would be refused as "already exists" — reported in the exact
     // words real idempotency uses, with its findings silently gone.
@@ -427,6 +423,7 @@ describe('auto-draft.service', () => {
   });
 
   it('is stable across runs when a name had to be disambiguated', async () => {
+    vol.writeFileSync(`${cwd}/prospec/ai-knowledge/module-map.yaml`, `${MODULE_MAP}  - name: 使用者\n    paths: [src/first/**]\n    keywords: [first]\n  - name: модуль\n    paths: [src/second/**]\n    keywords: [second]\n`);
     const findings: DriftFinding[] = [
       {
         check: 'knowledge-size',
@@ -454,6 +451,7 @@ describe('auto-draft.service', () => {
   });
 
   it('gives a target the same name whatever else the report contained', async () => {
+    vol.writeFileSync(`${cwd}/prospec/ai-knowledge/module-map.yaml`, `${MODULE_MAP}  - name: 使用者\n    paths: [src/first/**]\n    keywords: [first]\n  - name: модуль\n    paths: [src/second/**]\n    keywords: [second]\n`);
     const nonLatin: DriftFinding = {
       check: 'knowledge-size',
       severity: 'warn',
@@ -507,6 +505,19 @@ describe('auto-draft.service', () => {
     const failed = result.changes.find((c) => c.action === 'failed')!;
     expect(failed.name).toBe('fix-lib-knowledge-size');
     expect(failed.skipReason).toContain('EACCES');
+  });
+
+  it.each([false, true])('continues known groups while unknown scope fails without creator calls, dryRun=%s', async (dryRun) => {
+    const result = await execute({ cwd, dryRun, findings: [
+      { check: 'file-paths', severity: 'warn', source_path: 'unmapped/file.md', detail: 'unknown owner' },
+      { check: 'file-paths', severity: 'warn', source_path: 'src/services/thing.ts', detail: 'known owner' },
+    ] });
+    expect(result).toMatchObject({ createdCount: 1, failedCount: 1, skippedCount: 0 });
+    expect(result.changes.find((c) => c.target === 'general')).toMatchObject({ action: 'failed', skipReason: expect.stringMatching(/scope|related-module/i) });
+    expect(vol.existsSync(changeDir('fix-general-file-paths'))).toBe(false);
+    expect(createStory).toHaveBeenCalledTimes(1);
+    expect(createStory).toHaveBeenCalledWith(expect.objectContaining({ relatedModules: ['services'] }));
+    expect(vol.existsSync(changeDir('fix-services-file-paths'))).toBe(!dryRun);
   });
 
   it('treats an empty finding list as a clean run, not a missing source', async () => {
@@ -645,12 +656,10 @@ describe('auto-draft.service', () => {
     });
 
     expect(result.changes[0]!.target).toBe('not-a-module');
-    const metadata = vol.readFileSync(
-      `${changeDir('fix-not-a-module-knowledge-size')}/metadata.yaml`,
-      'utf-8',
-    ) as string;
-    // Named as the subject, never asserted as a module.
-    expect(metadata).not.toContain('related_modules');
+    expect(result.failedCount).toBe(1);
+    expect(result.changes[0]!.action).toBe('failed');
+    expect(vol.existsSync(changeDir('fix-not-a-module-knowledge-size'))).toBe(false);
+    expect(createStory).not.toHaveBeenCalled();
   });
 
   it('names the three ways a report can be unusable, distinctly', async () => {

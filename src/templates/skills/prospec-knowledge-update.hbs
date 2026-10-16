@@ -34,19 +34,13 @@ When triggered, briefly describe:
 
 ### Phase 1: Run the Mechanical Update (CLI)
 
-Run `prospec knowledge update --change [name]` (Bash) — or `--module <name>` (repeatable) when there
-is no delta-spec (quick changes, manual refresh). The CLI owns every deterministic step: parsing
-delta-spec REQ ids (`REQ-{MODULE}-{NNN}` → lowercased module; feature-prefix ids resolved via
-feature-map + `metadata.related_modules`, never minting a phantom module), creating a skeleton
-README for a genuinely NEW module, listing a REMOVED REQ's module as README-pending (the module
-stays registered — only the behavior leaves its README), adding new `module-map.yaml` entries, and regenerating the `{{base_dir}}/index.md`
-auto block from module-map.
+An absent `related_modules` is unknown; `[]` declares no related modules. Judge proposal scope against module boundaries and actual diff: committed range plus uncommitted changes; a clean working tree proves nothing. Reconcile via `prospec change related-modules <modules...> --change [name]` or `--no-related-modules`. Unchanged commitments make this attribution bookkeeping; requirement reduction needs human re-scope and controlled scenario amendment. Declaration is not proof of completeness; independent classification, unions and blockers remain.
 
-Read its report: `created` (skeletons to fill), **`README content pending`** — the
-judgment worklist this skill exists for — and **`stamp-only (diff-attributed)`**: modules a
-working-tree diff attributes but no delta-spec REQ named (typically a generated artifact pulling in
-its module), which need only a freshness stamp, not a README edit. The CLI never rewrites an existing
-README: its `prospec:auto` block carries authored knowledge that a mechanical re-render would gut.
+Repair unreadable, invalid or out-of-root module maps and retry change mode; never bypass with `--module` or stamp unknown scope.
+
+Run `prospec knowledge update --change [name]` (Bash), or repeatable `--module <name>` without a delta-spec (quick/manual refresh). The CLI owns REQ parsing and classification, skeleton creation for NEW modules, module-map entries and the `{{base_dir}}/index.md` auto block.
+
+Read its `created` and **`README content pending`** worklists, listing a REMOVED REQ's module as README-pending: only behavior leaves; the module stays registered. **`stamp-only (diff-attributed)`** identifies modules a working-tree diff attributes but no REQ named (generated artifacts included): freshness stamp only. The CLI never rewrites existing README content; authored prose is this skill's judgment.
 
 > **Phase 1 Gate** — proceed when:
 > - [ ] `prospec knowledge update` ran (change mode or `--module` mode)
@@ -145,7 +139,7 @@ After the re-run, verify (read, don't write):
 
 #### 3e: Stamp Knowledge Freshness (`prospec knowledge verify`)
 
-After reviewing/updating the README content for each confirmed module, run `prospec knowledge verify <modules...>` (Bash) to stamp `last_verified` in `{{knowledge_base_path}}/module-map.yaml`. `prospec knowledge verify` is the sole writer of `last_verified`, ensuring mechanical tools do not auto-stamp freshness without explicit review of the knowledge prose. The affected modules to stamp are the modules `prospec knowledge update --change` reports as created or README-pending ∪ `metadata.related_modules` ∪ the modules a working-tree diff attributes through the module map (generated artifacts included); the diff-attributed ones no REQ named are the `stamp-only` subset Phase 1's report flags. Passing all of them (e.g. `prospec knowledge verify <module1> <module2>...`) marks them fresh. If the project has a knowledge-sync mechanical gate, re-run it after the feature commit and before pushing — before the commit it sees only an empty range.
+After README review, run `prospec knowledge verify <modules...>` (Bash), the sole writer of `last_verified` in `{{knowledge_base_path}}/module-map.yaml`. The affected modules to stamp are the modules `prospec knowledge update --change` reports as created or README-pending ∪ `metadata.related_modules` ∪ the modules a working-tree diff attributes through the module map (generated artifacts included); the diff-attributed ones no REQ named are the `stamp-only` subset Phase 1's report flags. Re-run the project's knowledge-sync mechanical gate, if any, after the feature commit and before pushing.
 
 ## Output Contract
 

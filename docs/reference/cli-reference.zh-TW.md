@@ -197,7 +197,7 @@ Entry Points、Dependencies、Config Files 沒有逐語言覆寫機制——未�
 | 命令 | 說明 |
 |------|------|
 | `prospec status [--json]` | 唯讀查詢進行中變更的當前階段、建議下一步、阻擋閘門與未解的 `quality_log` WARN；工作區乾淨時回報漂移報告的狀態。每行 `reason:` 帶穩定的 `[CODE]`。`--json` 將完整報告輸出至 stdout |
-| `prospec change story <name> [options]` | 建立變更需求骨架（`proposal.md` + `metadata.yaml`）或凍結／修訂驗收場景基準（`--freeze-scenarios`、`--amend-scenarios`） |
+| `prospec change story <name> [options]` | 以 `--related-module <m>...` 或 `--no-related-modules` 建立骨架，或凍結／修訂驗收場景基準（`--freeze-scenarios`、`--amend-scenarios`） |
 | `prospec change plan [--change <name>] [--force]` | 建立技術實作計劃骨架（`plan.md` + `delta-spec.md`） |
 | `prospec change tasks [--change <name>] [--force]` | 建立任務清單骨架（`tasks.md`） |
 | `prospec change auto-draft [options]` | 從漂移 findings（或指定 `--target`）建立修復變更骨架，免去手動轉抄報告 |
@@ -213,7 +213,7 @@ Entry Points、Dependencies、Config Files 沒有逐語言覆寫機制——未�
 | 命令 | 說明 |
 |------|------|
 | `prospec change scale <scale> [--change <name>]` | 設定複雜度規模（`quick` / `standard` / `full` / `backfill`） |
-| `prospec change related-modules <module...> [--change <name>]` | 修正既有變更的 `related_modules`（只收已註冊模組，絕不移除已註冊模組） |
+| `prospec change related-modules [module...] [--no-related-modules] [--change <name>]` | 以已知模組完整取代 `related_modules`，或用 `--no-related-modules` 宣告無關聯模組 |
 | `prospec change status <to> [--change <name>]` | 單向推進變更生命週期狀態（拒絕逆向或非法跳躍） |
 | `prospec change progress [options]` | 計算任務進度（排除 `[M]` / `[V]`）並支援勾選指定任務 |
 | `prospec change log [options]` | 在 `metadata.yaml` 追加結構化 `quality_log` 記錄；`--verifier-report <file>` 記錄經 schema 驗證的 plan/tasks verifier 報告（`FLAWS` → `FAIL`） |
@@ -251,14 +251,15 @@ Review 維持 artifact→metadata，verify 維持 metadata→evidence 的寫入�
     - `--json` 將整份 status 報告（含各變更的 `nextSkill`、`unresolvedWarnings` 與 `nextReferenceMap`）輸出至 stdout，供機器讀取。
     - 無任何進行中變更時，讀取 `prospec-report.json` 並回報其**狀態**：`--auto-draft` 會起草的 finding 數量，或該報告無法解析、或是對著不同的程式碼產生的（以 `change_digest` 比對）。無法信任的報告會如實回報，絕不當成「沒有漂移」。
     - 當站點恢復迴圈（verify below-bar、plan verifier flaws、tasks verifier flaws）達到 `workflow.max_station_retries`（預設 3）時，`status` 會路由至 `next: null` 並帶穩定代碼 `ESCALATE_TO_HUMAN`，印出 HALT 指引與失敗摘要，不再無限循環回原站。
-    - 在 `verified`，`prospec-knowledge-update` 修不了的 knowledge-sync gap——非 canonical REQ id、無法解析的 `module-map.yaml`、module-map 未註冊、且沒有 ADDED REQ 以新模組引入的 `related_modules` 名稱——會路由至 `next: null` 並帶穩定代碼 `KNOWLEDGE_INPUT_INVALID`，印出 HALT 與每個 gap 的原因及修復方式，每個代碼一條 reason（各自保留自己的代碼）；stale 模組仍路由至 `prospec-knowledge-update`（`KNOWLEDGE_UNSYNCED`）。
+    - 在 `verified`，`prospec-knowledge-update` 修不了的 knowledge-sync gap——缺少 scope 宣告、非 canonical REQ id、無法解析的 `module-map.yaml`、module-map 未註冊、且沒有 ADDED REQ 以新模組引入的 `related_modules` 名稱——會路由至 `next: null` 並帶穩定代碼 `KNOWLEDGE_INPUT_INVALID`，印出 HALT 與每個 gap 的原因及修復方式，每個代碼一條 reason（各自保留自己的代碼）；stale 模組仍路由至 `prospec-knowledge-update`（`KNOWLEDGE_UNSYNCED`）。
     - **Plan 簽核停頓**：變更解析出的停頓站含 `plan` 時——有設 `PROSPEC_PAUSE_AT`（即使為空；空值或 `none`＝不停）以它為準，否則已驗證的 `ai-proposed` Premise 預設停頓，並加上 `workflow.pause_at`——位於 `plan` 的 `standard` 或 `full` 變更若尚無 verifier 結果，或 plan.md／delta-spec.md 在 verifier 審核後被修改，會導回 plan（`PLAN_VERIFIER_PENDING`），有 PASS/WARN verifier 結果後則路由至 `next: null` 並帶 `AWAITING_HUMAN_PLAN_SIGNOFF`，印出簽核 HALT 與 `--signoff` 指令（full：候選方案；standard：`plan`），直到記錄晚於該 verifier 記錄、且綁定目前 plan 版本的簽核為止。沒有 plan 的 scale 不會停頓。停頓只作用於路由：`status`、cascade 與 `prospec-ff` 會停下，手動執行的 `prospec change tasks` 不會被拒絕。停頓值無效時，`status`（含 `--json`）以 exit 1 結束，錯誤訊息指出來源、無效值與合法站名，且不輸出報告；即使沒有進行中的變更也一樣。非 archived 變更的 `next: null` 必帶 `ESCALATE_TO_HUMAN`、`AWAITING_HUMAN_PLAN_SIGNOFF` 或 `KNOWLEDGE_INPUT_INVALID`——請比對 `code`。
 
 - **`prospec change story <name> [options]`**
   - **核心用途**：建立新變更的目錄結構、`proposal.md` 骨架與 `metadata.yaml`（`status: story`），或凍結／受控修訂驗收場景基準。
   - **骨架選項**：
     - `--description <d>`：變更的一行簡短描述。
-    - `--related-module <m>...`：明確指定關聯模組（覆寫關鍵字自動比對）；只在建立時寫入，之後以 `prospec change related-modules` 修正。
+    - `--related-module <m>...`：宣告完整關聯模組清單（可重複）；只在建立時寫入，之後以 `prospec change related-modules` 修正。
+    - `--no-related-modules`：宣告無關聯模組；與 `--related-module` 互斥。建立時必須二擇一，省略 scope 會在寫入前拒收。
     - `--issue <ref>`：登記此變更對應的 Issue / Ticket 追蹤編號。
   - **基準管理模式**（與骨架建立選項互斥）：
     - `--freeze-scenarios`：將 `proposal.md` 中已撰寫的實質驗收場景快照凍結進 `metadata.yaml` 的 `acceptance` 基準（revision 1，origin: `story`）。若含有未修改的 placeholder、缺少 `**Acceptance Scenarios:**` 區段、場景 ID 重複／非法，或與建立專用旗標混用時將拒絕執行。相同標準化內容具備冪等性；內容不同且未走修訂程序時拒絕。
@@ -320,9 +321,9 @@ Review 維持 artifact→metadata，verify 維持 metadata→evidence 的寫入�
 - **`prospec change scale <quick|standard|full|backfill> [--change <name>]`**
   - **核心用途**：設定變更的複雜度 scale，就地更新 `metadata.yaml` 並保留原有註解。
 
-- **`prospec change related-modules <module...> [--change <name>]`**
+- **`prospec change related-modules [module...] [--no-related-modules] [--change <name>]`**
   - **核心用途**：以給定清單取代既有變更 `metadata.yaml` 的 `related_modules`——`prospec change story` 建立變更之後，這是它唯一的寫入者。
-  - **執行行為**：每個名稱都必須是已註冊模組（`module-map.yaml` 的條目；沒有 map 時為 `modules/<name>/` 目錄），不分大小寫比對，並以模組自己的拼法寫入；module-map 無法讀取、解析或驗證，或解析到 knowledge root 之外時，以該原因拒收。絕不移除已註冊模組——那會讓 knowledge-sync 閘門變窄——所以只能拿掉拼錯、未註冊的名稱。重複執行結果相同；任何拒收都不改動檔案；不寫 `quality_log`。
+  - **執行行為**：每個名稱都必須是已註冊模組（`module-map.yaml` 的條目；沒有 map 時為 `modules/<name>/` 目錄），不分大小寫比對，並以模組自己的拼法寫入；module-map 無法讀取、解析或驗證，或解析到 knowledge root 之外時，以該原因拒收。這是完整取代：可移除已註冊項目，以 `--no-related-modules` 明確寫入 `[]`。省略清單與 empty flag，或同時提供兩者，都會拒收。Legacy 缺席 scope 即使改為 `[]` 也會實際寫入；已宣告的相同清單重跑則保持位元組不變。拒收不改動檔案；保留 lifecycle 與無關欄位，不新增 reason、history 或 `quality_log`。依實際 committed range 與 uncommitted diff 對帳 proposal；承諾不變的歸屬更正屬於 bookkeeping，需求縮減仍須遵循人類 re-scope 與 scenario amendment 規則。宣告不證明完整性，也不覆蓋獨立 REQ 分類與 affected-module unions。
 
 - **`prospec change status <to> [--change <name>]`**
   - **核心用途**：單向推進生命週期狀態（逆向或非法躍遷將被拒絕並列出合法目標）。
@@ -512,6 +513,7 @@ claude mcp add -s user prospec-b -- prospec mcp serve --cwd /path/to/B
   - **用途**：把漂移 findings 轉成變更骨架，讓 agent 不必轉抄報告即可著手修復。亦可透過 `prospec check --auto-draft` 直接就當次報告起草。
   - **分組**：每個 `<target>:<check>` 組合產生一個變更，命名為 `fix-<target>-<check>`——當 target 無法原樣通過 slug 化時附加一段穩定字尾，使兩個不同的 target 絕不會落到同一個目錄。target 來自 `module-map.yaml` 歸屬與專案設定的 `knowledge.base_path` / `paths.base_dir`，絕不猜測路徑形狀；位於 feature spec 底下的 finding 歸入該 feature 名稱，兩者都歸不到的才落入 `general`。只有 `module-map.yaml` 宣告過的名稱會寫進 `related_modules`——feature 名稱與 `general` 是主體，不是模組。
   - **範圍**：兩類 finding 不起草——`headroom`（壓力）層級的 `knowledge-size`（回報預算壓力而非違規），以及 `source_path` 位於 `.prospec/` 者（那是針對某個變更的 SDD 流程閘門，起草它等於建立一個「修別的變更的文書」的變更）。除此之外不丟棄任何 finding。
+  - **無歸屬群組**：沒有 module attribution 的群組回報 `failed`、不產生骨架，並提供判斷 scope 後明確建立的修復方式。已知群組繼續以明確模組清單建立；原始 report 與 check verdict 保留。
   - **安全性**：建立骨架走的是與 `prospec change story` 相同的服務，因此既有變更目錄只會被跳過、絕不覆寫，重複執行具冪等性。`--dry-run` 只回報將建立什麼、完全不寫入任何檔案（在 `check` 上旗標名為 `--auto-draft-dry-run`，因為 `check` 的其他寫入不受它影響）。
   - **前提**：必須有且僅有一個漂移來源。`--from-report` / `--target` / `--reason` / `--check` 全缺時，指令以非零碼結束，而不是回報一個乾淨的判定；報告來源與顯式 target 併用會被拒絕，而不是靜默丟棄其一。
 
@@ -525,6 +527,8 @@ claude mcp add -s user prospec-b -- prospec mcp serve --cwd /path/to/B
 
 - **`prospec check --record-review [--change <name>]`**
   - **核心用途**：記錄該變更的審查基線（程式碼 digest）與 `delta-spec.md` 指紋，供後續驗證 `review-provenance` 與 `delta-spec-provenance`。
+
+- **明確 `related_modules`（breaking）**：建立時不再依關鍵字推斷模組；使用 `prospec change story <name> --related-module <module>`（可重複），或判斷無關聯後用 `prospec change story <name> --no-related-modules`。省略 creation scope 會拒收且不產生工件。Legacy 缺席 scope 仍可讀取，但 knowledge-sync 會以 `KNOWLEDGE_INPUT_INVALID` 停下；以 `prospec change related-modules <modules...> --change <name>` 或 `prospec change related-modules --change <name> --no-related-modules` 遷移。`[]` 代表已宣告無關聯，而非 unknown。無法歸屬的 `auto-draft` 群組改為失敗且不產生骨架；先判斷 scope 再明確建立。Freeze／amend 輸入與獨立 REQ 分類仍各自保留。
 
 - **已移除的旗標（breaking）**：`prospec check --escaped-defects`、`prospec review merge --spend` / `--budget`、`prospec verify record --spend` 與 `prospec change story --introduced-by` 已不存在——每一個都會被當成未知選項拒絕（exit 1、不寫入任何檔案），請從包裝腳本中移除。既有紀錄仍可讀取：帶有 `introduced_by` 或 `dimensions[].spend` 的 `metadata.yaml` 照常通過驗證；`review.md` metrics 註解中的 `spend_before` / `round_spend` / `cumulative_spend` 可正常解析、這些屬性被忽略，下次合併時不再寫回。工作樹中若仍留有未被 ignore 的 `escaped-defect-report.json`，請刪除或 ignore 它，再重跑 `prospec check --record-review` / `--record-tests`：這個檔案現在是 review 與 test digest 的一般組成部分。
 

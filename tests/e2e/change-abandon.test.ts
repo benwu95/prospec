@@ -43,7 +43,7 @@ it('preserves work through abandon, reports clean history and gates the same-iss
   expect(result.projectRoot).toBe(root); expect(captureGitState(root)).toEqual(git);
   expect(fs.readFileSync(path.join(root, 'work'), 'utf8')).toBe('base');
   expect(JSON.parse(await run('status', '--json'))).toMatchObject({ clean: true, changes: [], abandoned: [{ reason: 'Disproved' }] });
-  expect(await run('change', 'story', 'retry', '--issue', '#333')).toContain('Disproved');
+  expect(await run('change', 'story', 'retry', '--issue', '#333', '--no-related-modules')).toContain('Disproved');
   await run('change', 'plan', '--change', 'retry');
   expect(process.exitCode).toBe(1); expect(stderr).toMatch(/Premise|retry_difference/);
 });
@@ -81,7 +81,7 @@ it('links three real same-name story attempts to immutable same-issue history', 
   const prior = new Map<string, ReturnType<typeof imageOf>>();
   for (let attempt = 1; attempt <= 3; attempt++) {
     if (attempt > 1) {
-      await run('change', 'story', 'old', '--issue', '#333');
+      await run('change', 'story', 'old', '--issue', '#333', '--no-related-modules');
       const { metadata } = readChangeMetadata(path.join(root, '.prospec/changes/old/metadata.yaml'), 'old');
       expect(metadata.retry_of?.map(link => link.archive).sort()).toEqual([...prior.keys()].map(dir => path.basename(dir)).sort());
     }

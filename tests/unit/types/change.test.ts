@@ -691,6 +691,22 @@ describe('ChangeMetadataSchema related_modules (bare module names, REQ-TYPES-064
   });
 });
 
+describe('related_modules scope presence (REQ-TYPES-064)', () => {
+  it.each([ChangeMetadataSchema, NewChangeMetadataSchema])('preserves absent, explicit empty and declared scope without adding fields', (schema) => {
+    for (const scope of [{}, { related_modules: [] }, { related_modules: ['new-module'] }]) {
+      const input = { ...base, ...scope };
+      expect(schema.parse(input)).toEqual(input);
+    }
+  });
+
+  it('keeps legacy unmodeled fields while preserving the scope declaration', () => {
+    for (const scope of [{}, { related_modules: [] }, { related_modules: ['lib'] }]) {
+      const input = { ...base, ...scope, legacy_note: { author: 'kept' } };
+      expect(ChangeMetadataSchema.parse(input)).toEqual(input);
+    }
+  });
+});
+
 describe('unmodeled keys survive validation at every level (REQ-TYPES-064)', () => {
   it('keeps a top-level key the schema does not model', () => {
     const r = ChangeMetadataSchema.safeParse({ ...base, archived_at: '2026-07-06' });

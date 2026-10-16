@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import * as fs from 'node:fs';
 import { vol } from 'memfs';
 import { execute, type RelatedModule } from '../../../src/services/change-story.service.js';
-import { AlreadyExistsError, ConfigNotFound } from '../../../src/types/errors.js';
+import { AlreadyExistsError, ConfigNotFound, PrerequisiteError } from '../../../src/types/errors.js';
 import { renderTemplate } from '../../../src/lib/template.js';
 import { parseYaml } from '../../../src/lib/yaml-utils.js';
 
@@ -33,7 +33,7 @@ describe('change-story.service', () => {
       '/project/.prospec.yaml': 'project:\n  name: test\n',
     });
 
-    const result = await execute({
+    const result = await execute({ relatedModules: ['auth'],
       name: 'add-auth',
       description: 'Add user authentication',
       cwd: '/project',
@@ -60,7 +60,7 @@ describe('change-story.service', () => {
     vol.mkdirSync('/project/.prospec/changes/add-auth', { recursive: true });
 
     await expect(
-      execute({ name: 'add-auth', cwd: '/project' }),
+      execute({ relatedModules: ['auth'], name: 'add-auth', cwd: '/project' }),
     ).rejects.toThrow(AlreadyExistsError);
   });
 
@@ -69,7 +69,7 @@ describe('change-story.service', () => {
     vol.mkdirSync('/project', { recursive: true });
 
     await expect(
-      execute({ name: 'add-auth', cwd: '/project' }),
+      execute({ relatedModules: ['auth'], name: 'add-auth', cwd: '/project' }),
     ).rejects.toThrow(ConfigNotFound);
   });
 
@@ -78,7 +78,7 @@ describe('change-story.service', () => {
       '/project/.prospec.yaml': 'project:\n  name: test\n',
     });
 
-    const result = await execute({
+    const result = await execute({ relatedModules: [],
       name: 'add-feature',
       description: 'A new feature',
       cwd: '/project',
@@ -98,7 +98,7 @@ describe('change-story.service', () => {
       '/project/.prospec.yaml': 'project:\n  name: test\n',
     });
 
-    const result = await execute({
+    const result = await execute({ relatedModules: [],
       name: 'no-desc-feature',
       cwd: '/project',
     });
@@ -112,7 +112,7 @@ describe('change-story.service', () => {
     expect('description' in metadata).toBe(false);
   });
 
-  it('matches related modules and reads Description from the canonical 7-column layout', async () => {
+  it('reads declared module descriptions from the canonical 7-column layout', async () => {
     vol.fromJSON({
       '/project/.prospec.yaml': `project:
   name: test
@@ -130,7 +130,7 @@ knowledge:
 `,
     });
 
-    const result = await execute({
+    const result = await execute({ relatedModules: ['auth'],
       name: 'update-auth-flow',
       cwd: '/project',
     });
@@ -160,7 +160,7 @@ knowledge:
     // below reads THIS execute()'s context, not an earlier test's.
     vi.mocked(renderTemplate).mockClear();
 
-    const result = await execute({ name: 'update-auth-flow', cwd: '/project' });
+    const result = await execute({ relatedModules: ['auth'], name: 'update-auth-flow', cwd: '/project' });
 
     expect(result.relatedModules.map((m) => m.name)).toEqual(['auth']);
 
@@ -183,7 +183,7 @@ knowledge:
     expect(proposalCtx?.related_modules?.map((m) => m.name)).toEqual(['auth']);
   });
 
-  it('matches related modules from a custom paths.base_dir index (never the default prospec/)', async () => {
+  it('reads declared module descriptions from a custom paths.base_dir index (never the default prospec/)', async () => {
     vol.fromJSON({
       '/project/.prospec.yaml': `project:
   name: test
@@ -198,7 +198,7 @@ paths:
 `,
     });
 
-    const result = await execute({
+    const result = await execute({ relatedModules: ['auth'],
       name: 'update-auth-flow',
       cwd: '/project',
     });
@@ -217,7 +217,7 @@ paths:
 `,
     });
 
-    const result = await execute({ name: 'update-auth', cwd: '/project' });
+    const result = await execute({ relatedModules: ['auth'], name: 'update-auth', cwd: '/project' });
 
     // a '---' inside the Description cell must not be read as a separator row
     expect(result.relatedModules.some((m) => m.name === 'auth')).toBe(true);
@@ -247,7 +247,7 @@ knowledge:
 `,
     });
 
-    const result = await execute({
+    const result = await execute({ relatedModules: ['auth'],
       name: 'add-auth-tokens',
       cwd: '/project',
     });
@@ -256,7 +256,7 @@ knowledge:
     expect(result.relatedModules.some((m) => /L0|L1|index\.md/.test(m.name))).toBe(false);
   });
 
-  it('ignores empty keywords (stray commas) and blank module rows', async () => {
+  it('preserves explicit empty scope when the index contains blank rows and keywords', async () => {
     vol.fromJSON({
       '/project/.prospec.yaml': `project:
   name: test
@@ -272,11 +272,9 @@ knowledge:
 `,
     });
 
-    const result = await execute({ name: 'update-auth-flow', cwd: '/project' });
+    const result = await execute({ relatedModules: [], name: 'update-auth-flow', cwd: '/project' });
 
-    // 'payment,' yields an empty keyword that must NOT match every change
     expect(result.relatedModules.some((m) => m.name === 'billing')).toBe(false);
-    // a blank Module cell must not produce an empty-named related module
     expect(result.relatedModules.some((m) => m.name === '')).toBe(false);
   });
 
@@ -285,7 +283,7 @@ knowledge:
       '/project/.prospec.yaml': 'project:\n  name: test\n',
     });
 
-    const result = await execute({
+    const result = await execute({ relatedModules: [],
       name: 'add-feature',
       cwd: '/project',
     });
@@ -293,12 +291,12 @@ knowledge:
     expect(result.relatedModules).toEqual([]);
   });
 
-  it('writes metadata.yaml with name, status "story", an ISO created_at, and no related_modules when none matched', async () => {
+  it('writes metadata.yaml with name, status "story", an ISO created_at, and explicit empty related_modules', async () => {
     vol.fromJSON({
       '/project/.prospec.yaml': 'project:\n  name: test\n',
     });
 
-    await execute({
+    await execute({ relatedModules: [],
       name: 'new-feature',
       cwd: '/project',
     });
@@ -315,11 +313,11 @@ knowledge:
     expect(metadata.status).toBe('story');
     // created_at is `new Date().toISOString()` — assert it parses as a real ISO date.
     expect(new Date(metadata.created_at).toISOString()).toBe(metadata.created_at);
-    // No index.md → relatedModules empty → the spread omits the key entirely.
-    expect('related_modules' in metadata).toBe(false);
+
+    expect(metadata.related_modules).toEqual([]);
   });
 
-  it('writes related_modules into metadata.yaml as a name array when modules match', async () => {
+  it('writes declared related_modules into metadata.yaml as a name array', async () => {
     vol.fromJSON({
       '/project/.prospec.yaml': 'project:\n  name: test\nknowledge:\n  base_path: prospec/ai-knowledge\n',
       '/project/prospec/index.md': `# Module Index
@@ -330,12 +328,12 @@ knowledge:
 `,
     });
 
-    await execute({ name: 'update-auth-flow', cwd: '/project' });
+    await execute({ relatedModules: ['auth'], name: 'update-auth-flow', cwd: '/project' });
 
     const metadata = parseYaml<{ related_modules?: string[] }>(
       fs.readFileSync('/project/.prospec/changes/update-auth-flow/metadata.yaml', 'utf-8'),
     );
-    // The metadata stores the matched module NAMES (m.name), not the RelatedModule objects.
+
     expect(metadata.related_modules).toEqual(['auth']);
   });
 });
@@ -347,7 +345,7 @@ describe('change-story metadata YAML escaping', () => {
     });
     vi.mocked(renderTemplate).mockClear();
 
-    await execute({
+    await execute({ relatedModules: [],
       name: 'quoted-change',
       description: 'say "review" now',
       cwd: '/project',
@@ -372,7 +370,7 @@ describe('change-story metadata YAML escaping', () => {
     );
   });
 
-  it('passes matched related_modules into the proposal template context (and undefined when none)', async () => {
+  it('passes declared related_modules into the proposal template context (and undefined when none)', async () => {
     vol.fromJSON({
       '/project/.prospec.yaml': 'project:\n  name: test\nknowledge:\n  base_path: prospec/ai-knowledge\n',
       '/project/prospec/index.md': `# Module Index
@@ -384,7 +382,7 @@ describe('change-story metadata YAML escaping', () => {
     });
     vi.mocked(renderTemplate).mockClear();
 
-    await execute({ name: 'update-auth-flow', cwd: '/project' });
+    await execute({ relatedModules: ['auth'], name: 'update-auth-flow', cwd: '/project' });
 
     const matchedCtx = vi
       .mocked(renderTemplate)
@@ -396,12 +394,12 @@ describe('change-story metadata YAML escaping', () => {
       { name: 'auth', description: 'Authentication module' },
     ]);
 
-    // Now the empty branch: no index.md → undefined, not [].
+
     vol.reset();
     vol.fromJSON({ '/p2/.prospec.yaml': 'project:\n  name: test\n' });
     vi.mocked(renderTemplate).mockClear();
 
-    await execute({ name: 'standalone-thing', cwd: '/p2' });
+    await execute({ relatedModules: [], name: 'standalone-thing', cwd: '/p2' });
 
     const emptyCtx = vi
       .mocked(renderTemplate)
@@ -416,7 +414,7 @@ describe('change-story metadata YAML escaping', () => {
       '/project/.prospec.yaml': 'project:\n  name: test\n',
     });
 
-    await execute({
+    await execute({ relatedModules: [],
       name: 'multiline-change',
       description: 'line1\nline2',
       cwd: '/project',
@@ -445,7 +443,7 @@ describe('change-story branch coverage', () => {
     });
     vi.spyOn(process, 'cwd').mockReturnValue('/fallback-root');
 
-    const result = await execute({ name: 'cwd-fallback' });
+    const result = await execute({ relatedModules: [], name: 'cwd-fallback' });
 
     // The change resolves under the process.cwd() root, proving the fallback ran.
     expect(result.changeDir).toBe('/fallback-root/.prospec/changes/cwd-fallback');
@@ -457,11 +455,7 @@ describe('change-story branch coverage', () => {
     );
   });
 
-  it('returns no related modules when every change-name word is a single char (L127)', async () => {
-    // L127 if#0: changeWords.length === 0 — words length<=1 are filtered out, so a
-    // name like "a-b-c" yields zero usable words and short-circuits BEFORE table
-    // parsing. index.md exists (and has a row that WOULD match on "auth") to prove
-    // the early return — not the missing-file catch — is what produced the empty list.
+  it('preserves explicit empty scope for single-character change names', async () => {
     vol.fromJSON({
       '/project/.prospec.yaml': 'project:\n  name: test\nknowledge:\n  base_path: prospec/ai-knowledge\n',
       '/project/prospec/index.md': `# Module Index
@@ -472,16 +466,12 @@ describe('change-story branch coverage', () => {
 `,
     });
 
-    const result = await execute({ name: 'a-b-c', cwd: '/project' });
+    const result = await execute({ relatedModules: [], name: 'a-b-c', cwd: '/project' });
 
     expect(result.relatedModules).toEqual([]);
   });
 
-  it('skips a full-width row whose Keywords cell is empty (L155)', async () => {
-    // L155 if#0: keywordsCell is falsy — a canonical 7-column row with a present
-    // Module name but an EMPTY Keywords cell must be skipped (cannot match), while a
-    // sibling row with real keywords still matches. Distinguishes the keyword guard
-    // from the module-name guard (L153) the blank-module-row test covers.
+  it('reads a declared module description even when its Keywords cell is empty', async () => {
     vol.fromJSON({
       '/project/.prospec.yaml': 'project:\n  name: test\nknowledge:\n  base_path: prospec/ai-knowledge\n',
       '/project/prospec/index.md': `# Module Index
@@ -493,17 +483,14 @@ describe('change-story branch coverage', () => {
 `,
     });
 
-    const result = await execute({ name: 'update-auth-flow', cwd: '/project' });
+    const result = await execute({ relatedModules: ['nokeys'], name: 'update-auth-flow', cwd: '/project' });
 
-    // The empty-keywords row never matches, regardless of change words.
-    expect(result.relatedModules.some((m) => m.name === 'nokeys')).toBe(false);
-    // The well-formed sibling row still matches, proving parsing continued past the skip.
-    expect(result.relatedModules.some((m) => m.name === 'auth')).toBe(true);
+    expect(result.relatedModules).toEqual([{ name: 'nokeys', description: 'Has a name but no keywords' }]);
   });
 });
 
 describe('explicit related modules (--related-module)', () => {
-  it('overrides keyword auto-matching with the caller-named modules', async () => {
+  it('persists the caller-named modules without an index', async () => {
     vol.fromJSON({
       '/project/.prospec.yaml': 'project:\n  name: test\n',
     });
@@ -533,7 +520,7 @@ describe('issue registration (--issue)', () => {
   });
 
   it('writes the reference and round-trips a value that would read as a YAML comment', async () => {
-    await execute({ name: 'add-widget', cwd: '/project', issue: '#131' });
+    await execute({ relatedModules: [], name: 'add-widget', cwd: '/project', issue: '#131' });
 
     const raw = fs.readFileSync('/project/.prospec/changes/add-widget/metadata.yaml', 'utf-8');
     // Unquoted, `#131` opens a comment and the whole value is lost on read-back.
@@ -546,7 +533,7 @@ describe('issue registration (--issue)', () => {
     ['https://github.com/benwu95/prospec/issues/131', 'a full URL'],
     ['ABC-123', 'another tracker id'],
   ])('stores %s verbatim — no forge is assumed (%s)', async (value) => {
-    await execute({ name: 'add-widget', cwd: '/project', issue: value });
+    await execute({ relatedModules: [], name: 'add-widget', cwd: '/project', issue: value });
 
     const metadata = parseYaml<{ issue?: string }>(
       fs.readFileSync('/project/.prospec/changes/add-widget/metadata.yaml', 'utf-8'),
@@ -555,7 +542,7 @@ describe('issue registration (--issue)', () => {
   });
 
   it('omits the key when no issue is given', async () => {
-    await execute({ name: 'add-widget', cwd: '/project' });
+    await execute({ relatedModules: [], name: 'add-widget', cwd: '/project' });
 
     const metadata = parseYaml<Record<string, unknown>>(
       fs.readFileSync('/project/.prospec/changes/add-widget/metadata.yaml', 'utf-8'),
@@ -567,7 +554,7 @@ describe('issue registration (--issue)', () => {
   // with REF unset); recording it as `issue: ""` would assert a registration
   // that was never made.
   it.each(['', '   '])('treats a blank value (%j) as no registration', async (blank) => {
-    await execute({ name: 'add-widget', cwd: '/project', issue: blank });
+    await execute({ relatedModules: [], name: 'add-widget', cwd: '/project', issue: blank });
 
     const metadata = parseYaml<Record<string, unknown>>(
       fs.readFileSync('/project/.prospec/changes/add-widget/metadata.yaml', 'utf-8'),
@@ -653,5 +640,40 @@ describe('change-story.service metadata validation ordering', () => {
     expect(result.dryRun).toBe(false);
     expect(fs.existsSync(`${cwd}/.prospec/changes/good-change/proposal.md`)).toBe(true);
     expect(fs.existsSync(`${cwd}/.prospec/changes/good-change/metadata.yaml`)).toBe(true);
+  });
+});
+
+
+describe('explicit scope declarations', () => {
+  beforeEach(() => {
+    vol.fromJSON({ '/project/.prospec.yaml': 'project:\n  name: test\n' });
+  });
+
+  it.each([false, true])('refuses omitted scope before artifacts, dryRun=%s', async (dryRun) => {
+    await expect(execute({ name: 'add-auth', cwd: '/project', dryRun }))
+      .rejects.toBeInstanceOf(PrerequisiteError);
+    expect(fs.existsSync('/project/.prospec/changes/add-auth')).toBe(false);
+  });
+
+  it.each([null, 'auth', {}])('refuses non-array scope %j without writes', async (relatedModules) => {
+    await expect(execute({ name: 'bad-scope', cwd: '/project', relatedModules: relatedModules as never }))
+      .rejects.toBeInstanceOf(PrerequisiteError);
+    expect(fs.existsSync('/project/.prospec/changes/bad-scope')).toBe(false);
+  });
+
+  it('preserves empty scope despite matching keywords in the change name', async () => {
+    vol.fromJSON({ '/project/prospec/index.md': '| Module | Keywords | Aliases | Status | Description | Rationale | Depends On |\n|---|---|---|---|---|---|---|\n| auth | auth, add | | Active | Authentication | | |\n' });
+    const result = await execute({ name: 'add-auth', cwd: '/project', relatedModules: [] });
+    const metadata = parseYaml<Record<string, unknown>>(fs.readFileSync('/project/.prospec/changes/add-auth/metadata.yaml', 'utf-8'));
+    expect(result.relatedModules).toEqual([]);
+    expect(metadata.related_modules).toEqual([]);
+  });
+
+  it('looks up exact names independently of keywords and preserves unregistered new names', async () => {
+    vol.fromJSON({ '/project/prospec/index.md': '| Module | Keywords | Aliases | Status | Description | Rationale | Depends On |\n|---|---|---|---|---|---|---|\n| **auth** | credentials | | Active | Authentication | | |\n| authentication | auth | | Active | Other module | | |\n' });
+    const result = await execute({ name: 'add-authentication', cwd: '/project', relatedModules: ['auth', 'new-module'] });
+    expect(result.relatedModules).toEqual([{ name: 'auth', description: 'Authentication' }, { name: 'new-module', description: '' }]);
+    const metadata = parseYaml<Record<string, unknown>>(fs.readFileSync('/project/.prospec/changes/add-authentication/metadata.yaml', 'utf-8'));
+    expect(metadata.related_modules).toEqual(['auth', 'new-module']);
   });
 });

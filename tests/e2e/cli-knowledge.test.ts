@@ -379,7 +379,7 @@ describe('CLI E2E — knowledge, agent & measure', () => {
       await runCli(['init', '--name', 'workflow-test', '--agents', 'claude']);
       
       const changeName = 'feat-workflow';
-      const storyRes = await runCli(['change', 'story', changeName, '--description', 'test workflow scale']);
+      const storyRes = await runCli(['change', 'story', changeName, '--related-module', 'core', '--description', 'test workflow scale']);
       
       if (storyRes.exitCode !== 0) {
         console.error('STORY STDERR:', storyRes.stderr);
@@ -396,13 +396,6 @@ describe('CLI E2E — knowledge, agent & measure', () => {
         console.error('LS .prospec/changes:', changesLs);
         console.error('STORY STDOUT:', storyRes.stdout);
       }
-      
-      // Inject some metadata to hit the modules/specs logic
-      const metadata = await fs.promises.readFile(path.join(changeDir, 'metadata.yaml'), 'utf-8');
-      await fs.promises.writeFile(
-        path.join(changeDir, 'metadata.yaml'),
-        metadata + 'related_modules:\n  - core\n',
-      );
       
       await fs.promises.writeFile(
         path.join(changeDir, 'delta-spec.md'),

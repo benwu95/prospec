@@ -14,7 +14,7 @@ beforeEach(async () => {
 afterEach(async () => { await fs.rm(cwd, { recursive: true, force: true }); });
 describe('CLI sourced premise workflow', () => {
   it('scaffolds pending, refuses direct planning, then resumes after evidence and baseline', async () => {
-    expect((await cli(['change', 'story', 'sourced'])).exitCode).toBe(0);
+    expect((await cli(['change', 'story', 'sourced', '--no-related-modules'])).exitCode).toBe(0);
     const dir = path.join(cwd, '.prospec/changes/sourced');
     const proposal = path.join(dir, 'proposal.md');
     const before = await fs.readFile(path.join(dir, 'metadata.yaml'), 'utf8');
@@ -33,7 +33,7 @@ describe('CLI sourced premise workflow', () => {
     expect((await cli(['change', 'plan', '--change', 'sourced'])).exitCode).toBe(0);
   });
   it('reports reproduction gaps and explains structural limits in text and help', async () => {
-    await cli(['change', 'story', 'bug']);
+    await cli(['change', 'story', 'bug', '--no-related-modules']);
     await cli(['change', 'scale', 'full', '--change', 'bug']);
     await fs.writeFile(path.join(cwd, '.prospec/changes/bug/proposal.md'), premiseProposal({ ...verifiedPremise, evidence: { kind: 'reproduction', ref: 'trace', result: 'Confirmed' } }));
     const invalid = await cli(['validate', 'proposal', 'bug']);

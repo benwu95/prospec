@@ -179,15 +179,16 @@ The auto-draft service turns drift findings into change scaffolds without owning
 - WHEN a group is scaffolded, THEN creation goes through `change-story.service`, so the change carries the same guards as `prospec change story` (collision refusal, issue normalization, excess-property-checked metadata) and no second creator exists
 - WHEN a change directory for the derived name already exists, THEN `AlreadyExistsError` is caught and the group is reported as skipped — the directory is never read, matched by prefix, or written into
 - WHEN a finding's `source_path` is attributed, THEN it resolves through `module-map.yaml` and the configured `knowledge.base_path` / `paths.base_dir`; a path under the configured feature-spec root groups under that feature's name, and a path matching neither groups under `general` — never under an arbitrary file basename, which produced one bogus subject per file
-- WHEN a group's target is not a module declared in `module-map.yaml`, THEN an EMPTY explicit module list is passed rather than the key omitted — omitting it re-enables the creator's `index.md` keyword matching, which would attach guessed modules to a change whose subject could not be attributed
+- WHEN a group has no module attribution, THEN it is reported with the existing `action: 'failed'` outcome and a remedy for the agent to determine scope and create the change explicitly; no creator call or scaffold write occurs for that group, and other groups continue
 - WHEN a knowledge-tree path yields a directory segment, THEN it is claimed as a module only when `module-map.yaml` declares that name: the segment is raw report text, and an undeclared one would be refused at the metadata write after `proposal.md` was already on disk
 - WHEN a finding carries the `headroom` knowledge-size tier, or its `source_path` lies under `.prospec/`, THEN it is not draftable: the first reports budget pressure rather than a violation, and the second is an SDD process gate ON a change, so drafting it would create a change whose job is another change's paperwork — and which trips the same gates the moment it exists. Nothing else is dropped or capped
 - WHEN one group's scaffold cannot be written, THEN that group is reported with `action: 'failed'` and the remaining groups still run — throwing would discard the result and leave directories on disk that nothing names
-- WHEN a group merges findings that could not be attributed, THEN the proposal carries EVERY finding with its own `source_path` and every DISTINCT reported remedy, and says the group may need splitting
+- WHEN an unattributed group fails, THEN it is not claimed as a created proposal; the original report remains available and the remedy directs the caller to explicit scope declaration
 - WHEN no drift source is given at all, THEN the service throws `PrerequisiteError` instead of returning an empty, clean-looking result
 - WHEN `dryRun` is set, THEN no change directory is created — not merely no `proposal.md`, since a metadata-only directory would suppress every later draft for the same finding
 - WHEN an explicit `--target` is given, THEN that name is used verbatim instead of being re-derived by path attribution, and combining it with a report source is refused rather than silently ignoring one of them
 - WHEN the report cannot be used, THEN absent-or-empty, invalid JSON, and off-schema are reported as three different sentences naming the offending fields, never as a raw validator dump
+- WHEN a group has a known module attribution, THEN it supplies that module as an explicit non-empty list to the shared creator rather than relying on a missing-scope default
 
 ---
 
@@ -212,11 +213,12 @@ Auto-drafting is a convenience layered on the check, and cannot compromise it.
 #### REQ-TESTS-096: Auto-draft behavior is pinned by tests, not by shape assertions
 Each guarantee below is pinned by a test that fails if the behavior is removed — asserted on the drafted result and on disk, not on the shape of a returned object.
 - WHEN the knowledge root is relocated via `knowledge.base_path`, THEN a test asserts findings still group under their real module name
-- WHEN a finding is unattributable, THEN a test asserts the change is named `general` and writes no `related_modules`
+- WHEN a finding is unattributable, THEN a test asserts its group fails with a scope-declaration remedy and no change directory or artifacts, instead of silently declaring empty scope
 - WHEN a dry run completes, THEN a test asserts no change directory exists at all
 - WHEN drafting runs twice against a hand-edited proposal, THEN a test asserts the second run skips and the edited bytes are unchanged
 - WHEN drafting throws, THEN a test asserts the JSON report is still written and `hasFail` still derives from the summary
 - WHEN the CLI is invoked with no drift source or an invalid `--scale`, THEN E2E tests assert a non-zero exit and an empty `.prospec/changes/`
+- WHEN known and unattributed groups share a run, THEN tests assert known groups still scaffold with explicit module lists and failed groups leave no scaffold, while the original report and check verdict retain their existing semantics
 
 ---
 

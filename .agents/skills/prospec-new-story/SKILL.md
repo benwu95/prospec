@@ -37,7 +37,7 @@ nondeterministic serialization this contract exists to remove.
 1. [STABLE] Run `prospec constitution show --station story` (Bash)
 2. [STABLE] **MANDATORY** — Read [`references/proposal-format.md`](references/proposal-format.md) for proposal.md format specification
 3. [DYNAMIC] Read [`references/metadata-format.md`](references/metadata-format.md) on demand for metadata.yaml FIELD SEMANTICS only — the file itself is CLI-written (`prospec change story` / `change scale` / `change log`), never hand-serialized
-4. [DYNAMIC] Read `prospec/index.md` — identify related modules by matching proposal keywords against module `keywords` field
+4. [DYNAMIC] Read `prospec/index.md` — use module descriptions, keywords and boundaries as evidence for scope judgment
 5. [DYNAMIC] Read `prospec/specs/features/` — check existing feature specs for context
 
 ## Entry Gate
@@ -83,9 +83,11 @@ Pass the free-form tracker reference via `prospec change story --issue` in Phase
 
 ### Phase 3: Create Scaffolding
 
+Before scaffolding, the Agent judges scope; index keywords guide discovery. Pass the complete list via repeatable `--related-module <module>`, or `--no-related-modules` for none.
+
 | Scenario | Action |
 |----------|--------|
-| Directory doesn't exist | Run `prospec change story [name] --description "<one-liner>" [--issue <ref>]` (Bash) — the CLI scaffolds `.prospec/changes/[name]/` with `metadata.yaml` (status: story) and `proposal.md`. Pass `--issue` only when a tracker item was provided in the prompt or Phase 2; the flag exists ONLY here, so a skipped answer cannot be amended later without rebuilding the change |
+| Directory doesn't exist | Run `prospec change story [name] --related-module <module> --description "<one-liner>" [--issue <ref>]` (Bash) — creates proposal + metadata (`status: story`). `--issue` is creation-only; supply it only for a provided tracker item |
 | Already exists | Read and update the same proposal; preserve unrelated sections, scenarios, scale and metadata status. Do not scaffold again. On return from explore, incorporate its premise-check without relabeling the original source |
 
 > **Phase 3 Gate** — proceed when:
@@ -143,6 +145,8 @@ Define one or more INVEST User Stories (slim form when `scale: quick` — see Ph
 ### Phase 5: Write proposal.md
 
 Follow `references/proposal-format.md` format with all sections from Phase 4. Keep every unconfirmed inference in Stated Assumptions, including inferred problem/value claims.
+
+Reconcile the concrete proposal with metadata via `prospec change related-modules <modules...> --change [name]`, or `--no-related-modules` for none. Creation scope flags stay off freeze/amend.
 
 Read previous abandoned reasons from `change story`; author Premise `retry_difference` with changed evidence or approach before validation, for all scales. The CLI owns linkage across worktrees; follow any `prospec history import --from <project-root>` diagnostic before retrying.
 

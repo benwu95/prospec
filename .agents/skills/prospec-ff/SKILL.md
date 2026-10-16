@@ -68,21 +68,20 @@ Sub-agents are available here, so take the sub-agent path. Should a spawn fail a
 
 ### Phase 2: Story Generation
 
+Before scaffolding, the Agent judges scope (keywords are hints): pass the complete list via repeatable `--related-module <module>`, or `--no-related-modules` for none.
+
 | Step | Action |
 |------|--------|
-| Scaffold | Run `prospec change story [name] --description "<one-liner>" [--issue <ref>]` (Bash) — creates proposal + metadata (status: story). Pass `--issue` only for a supplied tracker item; this creation-only flag cannot amend an existing change |
+| Scaffold | Run `prospec change story [name] --related-module <module> --description "<one-liner>" [--issue <ref>]` (Bash) — `--issue` is creation-only, for supplied tracking |
 | Scale | Apply `prospec-new-story` Phase 3.5 (criteria + quick veto). Record Draft-First assumptions; interactive mode asks only for an undecided scale. Write via `prospec change scale <scale>` (Bash). Quick → slim proposal form |
 | Populate | Preserve original source independently of verification; use input or actual code investigation as traceable evidence. Read [`references/proposal-format.md`](references/proposal-format.md) on demand, then write User Story and ACs to that format |
+| Reconcile scope | Reconcile concrete proposal/metadata via `prospec change related-modules <modules...> --change [name]` or `--no-related-modules` |
 | Retry history | All scales: read abandoned reasons; author `retry_difference` before validation. CLI links history; resolve import diagnostics |
 | Premise | Run `prospec validate proposal [name]` per proposal-format. Blocked → `prospec-explore` → `prospec-new-story` updates the same proposal. Structural PASS does not establish evidence truth |
 | Freeze | Freeze substantive acceptance scenarios via `prospec change story [name] --freeze-scenarios` (Bash). Amend via `prospec change story [name] --amend-scenarios --reason "<text>" --expected-digest <sha256>`. Never hand-edit metadata.yaml |
 | Check | INVEST is **advisory**: record concerns via `prospec change log --skill prospec-ff --result WARN --warning "<concern>"` and continue; never pause the Story. `prospec-verify` owns the authoritative audit |
 
-**Scale routing:** when `scale: quick` is confirmed, SKIP Phase 3 entirely — no plan.md, no
-delta-spec.md, and no module README loading (Phase 3's Layer 2 step; `prospec/index.md` from Startup
-Loading is still read). Status advances `story → tasks` directly
-(a legal quick-path transition; see `prospec/ai-knowledge/_status-lifecycle.md`). The
-`prospec-archive` Entry Gate later re-checks spec and knowledge impact against the actual diff.
+**Scale routing:** confirmed `scale: quick`: SKIP Phase 3 entirely — no plan.md, no delta-spec.md, and no module README loading. Retain Startup `prospec/index.md`. Advance `story → tasks` directly; `prospec-archive` checks actual diff for spec/knowledge impact.
 
 > **Phase 2 Gate** — proceed when:
 > - [ ] `proposal.md` + `metadata.yaml`(status: story) created

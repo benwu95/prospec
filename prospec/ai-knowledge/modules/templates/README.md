@@ -43,6 +43,8 @@
 
 ## Pitfalls
 
+- New-story/ff determine scope before creation and reconcile it later. Archive/Knowledge guidance repairs unknown scope through CLI; committed changes remain part of semantic scope review.
+
 - The shared delegation protocol distinguishes V1 exact equality from revised V2 scope: non-current local branches, including unused backup branches, are outside protection; required facts, current branches and stash retain their guards. Keep new-issue, recovery and ordinary-failure guidance scoped to protected state; topology proves neither actor attribution nor atomicity. Before changing CLI versions, end outstanding attempts through the authorized lifecycle, then use consistent versions for new tickets. Historical reasons remain readable; older CLIs may reject `non-current-branch`. No automatic acceptance or historical receipt rewriting follows. Preserve pointer-only consumers and token ceilings.
 
 - Archive guidance keeps CLI-returned `archivePath`/`archiveIdentity` for summary, harvest and exact finalize; history/learn/retry guidance resolves canonical roots via `history paths` and names explicit legacy import. Abandon guidance uses the returned canonical abandoned destination; successful archive remains separate. Entry configs inherit its artifact-language scope from `language-policy.ts`.

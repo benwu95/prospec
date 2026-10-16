@@ -231,8 +231,10 @@ export interface KnowledgeSyncMetadata {
   scale?: string;
 }
 
-/** Why a change's affected-module Knowledge is not synced; all empty/false means synced. */
+/** Why a change's affected-module Knowledge is not synced; no gap means synced. */
 export interface KnowledgeSyncGaps {
+  /** Present only when metadata omits the scope declaration. */
+  scopeUnspecified?: true;
   /** Registered modules whose `last_verified`, README or source-commit currency fails. */
   stale: string[];
   /** Affected names absent from the module map (`related_modules` guesses included). */
@@ -250,7 +252,7 @@ export interface KnowledgeSyncGaps {
 }
 
 export function hasKnowledgeSyncGap(gaps: KnowledgeSyncGaps): boolean {
-  return gaps.moduleMapUnreadable || gaps.stale.length + gaps.unregistered.length + gaps.malformedIds.length > 0;
+  return gaps.scopeUnspecified === true || gaps.moduleMapUnreadable || gaps.stale.length + gaps.unregistered.length + gaps.malformedIds.length > 0;
 }
 
 /**
@@ -258,7 +260,7 @@ export function hasKnowledgeSyncGap(gaps: KnowledgeSyncGaps): boolean {
  *
  * The affected set is `metadata.related_modules` ∪ every module the shared
  * classifier resolves from `delta-spec.md` — never one in place of the other,
- * since `related_modules` is a name-word guess that can be wrong but non-empty.
+ * since a caller-declared `related_modules` list does not replace independent classification.
  * A change without a delta-spec is judged on `related_modules` alone.
  */
 export async function findUnsyncedModules(
@@ -272,6 +274,7 @@ export async function findUnsyncedModules(
     : path.resolve(cwd, 'prospec/ai-knowledge');
   const related = (metadata.related_modules ?? []).map((m) => m.toLowerCase());
   const gaps: KnowledgeSyncGaps = { stale: [], unregistered: [], malformedIds: [], moduleMapUnreadable: false };
+  if (metadata.related_modules === undefined) gaps.scopeUnspecified = true;
   const affected = new Set(related);
   const deltaSourced = new Set<string>();
 
@@ -293,8 +296,6 @@ export async function findUnsyncedModules(
       }
     }
   }
-  if (affected.size === 0) return gaps;
-
   let moduleMap: ReturnType<typeof loadModuleMap> = null;
   try {
     moduleMap = loadModuleMap(knowledgePath, cwd);
@@ -306,6 +307,8 @@ export async function findUnsyncedModules(
     if (mapOutsideRoot()) markModuleMapUnreadable(true);
     return gaps;
   }
+
+  if (affected.size === 0) return gaps;
 
   const generatedArtifacts = config?.knowledge?.generated_artifacts ?? [];
   // Only this change's affected modules need timestamps, and collectGitTimestamps
@@ -332,7 +335,7 @@ export async function findUnsyncedModules(
 /**
  * The one mapping from knowledge-sync gaps to `WorkflowReason`s, shared by
  * `prospec status` and `prospec archive`. Inputs no station repairs — an
- * unreadable module map, non-canonical ids and RELATED_MODULE_HALT_CONDITION —
+ * unspecified scope, unreadable module map, non-canonical ids and RELATED_MODULE_HALT_CONDITION —
  * come first under
  * `KNOWLEDGE_INPUT_INVALID`; what
  * `prospec-knowledge-update` repairs follows under `KNOWLEDGE_UNSYNCED`.
@@ -343,7 +346,14 @@ export function knowledgeSyncReasons(gaps: KnowledgeSyncGaps, changeName: string
   const deltaUnregistered = gaps.unregistered.filter((m) => !relatedOnly.includes(m));
   const reasons: WorkflowReason[] = [];
 
+  const scopeRemedy = `declare the complete module list with ` +
+    `\`prospec change related-modules <module...> --change ${changeName}\`, or explicit empty scope with ` +
+    `\`prospec change related-modules --no-related-modules --change ${changeName}\``;
   const invalid = { causes: [] as string[], remedies: [] as string[] };
+  if (gaps.scopeUnspecified) {
+    invalid.causes.push('related_modules scope is unspecified');
+    invalid.remedies.push(scopeRemedy);
+  }
   if (gaps.moduleMapUnreadable && gaps.moduleMapOutsideRoot) {
     invalid.causes.push(MODULE_MAP_OUTSIDE_ROOT.cause);
     invalid.remedies.push(MODULE_MAP_OUTSIDE_ROOT.remedy);
@@ -358,7 +368,7 @@ export function knowledgeSyncReasons(gaps: KnowledgeSyncGaps, changeName: string
   if (relatedOnly.length > 0) {
     invalid.causes.push(`${RELATED_MODULE_HALT_CONDITION}: ${relatedOnly.join(', ')}`);
     invalid.remedies.push(
-      `for ${relatedOnly.join(', ')}: register the module in module-map.yaml, or correct a mistyped name with \`prospec change related-modules <module...> --change ${changeName}\` (every registered module kept)`,
+      `for ${relatedOnly.join(', ')}: register the module in module-map.yaml, or correct attribution — ${scopeRemedy}`,
     );
   }
   if (invalid.causes.length > 0) {

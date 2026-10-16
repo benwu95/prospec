@@ -55,7 +55,7 @@ function verifiedChangeFixture(name = 'feat-x'): void {
   write('prospec/ai-knowledge/modules/lib/README.md', '# lib\n');
   write(
     `.prospec/changes/${name}/metadata.yaml`,
-    `name: ${name}\ncreated_at: 2026-07-01T00:00:00.000Z\nstatus: verified\nscale: standard\n`,
+    `name: ${name}\ncreated_at: 2026-07-01T00:00:00.000Z\nstatus: verified\nscale: standard\nrelated_modules: [lib]\n`,
   );
   write(
     `.prospec/changes/${name}/proposal.md`,

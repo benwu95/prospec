@@ -1,17 +1,8 @@
 # Metadata (metadata.yaml) Format Reference
 
-This document is a **reader's guide** to a change's `metadata.yaml`
-(`.prospec/changes/{name}/metadata.yaml`). The file is **CLI-written, skill-read**: every mutation goes through a `prospec` command — `change story` (create),
-`change scale`, `change related-modules`, `change auto-draft` (create), `change status`, `change log` (quality_log append), `verify record`,
-`check --record-review` / `--record-tests`, `change abandon`, `archive` — so skills never hand-serialize it.
-What follows documents the shape those commands emit, so a skill reading the file (or
-composing structured CLI input) knows what each field means.
+Reader's guide to `.prospec/changes/{name}/metadata.yaml`: **CLI-written, skill-read**; never hand-serialize it. Writers: `change story`, `change scale`, `change related-modules`, `change auto-draft`, `change status`, `change log`, `verify record`, `check --record-review` / `--record-tests`, `change abandon`, `archive`.
 
-> **Scope: format only.** Field *semantics*, types, and optionality are defined by the
-> `ChangeMetadataSchema` (owned by the prospec CLI); `status` values and their transitions
-> by `prospec/ai-knowledge/_status-lifecycle.md`; the required-field floor is enforced by
-> the `metadata-completeness` drift check (`prospec check`). This reference does **not**
-> restate any of them. Consult command `--help` for inputs and the lifecycle guide for transitions.
+The CLI's `ChangeMetadataSchema` owns field semantics; `prospec/ai-knowledge/_status-lifecycle.md` owns transitions; `metadata-completeness` enforces the required-field floor. Consult command `--help` for inputs.
 
 ---
 
@@ -37,7 +28,7 @@ take precedence over canonical ordering. Comments and unknown fields remain pres
 | `created_at` | yes | `prospec change story` (create) | full ISO 8601 |
 | `status` | yes | `prospec change plan/tasks/status` + `verify record` (S/A) + `archive` + `change abandon` | one of the lifecycle values (`_status-lifecycle.md`), forward-only |
 | `scale` | no (defaults `standard`) | `prospec change scale`, after user-confirmed assessment; also `change auto-draft` at create time, from the drift check that triggered it | one of the schema's `CHANGE_SCALES` values |
-| `related_modules` | no | `prospec change story` (auto-match or `--related-module`); `change auto-draft` writes the module it attributed, or nothing; `change related-modules` corrects it | bare module names |
+| `related_modules` | creation: yes; legacy: optional | `prospec change story` (`--related-module` or `--no-related-modules`); `change auto-draft` (attributed modules); `change related-modules` corrects it | bare module names |
 | `description` | no | `prospec change story --description` | one line, plain text |
 | `quality_log` | no | `prospec change log` (any station) + `verify record` (append) | gate trail — see below |
 | `review_provenance` | no | `prospec check --record-review` at review | machine-written baseline |
@@ -46,6 +37,10 @@ take precedence over canonical ordering. Comments and unknown fields remain pres
 | `delta_spec_provenance` | no | `prospec check --record-review` | delta-spec baseline |
 | `issue` | no | `prospec change story --issue`, `prospec change auto-draft --issue` | external-tracker registration — see below |
 | `acceptance` | no | `prospec change story` (`--freeze-scenarios`, `--amend-scenarios`) | versioned acceptance baseline — see below |
+
+### `related_modules` — explicit scope declaration
+
+Absent means unknown; `[]` declares no related modules; a non-empty list declares scope. Use `prospec change related-modules <modules...> --change <name>` or `prospec change related-modules --change <name> --no-related-modules` for replacement with known names; no reason or history. Never hand-edit metadata.yaml.
 
 ### `acceptance` — versioned acceptance baseline
 

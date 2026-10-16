@@ -15,12 +15,12 @@ describe('knowledge-sync gap routing e2e (REQ-CLI-039, REQ-CLI-060, REQ-TESTS-12
   const changeDir = (name: string) => path.join(tmpDir, '.prospec', 'changes', name);
   const metadataPath = (name: string) => path.join(changeDir(name), 'metadata.yaml');
 
-  function writeVerifiedChange(name: string, related: string[], deltaSpec?: string): void {
+  function writeVerifiedChange(name: string, related: string[] | undefined, deltaSpec?: string): void {
     fs.mkdirSync(changeDir(name), { recursive: true });
     fs.writeFileSync(
       metadataPath(name),
       `name: ${name}\ncreated_at: 2026-09-01T00:00:00.000Z\nstatus: verified\nscale: standard\n` +
-        `related_modules:\n${related.map((m) => `  - ${m}\n`).join('')}`,
+        (related === undefined ? '' : `related_modules: [${related.join(', ')}]\n`),
     );
     if (deltaSpec !== undefined) fs.writeFileSync(path.join(changeDir(name), 'delta-spec.md'), deltaSpec);
   }
@@ -75,4 +75,39 @@ describe('knowledge-sync gap routing e2e (REQ-CLI-039, REQ-CLI-060, REQ-TESTS-12
     expect(after.stdout).not.toContain('KNOWLEDGE_INPUT_INVALID');
     expect(after.stdout).toContain('prospec-archive');
   });
+  it('halts unknown legacy scope until an explicit empty declaration is persisted', async () => {
+    writeVerifiedChange('legacy', undefined);
+    const before = fs.readFileSync(metadataPath('legacy'), 'utf8');
+    const halted = await runCli(['status']);
+    expect(halted.stdout).toContain('[KNOWLEDGE_INPUT_INVALID]');
+    expect(halted.stdout).toContain('--no-related-modules');
+    const refused = await runCli(['archive', 'legacy']);
+    expect(refused.stdout + refused.stderr).toContain('scope');
+    expect(fs.readFileSync(metadataPath('legacy'), 'utf8')).toBe(before);
+    const corrected = await runCli(['change', 'related-modules', '--change', 'legacy', '--no-related-modules']);
+    expect(corrected.exitCode).toBe(0);
+    expect(corrected.stdout).toContain('→ []');
+    const after = fs.readFileSync(metadataPath('legacy'), 'utf8');
+    expect(after).toContain('related_modules: []');
+    const repeated = await runCli(['change', 'related-modules', '--change', 'legacy', '--no-related-modules']);
+    expect(repeated.exitCode).toBe(0);
+    expect(repeated.stdout).toContain('no change');
+    expect(fs.readFileSync(metadataPath('legacy'), 'utf8')).toBe(after);
+    expect((await runCli(['status'])).stdout).not.toContain('KNOWLEDGE_INPUT_INVALID');
+  });
+
+  it('corrects registered false positives while retaining independently classified blockers', async () => {
+    const kp = path.join(tmpDir, 'prospec', 'ai-knowledge');
+    fs.writeFileSync(path.join(kp, 'module-map.yaml'), 'modules:\n' +
+      '  - name: lib\n    paths: [src/lib]\n    keywords: []\n    last_verified: "2026-09-01T00:00:00Z"\n' +
+      '  - name: services\n    paths: [src/services]\n    keywords: []\n');
+    writeVerifiedChange('narrow', ['lib', 'services'], '# Delta\n\n## MODIFIED\n\n### REQ-SERVICES-001: actual blocker\n');
+    const corrected = await runCli(['change', 'related-modules', 'lib', '--change', 'narrow']);
+    expect(corrected.exitCode).toBe(0);
+    expect(corrected.stdout).toContain('[lib, services] → [lib]');
+    const status = await runCli(['status']);
+    expect(status.stdout).toContain('KNOWLEDGE_UNSYNCED');
+    expect(status.stdout).toContain('services');
+  });
+
 });

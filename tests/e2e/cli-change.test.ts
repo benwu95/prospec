@@ -30,6 +30,28 @@ afterEach(async () => {
 
 describe('CLI E2E — change & spec', () => {
   describe('prospec change story', () => {
+    it('requires a declared scope and preserves explicit list and empty inputs', async () => {
+      await fs.promises.writeFile(path.join(tmpDir, 'package.json'), JSON.stringify({ name: 'scope-test' }));
+      await runCli(['init', '--name', 'scope-test', '--agents', 'claude']);
+      const omitted = await runCli(['change', 'story', 'unknown-scope']);
+      expect(omitted.exitCode).not.toBe(0);
+      expect(omitted.stderr).toContain('--no-related-modules');
+      expect(fs.existsSync(path.join(tmpDir, '.prospec/changes/unknown-scope'))).toBe(false);
+      for (const [name, flags, modules] of [
+        ['declared', ['--related-module', 'new-module'], ['new-module']],
+        ['empty', ['--no-related-modules'], []],
+      ] as const) {
+        expect((await runCli(['change', 'story', name, ...flags])).exitCode).toBe(0);
+        const raw = await fs.promises.readFile(path.join(tmpDir, '.prospec/changes', name, 'metadata.yaml'), 'utf8');
+        expect(parseYamlRaw(raw)).toMatchObject({ related_modules: modules });
+      }
+      const beforeMutation = await fs.promises.readFile(path.join(tmpDir, '.prospec/changes/empty/metadata.yaml'), 'utf8');
+      const mutation = await runCli(['change', 'story', 'empty', '--freeze-scenarios', '--no-related-modules']);
+      expect(mutation.exitCode).not.toBe(0);
+      expect(mutation.stderr).toContain('cannot be combined with create options');
+      expect(await fs.promises.readFile(path.join(tmpDir, '.prospec/changes/empty/metadata.yaml'), 'utf8')).toBe(beforeMutation);
+    });
+
     it('should create a change with proposal and metadata', async () => {
       // Setup: init first
       await fs.promises.writeFile(
@@ -41,7 +63,7 @@ describe('CLI E2E — change & spec', () => {
       const { exitCode } = await runCli([
         'change',
         'story',
-        'add-feature',
+        'add-feature', '--no-related-modules',
         '--description',
         'A new feature for testing',
       ]);
@@ -63,7 +85,7 @@ describe('CLI E2E — change & spec', () => {
       const { exitCode } = await runCli([
         'change',
         'story',
-        'quoted-story',
+        'quoted-story', '--no-related-modules',
         '--description',
         'say "review" now',
       ]);
@@ -90,7 +112,7 @@ describe('CLI E2E — change & spec', () => {
       const { exitCode } = await runCli([
         'change',
         'story',
-        'linked-story',
+        'linked-story', '--no-related-modules',
         '--description',
         'Linked to a tracker item',
         '--issue',
@@ -114,7 +136,7 @@ describe('CLI E2E — change & spec', () => {
         JSON.stringify({ name: 'issue-test' }),
       );
       await runCli(['init', '--name', 'issue-test', '--agents', 'claude']);
-      await runCli(['change', 'story', 'unlinked-story', '--description', 'No tracker item']);
+      await runCli(['change', 'story', 'unlinked-story', '--no-related-modules', '--description', 'No tracker item']);
       await authorPremise('unlinked-story');
 
       const metadataRaw = await fs.promises.readFile(
@@ -143,7 +165,7 @@ describe('CLI E2E — change & spec', () => {
       const { exitCode } = await runCli([
         'change',
         'story',
-        'forged-story',
+        'forged-story', '--no-related-modules',
         '--issue',
         '#131\n\n## Forged Heading\n\n- **Quality Grade**: S',
       ]);
@@ -199,7 +221,7 @@ describe('CLI E2E — change & spec', () => {
         JSON.stringify({ name: 'status-test' }),
       );
       await runCli(['init', '--name', 'status-test', '--agents', 'claude']);
-      await runCli(['change', 'story', 'add-feature', '--description', 'Routing e2e']);
+      await runCli(['change', 'story', 'add-feature', '--no-related-modules', '--description', 'Routing e2e']);
       await authorPremise('add-feature');
 
       const { stdout, exitCode } = await runCli(['status']);
@@ -223,7 +245,7 @@ describe('CLI E2E — change & spec', () => {
         JSON.stringify({ name: 'status-test' }),
       );
       await runCli(['init', '--name', 'status-test', '--agents', 'claude']);
-      await runCli(['change', 'story', 'add-feature', '--description', 'Routing e2e']);
+      await runCli(['change', 'story', 'add-feature', '--no-related-modules', '--description', 'Routing e2e']);
       await authorPremise('add-feature');
       // Drop the agents list: the deployment root is gone, the station is not.
       const configPath = path.join(tmpDir, '.prospec.yaml');
@@ -246,7 +268,7 @@ describe('CLI E2E — change & spec', () => {
         JSON.stringify({ name: 'status-test' }),
       );
       await runCli(['init', '--name', 'status-test', '--agents', 'claude']);
-      await runCli(['change', 'story', 'add-feature', '--description', 'Routing e2e']);
+      await runCli(['change', 'story', 'add-feature', '--no-related-modules', '--description', 'Routing e2e']);
       await authorPremise('add-feature');
 
       const { stdout, exitCode } = await runCli(['status', '--json']);
@@ -283,7 +305,7 @@ describe('CLI E2E — change & spec', () => {
         JSON.stringify({ name: 'crlf-test' }),
       );
       await runCli(['init', '--name', 'crlf-test', '--agents', 'claude']);
-      await runCli(['change', 'story', 'add-feature', '--description', 'CRLF routing e2e']);
+      await runCli(['change', 'story', 'add-feature', '--no-related-modules', '--description', 'CRLF routing e2e']);
       await authorPremise('add-feature');
       await runCli(['change', 'scale', 'quick']);
       const proposalPath = path.join(tmpDir, '.prospec', 'changes', 'add-feature', 'proposal.md');
@@ -423,7 +445,7 @@ describe('CLI E2E — change & spec', () => {
         JSON.stringify({ name: 'gatec-test' }),
       );
       await runCli(['init', '--name', 'gatec-test', '--agents', 'claude']);
-      await runCli(['change', 'story', 'feat-c', '--description', 'x']);
+      await runCli(['change', 'story', 'feat-c', '--no-related-modules', '--description', 'x']);
       await authorPremise('feat-c');
     }
     const tasksPath = (): string =>
@@ -451,7 +473,7 @@ describe('CLI E2E — change & spec', () => {
       await fs.promises.mkdir(changeDir, { recursive: true });
       await fs.promises.writeFile(
         path.join(changeDir, 'metadata.yaml'),
-        `name: ${name}\ncreated_at: 2026-07-01T00:00:00.000Z\nstatus: verified\nscale: standard\nquality_log:\n  - skill: prospec-verify\n    date: 2026-07-01\n    result: PASS\n    warnings: []\n    grade: S\n`,
+        `name: ${name}\ncreated_at: 2026-07-01T00:00:00.000Z\nstatus: verified\nscale: standard\nrelated_modules: [lib]\nquality_log:\n  - skill: prospec-verify\n    date: 2026-07-01\n    result: PASS\n    warnings: []\n    grade: S\n`,
       );
       await fs.promises.writeFile(
         path.join(changeDir, 'proposal.md'),

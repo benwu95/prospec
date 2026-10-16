@@ -335,6 +335,33 @@ describe('check.service execute', () => {
     await expect(execute({ cwd: tmpDir })).rejects.toMatchObject({ code: 'MODULE_DETECTION_ERROR' });
   });
 
+  it.each(['warn', 'fail'] as const)('preserves the %s report and verdict when unknown auto-draft groups fail alongside known groups', async (severity) => {
+    write('prospec/specs/features/a.md', '#### REQ-A-001: Thing\n');
+    write('prospec/ai-knowledge/module-map.yaml', 'modules:\n  - name: services\n    paths: [src/services/**]\n    keywords: [services]\n');
+    const content = severity === 'fail' ? 'mentions REQ-GONE-007\n' : 'A'.repeat(24_000);
+    write('prospec/index.md', content);
+    write('prospec/ai-knowledge/modules/services/README.md', content);
+
+    const result = await execute({ cwd: tmpDir, json: true, autoDraft: true });
+    if (result.kind !== 'report') throw new Error('expected report');
+    expect(result.autoDraftError).toBeUndefined();
+    expect(result.autoDraftResult!.failedCount).toBeGreaterThan(0);
+    expect(result.autoDraftResult!.createdCount).toBeGreaterThan(0);
+    expect(result.hasFail).toBe(severity === 'fail');
+    expect(result.hasFail).toBe(result.report.summary.fail_count > 0);
+    expect(JSON.parse(readFileSync(result.reportPath!, 'utf8'))).toEqual(result.report);
+    for (const change of result.autoDraftResult!.changes) {
+      const directory = path.resolve(tmpDir, change.changeDir);
+      if (change.action === 'failed') {
+        expect(change.skipReason).toMatch(/scope|related-module/i);
+        expect(existsSync(directory)).toBe(false);
+      } else if (change.action === 'created') {
+        const metadata = parseYaml<{ related_modules: string[] }>(readFileSync(path.join(directory, 'metadata.yaml'), 'utf8'));
+        expect(metadata.related_modules).toEqual(['services']);
+      }
+    }
+  });
+
   it('reports hasFail on a dangling REQ reference', async () => {
     write('prospec/specs/features/a.md', '#### REQ-A-001: Thing\n');
     write('prospec/index.md', 'mentions REQ-GONE-007\n');

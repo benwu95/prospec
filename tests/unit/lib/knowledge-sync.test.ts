@@ -193,6 +193,58 @@ describe('findUnsyncedModules', () => {
     ...(scale === undefined ? {} : { scale }),
   }) as Parameters<typeof findUnsyncedModules>[1];
 
+  it('distinguishes absent scope from declared empty and non-empty scope', async () => {
+    vol.fromJSON(knowledge(['lib']));
+    const unknown = await findUnsyncedModules(CHANGE, meta(), CWD, null);
+    expect(unknown).toEqual({ stale: [], unregistered: [], malformedIds: [], moduleMapUnreadable: false, scopeUnspecified: true });
+    expect(hasKnowledgeSyncGap(unknown)).toBe(true);
+    expect(await checkKnowledgeSync(CHANGE, meta(), CWD, null)).toBe(false);
+    for (const related of [[], ['lib']]) {
+      const declared = await findUnsyncedModules(CHANGE, meta(related), CWD, null);
+      expect(declared).toEqual({ stale: [], unregistered: [], malformedIds: [], moduleMapUnreadable: false });
+      expect(await checkKnowledgeSync(CHANGE, meta(related), CWD, null)).toBe(true);
+    }
+  });
+
+  it('retains unspecified scope without a module map and still checks malformed delta ids', async () => {
+    vol.fromJSON({ [`${CHANGE}/delta-spec.md`]: delta({ ADDED: [req('REQ-LIB-01')] }) });
+    expect(await findUnsyncedModules(CHANGE, meta(), CWD, null)).toEqual({
+      stale: [], unregistered: [], malformedIds: ['REQ-LIB-01'], moduleMapUnreadable: false, scopeUnspecified: true,
+    });
+  });
+
+  it.each([[undefined], [[]], [['lib']]])('validates an existing broken module map with declared scope %j', async (related) => {
+    vol.fromJSON({ [`${KP}/module-map.yaml`]: 'modules: nope\n' });
+    const gaps = await findUnsyncedModules(CHANGE, meta(related), CWD, null);
+    expect(gaps.moduleMapUnreadable).toBe(true);
+    expect(hasKnowledgeSyncGap(gaps)).toBe(true);
+    if (related === undefined) expect(gaps).toHaveProperty('scopeUnspecified', true);
+    else expect(gaps).not.toHaveProperty('scopeUnspecified');
+  });
+
+  it('does not let unspecified scope hide a malformed feature map', async () => {
+    vol.fromJSON({ ...knowledge(['lib'], 'features: nope\n'), [`${CHANGE}/delta-spec.md`]: delta({ MODIFIED: [req('REQ-LIB-001')] }) });
+    await expect(findUnsyncedModules(CHANGE, meta(), CWD, null)).rejects.toThrow(/feature-map/);
+  });
+
+  it.each([{}, { related_modules: [] }])('reads no feature map for empty delta content with scope %j', async (metadata) => {
+    vol.fromJSON({ ...knowledge(['lib'], 'features: nope\n'), [`${CHANGE}/delta-spec.md`]: '' });
+    const gaps = await findUnsyncedModules(CHANGE, metadata, CWD, null);
+    expect(gaps.moduleMapUnreadable).toBe(false);
+    expect(gaps.malformedIds).toEqual([]);
+    expect(hasKnowledgeSyncGap(gaps)).toBe(metadata.related_modules === undefined);
+  });
+
+  it.each(['MODIFIED', 'REMOVED'])('keeps independently classified stale module blockers with declared empty scope in %s', async (section) => {
+    vol.fromJSON({ ...knowledge(['services']), [`${KP}/module-map.yaml`]: 'modules:\n  - name: services\n    paths: [src/services]\n    keywords: [services]\n', [`${CHANGE}/delta-spec.md`]: delta({ [section]: [req('REQ-SERVICES-001')] }) });
+    expect((await findUnsyncedModules(CHANGE, meta([]), CWD, null)).stale).toEqual(['services']);
+  });
+
+  it('keeps a feature-map stale blocker with declared empty scope', async () => {
+    vol.fromJSON({ ...knowledge(['lib', 'services'], FEATURE_MAP), [`${KP}/module-map.yaml`]: `modules:\n${moduleEntry('lib')}  - name: services\n    paths: [src/services]\n    keywords: [services]\n`, [`${CHANGE}/delta-spec.md`]: delta({ MODIFIED: [req('REQ-PAY-001')] }) });
+    expect((await findUnsyncedModules(CHANGE, meta([]), CWD, null)).stale).toEqual(['services']);
+  });
+
   it('checks delta-spec modules even when related_modules is non-empty (AC-1)', async () => {
     const files = knowledge(['lib', 'services']);
     files[`${KP}/module-map.yaml`] = `modules:\n${moduleEntry('lib')}  - name: services\n    paths: [src/services]\n    keywords: [services]\n`;
@@ -337,6 +389,19 @@ describe('knowledgeSyncReasons (REQ-LIB-097, REQ-LIB-071)', () => {
     expect(reason?.message).toContain(`${RELATED_MODULE_HALT_CONDITION}: ghost`);
   });
 
+  it('maps unspecified scope to input-invalid with complete-list and explicit-empty correction commands', () => {
+    const unspecified = { ...NONE, scopeUnspecified: true as const };
+    expect(hasKnowledgeSyncGap(unspecified)).toBe(true);
+    const [reason] = knowledgeSyncReasons(unspecified, 'my-change');
+    expect(reason?.code).toBe('KNOWLEDGE_INPUT_INVALID');
+    expect(reason?.message).toContain('related_modules');
+    expect(reason?.message).toContain('unspecified');
+    expect(reason?.remediation).toContain('complete module list');
+    expect(reason?.remediation).toContain('prospec change related-modules <module...> --change my-change');
+    expect(reason?.remediation).toContain('prospec change related-modules --no-related-modules --change my-change');
+    expect(reason?.remediation).not.toContain('knowledge verify');
+  });
+
   it('maps stale modules to a KNOWLEDGE_UNSYNCED reason that stamps them', () => {
     const [reason, ...rest] = knowledgeSyncReasons(gaps({ stale: ['services'] }), 'c');
     expect(rest).toEqual([]);
@@ -374,7 +439,9 @@ describe('knowledgeSyncReasons (REQ-LIB-097, REQ-LIB-071)', () => {
     expect(remedy.indexOf('module-map.yaml')).toBeGreaterThanOrEqual(0);
     expect(remedy.indexOf('module-map.yaml')).toBeLessThan(remedy.indexOf('prospec change related-modules'));
     expect(remedy).toContain('--change my-change');
-    expect(remedy).toMatch(/registered module/);
+    expect(remedy).toContain('complete module list');
+    expect(remedy).toContain('--no-related-modules');
+    expect(remedy).not.toContain('every registered module kept');
   });
 
   it('lists the input-invalid reason first and keeps each cause under its own code', () => {
@@ -393,6 +460,7 @@ describe('knowledgeSyncReasons (REQ-LIB-097, REQ-LIB-071)', () => {
   it('returns a reason exactly when there is a gap', () => {
     const samples: KnowledgeSyncGaps[] = [
       NONE,
+      { ...NONE, scopeUnspecified: true as const },
       gaps({ stale: ['a'] }),
       gaps({ unregistered: ['a'] }),
       gaps({ unregistered: ['a'], relatedUnregistered: ['a'] }),
@@ -458,10 +526,10 @@ describe('readKnownModules (REQ-LIB-097)', () => {
     }
   });
 
-  it('refuses a schema-invalid map even where the gate, with no affected module, passes the change', async () => {
+  it('rejects a schema-invalid map in both writer and gate even with declared empty scope', async () => {
     vol.fromJSON({ [`${KP}/module-map.yaml`]: SCHEMA_INVALID });
     const meta = { related_modules: [] } as Parameters<typeof findUnsyncedModules>[1];
-    expect(hasKnowledgeSyncGap(await findUnsyncedModules(CHANGE, meta, CWD, null))).toBe(false);
+    expect(hasKnowledgeSyncGap(await findUnsyncedModules(CHANGE, meta, CWD, null))).toBe(true);
     expect(readKnownModules(KP, CWD).unreadable).toBeDefined();
   });
 });
@@ -481,6 +549,14 @@ describe('maps that resolve outside the knowledge root', () => {
     linkOutside('module-map.yaml', BROKEN, { [`${CHANGE}/delta-spec.md`]: delta({ MODIFIED: [req('REQ-LIB-001')] }) });
     const gaps = await findUnsyncedModules(CHANGE, meta([]), CWD, null);
     expect(gaps).toMatchObject({ moduleMapUnreadable: true, moduleMapOutsideRoot: true });
+  });
+
+  it.each([[undefined], [[]]])('validates an outside module map with scope %j even without affected modules', async (related) => {
+    linkOutside('module-map.yaml', VALID_MAP);
+    const metadata = related === undefined ? {} : meta(related);
+    const gaps = await findUnsyncedModules(CHANGE, metadata, CWD, null);
+    expect(gaps).toMatchObject({ moduleMapUnreadable: true, moduleMapOutsideRoot: true });
+    if (related === undefined) expect(gaps).toHaveProperty('scopeUnspecified', true);
   });
 
   it('reports a valid outside module map unreadable for a change without a delta-spec', async () => {

@@ -191,6 +191,10 @@ describe('prospec change auto-draft and check --auto-draft E2E', () => {
       JSON.stringify({ name: 'e2e-autodraft' }),
     );
     await runCli(['init', '--name', 'e2e-autodraft', '--agents', 'claude']);
+    const knowledge = path.join(tmpDir, 'prospec', 'ai-knowledge');
+    await fs.promises.mkdir(path.join(knowledge, 'modules', 'services'), { recursive: true });
+    await fs.promises.writeFile(path.join(knowledge, 'module-map.yaml'), 'modules:\n  - name: services\n    paths: [src/services/**]\n    keywords: [services]\n');
+    await fs.promises.writeFile(path.join(knowledge, 'modules', 'services', 'README.md'), '# Services\n' + 'A'.repeat(6000));
   }
 
   it('creates a complete fix change directory via change auto-draft', async () => {
@@ -218,6 +222,15 @@ describe('prospec change auto-draft and check --auto-draft E2E', () => {
     const proposalText = await fs.promises.readFile(path.join(dir, 'proposal.md'), 'utf-8');
     expect(proposalText).toContain('Fix services drift (knowledge-size)');
     expect(proposalText).toContain('README exceeds token budget');
+  });
+
+  it('fails an unknown target with a scope remedy and no scaffold', async () => {
+    await initProject();
+    const { exitCode, stdout } = await runCli(['change', 'auto-draft', '--target', 'unmapped', '--reason', 'Inspect unknown ownership']);
+    expect(exitCode).toBe(1);
+    expect(stdout).toContain('✗ Failed: fix-unmapped-drift');
+    expect(stdout).toMatch(/scope|related-module/i);
+    expect(fs.existsSync(changeDir('fix-unmapped-drift'))).toBe(false);
   });
 
   it('rejects an unknown --scale instead of writing it to disk', async () => {
@@ -257,7 +270,7 @@ describe('prospec change auto-draft and check --auto-draft E2E', () => {
 
     const { exitCode, stdout } = await runCli(['check', '--json', '--auto-draft']);
 
-    expect(exitCode).toBe(0);
+    expect(exitCode).toBe(1);
     const reportPath = path.join(tmpDir, 'prospec-report.json');
     expect(fs.existsSync(reportPath)).toBe(true);
     // The report the run graded, not just a file: its verdicts must survive the
@@ -265,6 +278,9 @@ describe('prospec change auto-draft and check --auto-draft E2E', () => {
     const report = JSON.parse(await fs.promises.readFile(reportPath, 'utf-8'));
     expect(report.structural.checks.length).toBeGreaterThan(0);
     expect(report.summary.fail_count).toBe(0);
+
+    expect(stdout).toContain('✗ Failed:');
+    expect(stdout).toMatch(/scope|related-module/i);
 
     // Whatever was drafted exists on disk under exactly the reported names.
     const drafted = [...stdout.matchAll(/Drafted fix: (\S+)/g)].map((m) => m[1]!);
@@ -274,9 +290,14 @@ describe('prospec change auto-draft and check --auto-draft E2E', () => {
     // pass on a run that drafted nothing at all.
     expect(drafted.length).toBeGreaterThan(0);
     expect(onDisk.sort()).toEqual(drafted.sort());
+    const failed = [...stdout.matchAll(/✗ Failed: (\S+)/g)].map((m) => m[1]!);
+    expect(failed.length).toBeGreaterThan(0);
+    for (const name of failed) expect(fs.existsSync(changeDir(name))).toBe(false);
     for (const name of onDisk) {
       expect(fs.existsSync(path.join(changes, name, 'proposal.md'))).toBe(true);
       expect(fs.existsSync(path.join(changes, name, 'metadata.yaml'))).toBe(true);
+      const metadata = parseYamlRaw(await fs.promises.readFile(path.join(changes, name, 'metadata.yaml'), 'utf8'));
+      expect(metadata.related_modules).toEqual(['services']);
     }
   });
 
@@ -297,7 +318,8 @@ describe('prospec change auto-draft and check --auto-draft E2E', () => {
     // Bare flag, no value: it must find `prospec-report.json` on its own.
     const { exitCode, stdout } = await runCli(['change', 'auto-draft', '--from-report']);
 
-    expect(exitCode).toBe(0);
+    expect(exitCode).toBe(1);
+    expect(stdout).toContain('✗ Failed:');
     expect([...stdout.matchAll(/Drafted fix: (\S+)/g)].length).toBeGreaterThan(0);
   });
 
@@ -315,6 +337,8 @@ describe('prospec change auto-draft and check --auto-draft E2E', () => {
       expect(exitCode).toBe(1);
       expect(stdout).toContain('✗ Failed:');
       expect(stdout).toMatch(/\d+ failed/);
+      expect(stdout).toMatch(/Failed: fix-services-knowledge-size .*EACCES/);
+      expect(await fs.promises.readdir(changes)).toEqual([]);
     } finally {
       await fs.promises.chmod(changes, 0o755);
     }
@@ -330,6 +354,8 @@ describe('prospec change auto-draft and check --auto-draft E2E', () => {
       // The CHECK passed; the drafting it was asked to do did not.
       expect(exitCode).toBe(1);
       expect(stderr).toContain('auto-draft failed');
+      expect(stderr).toMatch(/fix-services-knowledge-size.*EACCES/);
+      expect(await fs.promises.readdir(changes)).toEqual([]);
     } finally {
       await fs.promises.chmod(changes, 0o755);
     }
@@ -361,7 +387,7 @@ describe('prospec change auto-draft and check --auto-draft E2E', () => {
       '--auto-draft-dry-run',
     ]);
 
-    expect(exitCode).toBe(0);
+    expect(exitCode).toBe(1);
     expect(fs.existsSync(path.join(tmpDir, 'prospec-report.json'))).toBe(true);
     // It must have had something to preview, or "wrote nothing" is vacuous.
     expect(stdout).toContain('[dry-run]');

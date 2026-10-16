@@ -40,7 +40,7 @@ it('reports misplaced abandoned metadata and refuses generic minting and revival
   expect(vol.toJSON()).toEqual(before);
 });
 it.each(['full', 'quick', 'backfill'] as const)('blocks retry forward writers at %s scale until difference is authored', async (selectedScale) => {
-  abandonedFixture('/p'); await story({ name: 'retry', issue: '#333', scale: selectedScale, cwd: '/p', proposalBody: premiseProposal() });
+  abandonedFixture('/p'); await story({ relatedModules: [], name: 'retry', issue: '#333', scale: selectedScale, cwd: '/p', proposalBody: premiseProposal() });
   const before = vol.toJSON();
   await expect(plan({ change: 'retry', cwd: '/p', quiet: true })).rejects.toThrow(/retry_difference/);
   await expect(tasks({ change: 'retry', cwd: '/p', quiet: true })).rejects.toThrow(/retry_difference/);
@@ -75,7 +75,7 @@ it('cannot turn an abandoned active copy into a successful archive using an expl
   expect(result.archived).toEqual([]); expect(result.refused[0]?.reason).toMatch(/terminal|abandon/i);
 });
 it('scale changes past story use the same retry admission', async () => {
-  abandonedFixture('/p'); await story({ name: 'retry', issue: '#333', cwd: '/p', proposalBody: premiseProposal() });
+  abandonedFixture('/p'); await story({ relatedModules: [], name: 'retry', issue: '#333', cwd: '/p', proposalBody: premiseProposal() });
   const file = '/p/.prospec/changes/retry/metadata.yaml'; fs.writeFileSync(file, fs.readFileSync(file, 'utf8').replace('status: story', 'status: plan'));
   await expect(scale({ change: 'retry', scale: 'quick', cwd: '/p' })).rejects.toThrow(/retry_difference/);
 });

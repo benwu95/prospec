@@ -19,7 +19,7 @@ function write(file: string, value: string): void { fs.mkdirSync(path.dirname(fi
 const summary = '# Same\n\n## Review & Verify\n\nVerified.\n';
 function active(source: string): string {
   const dir = path.join(source, '.prospec/changes/same');
-  write(path.join(dir, 'metadata.yaml'), 'name: same\nstatus: verified\ncreated_at: 2026-01-01T00:00:00.000Z\nscale: standard\n');
+  write(path.join(dir, 'metadata.yaml'), 'name: same\nstatus: verified\ncreated_at: 2026-01-01T00:00:00.000Z\nscale: standard\nrelated_modules: []\n');
   write(path.join(dir, 'proposal.md'), '# Proposal\n');
   write(path.join(dir, 'summary.md'), summary);
   return dir;

@@ -410,7 +410,7 @@ Description.
 describe('execute', () => {
   it('should archive verified changes and update metadata to archived', async () => {
     vol.fromJSON({
-      '/project/.prospec/changes/feat-a/metadata.yaml': 'name: feat-a\nstatus: verified\ncreated: "2026-01-01"\n',
+      '/project/.prospec/changes/feat-a/metadata.yaml': 'related_modules: [types]\nname: feat-a\nstatus: verified\ncreated: "2026-01-01"\n',
       '/project/.prospec/changes/feat-a/proposal.md': `# Proposal
 
 ## User Story
@@ -458,7 +458,7 @@ Details.
 
   it('should archive changes with specified status', async () => {
     vol.fromJSON({
-      '/project/.prospec/changes/feat-a/metadata.yaml': 'name: feat-a\nstatus: tasks\ncreated: "2026-01-01"\n',
+      '/project/.prospec/changes/feat-a/metadata.yaml': 'related_modules: []\nname: feat-a\nstatus: tasks\ncreated: "2026-01-01"\n',
     });
 
     const result = await execute({ cwd: '/project', status: 'tasks' });
@@ -468,7 +468,7 @@ Details.
   it('should sync to Feature Specs when config and delta-spec exist', async () => {
     vol.fromJSON({
       '/project/.prospec.yaml': 'project:\n  name: test-project\npaths:\n  base_dir: prospec\n',
-      '/project/.prospec/changes/feat-a/metadata.yaml': 'name: feat-a\nstatus: verified\ncreated: "2026-01-01"\n',
+      '/project/.prospec/changes/feat-a/metadata.yaml': 'related_modules: [types]\nname: feat-a\nstatus: verified\ncreated: "2026-01-01"\n',
       '/project/.prospec/changes/feat-a/proposal.md': '# Proposal\n\n## User Story\n\nAs a dev, I want X.\n',
       '/project/.prospec/changes/feat-a/delta-spec.md': '# Delta Spec\n\n## ADDED\n\n### REQ-TYPES-001: Some type\n\n**Feature:** sdd-workflow\n**Story:** US-1\n\n**Description:**\nDetails.\n',
     });
@@ -504,7 +504,7 @@ last_updated: 2026-01-01
 |------|--------|--------|-------------|
 | 2026-01-01 | earlier-change | ADDED REQ-TYPES-000 | REQ-TYPES-000 |
 `,
-      '/project/.prospec/changes/feat-a/metadata.yaml': 'name: feat-a\nstatus: verified\ncreated: "2026-01-01"\n',
+      '/project/.prospec/changes/feat-a/metadata.yaml': 'related_modules: [types]\nname: feat-a\nstatus: verified\ncreated: "2026-01-01"\n',
       '/project/.prospec/changes/feat-a/delta-spec.md':
         '# Delta Spec\n\n## ADDED\n\n### REQ-TYPES-001: Some type\n\n**Feature:** sdd-workflow\n**Story:** US-1\n\n**Description:**\nDetails.\n',
     });
@@ -526,7 +526,7 @@ last_updated: 2026-01-01
   it('names the change in a NEWLY created feature spec too', async () => {
     vol.fromJSON({
       '/project/.prospec.yaml': 'project:\n  name: test-project\npaths:\n  base_dir: prospec\n',
-      '/project/.prospec/changes/feat-a/metadata.yaml': 'name: feat-a\nstatus: verified\ncreated: "2026-01-01"\n',
+      '/project/.prospec/changes/feat-a/metadata.yaml': 'related_modules: [types]\nname: feat-a\nstatus: verified\ncreated: "2026-01-01"\n',
       '/project/.prospec/changes/feat-a/delta-spec.md':
         '# Delta Spec\n\n## ADDED\n\n### REQ-TYPES-001: Some type\n\n**Feature:** brand-new-feature\n**Story:** US-1\n\n**Description:**\nDetails.\n',
     });
@@ -584,7 +584,7 @@ last_updated: 2026-01-01
 
   it('should not fail archive when config is missing (no spec files)', async () => {
     vol.fromJSON({
-      '/project/.prospec/changes/feat-a/metadata.yaml': 'name: feat-a\nstatus: verified\ncreated: "2026-01-01"\n',
+      '/project/.prospec/changes/feat-a/metadata.yaml': 'related_modules: [types]\nname: feat-a\nstatus: verified\ncreated: "2026-01-01"\n',
       // A fully routable delta-spec (REQ + **Feature:**): with config present this
       // WOULD sync a Feature Spec. Here config is missing, so featuresPath stays
       // null and the sync block (L425) is skipped — specFiles is empty ONLY
@@ -606,7 +606,7 @@ last_updated: 2026-01-01
   it('never auto-triggers knowledge-update or raw-scan (REQ-SERVICES-064)', async () => {
     vol.fromJSON({
       '/project/.prospec.yaml': 'project:\n  name: test-project\n',
-      '/project/.prospec/changes/feat-a/metadata.yaml': 'name: feat-a\nstatus: verified\ncreated: "2026-01-01"\n',
+      '/project/.prospec/changes/feat-a/metadata.yaml': 'related_modules: [services]\nname: feat-a\nstatus: verified\ncreated: "2026-01-01"\n',
       '/project/.prospec/changes/feat-a/proposal.md': '# Proposal\n\n## User Story\n\nAs a dev, I want X.\n',
       // A delta-spec present is the exact condition the removed safety net fired on —
       // asserting non-invocation here proves the trigger is gone, not just absent.
@@ -2238,8 +2238,8 @@ describe('execute additional branches', () => {
 
   it('filters candidates to the requested names (L377 names branch)', async () => {
     vol.fromJSON({
-      '/project/.prospec/changes/keep/metadata.yaml': 'name: keep\nstatus: verified\ncreated: "2026-01-01"\n',
-      '/project/.prospec/changes/drop/metadata.yaml': 'name: drop\nstatus: verified\ncreated: "2026-01-01"\n',
+      '/project/.prospec/changes/keep/metadata.yaml': 'related_modules: []\nname: keep\nstatus: verified\ncreated: "2026-01-01"\n',
+      '/project/.prospec/changes/drop/metadata.yaml': 'related_modules: []\nname: drop\nstatus: verified\ncreated: "2026-01-01"\n',
     });
 
     const result = await execute({ cwd: '/project', names: ['keep'] });
@@ -2250,8 +2250,8 @@ describe('execute additional branches', () => {
 
   it('falls back to created_at then "unknown" for the original-created date (L403 ?? chain)', async () => {
     vol.fromJSON({
-      '/project/.prospec/changes/withCreatedAt/metadata.yaml': 'name: withCreatedAt\nstatus: verified\ncreated_at: "2026-02-02"\n',
-      '/project/.prospec/changes/noDate/metadata.yaml': 'name: noDate\nstatus: verified\n',
+      '/project/.prospec/changes/withCreatedAt/metadata.yaml': 'related_modules: []\nname: withCreatedAt\nstatus: verified\ncreated_at: "2026-02-02"\n',
+      '/project/.prospec/changes/noDate/metadata.yaml': 'related_modules: []\nname: noDate\nstatus: verified\n',
     });
 
     const result = await execute({ cwd: '/project' });
@@ -2267,7 +2267,7 @@ describe('execute additional branches', () => {
   it('collects a change in skipped[] when moveToArchive fails (L450-451)', async () => {
     const today = new Date().toISOString().slice(0, 10);
     vol.fromJSON({
-      '/project/.prospec/changes/feat/metadata.yaml': 'name: feat\nstatus: verified\ncreated: "2026-01-01"\n',
+      '/project/.prospec/changes/feat/metadata.yaml': 'related_modules: []\nname: feat\nstatus: verified\ncreated: "2026-01-01"\n',
       // archive target already present → moveToArchive throws → caught → skipped
       [`/project/.prospec/archive/${today}-feat/x.md`]: 'pre-existing',
     });
@@ -2282,7 +2282,7 @@ describe('execute additional branches', () => {
     // (L425) is skipped entirely, so specFiles is empty. Archiving still succeeds
     // and rewrites the change's metadata to 'archived'.
     vol.fromJSON({
-      '/project/.prospec/changes/feat/metadata.yaml': 'name: feat\nstatus: verified\ncreated: "2026-01-01"\n',
+      '/project/.prospec/changes/feat/metadata.yaml': 'related_modules: [types]\nname: feat\nstatus: verified\ncreated: "2026-01-01"\n',
       '/project/.prospec/changes/feat/delta-spec.md': '# Delta\n\n## ADDED\n\n### REQ-TYPES-001: x\n\n**Feature:** f\n\nbody\n',
     });
 
