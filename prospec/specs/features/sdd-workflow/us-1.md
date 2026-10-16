@@ -5,7 +5,7 @@ I want to create a structured change request via `/prospec-new-story`,
 so that I can clearly describe user stories, acceptance criteria, and functional requirements in INVEST format.
 
 **Acceptance Scenarios:**
-- WHEN running `prospec change story {name}` THEN create `.prospec/changes/{name}/` containing `proposal.md` and `metadata.yaml` (status: story)
+- WHEN running `prospec change story {name}` with explicit `--related-module <module>` options or `--no-related-modules`, THEN create `.prospec/changes/{name}/` containing `proposal.md` and `metadata.yaml` (status: story)
 - WHEN the change name already exists THEN prompt that it exists and terminate
 - WHEN describing requirements THEN guide writing multiple independent INVEST User Stories (with priority and WHEN/THEN acceptance scenarios)
 - WHEN a new-contract standard/full proposal is authored, THEN complete its sourced premise before planning; re-entry updates the same proposal and preserves the acceptance amendment contract
@@ -31,14 +31,13 @@ Generate a proposal.md in INVEST User Story format.
 - WHEN a new proposal is scaffolded, THEN it includes a pending Premise skeleton under REQ-TYPES-111; the skill completes it under REQ-TEMPLATES-245 before planning when applicable.
 - WHEN a story is created, THEN the creator captures retry linkage and returns matching abandoned reasons under REQ-LIB-101, including when a supplied proposal body is written verbatim.
 
-#### REQ-CHNG-003: Auto-Identify Related Modules
-Identify related modules by keyword-matching against the root-level `{base_dir}/index.md`, taking the **bare** module name from the Module cell.
-- WHEN change name contains module keywords, THEN Related Modules lists matches
-- WHEN no match, THEN Related Modules is empty
-- WHEN parsing the `{base_dir}/index.md` table, THEN cells are read position-stably and Description comes from the canonical column index (REQ-KNOW-020); non-module rows (e.g. the Progressive Knowledge Loading Strategy table) are skipped by column count
-- WHEN the Module cell carries display emphasis (`**types**`), THEN the emphasis is stripped via the shared `stripCellEmphasis` before the value is used as a module name — one source shared with `parseIndexModules`, so the two never disagree on a module's identity
-- WHEN the name reaches `related_modules` or the proposal, THEN it is bare: metadata holds `types`, and the proposal template applies the single layer of bolding
-- WHEN the caller passes an explicit module list — INCLUDING an empty one — THEN keyword matching is not run: an empty list is the caller's answer, not the absence of one
+#### REQ-CHNG-003: Explicit related-module scope at story creation
+Story creation persists the caller-declared related-module scope instead of inferring it from the change name. Read-only module search remains a separate candidate-discovery surface.
+- WHEN creation receives no explicit module list, THEN it refuses before creating a change directory or artifact, including under dry run; no keyword fallback supplies scope
+- WHEN the caller supplies a module list, THEN metadata stores that list under `related_modules`, including an explicit empty array; supplied bare names retain their existing validation without requiring a new module to be registered at story time
+- WHEN `--related-module <name>` is supplied repeatedly, THEN creation uses that explicit list; WHEN `--no-related-modules` is supplied, THEN creation receives an explicit empty list; providing both forms refuses
+- WHEN neither creation-scope form is supplied, THEN the CLI reports the missing declaration without writing; freeze and amendment modes keep their own inputs and reject creation-only options
+- WHEN module descriptions are displayed, THEN an optional index lookup resolves the declared names exactly and does not add keyword matches to scope
 
 #### REQ-CHNG-004: Change Metadata Lifecycle
 Track status via metadata.yaml, with `ai-knowledge/_status-lifecycle.md` as the single source of truth: `story` → `plan` → `tasks` → `implemented` → `verified` → `archived`; `scale: quick` permits `story` → `tasks`, a legal skip of plan.
@@ -62,6 +61,8 @@ Track status via metadata.yaml, with `ai-knowledge/_status-lifecycle.md` as the 
 - WHEN complete, THEN conform to proposal-format.hbs + execute Knowledge Quality Gate
 - WHEN substantive acceptance scenarios have been authored, THEN invoke the story freeze command before the next station; a later scenario change uses the controlled amendment path with its reason and expected digest
 - WHEN authoring or re-entering a proposal, THEN the skill follows the sourced-premise authoring and same-change handoff in REQ-TEMPLATES-245.
+- WHEN creating a story, THEN the agent judges scope from the requirement, relevant specs and source and supplies an explicit module list or an explicit empty declaration to the CLI; keyword search provides candidates rather than a final scope
+- WHEN the proposal becomes concrete or is re-entered, THEN the skill reconciles Related Modules with the declaration through the correction command; actual requirement reduction still follows existing human decision and amendment paths
 
 #### REQ-TEMPLATES-150: metadata.yaml Format Reference
 `references/metadata-format.hbs` is the single authority for the metadata.yaml serialization format (canonical field order, minimal quoting, `created_at` ISO 8601, `quality_log` entry shape); semantics remain owned by the CLI schema and `_status-lifecycle.md`; downstream guidance uses public commands/help and the deployed lifecycle document rather than requiring access to Prospec source files.
@@ -71,6 +72,7 @@ Track status via metadata.yaml, with `ai-knowledge/_status-lifecycle.md` as the 
 - WHEN documenting acceptance metadata, THEN describe pending, frozen and late-capture states, revision identity and amendment audit fields through the CLI-owned freeze/amend workflow; never teach manual YAML serialization
 - WHEN describing quality_log entries, THEN the reference does not impose a one-entry-per-station cardinality
 - WHEN documenting abandonment and retry linkage, THEN the reference names the CLI-owned fields and their schema owner without teaching manual metadata mutation.
+- WHEN documenting related-module scope, THEN the reader reference distinguishes legacy absent scope from explicit `[]`, identifies the public create/correction inputs and points to CLI help; it teaches no manual metadata serialization, correction-history field or scope-confirmation state
 
 ---
 
