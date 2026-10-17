@@ -61,6 +61,6 @@ export const REVIEW_LENSES = [
     aliases: [],
     label: 'Test-quality',
     classification: 'conditional',
-    summary: 'Changed tests: behavior coverage, independent oracles and failure sensitivity.',
+    summary: 'Changed tests or test-gate configuration: behavior coverage, independent oracles, failure sensitivity and loosening.',
   },
 ] as const satisfies readonly ReviewLensDefinition[];

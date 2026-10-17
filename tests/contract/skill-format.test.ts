@@ -3791,7 +3791,13 @@ const TEST_QUALITY_CRITERIA = [
   'Content-presence asserted but **structural invariants** (item-set vs a version-controlled baseline, ordering, contiguity) and **negative assertions** for "must NOT appear" rules are missing — a "must NOT appear" rule pins the **set or structure** (item-set, closed enum, directory enumeration), never a keyword, whose coverage equals the author\'s vocabulary',
   'A new assertion class was never **mutation-verified** (delete/corrupt the asserted feature → the test must go red)',
   'An assertion passes **vacuously** — the slice, glob, or collection it inspects can be empty and the expectation still holds (`expect(found).not.toContain(x)` over an empty `found`)',
+  'An existing assertion is **weakened or deleted** without a basis (an exact check loosened to a negation or a range, an assertion or test case removed); the finding quotes the assertion before and after the change',
+  'A test **disable or focus marker** is added without a basis (`.skip`, `.only`, `xit`, `xdescribe` or the equivalent in the project\'s runner)',
+  'A **test gate is relaxed** without a basis — `tech_stack.test_command` narrowed, `test_evidence.exclude_knowledge` enabled, a test-runner exclude added, a lint suppression added, or a coverage threshold lowered',
 ];
+
+// The three loosening rows, by the bold label each one carries.
+const LOOSENING_LABELS = ['weakened or deleted', 'disable or focus marker', 'test gate is relaxed'];
 
 describe('Mutation testing is an on-demand audit, never a gate (REQ-TEMPLATES-169, REQ-TESTS-066)', () => {
   it('the mutation-naming rule governs the reviewer\'s output, not the change', () => {
@@ -3866,6 +3872,74 @@ describe('Mutation testing is an on-demand audit, never a gate (REQ-TEMPLATES-16
       const body = fs.readFileSync(path.join(workflowDir, file), 'utf-8');
       expect(body, `${file} carries a mutation step`).not.toMatch(/stryker|mutation|mutate/i);
     }
+  });
+});
+
+describe('Loosened tests and test gates are a test-quality criterion (REQ-TEMPLATES-251, REQ-TESTS-138)', () => {
+  // Every gate upstream of review (the implement test gate, review auto-fix, the
+  // persistent-test-failure breaker) pushes toward green, and the cheapest green
+  // is a looser test. Build and test cannot see that; only the lens can.
+  const lensSection = () =>
+    sectionOf(renderTemplate('skills/references/review-lenses-content.hbs', TEMPLATE_CONTEXT), '## Test-Quality Lens');
+  const rowOf = (section: string, label: string) => {
+    const row = section.split('\n').find((l) => /^\|/.test(l) && l.includes(`**${label}**`));
+    expect(row, `loosening row "${label}" not found in the criteria table`).toBeDefined();
+    return row!;
+  };
+  const basisOf = (section: string) => {
+    const start = section.indexOf('**Basis for a loosening.**');
+    expect(start, 'basis paragraph not found').toBeGreaterThanOrEqual(0);
+    const end = section.indexOf('\n\n', start);
+    return section.slice(start, end === -1 ? undefined : end);
+  };
+
+  it('rates each loosening shape critical', () => {
+    const section = lensSection();
+    for (const label of LOOSENING_LABELS) {
+      expect(rowOf(section, label).split('|')[2]?.trim(), label).toMatch(/^critical\b/);
+    }
+  });
+
+  it('the weakened-assertion row requires quoting the assertion before and after', () => {
+    expect(rowOf(lensSection(), 'weakened or deleted')).toMatch(/quotes the assertion before and after/);
+  });
+
+  it('defines the basis, its before-review limit, the citation rule and the fix rule', () => {
+    const basis = basisOf(lensSection());
+    // The three admissible sources — the set, not one of them.
+    expect(basis).toMatch(/MODIFIED or REMOVED REQ in the change's delta-spec/);
+    expect(basis).toMatch(/recorded acceptance amendment/);
+    expect(basis).toMatch(/reason stated in the proposal/);
+    // A basis the fixing agent writes mid-review would let it vouch for itself.
+    expect(basis).toMatch(/written before the review loop, not by a review-round fix/);
+    // Only an acceptance amendment leaves a record; claim nothing more (review R1,
+    // R1-basis-history-unrecorded: no delta-spec history or loop start is recorded).
+    expect(basis).toMatch(/by file and line/);
+    expect(basis).toMatch(/Only an acceptance amendment carries a record \(`metadata\.yaml` `acceptance\.revisions`\)/);
+    expect(basis).toMatch(/is your judgment, since nothing records that moment/);
+    expect(basis).not.toMatch(/recorded history/);
+    // A restored assertion has no fail-then-pass pin and may turn the suite red,
+    // so the Auto-Fix Boundary cannot hold (review R1, R1-loosening-fix-vs-autofix-pin).
+    expect(basis).toMatch(/Never auto-fix a confirmed loosening/);
+    expect(basis).toMatch(/escalate it to the developer with the restore as the proposed fix/);
+  });
+
+  it('applies to a change that touches only test-gate configuration', () => {
+    const applies = lensSection().split('\n').find((l) => l.startsWith('Applies when'));
+    expect(applies, 'applicability line not found').toBeDefined();
+    expect(applies).toMatch(/adds, edits or removes tests/);
+    expect(applies).toMatch(/edits test-gate configuration/);
+  });
+
+  it('the registry summary the reviewer selects conditional lenses by names test-gate configuration', () => {
+    // The reviewer decides whether a conditional lens applies from the Review
+    // Lenses table in SKILL.md, before the criteria file is ever loaded — so the
+    // applicability line alone cannot pull a config-only diff into this lens.
+    const skill = renderTemplate('skills/prospec-review.hbs', TEMPLATE_CONTEXT);
+    const row = skill.split('\n').find((l) => /^\|\s*Test-quality\s*\|/.test(l));
+    expect(row, 'Test-quality row not found in the Review Lenses table').toBeDefined();
+    expect(row).toMatch(/\|\s*conditional\s*\|/);
+    expect(row).toMatch(/test-gate configuration/);
   });
 });
 
@@ -4532,7 +4606,13 @@ describe('Startup Loading cache-stable prefix ordering (REQ-TEMPLATES-080/081)',
   // Class-sweep guidance: references +21 net (brief +60, predicate +26, lens -65);
   // review skill body +263 and mandatory review-format +26 add +289 context tokens.
   // Measured totals 51_084 → 51_105 and 88_518 → 88_807; ceilings raised, not earned.
-  const REFERENCE_CEILING_ANCHOR = 51_105;
+  // detect-test-weakening: the test-quality lens gained three loosening criteria and
+  // its basis paragraph (+316 after compressing the mutation-verified pointer), and the
+  // registry summary adds +9 to review-format. Reference total 51_016 → 51_341 (after review round 1 compressed the basis paragraph;
+  // re-measured on the base that carries correct-related-modules); ceiling 51_105 → 51_341
+  // raised, not earned. The basis for this loosening is the change proposal's Edge Cases
+  // entry, written before review. Cumulative 88_668 → 88_686 stays under its anchor.
+  const REFERENCE_CEILING_ANCHOR = 51_341;
   const CUMULATIVE_CEILING_ANCHOR = 88_807;
 
   const renderSkill = (name: string) => {

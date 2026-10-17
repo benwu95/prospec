@@ -69,7 +69,7 @@ Must-run: every round. Conditional: by applicability.
 | Maintainability / DRY | conditional | Abstractions, duplicated helpers/guards/writers, documented single-source bypass. |
 | Docs-claims | conditional | Documentation claims affected by changed behavior or interfaces. |
 | Parallel-site completeness | conditional | Sibling sites implementing the same changed behavior. |
-| Test-quality | conditional | Changed tests: behavior coverage, independent oracles and failure sensitivity. |
+| Test-quality | conditional | Changed tests or test-gate configuration: behavior coverage, independent oracles, failure sensitivity and loosening. |
 
 **spec-architecture** checks implementation **contradicting** REQs. Completeness: verify 2/5 Key Difference from Other Skills; do not restate.
 

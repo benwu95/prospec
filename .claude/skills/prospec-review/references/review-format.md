@@ -110,6 +110,6 @@ read foo.ts:38-46 — the `<=` bound overruns when n === len.
 | Maintainability / DRY | conditional | Abstractions, duplicated helpers/guards/writers, documented single-source bypass. |
 | Docs-claims | conditional | Documentation claims affected by changed behavior or interfaces. |
 | Parallel-site completeness | conditional | Sibling sites implementing the same changed behavior. |
-| Test-quality | conditional | Changed tests: behavior coverage, independent oracles and failure sensitivity. |
+| Test-quality | conditional | Changed tests or test-gate configuration: behavior coverage, independent oracles, failure sensitivity and loosening. |
 
 Use the strongest available model/agent tier in fresh context. Record `prospec check --record-review --graded-by fresh-subagent` or `in-session` honestly; caps use dimension `graded_by`.

@@ -28,7 +28,7 @@
 
 1. **Add a scenario** — public input + isolated private oracle under `tests/fixtures/workflow-eval/`, then its mandatory inventory and ceiling in `mandatory-policies.json`; the fixture suites fail until both sides exist.
 2. **Change an adjudication dimension** — add the counter-example FIRST in `workflow-eval.test.ts` or `workflow-native.test.ts`: a dimension that cannot go `violated` cannot detect a regression.
-3. **Rebaseline a ceiling** — `startup-loading-baseline.json` and `mandatory-policies.json` are version-controlled and shrink-only; raising one is a deliberate, justified edit, never a way to make a red test green.
+3. **Rebaseline a ceiling** — `startup-loading-baseline.json` and `mandatory-policies.json` are version-controlled; raising a ceiling loosens an assertion and needs a pre-review basis, never a way to make a red test green.
 
 ## Ripple Effects
 
