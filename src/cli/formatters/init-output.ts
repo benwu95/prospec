@@ -7,6 +7,7 @@ import type { InitResult, TechStackResult } from '../../services/init.service.js
 // cli→lib import.
 import { isDefaultArtifactLanguage } from '../../types/config.js';
 import { sanitizeTerminal } from './sanitize.js';
+import { formatGitignoreStatus, writeGitignoreWarnings } from './gitignore-output.js';
 
 /**
  * Format the InitResult for terminal output with proper styling.
@@ -19,13 +20,15 @@ import { sanitizeTerminal } from './sanitize.js';
  * 5. Next steps suggestion (dim → with cyan command)
  *
  * @param result - The initialization result from init service
- * @param logLevel - Controls output verbosity (quiet shows nothing, normal/verbose show same output)
+ * @param logLevel - Controls output verbosity (quiet shows nothing on stdout, normal/verbose show same output)
  */
 export function formatInitOutput(
   result: InitResult,
   logLevel: LogLevel = 'normal',
 ): void {
-  // In quiet mode, output nothing
+  writeGitignoreWarnings(result.gitignore);
+
+  // In quiet mode, output nothing on stdout
   if (logLevel === 'quiet') return;
 
   const lines: string[] = [];
@@ -34,6 +37,8 @@ export function formatInitOutput(
   for (const file of result.createdFiles) {
     lines.push(`${pc.green('✓')} Created ${sanitizeTerminal(file)}`);
   }
+  const gitignoreLine = formatGitignoreStatus(result.gitignore);
+  if (gitignoreLine) lines.push(gitignoreLine);
 
   // 2. Tech stack section (only if detected)
   if (hasTechStack(result.techStack)) {

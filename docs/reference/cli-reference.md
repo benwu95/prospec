@@ -108,6 +108,7 @@ your-project/
 
 - **`prospec init [options]`**
   - **Purpose**: Initialize Prospec project structure and baseline configuration.
+  - **Behavior**: Also maintains the `.gitignore` managed block (see [The `.gitignore` managed block](#the-gitignore-managed-block)).
   - **Options**: `--language <lang>` (sets the change-artifact language, default English), `--trust-zone-language <lang>` (sets the trust-zone language and skips its prompt; interactive init asks only when the artifact language is non-English, defaulting to it; CI mode without the flag stays English), `--name <name>`, `--agents <list>`.
 
 - **`prospec knowledge init [--depth <n>] [--dry-run] [--raw-scan-only]`**
@@ -135,6 +136,7 @@ your-project/
     - Writes shared `AGENTS.md` and `.agents/skills/` for Antigravity, Codex, and GitHub Copilot.
     - Injects localized trigger words from `.prospec.yaml` `skill_triggers`.
     - Only refreshes `prospec:auto` sections in entry configs, preserving whatever is written in `prospec:user`.
+    - Maintains the `.gitignore` managed block for every configured agent; `--cli` leaves `.gitignore` untouched.
 
 - **`prospec agent triggers [--write <file>]`**
   - **Purpose**: Generate a ready-to-translate localization scaffold with two blocks — `skill_triggers` (invocation words) and `skill_exclusions` (short phrases naming what a skill is NOT for; rendered as a `Not for:` clause after the description) — listing only the skills still missing an entry in each; `--write` inserts the missing keys of both maps in one validated write.
@@ -158,6 +160,18 @@ Skills whose workflow depends on the harness — `prospec-review`, `prospec-veri
 
 > [!NOTE]
 > **Editing Safety**: Entry configs carry `prospec:auto` and `prospec:user` blocks. `agent sync` (and `init` on `AGENTS.md`) only refreshes the `auto` block and preserves whatever you write in the `user` block; existing hand-written `CLAUDE.md` / `AGENTS.md` files are migrated into the `user` block on first sync rather than overwritten.
+
+#### The `.gitignore` managed block
+
+`init` and a full `agent sync` (which `quickstart` and `upgrade` also run) keep one block between `# prospec:auto-start` and `# prospec:auto-end` in the project's `.gitignore`, and print whether they created or updated the file:
+
+- It ignores prospec's local working files: `.prospec/*` and `prospec-report.json`.
+- It re-includes the `prospec-*` skill directories, the subdirectories the sync writes into them, and the files there with the extensions the sync writes. Its lines depend only on the configured agents and the files the sync writes, not on your rules, so every teammate's sync writes the same block.
+- Treat the `prospec-*` directories as managed by prospec: the block's rules apply to every file in them, so a file you add there can end up tracked or ignored by them.
+- Content outside the block is kept. The block is appended on first write and then updated in place, so rules you add after it take precedence — for example `!/.prospec/changes/` to version your change artifacts.
+- After writing, inside a git repository, the command checks the existing skill files with `git check-ignore` and prints one warning per rule that still ignores any of them, naming the rule's file, line and pattern — for example `.claude/` before the block: git does not look inside an excluded directory, so the block cannot re-include the skills below it.
+- When that rule is in the project's own `.gitignore`, the command also prints lines to add **at the end** of `.gitignore`; it never writes them. They re-include each excluded directory on the way and re-exclude the rest of its contents, then re-include the skill files. They name the skill directories as `prospec-*`, so they also cover `prospec-*` directories the rule did not exclude, where files with other extensions can become ignored. For a rule anywhere else — a personal exclude (`.git/info/exclude`, the global excludes file), a parent directory's or a nested `.gitignore` — the warning names the rule for you to change.
+- `agent sync --cli <name>` leaves `.gitignore` untouched.
 
 #### Project-scan language support
 

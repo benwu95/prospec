@@ -31,8 +31,8 @@ import path from 'node:path';
 
 /** Deployed agent trees — what an agent actually loads. */
 export const AGENT_DIRS = ['.claude', '.agents'];
-/** Single files that are themselves generated output. */
-export const GENERATED_FILES = ['src/lib/bundled-templates.ts'];
+/** Single files that are themselves generated output — `.gitignore` holds the sync's managed block. */
+export const GENERATED_FILES = ['src/lib/bundled-templates.ts', '.gitignore'];
 /** Ordered regeneration pipeline. Order matters: the sync renders from the bundle. */
 export const REGENERATE_STEPS: ReadonlyArray<readonly string[]> = [
   ['npx', 'tsx', 'scripts/bundle.ts'],

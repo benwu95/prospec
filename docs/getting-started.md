@@ -104,7 +104,8 @@ prospec init --name my-project   # → select AI assistants (interactive checkbo
                                  #   prompt). A [MUST] path-scoped Language Policy rule is
                                  #   seeded into CONSTITUTION.md from both; code and git
                                  #   commit messages stay in English
-                                 # → creates .prospec.yaml + directory structure
+                                 # → creates .prospec.yaml + directory structure, and a
+                                 #   managed block in .gitignore (review and commit it)
 prospec agent sync               # → per-agent config + Skills (Claude Code → CLAUDE.md +
                                  #   .claude/skills/; Antigravity / Codex / Copilot →
                                  #   AGENTS.md + .agents/skills/)
@@ -134,7 +135,8 @@ Those two commands expand to:
 # `prospec quickstart` runs:
 prospec init          # → auto-detect tech stack; select AI assistants; choose doc
                       #   language (default: English; --language to skip the prompt) and,
-                      #   if non-English, the trust-zone language (--trust-zone-language)
+                      #   if non-English, the trust-zone language (--trust-zone-language);
+                      #   adds a managed block to .gitignore (review and commit it)
 prospec agent sync    # → per-agent config + Skills
 
 # `prospec-quickstart` then, inside your AI agent:

@@ -103,7 +103,8 @@ prospec init --name my-project   # → 選擇要啟用的 AI Assistant（互動�
                                  #   可跳過提示）。[MUST] 路徑式 Language Policy 規則會依
                                  #   兩者寫入 CONSTITUTION.md；程式碼與 git commit message
                                  #   一律維持英文
-                                 # → 建立 .prospec.yaml + 目錄結構
+                                 # → 建立 .prospec.yaml + 目錄結構，並在 .gitignore
+                                 #   加入受管區塊（請檢視後一併 commit）
 prospec agent sync               # → 各 agent config + Skills（Claude Code → CLAUDE.md +
                                  #   .claude/skills/；Antigravity / Codex / Copilot →
                                  #   AGENTS.md + .agents/skills/）
@@ -132,7 +133,8 @@ prospec-quickstart                     # 在地化 triggers · 重新同步 · k
 # `prospec quickstart` 執行：
 prospec init          # → 自動偵測 Tech Stack；選擇 AI Assistant；選擇文件主要語言
                       #   （預設英文；--language 可跳過互動提示）；若非英文，再選擇
-                      #   trust zone 語言（--trust-zone-language）
+                      #   trust zone 語言（--trust-zone-language）；在 .gitignore
+                      #   加入受管區塊（請檢視後一併 commit）
 prospec agent sync    # → 各 agent config + Skills
 
 # `prospec-quickstart` 接著在你的 AI Agent 中：

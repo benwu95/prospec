@@ -17,6 +17,9 @@ import { detectAgents } from '../lib/agent-detector.js';
 import type { AgentInfo } from '../lib/agent-detector.js';
 import { renderTemplate } from '../lib/template.js';
 import { buildInitDocContexts, renderInitDoc, resolveInitDocLocation } from '../lib/init-docs.js';
+import { syncGitignoreBlock } from '../lib/gitignore-block.js';
+import type { GitignoreBlockResult } from '../types/gitignore-block.js';
+import { shippedSkillLayout, skillPathsOf } from './agent-sync.service.js';
 import {
   AGENT_CONFIGS,
   mergeGroupRenderFlags,
@@ -40,6 +43,8 @@ export interface InitResult {
   artifactLanguage: string;
   trustZoneLanguage: string;
   createdFiles: string[];
+  /** The `.gitignore` managed-block result (REQ-SERVICES-130). */
+  gitignore: GitignoreBlockResult;
 }
 
 /**
@@ -206,6 +211,10 @@ export async function execute(options: InitOptions): Promise<InitResult> {
     writtenLabels.push(artifact.label);
   }
 
+  // 10b. Maintain the .gitignore managed block before the completion marker, so a
+  // failure here leaves init re-runnable like any other artifact write.
+  const gitignore = await syncGitignoreBlock({ cwd, skillPaths: skillPathsOf(selectedAgents), ...shippedSkillLayout() });
+
   // 11. Write .prospec.yaml LAST — its presence is the "init completed" marker
   // the step-1 guard keys on, so a failure before here leaves a re-runnable state
   // rather than a half-initialized project that AlreadyExistsError would block.
@@ -221,6 +230,7 @@ export async function execute(options: InitOptions): Promise<InitResult> {
     artifactLanguage,
     trustZoneLanguage,
     createdFiles,
+    gitignore,
   };
 }
 

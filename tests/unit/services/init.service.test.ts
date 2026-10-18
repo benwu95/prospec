@@ -434,12 +434,16 @@ describe('init.service per-file idempotency (BL-044)', () => {
       '/project/prospec/ai-knowledge/_glossary.md': '# CURATED glossary\n',
       '/project/AGENTS.md': '# CURATED agents\n',
       '/project/prospec/specs/.gitkeep': '',
+      '/project/.gitignore': 'node_modules/\n',
     });
 
     const result = await execute({ name: 'test', agents: ['claude'], cwd: '/project' });
 
     // .prospec.yaml recreated; the managed AGENTS.md is (re)written via merge.
     expect(result.createdFiles).toEqual(['.prospec.yaml', 'AGENTS.md']);
+    // The existing .gitignore keeps its lines and gains the managed block.
+    expect(result.gitignore.status).toBe('updated');
+    expect(fs.readFileSync('/project/.gitignore', 'utf-8')).toMatch(/^node_modules\/\n# prospec:auto-start\n[^]*# prospec:auto-end\n$/);
 
     // Every curated trust-zone file is byte-for-byte unchanged (still skip-if-exists).
     expect(fs.readFileSync('/project/prospec/README.md', 'utf-8')).toBe(
@@ -557,7 +561,7 @@ run prospec agent sync
 // a doc added to init but not the registry (or vice versa) turns this red, so
 // the upgrade docs inventory can never silently miss an init-created file.
 describe('init.service ⇄ INIT_DOC_REGISTRY equality (issue #48)', () => {
-  it('greenfield init creates exactly the registry docs plus .prospec.yaml, AGENTS.md, specs/.gitkeep', async () => {
+  it('greenfield init creates exactly the registry docs plus .prospec.yaml, AGENTS.md, specs/.gitkeep, .gitignore', async () => {
     vol.fromJSON({ '/project/package.json': '{}' });
 
     await execute({ name: 'test', agents: ['claude'], cwd: '/project' });
@@ -570,6 +574,7 @@ describe('init.service ⇄ INIT_DOC_REGISTRY equality (issue #48)', () => {
     );
     const expected = new Set([
       '.prospec.yaml',
+      '.gitignore',
       'AGENTS.md',
       'prospec/specs/.gitkeep',
       ...INIT_DOC_REGISTRY.map((doc) =>

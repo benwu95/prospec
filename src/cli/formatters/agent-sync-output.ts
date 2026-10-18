@@ -2,6 +2,7 @@ import pc from 'picocolors';
 import type { LogLevel } from '../../types/config.js';
 import type { AgentSyncFullResult } from '../../services/agent-sync.service.js';
 import { sanitizeTerminal } from './sanitize.js';
+import { formatGitignoreStatus, writeGitignoreWarnings } from './gitignore-output.js';
 
 /**
  * Format the AgentSyncFullResult for terminal output with tree-style layout.
@@ -22,6 +23,7 @@ export function formatAgentSyncOutput(
   for (const warning of result.warnings) {
     process.stderr.write(`${pc.yellow('⚠')} ${sanitizeTerminal(warning)}\n`);
   }
+  writeGitignoreWarnings(result.gitignore);
 
   if (logLevel === 'quiet') return;
 
@@ -80,6 +82,12 @@ export function formatAgentSyncOutput(
         `${childPrefix}${pc.yellow('−')} removed ${agent.removedSkills.length} orphan skill(s): ${agent.removedSkills.map(sanitizeTerminal).join(', ')}`,
       );
     }
+  }
+
+  const gitignoreLine = formatGitignoreStatus(result.gitignore);
+  if (gitignoreLine) {
+    lines.push('');
+    lines.push(gitignoreLine);
   }
 
   // 3. Hints (next-step suggestions)

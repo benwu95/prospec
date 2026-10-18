@@ -41,6 +41,16 @@ describe('quickstart.service', () => {
     expect(agent.skillFiles).toContain('.claude/skills/prospec-explore/SKILL.md');
   });
 
+  it('under memfs the .gitignore block is written, and the check that needs a real directory only warns', async () => {
+    const result = await execute({ agents: ['claude'], cwd: '/project' });
+
+    expect(result.gitignore?.status).toBe('created');
+    expect(result.gitignore?.suggestedLines).toEqual([]);
+    expect(result.gitignore?.warnings.length).toBeGreaterThan(0);
+    expect(result.gitignore?.warnings.every((w) => w.startsWith('could not check the skill files against the ignore rules'))).toBe(true);
+    expect(vol.readFileSync('/project/.gitignore', 'utf8')).toMatch(/^# prospec:auto-start\n[^]*!\/\.claude\/skills\/prospec-\*\/\n[^]*# prospec:auto-end\n$/);
+  });
+
   it('re-run: catches AlreadyExistsError from init and marks it skipped', async () => {
     vol.fromJSON({
       '/project/.prospec.yaml': 'project:\n  name: test\nagents:\n  - claude\n',

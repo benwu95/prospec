@@ -2,6 +2,7 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import * as os from 'node:os';
+import { execFileSync } from 'node:child_process';
 import { runCliInProcess } from './helpers/run-cli.js';
 
 // In-process runs still shell out to git via the drift/status/check services;
@@ -230,6 +231,65 @@ describe('CLI E2E — basics', () => {
       // + suggestion so a wrong-reason failure (formatGenericError) is caught.
       expect(stderr).toContain('.prospec.yaml already exists');
       expect(stderr).toContain('To reinitialize, delete the existing file first');
+    });
+
+    it('reports a created .gitignore holding the managed block (REQ-CLI-063)', async () => {
+      const { stdout, exitCode } = await runCli(['init', '--name', 'gi', '--agents', 'claude']);
+      expect(exitCode).toBe(0);
+      expect(stdout).toContain('Created .gitignore (prospec block: ignores local artifacts, re-includes prospec skills)');
+      const text = await fs.promises.readFile(path.join(tmpDir, '.gitignore'), 'utf-8');
+      expect(text.startsWith('# prospec:auto-start\n/.prospec/*\n/prospec-report.json\n')).toBe(true);
+    });
+
+    it('reports an updated .gitignore and keeps the existing rules ahead of the block', async () => {
+      await fs.promises.writeFile(path.join(tmpDir, '.gitignore'), 'node_modules/\n');
+      const { stdout, exitCode } = await runCli(['init', '--name', 'gi', '--agents', 'claude']);
+      expect(exitCode).toBe(0);
+      expect(stdout).toContain('Updated .gitignore (prospec block');
+      const text = await fs.promises.readFile(path.join(tmpDir, '.gitignore'), 'utf-8');
+      expect(text.startsWith('node_modules/\n# prospec:auto-start\n')).toBe(true);
+    });
+
+    it('warns on stderr about a project rule still ignoring the skills and prints the lines to add', async () => {
+      execFileSync('git', ['init', '-q'], { cwd: tmpDir, stdio: 'pipe' });
+      await fs.promises.writeFile(path.join(tmpDir, '.gitignore'), '.claude/\n');
+      const init = await runCli(['init', '--name', 'gi', '--agents', 'claude']);
+      expect(init.exitCode).toBe(0);
+      expect(init.stdout).toContain('Updated .gitignore');
+
+      // init writes no skill files; the sync that writes them is what the check finds.
+      const sync = await runCli(['agent', 'sync']);
+      expect(sync.exitCode).toBe(0);
+      expect(sync.stderr).toContain('still ignored by .gitignore:1 (.claude/)');
+      expect(sync.stderr).toContain('Add these lines at the end of .gitignore to re-include the prospec skills:');
+      expect(await fs.promises.readFile(path.join(tmpDir, '.gitignore'), 'utf-8')).not.toContain('/.claude/*');
+
+      // Pasted exactly as printed, the lines re-include the skills.
+      const printed = sync.stderr.split('\n');
+      const from = printed.findIndex((line) => line.includes('Add these lines at the end of .gitignore')) + 1;
+      const lines = printed.slice(from).filter((line) => line !== '');
+      expect(lines.length).toBeGreaterThan(0);
+      await fs.promises.appendFile(path.join(tmpDir, '.gitignore'), `${lines.join('\n')}\n`);
+      const skill = '.claude/skills/prospec-plan/SKILL.md';
+      expect(fs.existsSync(path.join(tmpDir, skill))).toBe(true);
+      expect(() => execFileSync('git', ['check-ignore', '-q', skill], { cwd: tmpDir, stdio: 'pipe' })).toThrow();
+    });
+
+    it('leaves .gitignore alone on a --cli agent sync, and lists it on a full sync only when it changes', async () => {
+      await runCli(['init', '--name', 'gi', '--agents', 'claude']);
+      const path_ = path.join(tmpDir, '.gitignore');
+      await fs.promises.writeFile(path_, `${await fs.promises.readFile(path_, 'utf-8')}# mine\n`);
+      const before = await fs.promises.readFile(path_, 'utf-8');
+
+      const partial = await runCli(['agent', 'sync', '--cli', 'claude']);
+      expect(partial.exitCode).toBe(0);
+      expect(partial.stdout).not.toContain('.gitignore');
+      expect(await fs.promises.readFile(path_, 'utf-8')).toBe(before);
+
+      const full = await runCli(['agent', 'sync']);
+      expect(full.exitCode).toBe(0);
+      expect(full.stdout).not.toContain('.gitignore');
+      expect(await fs.promises.readFile(path_, 'utf-8')).toBe(before);
     });
   });
 

@@ -3,6 +3,7 @@ import type { LogLevel } from '../../types/config.js';
 import type { UpgradeResult } from '../../services/upgrade.service.js';
 import { formatVerifyHint } from '../../types/constitution.js';
 import { sanitizeTerminal } from './sanitize.js';
+import { formatGitignoreStatus, writeGitignoreWarnings } from './gitignore-output.js';
 
 /**
  * Format the UpgradeResult for terminal output.
@@ -33,6 +34,7 @@ export function formatUpgradeOutput(
   for (const warning of result.agentSync.warnings) {
     process.stderr.write(`${pc.yellow('⚠')} ${sanitizeTerminal(warning)}\n`);
   }
+  writeGitignoreWarnings(result.agentSync.gitignore);
 
   if (logLevel === 'quiet') return;
 
@@ -44,6 +46,8 @@ export function formatUpgradeOutput(
     `${pc.green('✓')} version ${sanitizeTerminal(report.versionFrom)} ${pc.dim('→')} ${sanitizeTerminal(report.versionTo)}`,
   );
   lines.push(`${pc.green('✓')} agent sync (${result.agentSync.totalFiles} files)`);
+  const gitignoreLine = formatGitignoreStatus(result.agentSync.gitignore);
+  if (gitignoreLine) lines.push(gitignoreLine);
   if (result.rawScanRefreshed) {
     lines.push(`${pc.green('✓')} raw-scan refreshed`);
   }

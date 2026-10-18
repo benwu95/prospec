@@ -34,28 +34,23 @@ Thumbs.db
 # Task scratch (per-branch todo / lessons)
 .tasks/
 
-# Agents — track prospec-* skills + the release/submit-pr/submit-issue maintainer skills; ignore the rest.
+# Agents — track the release/submit-pr/submit-issue maintainer skills; ignore the rest
+# (prospec-* skills are re-included by the prospec block at the end).
 .claude/*
 !.claude/skills/
 .claude/skills/*
-!.claude/skills/prospec-*
 !.claude/skills/release/
 !.claude/skills/submit-pr/
 !.claude/skills/submit-issue/
 .agents/*
 !.agents/skills/
 .agents/skills/*
-!.agents/skills/prospec-*
 !.agents/skills/release/
 !.agents/skills/submit-pr/
 !.agents/skills/submit-issue/
 
-# Prospec
-.prospec/
+# Prospec (.prospec/ and prospec-report.json are ignored by the prospec block at the end)
 measurement-report*.json
-
-# prospec check generated report (CI consumes it as an artifact)
-prospec-report.json
 escaped-defect-report.json
 
 # Stryker sandboxes — full repo copies; an interrupted run leaves them behind,
@@ -63,3 +58,15 @@ escaped-defect-report.json
 .stryker-tmp/
 # ...and its report output, written by the html/json reporters
 reports/
+# prospec:auto-start
+/.prospec/*
+/prospec-report.json
+!/.claude/skills/prospec-*/
+!/.claude/skills/prospec-*/references/
+!/.claude/skills/prospec-*/*.md
+!/.claude/skills/prospec-*/references/*.md
+!/.agents/skills/prospec-*/
+!/.agents/skills/prospec-*/references/
+!/.agents/skills/prospec-*/*.md
+!/.agents/skills/prospec-*/references/*.md
+# prospec:auto-end
