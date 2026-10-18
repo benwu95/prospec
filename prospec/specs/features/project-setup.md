@@ -1,9 +1,9 @@
 ---
 feature: project-setup
 status: active
-last_updated: 2026-10-09
-story_count: 19
-req_count: 49
+last_updated: 2026-10-18
+story_count: 20
+req_count: 52
 ---
 
 # Project Setup
@@ -22,6 +22,7 @@ req_count: 49
 - [US-009–US-012](./project-setup/us-009.md)
 - [US-013–US-016](./project-setup/us-013.md)
 - [US-017–US-020](./project-setup/us-017.md)
+- [US-021](./project-setup/us-021.md)
 
 ## Edge Cases
 
@@ -66,6 +67,7 @@ req_count: 49
 
 | Date | Change | Impact | Stories/REQs |
 |------|--------|--------|-------------|
+| 2026-10-18 | add-static-gitignore-block | ADDED REQ-LIB-106; ADDED REQ-SERVICES-130; ADDED REQ-CLI-063; MODIFIED REQ-SETUP-004; MODIFIED REQ-SETUP-013; MODIFIED REQ-SETUP-018; MODIFIED REQ-SERVICES-028; MODIFIED REQ-SETUP-019 | REQ-LIB-106, REQ-SERVICES-130, REQ-CLI-063, REQ-SETUP-004, REQ-SETUP-013, REQ-SETUP-018, REQ-SERVICES-028, REQ-SETUP-019 |
 | 2026-10-09 | slim-readme-into-docs | MODIFIED REQ-CLI-021 | REQ-CLI-021 |
 | 2026-10-05 | add-change-abandon | MODIFIED REQ-LIB-030 | REQ-LIB-030 |
 | 2026-09-27 | slice-constitution-and-playbook | ADDED REQ-LIB-095; MODIFIED REQ-TYPES-021 | REQ-LIB-095, REQ-TYPES-021 |
