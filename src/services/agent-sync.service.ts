@@ -14,11 +14,13 @@ import { projectStationDeployment } from '../lib/skill-reference-map.js';
 import { escapeYamlScalar } from '../lib/yaml-utils.js';
 import { mergeManagedDoc } from '../lib/content-merger.js';
 import { atomicWrite, ensureDir, readFileIfExists } from '../lib/fs-utils.js';
+import { syncGitignoreBlock } from '../lib/gitignore-block.js';
 import { computeUnlocalizedSkills } from './trigger-localization.js';
 import { PrerequisiteError } from '../types/errors.js';
 import { VALID_AGENTS } from '../types/config.js';
 import { MINIMUM_CLI_VERSION } from '../types/version.js';
 import { BREAK_GLASS_PREFIX } from '../types/status.js';
+import type { GitignoreBlockResult } from '../types/gitignore-block.js';
 import {
   DELEGATION_AWAIT,
   DELEGATION_DIR,
@@ -64,6 +66,8 @@ export interface AgentSyncFullResult {
   warnings: string[];
   /** Next-step suggestions (e.g., populate skill_triggers for a non-English language) */
   hints: string[];
+  /** The `.gitignore` managed-block result; absent for a `--cli` partial sync (REQ-SERVICES-130). */
+  gitignore?: GitignoreBlockResult;
 }
 
 /**
@@ -243,6 +247,7 @@ export async function execute(
 
   // 7. Generate once per unique output; report the agents it serves.
   const results: AgentSyncResult[] = [];
+  const written: SkillLayout = { skillNames: [], skillFiles: [] };
   for (const { configs, names } of groups.values()) {
     // One file serves the whole group, so its capability claims AND its render
     // flags must hold for EVERY member — merged across the group, never the
@@ -265,7 +270,13 @@ export async function execute(
     );
     result.agent = names.join(', ');
     results.push(result);
+    collectSkillLayout(configs[0]!.skillPath, [...result.skillFiles, ...result.referenceFiles], written);
   }
+
+  // A --cli sync writes one agent's files, so the shared .gitignore is left to a full sync.
+  const gitignore = options.cli
+    ? undefined
+    : await syncGitignoreBlock({ cwd, skillPaths: skillPathsOf(configuredAgents), ...written });
 
   // 8. Compute totals
   const totalFiles = results.reduce(
@@ -273,7 +284,7 @@ export async function execute(
     0,
   );
 
-  return { agents: results, totalFiles, warnings, hints };
+  return { agents: results, totalFiles, warnings, hints, ...(gitignore ? { gitignore } : {}) };
 }
 
 /**
@@ -539,4 +550,40 @@ export type SkillReference = StationReferenceFile;
  */
 export function getSkillReferences(skillName: string): SkillReference[] {
   return projectStationDeployment(skillName);
+}
+
+/** Skill directory names and files relative to a `prospec-*` directory, each listed once. */
+export interface SkillLayout {
+  skillNames: string[];
+  skillFiles: string[];
+}
+
+/** The layout every sync writes under each skill path — the input init gives the `.gitignore` writer. */
+export function shippedSkillLayout(): SkillLayout {
+  const layout: SkillLayout = { skillNames: [], skillFiles: ['SKILL.md'] };
+  for (const skill of SKILL_DEFINITIONS) {
+    layout.skillNames.push(skill.name);
+    if (!skillHasReferences(skill.name)) continue;
+    for (const ref of getSkillReferences(skill.name)) {
+      const file = `references/${ref.outputName}`;
+      if (!layout.skillFiles.includes(file)) layout.skillFiles.push(file);
+    }
+  }
+  return layout;
+}
+
+/** The distinct skill directories of the given agents. */
+export function skillPathsOf(agents: readonly string[]): string[] {
+  const configs = AGENT_CONFIGS as Record<string, AgentConfig | undefined>;
+  return [...new Set(agents.flatMap((agent) => (configs[agent] ? [configs[agent].skillPath] : [])))];
+}
+
+function collectSkillLayout(skillPath: string, files: readonly string[], layout: SkillLayout): void {
+  for (const file of files) {
+    const [name, ...rest] = path.relative(skillPath, file).split(path.sep);
+    if (name === undefined || rest.length === 0) continue;
+    if (!layout.skillNames.includes(name)) layout.skillNames.push(name);
+    const relative = rest.join('/');
+    if (!layout.skillFiles.includes(relative)) layout.skillFiles.push(relative);
+  }
 }

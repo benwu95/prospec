@@ -31,9 +31,9 @@ describe('check-agent-sync — the regeneration pipeline is pinned', () => {
     ]);
   });
 
-  it('covers the deployed trees AND the bundle output', () => {
+  it('covers the deployed trees, the bundle output AND the managed .gitignore block', () => {
     expect([...AGENT_DIRS]).toEqual(['.claude', '.agents']);
-    expect([...GENERATED_FILES]).toEqual(['src/lib/bundled-templates.ts']);
+    expect([...GENERATED_FILES]).toEqual(['src/lib/bundled-templates.ts', '.gitignore']);
   });
 });
 

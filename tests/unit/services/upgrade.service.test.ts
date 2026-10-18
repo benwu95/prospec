@@ -113,6 +113,16 @@ describe('upgrade.service', () => {
     expect(result.nextStep).toBe('prospec-upgrade');
   });
 
+  it('carries the agent-sync .gitignore result through to the upgrade result', async () => {
+    seedProject({ version: '0.1.0' });
+    const gitignore = { status: 'updated' as const, warnings: ['w'], suggestedLines: ['!/.claude/'] };
+    vi.mocked(agentSyncExecute).mockResolvedValueOnce({ agents: [], totalFiles: 3, warnings: [], hints: [], gitignore });
+
+    const result = await execute({ cwd: '/project' });
+
+    expect(result.agentSync.gitignore).toEqual(gitignore);
+  });
+
   it('a raw-scan refresh failure is non-fatal — the version bump + agent sync still stand', async () => {
     seedProject({ version: '0.1.0' });
     vi.mocked(generateRawScan).mockRejectedValueOnce(new Error('scan blew up'));

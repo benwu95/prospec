@@ -17,6 +17,7 @@ function makeResult(overrides: Partial<InitResult> = {}): InitResult {
     artifactLanguage: 'English',
     trustZoneLanguage: 'English',
     createdFiles: [],
+    gitignore: { status: 'unchanged', warnings: [], suggestedLines: [] },
   };
   return { ...base, ...overrides };
 }

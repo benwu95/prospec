@@ -1494,9 +1494,10 @@ describe('fresh-test gates through the CLI (REQ-SERVICES-103, REQ-CLI-028, REQ-C
       );
       await runCli(['change', 'status', 'implemented']);
 
-      // 5. Fresh review and test prerequisites
+      // 5. Fresh review and test prerequisites — init's .gitignore block ignores
+      // .prospec/*, so this commit may carry no change of its own.
       git('add', '.');
-      git('commit', '-qm', 'implemented code');
+      git('commit', '-qm', 'implemented code', '--allow-empty');
       await runCli(['check', '--change', 'feat-auth', '--record-review']);
       await runCli(['check', '--change', 'feat-auth', '--record-tests']);
 

@@ -107,6 +107,7 @@ your-project/
 
 - **`prospec init [options]`**
   - **核心用途**：初始化 Prospec 專案結構。
+  - **執行行為**：同時維護 `.gitignore` 受管區塊（見 [`.gitignore` 受管區塊](#gitignore-受管區塊)）。
   - **選項**：`--language <lang>`（設定變更文件語言，預設英文）、`--trust-zone-language <lang>`（設定 trust zone 語言並跳過其提問；互動式 init 只在變更文件語言非英文時追問，預設同值；CI 模式未給 flag 維持英文）、`--name <name>`、`--agents <list>`。
 
 - **`prospec knowledge init [--depth <n>] [--dry-run] [--raw-scan-only]`**
@@ -134,6 +135,7 @@ your-project/
     - Antigravity / Codex / GitHub Copilot 寫入共用的 `AGENTS.md` 與 `.agents/skills/`。
     - 讀取 `.prospec.yaml` 的 `skill_triggers` 注入母語觸發詞。
     - 僅更新 entry config 中的 `prospec:auto` 區塊，完整保留使用者於 `prospec:user` 的自訂內容。
+    - 為所有已設定的 agent 維護 `.gitignore` 受管區塊；`--cli` 不會更動 `.gitignore`。
 
 - **`prospec agent triggers [--write <file>]`**
   - **核心用途**：輸出含兩個區塊的待翻譯在地化骨架——`skill_triggers`（觸發詞）與 `skill_exclusions`（說明該 skill「不負責什麼」的短語，會渲染為 description 之後的 `Not for:` 子句）——只列各自仍缺條目的 skill；`--write` 一次驗證後回寫兩張表的缺鍵。
@@ -157,6 +159,18 @@ your-project/
 
 > [!NOTE]
 > **編輯安全性**：Entry 配置文件皆包含 `prospec:auto` 與 `prospec:user` 區塊。`agent sync`（以及 `init` 對 `AGENTS.md`）只會更新 `auto` 區塊，並完整保留你在 `user` 區塊手寫的內容；既有的手寫 `CLAUDE.md` / `AGENTS.md` 會在首次 sync 時自動遷入 `user` 區塊，而非被覆蓋。
+
+#### `.gitignore` 受管區塊
+
+`init` 與完整的 `agent sync`（`quickstart`、`upgrade` 也會執行）會在專案 `.gitignore` 中維護一段由 `# prospec:auto-start` 與 `# prospec:auto-end` 界定的區塊，並在輸出中說明這次是新建或更新了該檔：
+
+- ignore prospec 的本機工作檔：`.prospec/*` 與 `prospec-report.json`。
+- 重新納入 `prospec-*` skill 目錄、sync 在其中寫入的子目錄，以及這些位置中副檔名與 sync 寫出檔相同的檔案。區塊內容只取決於已設定的 agent 與 sync 寫出的檔案，不讀取你的規則，所以每位成員 sync 寫出的區塊都相同。
+- 請將 `prospec-*` 目錄視為由 prospec 管理：區塊的規則適用於其中每個檔案，你自行放入的檔案也可能因此被追蹤或被 ignore。
+- 區塊以外的內容原樣保留。區塊第一次寫入時附加在檔尾，之後原地更新，因此你寫在區塊之後的規則優先生效——例如以 `!/.prospec/changes/` 將變更文件納入版控。
+- 寫入後，若位於 git repository 內，指令會以 `git check-ignore` 檢查既有的 skill 檔，每條仍 ignore 其中任一檔的規則各印一則警告，指出規則所在檔案、行號與 pattern——例如區塊之前的 `.claude/`：git 不會進入已被排除的目錄，因此區塊無法重新納入其下的 skill。
+- 該規則位於專案自己的 `.gitignore` 時，指令另會印出應加到 `.gitignore` **檔尾**的規則，但不會自行寫入。這些規則逐層重新納入被排除的目錄並排除其中其餘內容，再重新納入 skill 檔。它們以 `prospec-*` 指稱 skill 目錄，所以也涵蓋該規則未排除的 `prospec-*` 目錄，其中其他副檔名的檔案可能因此被 ignore。規則位於其他地方——個人排除設定（`.git/info/exclude`、全域排除檔）、上層目錄或巢狀的 `.gitignore`——時，警告只指出該規則，由你自行修改。
+- `agent sync --cli <name>` 不會更動 `.gitignore`。
 
 #### 專案掃描支援語言
 

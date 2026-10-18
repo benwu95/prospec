@@ -2,6 +2,7 @@ import pc from 'picocolors';
 import type { LogLevel } from '../../types/config.js';
 import type { QuickstartResult } from '../../services/quickstart.service.js';
 import { sanitizeTerminal } from './sanitize.js';
+import { formatGitignoreStatus, writeGitignoreWarnings } from './gitignore-output.js';
 
 /**
  * Format the QuickstartResult for terminal output.
@@ -12,7 +13,7 @@ import { sanitizeTerminal } from './sanitize.js';
  * 3. Next step — the exact slash command to run in the AI agent
  *
  * @param result - The quickstart orchestrator result
- * @param logLevel - Controls output verbosity (quiet shows nothing)
+ * @param logLevel - Controls output verbosity (quiet shows nothing on stdout)
  */
 export function formatQuickstartOutput(
   result: QuickstartResult,
@@ -22,6 +23,7 @@ export function formatQuickstartOutput(
   for (const warning of result.agentSync.warnings) {
     process.stderr.write(`${pc.yellow('⚠')} ${sanitizeTerminal(warning)}\n`);
   }
+  writeGitignoreWarnings(result.gitignore);
 
   if (logLevel === 'quiet') return;
 
@@ -35,6 +37,8 @@ export function formatQuickstartOutput(
       lines.push(`${pc.green('✓')} ${sanitizeTerminal(step.name)}`);
     }
   }
+  const gitignoreLine = formatGitignoreStatus(result.gitignore);
+  if (gitignoreLine) lines.push(gitignoreLine);
 
   // 2. Hints from agent sync (e.g. populate native-language skill_triggers)
   for (const hint of result.agentSync.hints) {

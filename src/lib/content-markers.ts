@@ -8,3 +8,7 @@ export const AUTO_START = '<!-- prospec:auto-start -->';
 export const AUTO_END = '<!-- prospec:auto-end -->';
 export const USER_START = '<!-- prospec:user-start -->';
 export const USER_END = '<!-- prospec:user-end -->';
+
+/** The same markers in `.gitignore` comment syntax, delimiting the managed block (REQ-LIB-106). */
+export const GITIGNORE_AUTO_START = '# prospec:auto-start';
+export const GITIGNORE_AUTO_END = '# prospec:auto-end';

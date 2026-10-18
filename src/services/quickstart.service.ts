@@ -4,6 +4,7 @@ import {
   type AgentSyncFullResult,
 } from './agent-sync.service.js';
 import { AlreadyExistsError } from '../types/errors.js';
+import type { GitignoreBlockResult } from '../types/gitignore-block.js';
 
 export interface QuickstartOptions {
   name?: string;
@@ -25,6 +26,8 @@ export interface QuickstartResult {
   steps: QuickstartStep[];
   /** The agent-sync result — carries hints (e.g. native-language triggers) */
   agentSync: AgentSyncFullResult;
+  /** The `.gitignore` result of both steps, merged (REQ-SERVICES-130); absent when neither step ran the writer. */
+  gitignore?: GitignoreBlockResult;
   /** The slash command the user runs next, in their AI agent */
   nextStep: string;
 }
@@ -49,14 +52,15 @@ export async function execute(
   const steps: QuickstartStep[] = [];
 
   // 1. init — re-run-safe: a pre-existing .prospec.yaml is "already initialized"
+  let initGitignore: GitignoreBlockResult | undefined;
   try {
-    await initExecute({
+    ({ gitignore: initGitignore } = await initExecute({
       name: options.name,
       agents: options.agents,
       language: options.language,
       trustZoneLanguage: options.trustZoneLanguage,
       cwd,
-    });
+    }));
     steps.push({ name: 'init', status: 'created' });
   } catch (err) {
     if (err instanceof AlreadyExistsError) {
@@ -70,9 +74,31 @@ export async function execute(
   const agentSync = await agentSyncExecute({ cwd });
   steps.push({ name: 'agent-sync', status: 'created' });
 
+  const gitignore = mergeGitignoreResults(initGitignore, agentSync.gitignore);
   return {
     steps,
     agentSync,
+    ...(gitignore ? { gitignore } : {}),
     nextStep: 'prospec-quickstart',
+  };
+}
+
+/**
+ * One result for the run: init's `created` wins, then any `updated`, then the sync's status;
+ * warnings of both, each once; the sync's suggested lines whole (else init's), since
+ * interleaving two ordered lists would break the order each relies on.
+ */
+function mergeGitignoreResults(
+  init: GitignoreBlockResult | undefined,
+  sync: GitignoreBlockResult | undefined,
+): GitignoreBlockResult | undefined {
+  if (!init || !sync) return init ?? sync;
+  const status = init.status === 'created' ? 'created'
+    : init.status === 'updated' || sync.status === 'updated' ? 'updated'
+    : sync.status;
+  return {
+    status,
+    warnings: [...new Set([...init.warnings, ...sync.warnings])],
+    suggestedLines: sync.suggestedLines.length > 0 ? sync.suggestedLines : init.suggestedLines,
   };
 }

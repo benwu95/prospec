@@ -63,7 +63,7 @@ describe('four-host sync deploys the pre-migration reference set (REQ-TEMPLATES-
 
   it('writes one set for the three hosts that share a root', async () => {
     const { cwd, config } = await sync(['codex', 'copilot', 'antigravity']);
-    expect(readdirSync(cwd).sort()).toEqual(['.agents', '.prospec.yaml', 'AGENTS.md', 'prospec']);
+    expect(readdirSync(cwd).sort()).toEqual(['.agents', '.gitignore', '.prospec.yaml', 'AGENTS.md', 'prospec']);
     const source = collectSkillReferenceMap(config, cwd);
     expect(source.roots).toEqual(['.agents/skills']);
     // One deployment row per shipped skill — not three, one per host naming the root.
