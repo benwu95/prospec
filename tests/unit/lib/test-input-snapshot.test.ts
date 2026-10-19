@@ -145,6 +145,35 @@ describe('test input projection', () => {
     expect(captured.test.reason).toMatch(/symlink/i);
   });
 
+  it.skipIf(process.platform === 'win32')('refuses a retained directory symlink onto excluded Knowledge or an ancestor of it', () => {
+    put('docs/knowledge/README.md', 'notes'); put('docs/guide.md', 'guide'); git('add', '.'); git('commit', '-qm', 'docs');
+    fs.symlinkSync('docs', path.join(root, 'ancestor'));
+    const crossing = computeEvidenceStates(root, context('docs/knowledge'));
+    expect(crossing.repository.digest).toBeTruthy();
+    expect(crossing.test).toMatchObject({ digest: null, reason: 'Symlink crosses Knowledge exclusion: ancestor' });
+    fs.unlinkSync(path.join(root, 'ancestor')); fs.symlinkSync('docs/knowledge', path.join(root, 'inside'));
+    expect(computeEvidenceStates(root, context('docs/knowledge')).test).toMatchObject({ digest: null, reason: 'Symlink crosses Knowledge exclusion: inside' });
+  });
+
+  // R1-2: deletions beneath a replaced directory share one confirming status read, so capture stays linear.
+  it.skipIf(process.platform === 'win32')('confirms every deletion beneath a replaced directory with one extra status read', () => {
+    for (const name of ['a', 'b', 'c']) { put(`skills/${name}.md`, name); put(`shared/${name}.md`, name); }
+    git('add', '.'); git('commit', '-qm', 'skills');
+    fs.rmSync(path.join(root, 'skills'), { recursive: true }); fs.symlinkSync('shared', path.join(root, 'skills'));
+    const spy = vi.spyOn(childProcess, 'execFileSync');
+    const captured = computeChangeState(root);
+    const statusReads = spy.mock.calls.filter(([, args]) => (args as string[] | undefined)?.includes('status')).length;
+    expect(captured.digest).toBeTruthy();
+    expect(statusReads).toBe(2);
+  });
+
+  it.skipIf(process.platform === 'win32')('records a retained directory symlink beside the exclusion', () => {
+    put('lib/a.ts', 'a'); fs.symlinkSync('lib', path.join(root, 'alias'));
+    const captured = computeEvidenceStates(root, context());
+    expect(captured.repository.digest).toBeTruthy();
+    expect(captured.test.digest).toBeTruthy();
+  });
+
   it.skipIf(process.platform === 'win32')('refuses symlinks within the exclusion, including ignored topology', () => {
     put('.gitignore', 'knowledge/alias\n');
     fs.symlinkSync('../source.ts', path.join(root, 'knowledge/alias'));

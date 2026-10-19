@@ -1215,6 +1215,19 @@ describe('fresh-test gates through the CLI (REQ-SERVICES-103, REQ-CLI-028, REQ-C
     expect(merge.stdout).toContain('(proven-backfill)');
   });
 
+  it.skipIf(process.platform === 'win32')('records tests and reaches implemented when .claude/skills is a directory symlink (#400)', async () => {
+    await initTasksDone('shared');
+    fs.mkdirSync(path.join(tmpDir, '.agents/skills/demo'), { recursive: true });
+    fs.writeFileSync(path.join(tmpDir, '.agents/skills/demo/SKILL.md'), '# demo\n');
+    fs.mkdirSync(path.join(tmpDir, '.claude'), { recursive: true });
+    fs.symlinkSync('../.agents/skills', path.join(tmpDir, '.claude/skills'));
+    await recordCliEvidence(tmpDir, 'shared');
+    expect(parseYaml(metadataOf('shared'))).toMatchObject({ test_provenance: { digest: expect.any(String) } });
+    const status = await runCli(['change', 'status', 'implemented']);
+    expect(status.exitCode, status.stderr).toBe(0);
+    expect(metadataOf('shared')).toContain('status: implemented');
+  });
+
   it('a known-red run is refused at both entrances even after the command stops resolving; a fresh green passes', async () => {
     await initTasksDone('red');
     await recordCliEvidence(tmpDir, 'red');

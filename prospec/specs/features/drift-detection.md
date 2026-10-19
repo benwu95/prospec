@@ -1,7 +1,7 @@
 ---
 feature: drift-detection
 status: active
-last_updated: 2026-10-16
+last_updated: 2026-10-19
 story_count: 21
 req_count: 90
 ---
@@ -62,6 +62,7 @@ _(None)_
 
 | Date | Change | Impact | Stories/REQs |
 |------|--------|--------|--------------|
+| 2026-10-19 | accept-directory-symlink-inputs | MODIFIED REQ-LIB-024; MODIFIED REQ-LIB-033 | REQ-LIB-024, REQ-LIB-033 |
 | 2026-10-16 | correct-related-modules | MODIFIED REQ-SERVICES-093; MODIFIED REQ-TESTS-096 | REQ-SERVICES-093, REQ-TESTS-096 |
 | 2026-10-13 | reuse-knowledge-test-evidence | ADDED REQ-TYPES-115; ADDED REQ-TESTS-137; MODIFIED REQ-LIB-033; MODIFIED REQ-LIB-024; MODIFIED REQ-LIB-070; MODIFIED REQ-TYPES-095; MODIFIED REQ-CLI-052 | REQ-TYPES-115, REQ-TESTS-137, REQ-LIB-033, REQ-LIB-024, REQ-LIB-070, REQ-TYPES-095, REQ-CLI-052 |
 | 2026-10-09 | slim-readme-into-docs | MODIFIED REQ-CLI-052 | REQ-CLI-052 |

@@ -272,3 +272,50 @@ it.each(['baseline-sibling', 'new-sibling'] as const)('retains historical %s evi
   const stored = readTickets(changeDir, 'settle')[0]!.ticket;
   expect(stored).toMatchObject({ state: 'consumed', assessments: historical.assessments });
 });
+
+// #400: a directory symlink is checkpointed as a link; a deletion beneath a replaced directory is refused before any claim.
+describe.skipIf(process.platform === 'win32')('directory symlinks', () => {
+  const put = (file: string, text: string) => { fs.mkdirSync(path.dirname(path.join(repo, file)), { recursive: true }); fs.writeFileSync(path.join(repo, file), text); };
+  const link = (target: string, file: string) => fs.symlinkSync(target, path.join(repo, file));
+  const commitAll = (message: string) => { gitIn(repo, 'add', '-A'); gitIn(repo, 'commit', '-qm', message); };
+  const checkpoints = () => (fs.existsSync(path.join(changeDir, '.delegated')) ? fs.readdirSync(path.join(changeDir, '.delegated')) : []).filter((name) => name.endsWith('.checkpoint'));
+
+  it.each([['committed', true], ['untracked', false]] as const)('issues and receives over a %s .claude/skills link', async (_, commit) => {
+    put('.agents/skills/demo/SKILL.md', 'skill'); fs.mkdirSync(path.join(repo, '.claude')); link('../.agents/skills', '.claude/skills');
+    if (commit) commitAll('share skills');
+    const issued = await issue();
+    if (!commit) expect(issued.ticket.checkpoint.entries).toContainEqual(expect.objectContaining({ path: '.claude/skills', kind: 'symlink', target: '../.agents/skills' }));
+    expect(fs.lstatSync(path.join(issued.snapshotProjectPath, '.claude/skills')).isSymbolicLink()).toBe(true);
+    fs.writeFileSync(issued.payloadPath, '[]');
+    expect((await receiveTicket({ cwd: repo, changeDir, stem: issued.stem })).verdict.kind).toBe('received');
+  });
+
+  const replaceP = (by: 'link' | 'file') => {
+    fs.rmSync(path.join(repo, 'p'), { recursive: true });
+    if (by === 'link') link('real', 'p'); else put('p', 'file');
+  };
+  it.each([
+    ['an unstaged directory-to-symlink replacement', () => replaceP('link')],
+    ['a staged directory-to-symlink replacement', () => { replaceP('link'); gitIn(repo, 'add', '-A'); }],
+    ['a staged directory-to-file replacement', () => { replaceP('file'); gitIn(repo, 'add', '-A'); }],
+    ['a staged replacement whose working-tree path was then deleted', () => { replaceP('file'); gitIn(repo, 'add', '-A'); fs.rmSync(path.join(repo, 'p')); }],
+    ['a replacement by an ignored symlink, which the status does not list', () => {
+      fs.appendFileSync(path.join(repo, '.gitignore'), '/p\n'); commitAll('ignore p'); replaceP('link');
+    }],
+    ['a staged file-to-directory replacement then removed', () => {
+      fs.rmSync(path.join(repo, 'q')); put('q/a', 'a'); gitIn(repo, 'add', '-A'); fs.rmSync(path.join(repo, 'q'), { recursive: true });
+    }],
+  ])('refuses %s before claiming a checkpoint', async (_, arrange) => {
+    put('p/a', 'a'); put('real/a', 'a'); put('q', 'file'); commitAll('dirs');
+    arrange();
+    await expect(issue()).rejects.toMatchObject({ message: expect.stringMatching(/^Cannot checkpoint the deletion of [pq]\/a: its directory [pq] was replaced$/), suggestion: expect.stringContaining('Commit or revert') });
+    expect(checkpoints()).toEqual([]);
+  });
+
+  it('issues over a plainly removed directory', async () => {
+    put('p/a', 'a'); commitAll('dir');
+    fs.rmSync(path.join(repo, 'p'), { recursive: true });
+    const issued = await issue();
+    expect(issued.ticket.checkpoint.entries).toContainEqual({ path: 'p/a', kind: 'deleted' });
+  });
+});

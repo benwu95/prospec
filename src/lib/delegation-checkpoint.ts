@@ -23,7 +23,7 @@ import {
   type CheckpointEntry,
 } from '../types/delegation.js';
 import { DelegationRefusedError } from '../types/errors.js';
-import { gitProjectPrefix, workTreePaths } from './drift-sources.js';
+import { gitProjectPrefix, nonDirectoryAncestor, workTreePaths, type AncestorKind } from './drift-sources.js';
 import { atomicWrite } from './fs-utils.js';
 import { SNAPSHOT_PREFIX, gitRead, gitReadRecords, gitSnapshot, snapshotRoot, withFixedGitEnv } from './git-read.js';
 import { isContainedPath } from './knowledge-reader.js';
@@ -86,17 +86,40 @@ export function claimCheckpointDir(changeDir: string, stem: string): string {
   return dir;
 }
 
+export interface CheckpointScope { changed: string[]; deleted: Set<string> }
+
+/**
+ * Read the checkpoint's scope, refusing a deletion beneath a directory that was
+ * replaced — by a symlink or a file still present, or by a path the scope itself
+ * changes. The snapshot overlay cannot rebuild that shape from HEAD: it would
+ * delete through the new link, or meet a directory where it writes a file.
+ */
+export function readCheckpointScope(cwd: string): CheckpointScope {
+  const tree = withFixedGitEnv(() => workTreePaths(cwd));
+  const reports = reportPaths(cwd);
+  const changed = [...tree.changed, ...reports.changed];
+  const deleted = new Set([...tree.deleted, ...reports.deleted]);
+  const changedPaths = new Set(changed);
+  const ancestors = new Map<string, AncestorKind>();
+  for (const file of deleted) {
+    const parts = file.split('/');
+    const replaced = nonDirectoryAncestor(cwd, file, ancestors)
+      ?? parts.slice(0, -1).map((_, i) => parts.slice(0, i + 1).join('/')).find((dir) => changedPaths.has(dir));
+    if (replaced !== undefined) {
+      throw refuseIssue(`Cannot checkpoint the deletion of ${file}: its directory ${replaced} was replaced`, 'Commit or revert the change that replaced that directory, then issue again');
+    }
+  }
+  return { changed, deleted };
+}
+
 /**
  * Copy every uncommitted file in the digest's scope (dirty, staged-added, untracked
  * non-ignored), record deleted paths and the raw index bytes, into the claimed
  * checkpoint directory. Returns the checkpoint recorded in the ticket.
  */
-export async function writeCheckpoint(cwd: string, changeDir: string, stem: string): Promise<Checkpoint> {
+export async function writeCheckpoint(cwd: string, changeDir: string, stem: string, scope: CheckpointScope = readCheckpointScope(cwd)): Promise<Checkpoint> {
   const dir = checkpointDirOf(changeDir, stem);
-  const tree = withFixedGitEnv(() => workTreePaths(cwd));
-  const reports = reportPaths(cwd);
-  const changed = [...tree.changed, ...reports.changed];
-  const deleted = new Set([...tree.deleted, ...reports.deleted]);
+  const { changed, deleted } = scope;
   const entries: CheckpointEntry[] = [];
   for (const file of changed) {
     if (!isNormalizedRelativePath(file)) throw refuseIssue(`Cannot checkpoint the path ${JSON.stringify(file)}`, 'Rename the file to a plain relative path, then issue again');

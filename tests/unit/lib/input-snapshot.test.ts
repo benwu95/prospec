@@ -1,9 +1,9 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { execFileSync } from 'node:child_process';
-import { chmodSync, existsSync, mkdtempSync, mkdirSync, readFileSync, renameSync, rmSync, symlinkSync, unlinkSync, writeFileSync } from 'node:fs';
+import { chmodSync, existsSync, mkdtempSync, mkdirSync, readFileSync, realpathSync, renameSync, rmSync, symlinkSync, unlinkSync, writeFileSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { changedPathsFromWorkTree, collectGitTimestamps, computeChangeState, gitlinkCheckoutState } from '../../../src/lib/drift-sources.js';
+import { changedPathsFromWorkTree, collectGitTimestamps, computeChangeState, gitlinkCheckoutState, linkSteps } from '../../../src/lib/drift-sources.js';
 
 import type { ModuleMap } from '../../../src/types/module-map.js';
 import { evaluateKnowledgeHealth } from '../../../src/lib/drift-checker.js';
@@ -99,6 +99,181 @@ describe('unprovable inputs', () => {
       stdio: ['pipe', 'pipe', 'pipe'],
     });
     expect(computeChangeState(root)).toMatchObject({ digest: null, reason: expect.stringContaining('losslessly') });
+  });
+});
+
+// #400: a directory symlink is proven by the represented inputs beneath its target.
+describe.skipIf(process.platform === 'win32')('directory symlink inputs', () => {
+  const dir = (file: string) => mkdirSync(path.join(root, file), { recursive: true });
+  const link = (target: string, file: string) => symlinkSync(target, path.join(root, file));
+  const shareSkills = () => {
+    dir('.agents/skills/demo'); put('.agents/skills/demo/SKILL.md', 'skill');
+    dir('.claude'); link('../.agents/skills', '.claude/skills');
+  };
+  const reason = () => computeChangeState(root).reason;
+
+  it('certifies an in-repo directory symlink with one identity before and after commit', () => {
+    shareSkills(); const before = digest(); expect(before).toBeTruthy();
+    git('add', '-A'); expect(digest()).toBe(before);
+    git('commit', '-qm', 'share'); expect(digest()).toBe(before);
+  });
+  it('follows the bytes beneath the target and the link text', () => {
+    shareSkills(); git('add', '-A'); git('commit', '-qm', 'share'); const before = digest();
+    put('.agents/skills/demo/SKILL.md', 'changed'); expect(digest()).not.toBe(before);
+    put('.agents/skills/demo/SKILL.md', 'skill'); expect(digest()).toBe(before);
+    dir('.agents/copy/demo'); put('.agents/copy/demo/SKILL.md', 'skill'); git('add', '-A'); git('commit', '-qm', 'copy');
+    const copied = digest();
+    unlinkSync(path.join(root, '.claude/skills')); link('../.agents/copy', '.claude/skills'); expect(digest()).not.toBe(copied);
+  });
+  it('accepts an empty target and a nested link back to an ancestor of its own directory', () => {
+    dir('empty'); link('empty', 'alias'); expect(digest()).toBeTruthy();
+    dir('tree/a'); put('tree/a/f', 'x'); link('..', 'tree/a/loop'); expect(digest()).toBeTruthy();
+  });
+  it('refuses a target outside the project, even an empty one', () => {
+    // Real path: a system symlink on the way (macOS /var) would be refused by the route rule first.
+    const outside = realpathSync(mkdtempSync(path.join(os.tmpdir(), 'snapshot-outside-')));
+    try {
+      link(outside, 'ext');
+      expect(computeChangeState(root)).toMatchObject({ digest: null, reason: 'Symlink target is outside represented inputs: ext' });
+    } finally { rmSync(outside, { recursive: true, force: true }); }
+  });
+  it('refuses a target holding an input the snapshot does not hash, naming the link and that entry', () => {
+    shareSkills(); put('.gitignore', '*.local\n'); put('.agents/skills/demo/notes.local', 'ignored');
+    expect(computeChangeState(root).digest).toBeNull();
+    expect(reason()).toContain('.claude/skills');
+    expect(reason()).toContain('.agents/skills/demo/notes.local');
+  });
+  // R1-5: an unreadable directory beneath the target is named by its project path.
+  it.skipIf(process.platform === 'win32' || process.getuid?.() === 0)('names an unreadable directory beneath the target', () => {
+    shareSkills(); git('add', '-A'); git('commit', '-qm', 'share');
+    dir('.agents/skills/locked'); chmodSync(path.join(root, '.agents/skills/locked'), 0);
+    try {
+      expect(computeChangeState(root)).toMatchObject({ digest: null, reason: 'Symlink target cannot be read at .agents/skills/locked (EACCES): .claude/skills' });
+    } finally { chmodSync(path.join(root, '.agents/skills/locked'), 0o755); }
+  });
+  it('refuses a target holding the repository metadata', () => {
+    dir('.claude'); link('..', '.claude/up');
+    expect(computeChangeState(root).digest).toBeNull();
+    expect(reason()).toMatch(/\.claude\/up.*\.git\//);
+  });
+  // Pinned from the pre-#400 implementation (main 9658787d): file symlinks keep their identity.
+  it('keeps a file-symlink identity byte-identical to the pre-directory snapshot', () => {
+    link('input.txt', 'link');
+    expect(computeChangeState(root)).toEqual({ digest: '4a6ca0ca098019e9d4ea707a60d2b15f13a70e36479af9f0b8b98dd39aa25038', clean: false });
+  });
+
+  describe('a listed path beneath a replaced ancestor', () => {
+    const commitTrackedSkills = () => {
+      dir('.agents/skills/demo'); put('.agents/skills/demo/SKILL.md', 'skill');
+      dir('.claude/skills/demo'); put('.claude/skills/demo/SKILL.md', 'skill');
+      git('add', '-A'); git('commit', '-qm', 'tracked skills');
+    };
+    const replaceWithLink = () => {
+      rmSync(path.join(root, '.claude/skills'), { recursive: true }); link('../.agents/skills', '.claude/skills');
+    };
+    const threeStates = () => {
+      const unstaged = digest(); git('add', '-A'); const staged = digest(); git('commit', '-qm', 'replace'); const committed = digest();
+      return [unstaged, staged, committed];
+    };
+
+    it('keeps one identity while a tracked directory becomes a directory symlink', () => {
+      commitTrackedSkills(); replaceWithLink();
+      const [unstaged, staged, committed] = threeStates();
+      expect(unstaged).toBeTruthy(); expect(staged).toBe(unstaged); expect(committed).toBe(unstaged);
+    });
+    it('keeps one identity when the replacing symlink is ignored', () => {
+      commitTrackedSkills(); put('.gitignore', '/.claude/skills\n'); git('add', '.gitignore'); git('commit', '-qm', 'ignore'); replaceWithLink();
+      const [unstaged, staged, committed] = threeStates();
+      expect(unstaged).toBeTruthy(); expect(staged).toBe(unstaged); expect(committed).toBe(unstaged);
+    });
+    it('keeps one identity while a tracked directory becomes a regular file', () => {
+      dir('p'); put('p/a', 'a'); git('add', '-A'); git('commit', '-qm', 'dir');
+      rmSync(path.join(root, 'p'), { recursive: true }); put('p', 'file');
+      const [unstaged, staged, committed] = threeStates();
+      expect(unstaged).toBeTruthy(); expect(staged).toBe(unstaged); expect(committed).toBe(unstaged);
+    });
+    it('refuses a path the status does not report deleted, naming it and the ancestor', () => {
+      commitTrackedSkills(); git('update-index', '--assume-unchanged', '.claude/skills/demo/SKILL.md'); replaceWithLink();
+      expect(computeChangeState(root)).toMatchObject({ digest: null, reason: 'Input lies beneath .claude/skills, which is not a directory: .claude/skills/demo/SKILL.md' });
+    });
+  });
+});
+
+// R1-1: an absolute link text restarts from its own root — a drive or UNC share is never joined twice.
+describe('link text steps', () => {
+  it.each([
+    ['C:\\repo\\x', path.win32, 'C:\\', ['repo', 'x']],
+    ['\\\\srv\\share\\repo\\x', path.win32, '\\\\srv\\share\\', ['repo', 'x']],
+    ['C:/repo/x', path.win32, 'C:/', ['repo', 'x']],
+    ['/abs/x', path.posix, '/', ['abs', 'x']],
+  ] as const)('starts %j from its root', (text, paths, start, parts) => {
+    expect(linkSteps(text, 'from', paths)).toEqual({ start, parts });
+  });
+  it.each([[path.win32, '..\\a\\b', ['..', 'a', 'b']], [path.posix, '../a/b', ['..', 'a', 'b']]] as const)('starts a relative text from its link directory', (paths, text, parts) => {
+    expect(linkSteps(text, 'from', paths)).toEqual({ start: 'from', parts });
+  });
+});
+
+// #400 re-scope: a symlink is proven by its whole resolution route, not only its endpoint.
+describe.skipIf(process.platform === 'win32')('symlink resolution routes', () => {
+  const dir = (file: string) => mkdirSync(path.join(root, file), { recursive: true });
+  const link = (target: string, file: string) => symlinkSync(target, path.join(root, file));
+  const capture = () => computeChangeState(root);
+  beforeEach(() => {
+    dir('real'); put('real/x.md', 'A'); dir('real2'); put('real2/x.md', 'B');
+    git('add', '-A'); git('commit', '-qm', 'targets');
+  });
+
+  it('refuses a file or directory link that resolves through an ignored symlink', () => {
+    put('.gitignore', '/vendor\n'); link('real', 'vendor'); link('vendor/x.md', 'f');
+    expect(capture()).toMatchObject({ digest: null, reason: 'Symlink resolves through vendor, which is not a represented input: f' });
+    unlinkSync(path.join(root, 'f')); link('vendor', 'alias');
+    expect(capture()).toMatchObject({ digest: null, reason: 'Symlink resolves through vendor, which is not a represented input: alias' });
+  });
+  it('refuses a link that resolves through a symlink outside the project', () => {
+    const outside = realpathSync(mkdtempSync(path.join(os.tmpdir(), 'snapshot-route-')));
+    try {
+      symlinkSync(path.join(realpathSync(root), 'real'), path.join(outside, 'r'));
+      link(path.join(outside, 'r/x.md'), 'abs');
+      const passed = path.relative(realpathSync(root), path.join(outside, 'r')).split(path.sep).join('/');
+      expect(capture()).toMatchObject({ digest: null, reason: `Symlink resolves through ${passed}, which is not a represented input: abs` });
+    } finally { rmSync(outside, { recursive: true, force: true }); }
+  });
+  it('accepts a route through a tracked symlink and follows that symlink', () => {
+    link('real', 'vendor'); link('vendor/x.md', 'f'); git('add', '-A'); git('commit', '-qm', 'tracked route');
+    const before = capture().digest; expect(before).toBeTruthy();
+    unlinkSync(path.join(root, 'vendor')); link('real2', 'vendor'); expect(capture().digest).not.toBe(before);
+  });
+  it('resolves `..` after a symlink from the symlink target, as the platform does', () => {
+    dir('deep/sub'); put('deep/sub/k', 'k'); put('y', 'top'); put('.gitignore', '/deep/y\n'); put('deep/y', 'hidden');
+    link('deep/sub', 's'); link('s/../y', 'x');
+    expect(capture()).toMatchObject({ digest: null, reason: 'Symlink target is outside represented inputs: x' });
+  });
+  it('refuses a symlink loop by its project path', () => {
+    link('b', 'a'); link('a', 'b');
+    expect(capture()).toMatchObject({ digest: null, reason: 'Symlink resolution loops at b: a' });
+  });
+  it('names the missing component of a dangling route', () => {
+    link('missing/x.md', 'd');
+    expect(capture()).toMatchObject({ digest: null, reason: 'Symlink resolution stops at missing (ENOENT): d' });
+  });
+  // R2-1: a route symlink is judged by its path; an ignored hard link of a tracked symlink is still ignored.
+  it.skipIf(process.platform === 'win32')('refuses an ignored route symlink that hard-links a tracked one', () => {
+    link('real', 't1'); put('.gitignore', '/ig\n'); link('ig/x.md', 'L'); git('add', '-A'); git('commit', '-qm', 'links');
+    execFileSync('ln', ['-P', path.join(root, 't1'), path.join(root, 'ig')]);
+    expect(capture()).toMatchObject({ digest: null, reason: 'Symlink resolves through ig, which is not a represented input: L' });
+  });
+  // Route paths compare by spelling, never by inode.
+  it.skipIf(!existsSync(os.tmpdir().toUpperCase()))('refuses a route link spelled in another case', () => {
+    link('real', 'tracked'); git('add', '-A'); git('commit', '-qm', 'tracked link');
+    link('TRACKED/x.md', 'g');
+    expect(capture()).toMatchObject({ digest: null, reason: 'Symlink resolves through TRACKED, which is not a represented input: g' });
+  });
+  // macOS stops at 32 links, below the loop guard: the native comparison refuses what the platform cannot read.
+  it.skipIf(process.platform !== 'darwin')('refuses a chain the platform cannot resolve', () => {
+    link('real/x.md', 'l0');
+    for (let i = 1; i <= 35; i++) link(`l${i - 1}`, `l${i}`);
+    expect(capture()).toMatchObject({ digest: null, reason: 'Symlink resolves to real/x.md, which the platform cannot confirm (ELOOP): l33' });
   });
 });
 
@@ -253,6 +428,29 @@ describe('gitlink (submodule) inputs', () => {
   it.skipIf(process.platform === 'win32')('certifies a superproject symlink into a submodule file', () => {
     symlinkSync('module/shared.md', path.join(root, 'link'));
     expect(computeChangeState(root)).toMatchObject({ digest: expect.any(String) });
+  });
+  // #400: a directory symlink's target is judged by the inputs beneath it, the checkout's own metadata included.
+  it.skipIf(process.platform === 'win32')('refuses a directory symlink into an initialized checkout and accepts one into an uninitialized gitlink', () => {
+    symlinkSync('module', path.join(root, 'alias'));
+    expect(computeChangeState(root)).toMatchObject({ digest: null, reason: expect.stringMatching(/alias.*module\/\.git/) });
+    git('submodule', 'deinit', '-q', '-f', 'module');
+    expect(computeChangeState(root)).toMatchObject({ digest: expect.any(String) });
+  });
+  // Git's own status refuses a gitlink path that is a symlink, so the capture stays unprovable.
+  it.skipIf(process.platform === 'win32')('leaves a gitlink path replaced by a directory symlink unprovable', () => {
+    mkdirSync(path.join(root, 'shared')); writeFileSync(path.join(root, 'shared/doc.md'), 'doc');
+    git('add', 'shared'); commitRoot('shared');
+    git('submodule', 'deinit', '-q', '-f', 'module');
+    rmSync(path.join(root, 'module'), { recursive: true, force: true }); symlinkSync('shared', path.join(root, 'module'));
+    expect(gitlinkCheckoutState(root, 'module')).toBe('other');
+    expect(computeChangeState(root)).toMatchObject({ digest: null, reason: expect.stringContaining('module') });
+  });
+  it.skipIf(process.platform === 'win32')('refuses a submodule path beneath a directory the submodule replaced with a symlink', () => {
+    mkdirSync(path.join(root, 'module/real')); writeFileSync(path.join(root, 'module/real/a.md'), 'a');
+    mkdirSync(path.join(root, 'module/dir')); writeFileSync(path.join(root, 'module/dir/a.md'), 'a');
+    sub('add', '.'); execFileSync('git', [...GIT_ID, 'commit', '-qm', 'dirs'], { cwd: path.join(root, 'module'), stdio: 'pipe' });
+    rmSync(path.join(root, 'module/dir'), { recursive: true }); symlinkSync('real', path.join(root, 'module/dir'));
+    expect(computeChangeState(root)).toMatchObject({ digest: null, reason: 'Input lies beneath module/dir, which is not a directory: module/dir/a.md' });
   });
 });
 

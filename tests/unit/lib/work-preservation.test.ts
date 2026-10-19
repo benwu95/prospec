@@ -119,6 +119,44 @@ describe('work capture', () => {
   });
 });
 
+// #400: a path beneath a replaced directory is what Git reports — a deletion — never the bytes a link reaches.
+describe.skipIf(process.platform === 'win32')('replaced directories', () => {
+  const load = async () => import('../../../src/lib/work-preservation.js');
+  beforeEach(() => {
+    put('p/a', 'mine'); put('real/a', 'theirs'); put('real/b', 'other');
+    gitIn(root, 'add', '.'); gitIn(root, 'commit', '-qm', 'dirs');
+    fs.rmSync(path.join(root, 'p'), { recursive: true });
+  });
+  it('records a path beneath a directory replaced by an in-project symlink as deleted', async () => {
+    const { captureWork } = await load();
+    fs.symlinkSync('real', path.join(root, 'p'));
+    const input = captureWork(root, destination, sourceDir);
+    expect(input.manifest.entries).toContainEqual({ path: 'p', kind: 'symlink', target: 'real' });
+    expect(input.manifest.entries).toContainEqual({ path: 'p/a', kind: 'deleted' });
+  });
+  it('keeps hashing source artifact bytes beneath a symlinked change root', async () => {
+    const { captureWork } = await load();
+    fs.symlinkSync('real', path.join(root, 'p'));
+    fs.renameSync(path.join(root, '.prospec/changes'), path.join(root, '.prospec/changes-real'));
+    fs.symlinkSync('changes-real', path.join(root, '.prospec/changes'));
+    const before = captureWork(root, destination, sourceDir).sourceDigest;
+    put('.prospec/changes/x/proposal.md', 'edited proposal');
+    expect(captureWork(root, destination, sourceDir).sourceDigest).not.toBe(before);
+  });
+  it('records a path beneath a directory replaced by a regular file as deleted', async () => {
+    const { captureWork } = await load();
+    put('p', 'file');
+    const entries = captureWork(root, destination, sourceDir).manifest.entries;
+    expect(entries).toContainEqual(expect.objectContaining({ path: 'p', kind: 'regular' }));
+    expect(entries).toContainEqual({ path: 'p/a', kind: 'deleted' });
+  });
+  it.each([['a dangling', 'missing'], ['a regular-file', 'real/b']])('keeps refusing %s symlinked ancestor', async (_, target) => {
+    const { captureWork } = await load();
+    fs.symlinkSync(target, path.join(root, 'p'));
+    expect(() => captureWork(root, destination, sourceDir)).toThrow(/Unsafe preservation input p\/a/);
+  });
+});
+
 describe('preservation persistence and fence', () => {
   it('writes recoverable bytes and rejects changed source or work inputs', async () => {
     const { captureWork, persistWork, recheckWork } = await import('../../../src/lib/work-preservation.js');

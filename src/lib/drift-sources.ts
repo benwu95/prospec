@@ -1834,6 +1834,82 @@ function deletedInRepository(repository: string): Set<string> {
   return new Set(gitReadRecords(repository, 'ls-files', ['-z', '--deleted']).map((file) => path.join(repository, file)));
 }
 
+export type AncestorKind = 'directory' | 'absent' | 'other';
+
+/** The first ancestor of `file` (relative to `root`, the leaf excluded) that exists but is
+ *  not a real directory, or null. A path beneath it is not what `lstat` reaches through it:
+ *  a symlink would hand back the target's bytes, a regular file nothing. `cache` lives for
+ *  one capture, so every directory is judged once against one observation. */
+export function nonDirectoryAncestor(root: string, file: string, cache: Map<string, AncestorKind> = new Map()): string | null {
+  let dir = '';
+  for (const part of file.split('/').slice(0, -1)) {
+    dir = dir === '' ? part : `${dir}/${part}`;
+    let kind = cache.get(dir);
+    if (kind === undefined) {
+      try { kind = lstatSync(path.join(root, dir)).isDirectory() ? 'directory' : 'other'; } catch (error) {
+        const code = (error as NodeJS.ErrnoException).code;
+        if (code !== 'ENOENT' && code !== 'ENOTDIR') throw error;
+        kind = 'absent';
+      }
+      cache.set(dir, kind);
+    }
+    if (kind === 'absent') return null;
+    if (kind === 'other') return dir;
+  }
+  return null;
+}
+
+/** Where a link text starts resolving and the components that follow it: an absolute text
+ *  from its own root — a drive or UNC share stays one root, never a component — and a
+ *  relative one from `from`, the directory holding the link. */
+export function linkSteps(text: string, from: string, paths: typeof path = path): { start: string; parts: string[] } {
+  const root = paths.isAbsolute(text) ? paths.parse(text).root : '';
+  return { start: root === '' ? from : root, parts: text.slice(root.length).split(paths.sep === '\\' ? /[\\/]/ : '/') };
+}
+
+/** Loop guard only: a chain the platform cannot resolve is caught by the native comparison. */
+const MAX_ROUTE_LINKS = 40;
+
+/** Resolve the symlink `link` one component at a time, as the platform does — `..` climbs
+ *  from what was already resolved, never lexically from the link text — returning its
+ *  endpoint and every symlink passed on the way, the link itself excluded. A route the
+ *  digest does not cover could switch the content the link reaches. */
+function resolveRoute(link: string, file: string, relative: (absolute: string) => string): { target: string; route: string[] } {
+  const route: string[] = [];
+  const first = linkSteps(readlinkSync(link), path.dirname(link));
+  let current = first.start;
+  const pending = first.parts;
+  while (pending.length > 0) {
+    const part = pending.shift()!;
+    if (part === '' || part === '.') continue;
+    if (part === '..') { current = path.dirname(current); continue; }
+    const next = path.join(current, part);
+    let isLink: boolean;
+    try { isLink = lstatSync(next).isSymbolicLink(); } catch (error) {
+      throw new Error(`Symlink resolution stops at ${relative(next)} (${(error as NodeJS.ErrnoException).code ?? 'error'}): ${file}`);
+    }
+    if (!isLink) { current = next; continue; }
+    if (route.push(next) > MAX_ROUTE_LINKS) throw new Error(`Symlink resolution loops at ${relative(next)}: ${file}`);
+    const inner = linkSteps(readlinkSync(next), current);
+    current = inner.start;
+    pending.unshift(...inner.parts);
+  }
+  return { target: current, route };
+}
+
+/** The first entry beneath `dir`, in byte order and without following symlinks, that is
+ *  not a represented input — or null when every one is. */
+function firstUnrepresented(dir: string, represented: ReadonlySet<string>): string | null {
+  const children = readdirSync(dir, { withFileTypes: true })
+    .sort((a, b) => Buffer.compare(Buffer.from(a.name), Buffer.from(b.name)));
+  for (const child of children) {
+    const absolute = path.join(dir, child.name);
+    const found = child.isDirectory() ? firstUnrepresented(absolute, represented) : represented.has(absolute) ? null : absolute;
+    if (found !== null) return found;
+  }
+  return null;
+}
+
 /** Porcelain v1 always emits repository-root paths; ls-files is cwd-relative.
  * Ordinary root projects need no extra subprocess. Nested/external-worktree
  * setups ask Git for the exact prefix, preserving embedded whitespace bytes.
@@ -1982,9 +2058,27 @@ export function computeEvidenceStates(cwd: string, context?: TestInputContext): 
       update(testHash, JSON.stringify(policy)); update(testHash, context.configBytes);
       update(testHash, JSON.stringify(context.command));
     }
+    // Confirm deletion against a second observation, not an index-dependent tombstone.
+    // One observation per capture, taken at the first deletion, serves every later one: a path
+    // it reports deleted and lstat still finds absent was absent at both reads.
+    const ancestors = new Map<string, AncestorKind>();
+    let confirmed: ReturnType<typeof workTreePaths> | undefined;
+    const confirmDeleted = (file: string): void => {
+      if (confirmed === undefined) { confirmed = workTreePaths(cwd); validateMembership(confirmed); }
+      if (!confirmed.deleted.has(file)) throw new Error(`Input disappeared during capture: ${file}`);
+    };
+    const relative = (absolute: string): string => path.relative(cwd, absolute).split(path.sep).join('/');
     for (const { key: file, absolute, gitlink, deletedIn: repository } of entries) {
       retain = enabled && !excluded(file);
       if (gitlink !== undefined) { frame(file); frame('gitlink'); frame(gitlink); continue; }
+      const replaced = nonDirectoryAncestor(cwd, file, ancestors);
+      if (replaced !== null) {
+        if (repository !== undefined || !state.deleted.has(file)) {
+          throw new Error(`Input lies beneath ${replaced}, which is not a directory: ${file}`);
+        }
+        confirmDeleted(file);
+        continue;
+      }
       let stat;
       try { stat = lstatSync(absolute); }
       catch (error) {
@@ -1997,19 +2091,42 @@ export function computeEvidenceStates(cwd: string, context?: TestInputContext): 
           continue;
         }
         if (!state.deleted.has(file)) throw error;
-        // Confirm deletion against a second observation, not an index-dependent tombstone.
-        const confirmed = workTreePaths(cwd);
-        validateMembership(confirmed);
-        if (!confirmed.deleted.has(file)) throw new Error(`Input disappeared during capture: ${file}`);
+        confirmDeleted(file);
         continue;
       }
       if (!stat.isFile() && !stat.isSymbolicLink()) throw new Error(`Unsupported input kind: ${file}`);
       frame(file); frame(stat.isSymbolicLink() ? 'symlink' : 'regular');
       frame(stat.isSymbolicLink() ? 'link' : (stat.mode & 0o111) !== 0 ? 'executable' : 'plain');
       if (stat.isSymbolicLink()) {
-        const target = realpathSync(absolute);
-        if (!represented.has(target)) throw new Error(`Symlink target is outside represented inputs: ${file}`);
-        if (enabled && (excluded(file) || excluded(path.relative(cwd, target).split(path.sep).join('/')))) {
+        const { target, route } = resolveRoute(absolute, file, relative);
+        let confirmedByPlatform: boolean;
+        try { confirmedByPlatform = realpathSync.native(target) === realpathSync.native(absolute); } catch (error) {
+          throw new Error(`Symlink resolves to ${relative(target)}, which the platform cannot confirm (${(error as NodeJS.ErrnoException).code ?? 'error'}): ${file}`);
+        }
+        if (!confirmedByPlatform) throw new Error(`Symlink resolves to ${relative(target)}, not where the platform does: ${file}`);
+        const unhashed = route.find((passed) => !represented.has(passed));
+        if (unhashed !== undefined) {
+          throw new Error(`Symlink resolves through ${relative(unhashed)}, which is not a represented input: ${file}`);
+        }
+        const directory = !represented.has(target) && lstatSync(target).isDirectory();
+        if (!represented.has(target) && !(directory && isContainedPath(target, cwd))) {
+          throw new Error(`Symlink target is outside represented inputs: ${file}`);
+        }
+        if (directory) {
+          let unrepresented: string | null;
+          try { unrepresented = firstUnrepresented(target, represented); } catch (error) {
+            const failed = error as NodeJS.ErrnoException;
+            throw new Error(`Symlink target cannot be read at ${relative(failed.path ?? target)} (${failed.code ?? 'error'}): ${file}`);
+          }
+          if (unrepresented !== null) {
+            throw new Error(`Symlink target is outside represented inputs: ${file} (${relative(unrepresented)})`);
+          }
+        }
+        const holdsExclusion = (): boolean => {
+          const linked = inputPath(file);
+          return linked === '' || policy!.excluded_path.startsWith(`${linked}/`);
+        };
+        if (enabled && (excluded(file) || excluded(path.relative(cwd, target).split(path.sep).join('/')) || (directory && policy !== undefined && holdsExclusion()))) {
           testReason ??= `Symlink crosses Knowledge exclusion: ${file}`;
         }
         frame(readlinkSync(absolute, { encoding: 'buffer' }));
