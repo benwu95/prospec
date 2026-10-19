@@ -47,6 +47,7 @@ so that verify's test dimension is a machine verdict instead of an agent's self-
 - WHEN the Knowledge exclusion policy is enabled, THEN collect and compare the test-specific effective-input identity defined by REQ-TYPES-115; the full repository digest remains separate, and both normal drift and target gates use the same record mapping and certification predicate.
 - WHEN opt-in evidence has a compatible identity and its latest linked passed attempt has exit zero and equal before/after/recorded/current test digests, THEN return certified reuse with the original attempt id, date, command, result and policy reason without mutating either run record.
 - WHEN a retained symlink resolves into excluded Knowledge or excluded topology contains a symlink/gitlink, THEN the test capture is unprovable; full inventory and integrity failures are not hidden by exclusion.
+- WHEN a retained directory symlink resolves to a directory that contains excluded Knowledge, THEN the test capture is unprovable.
 - WHEN opt-in identity is missing, unknown or incompatible, THEN no reuse PASS is produced; recognized snapshot-v2 evidence remains usable under the default policy, with the existing failure and exemption precedence unchanged.
 
 #### REQ-SERVICES-068: check.service collector injection + the --record-tests write path
