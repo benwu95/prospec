@@ -2,8 +2,8 @@
 feature: sdd-workflow
 status: active
 last_updated: 2026-10-18
-story_count: 51
-req_count: 365
+story_count: 52
+req_count: 367
 ---
 
 # SDD Workflow
@@ -22,6 +22,7 @@ req_count: 365
 
 - [US-50: Human Decisions Are Presented Comparably and Delegated Within Bounds](./sdd-workflow/us-50.md)
 - [US-51: Retain Terminal History Across Worktree Removal](./sdd-workflow/us-51.md)
+- [US-52: Loosened Tests and Test Gates Are a Review Finding](./sdd-workflow/us-52.md)
 
 - [US-49: Preserve an Abandoned Attempt and Explain a Retry](./sdd-workflow/us-49.md)
 
@@ -106,6 +107,7 @@ req_count: 365
 | Date | Change | Impact | Stories/REQs |
 |------|--------|--------|--------------|
 | 2026-10-18 | add-static-gitignore-block | MODIFIED REQ-TESTS-079 | REQ-TESTS-079 |
+| 2026-10-17 | detect-test-weakening | ADDED REQ-TEMPLATES-251; ADDED REQ-TESTS-138 | US-52, REQ-TEMPLATES-251, REQ-TESTS-138 |
 | 2026-10-16 | correct-related-modules | MODIFIED REQ-CHNG-003; MODIFIED REQ-TYPES-064; MODIFIED REQ-SERVICES-124; MODIFIED REQ-CLI-060; MODIFIED REQ-LIB-097; MODIFIED REQ-TESTS-128; MODIFIED REQ-TEMPLATES-032; MODIFIED REQ-TEMPLATES-150; MODIFIED REQ-TEMPLATES-161; MODIFIED REQ-TEMPLATES-083 | REQ-CHNG-003, REQ-TYPES-064, REQ-SERVICES-124, REQ-CLI-060, REQ-LIB-097, REQ-TESTS-128, REQ-TEMPLATES-032, REQ-TEMPLATES-150, REQ-TEMPLATES-161, REQ-TEMPLATES-083 |
 | 2026-10-14 | remove-downstream-repo-leaks | MODIFIED REQ-TEMPLATES-150; MODIFIED REQ-TEMPLATES-213; MODIFIED REQ-TESTS-043; MODIFIED REQ-TYPES-098 | REQ-TEMPLATES-150, REQ-TEMPLATES-213, REQ-TESTS-043, REQ-TYPES-098 |
 | 2026-10-13 | resolve-review-convergence | MODIFIED REQ-LIB-057; MODIFIED REQ-LIB-063; MODIFIED REQ-TEMPLATES-066; MODIFIED REQ-TEMPLATES-203; MODIFIED REQ-SERVICES-098 | REQ-LIB-057, REQ-LIB-063, REQ-TEMPLATES-066, REQ-TEMPLATES-203, REQ-SERVICES-098 |
