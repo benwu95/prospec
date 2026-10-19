@@ -4,7 +4,7 @@ import { PrerequisiteError } from '../types/errors.js';
 import { GitlinkPinsSchema, type GitlinkPin, type PreservationEntry, type PreservationManifest } from '../types/abandon.js';
 import type { RepoState } from '../types/delegation.js';
 import { gitRead, gitReadBuffer, gitReadOptional, gitReadRecords, hiddenIndexShape, parseIndexRecord, PRESERVATION_DIFF_FLAGS, withFixedGitEnv } from './git-read.js';
-import { gitlinkCheckoutState, gitProjectPrefix } from './drift-sources.js';
+import { gitlinkCheckoutState, gitProjectPrefix, nonDirectoryAncestor, type AncestorKind } from './drift-sources.js';
 import { captureGitState, isUnreadable, sameRepoState, sha256 } from './repo-state.js';
 import { resolveContainedTarget } from './knowledge-reader.js';
 import { atomicWrite } from './fs-utils.js';
@@ -132,6 +132,19 @@ function readEntry(root: string, name: string, blobs: Map<string, Buffer>): Pres
   return { path: name, kind: 'regular', mode: stat.mode & 0o777, sha256: digest, blob };
 }
 
+/** A changed path beneath a directory replaced by a file or symlink is what Git reports, a
+ *  deletion; reading it would preserve the bytes the replacement reaches instead. A symlinked
+ *  ancestor still passes `readEntry`'s parent guard first. */
+function readChangedEntry(root: string, name: string, blobs: Map<string, Buffer>, ancestors: Map<string, AncestorKind>): PreservationEntry {
+  const replaced = nonDirectoryAncestor(root, name, ancestors);
+  if (replaced === null) return readEntry(root, name, blobs);
+  if (fs.lstatSync(path.join(root, replaced)).isSymbolicLink()) {
+    const parent = resolveContainedTarget(path.join(path.dirname(path.join(root, name)), '.prospec-path-probe'), root);
+    if (!parent.ok) throw new Error(`Unsafe preservation input ${name}: ${parent.reason}`);
+  }
+  return { path: name, kind: 'deleted' };
+}
+
 /** Fingerprint ignored source artifacts too; symlink leaves are recorded, never followed. */
 function artifactDigest(sourceDir: string, root: string): string {
   const entries: unknown[] = [];
@@ -203,7 +216,8 @@ export function captureWork(cwd: string, destination: string, sourceDir: string,
     paths.add(name);
   }
   const blobs = new Map<string, Buffer>();
-  const entries = [...paths].sort().map((name) => readEntry(root, name, blobs));
+  const ancestors = new Map<string, AncestorKind>();
+  const entries = [...paths].sort().map((name) => readChangedEntry(root, name, blobs, ancestors));
   const pathspec = ['--', '.', ...excluded.map((entry) => `:(exclude,literal)${entry}`)];
   const staged = gitReadBuffer(root, 'diff', [...PRESERVATION_DIFF_FLAGS, '--cached', 'HEAD', ...pathspec]);
   const unstaged = gitReadBuffer(root, 'diff', [...PRESERVATION_DIFF_FLAGS, ...pathspec]);

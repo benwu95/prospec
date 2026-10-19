@@ -44,6 +44,7 @@ import {
   createSnapshot,
   delegationDirOf,
   ensureDelegationDir,
+  readCheckpointScope,
   releaseCheckpoint,
   releaseSnapshot,
   writeCheckpoint,
@@ -527,13 +528,21 @@ export async function issueTicket(options: { cwd: string; changeDir: string; key
   const verdict = judgeIssue({ changeDir, tickets, key, current, payloadExists: fs.existsSync(payloadPath), leftoverAttempts });
   if (verdict.kind === 'refused') throw refused('issue', verdict.message, verdict.suggestion, verdict.ticket);
   const stem = formatDelegationStem({ ...key, attempt: verdict.attempt });
+  // Refused before anything is claimed, so a refusal leaves no checkpoint behind.
+  let scope: ReturnType<typeof readCheckpointScope>;
+  try {
+    scope = readCheckpointScope(cwd);
+  } catch (error) {
+    if (error instanceof DelegationRefusedError) throw error;
+    throw refused('issue', `Ticket ${stem} could not be issued: ${String(error)}`, 'Issue the ticket again', stem);
+  }
 
   await ensureDelegationDir(changeDir);
   claimCheckpointDir(changeDir, stem);
   let snapshot: SnapshotRef | undefined;
   let ticket: DelegationTicket;
   try {
-    const checkpoint = await writeCheckpoint(cwd, changeDir, stem);
+    const checkpoint = await writeCheckpoint(cwd, changeDir, stem, scope);
     const head = current.head as { commit: string | null };
     const content = current.content as { digest: string };
     snapshot = await createSnapshot({ cwd, changeDir, stem, headCommit: head.commit, checkpoint, preSpawnContentDigest: content.digest });
