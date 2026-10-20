@@ -21,6 +21,10 @@ tech_stack:
   # and on Windows not a `.cmd`/`.bat` shim (Node rejects those without a shell), so
   # prefer a direct invocation such as `node node_modules/vitest/vitest.mjs run`.
   # test_command: {{#if tech_stack.package_manager}}{{tech_stack.package_manager}} test{{else}}<your test command>{{/if}}
+  # Wall-clock cap for that run, in milliseconds (1 to 2147483647). Raise it when the
+  # suite needs longer than the 15-minute default; changing it makes recorded test
+  # evidence stale, so re-run `prospec check --record-tests` afterwards.
+  # test_timeout_ms: 900000
 {{/if}}
 
 # Enable only when Knowledge is not an input to the project's tests.

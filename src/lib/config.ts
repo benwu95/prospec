@@ -1,5 +1,6 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
+import { inspect } from 'node:util';
 import { z } from 'zod';
 import { TestPolicySchema, type TestPolicy } from '../types/change.js';
 import {
@@ -8,6 +9,7 @@ import {
   DEFAULT_BASE_DIR,
   DEFAULT_KNOWLEDGE_TOKEN_BUDGET,
   DEFAULT_MAX_STATION_RETRIES,
+  MAX_TEST_TIMEOUT_MS,
   PAUSE_AT_ENV_VAR,
   PAUSE_AT_NONE,
   PAUSE_STATIONS,
@@ -17,10 +19,11 @@ import {
   isDefaultArtifactLanguage,
 } from '../types/config.js';
 import type { AlwaysEscalateCategory, ProspecConfig, KnowledgeSizeBudget, PauseStation, TokenBudget } from '../types/config.js';
-import { AlwaysEscalateInvalid, ConfigNotFound, ConfigInvalid, PauseAtInvalid } from '../types/errors.js';
+import { AlwaysEscalateInvalid, ConfigNotFound, ConfigInvalid, PauseAtInvalid, TestTimeoutInvalid } from '../types/errors.js';
 import { atomicWrite } from './fs-utils.js';
 import { parseYaml, parseYamlDocument, stringifyYamlDocument, mergeIntoDocument } from './yaml-utils.js';
 import { resolveProjectTestCommand } from './project-runner.js';
+import { DEFAULT_TEST_TIMEOUT_MS } from './test-runner.js';
 
 const CONFIG_FILENAME = '.prospec.yaml';
 
@@ -296,6 +299,23 @@ function validatePauseStations(entries: readonly unknown[], source: string, raw:
  */
 export function resolveTestCommand(config: ProspecConfig, cwd: string): string | null {
   return resolveProjectTestCommand(config, cwd);
+}
+
+/**
+ * Resolve the wall-clock cap for `check --record-tests` (REQ-TYPES-116):
+ * `tech_stack.test_timeout_ms`, or DEFAULT_TEST_TIMEOUT_MS when the key is absent.
+ * An invalid value throws rather than falling back, so a typo never silently
+ * restores the cap the setting was meant to lift.
+ */
+export function resolveTestTimeoutMs(config: ProspecConfig): number {
+  const value = config.tech_stack?.test_timeout_ms;
+  if (value === undefined) return DEFAULT_TEST_TIMEOUT_MS;
+  if (typeof value === 'number' && Number.isInteger(value) && value >= 1 && value <= MAX_TEST_TIMEOUT_MS) {
+    return value;
+  }
+  // inspect, not JSON.stringify: YAML `.nan`/`.inf` would print as null and a self-referencing
+  // alias would throw a TypeError instead of naming the key.
+  throw new TestTimeoutInvalid(inspect(value, { breakLength: Infinity }));
 }
 
 /**

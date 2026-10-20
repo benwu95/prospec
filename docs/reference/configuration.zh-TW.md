@@ -22,6 +22,7 @@ Scanner 一律排除 `node_modules`、`.git`、`dist`、`build`、`coverage` 等
 | `tech_stack.framework` | string | 自動偵測，或未設定 | 覆寫偵測出的 framework。 |
 | `tech_stack.package_manager` | string | 自動偵測，或未設定 | 覆寫偵測出的 package manager。 |
 | `tech_stack.test_command` | string | 依專案設定與 manifests 解析 | `prospec check --record-tests` 執行的命令；解析順序與平台限制見下方。 |
+| `tech_stack.test_timeout_ms` | integer | `900000`（15 分鐘） | 該命令的執行時間上限，範圍 1～2147483647 毫秒。有可解析的 test command 且值不合法時，`--record-tests` 不執行測試，並記錄指出此鍵的 unprovable attempt。修改此值會使已記錄的測試證據過時，需重新執行 `--record-tests`。 |
 
 非空白的 `test_command` 優先。否則，若已設定 `package_manager` 且 `package.json` 宣告 test script，使用 `<package_manager> test`。若仍無可用命令，Prospec 會從 Rust、Python、Go、Node.js 或 Makefile manifests 偵測。無法取得命令時，test runner 回報 skip。
 

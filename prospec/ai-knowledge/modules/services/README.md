@@ -53,7 +53,7 @@ Also: `quickstart` (init + agentSync, merging their `.gitignore` results), `agen
 
 - Story requires an explicit module list (including `[]`), preserves it and reads descriptions by exact index name. Scope discovery never writes metadata.
 
-- Test evidence reuse is read-only: gate results carry the shared certified payload, and verify records the original run as machine evidence. Explicit `check --record-tests` always executes; before/after config bytes and command are resolved independently. Full review/context identities remain Knowledge-inclusive.
+- Test evidence reuse is read-only: gate results carry the shared certified payload, and verify records the original run as machine evidence. Explicit `check --record-tests` always executes; before/after config bytes, command and (once a command resolves) the `tech_stack.test_timeout_ms` cap are resolved independently. Full review/context identities remain Knowledge-inclusive.
 
 - `change-delegate` forwards typed assessments from lib on issue/receive, including mixed allowed/protected differences; it never reimplements policy. Ordinary failure refusal may persist V2 observation evidence but must not invoke the WARN hook or cleanup. Existing human-acceptance guards and warning-before-failed ordering remain; settlement consumes stored evidence without recapturing repository state.
 

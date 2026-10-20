@@ -10,7 +10,7 @@
 import type { CircuitBreakerState, EscalationFailureDetails } from './cascade.js';
 import type { AbandonFailureDetails } from './abandon.js';
 import type { HistoryFailureDetails } from './history.js';
-import { ALWAYS_ESCALATE_CATEGORIES, PAUSE_AT_ENV_VAR, PAUSE_AT_NONE, PAUSE_STATIONS } from './config.js';
+import { ALWAYS_ESCALATE_CATEGORIES, MAX_TEST_TIMEOUT_MS, PAUSE_AT_ENV_VAR, PAUSE_AT_NONE, PAUSE_STATIONS } from './config.js';
 import { TEST_GATE_NOT_ADJUDICATED, testGateRemediation, type TestGateEntrance } from './station.js';
 
 export class ProspecError extends Error {
@@ -104,6 +104,17 @@ export class AlwaysEscalateInvalid extends ProspecError {
       `Use a YAML list of category names: ${ALWAYS_ESCALATE_CATEGORIES.join(', ')} (omit the key for all of them)`,
     );
     this.name = 'AlwaysEscalateInvalid';
+  }
+}
+
+export class TestTimeoutInvalid extends ProspecError {
+  constructor(value: string) {
+    super(
+      `Invalid test timeout in .prospec.yaml tech_stack.test_timeout_ms: ${value}`,
+      'TEST_TIMEOUT_INVALID',
+      `Use an integer number of milliseconds from 1 to ${MAX_TEST_TIMEOUT_MS}, or omit the key to keep the default`,
+    );
+    this.name = 'TestTimeoutInvalid';
   }
 }
 
