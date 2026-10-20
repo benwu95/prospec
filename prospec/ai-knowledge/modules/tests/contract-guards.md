@@ -18,7 +18,7 @@
 
 ## Public API
 
-- `playbook-station.test.ts` anchors this repository's active IDs and station declarations, 7 approved compact entries, the complete per-station catalog and output smaller than the full Playbook. `skill-format.test.ts` pins generated Startup/learn rules, UTF-8 baselines with unchanged ceilings, and bilingual station docs; unit and E2E tests exercise parser, selector, warnings and legacy paths, with fixed full stdout bytes for fallback. Compact-entry guards allow only Guidance not covered by the named Landing.
+- `playbook-station.test.ts` anchors this repository's active IDs and station declarations, 7 approved compact entries, the complete per-station catalog and output smaller than the full Playbook. `skill-format.test.ts` pins generated Startup/learn rules, UTF-8 baselines under anchored ceilings, and bilingual station docs; unit and E2E tests exercise parser, selector, warnings and legacy paths, with fixed full stdout bytes for fallback. Compact-entry guards allow only Guidance not covered by the named Landing.
 - No exports — `pnpm vitest run tests/contract/`.
 
 ## Dependencies
@@ -28,7 +28,7 @@
 
 ## Modification Guide
 
-1. **Add a contract test** — `tests/contract/{name}.test.ts`; real `renderTemplate()`, no mocks, every assertion section-scoped.
+1. **Add a contract test** — `tests/contract/{name}.test.ts`; real `renderTemplate()`, no mocks, every assertion section-scoped. To pin one instruction line, add a `SectionRule` (owning heading, optional numbered step, item pattern, required clauses, optional `unique`) to a `pinSectionRules` table in `skill-format`; it generates the placement, per-clause removal and move-out mutations, plus a second-copy mutation for `unique` rules.
 2. **Pin a doc against a registry** — SET EQUALITY keyed exhaustively over the registry's OWN domain (every scale; every status), both directions.
 3. **Pin a `--dry-run`** — snapshot the tree before and after and assert it is unchanged.
 4. **Audit shipped prose** — scan the whole bundled corpus raw (partials included) and render non-partials with neutral downstream data. Mutation probes cover every top-level group, a partial and a newly added key; legitimate examples and project-owned interpolation remain valid. Source/bundle parity stays in `bundled-templates-sync`. For semantic claims, keep each corrected claim in its governing section, assert table verdict cells and Mermaid node order alongside CLI counterexamples (repository Knowledge grading, pre-validation sync and post-commit freshness), and apply source-template mutations before rebuilding the bundle and running the targeted contract. Cover both languages of the README and `docs/` pages and the website overlays; the reference-heading check ignores fenced examples.

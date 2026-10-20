@@ -36,6 +36,8 @@ At archive, harvest the CLI-returned `archivePath`; cite the source project’s 
 
 Auto-harvest is idempotent: include `[M]` tasks and `kind: playbook` / `_conventions.md` corrections. Auto-harvest ≠ auto-promote: no shared-tier auto-write. A `retired` row is never raised by harvest (`prospec learn upsert`); it stays untouched.
 
+A `review.md` finding with status `fixed` whose evidence starts with `External criterion:` is a lesson candidate: key it by that criterion and describe the rule in general terms, naming its source skill; promotion keeps its human approval.
+
 ## Generalizability Heuristic
 
 For conversational corrections only; Harvest's structured sources are NOT re-filtered:

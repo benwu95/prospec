@@ -42,8 +42,11 @@ Ticket before every review/verify spawn; receive before fixes.
    path's fresh-run options too, grade in-session, and let the sink disclose the round as not covered.
    When issuance succeeds, degraded-path fresh runs are ticketed too, under
    `<role>-fresh`.
-2. **Spawn** — brief the delegate to:
+2. **Spawn** — at review, select criteria first; then brief the delegate.
+   *Criteria selection* (review only, re-review rounds included; the orchestrator, an in-session reviewer alike): pick at most three installed review skills outside the `prospec-*` set whose stated scope matches a language, framework or concern of the cumulative diff, skipping the skills the review lens criteria reference names in its Attribution section; with none, review on the shipped lenses without an error or warning. It assigns each criterion to the shipped lens it falls under — a conditional lens given a criterion runs this round and is declared in `--lenses` — and gives mode B the skill's readable file path or its rules quoted verbatim, with each rule's lens, each mode A lens agent only its own rules, quoted verbatim, and points a critical's verifier to only the criterion its finding's `review.md` evidence cites.
+   Brief the delegate to:
    - For review findings: file one finding per failure mode; `location` names the first instance, `repro` is a one-line rerunnable command describing the failure-mode structure and listing its instances, and `evidence` lists known instances.
+   - For review criteria (an in-session reviewer follows it too): apply only the criteria you were given, ignoring the skill's report format, severity names and edit steps; file no finding on a criterion that contradicts the Constitution, `_conventions.md`, the playbook or established practice in the repository; file a criterion's finding under its assigned lens at critical, major or minor, and every payload carrying evidence for it — the first, a later round's or its verifier's — starts that evidence with `External criterion: <skill> — <rule>`, a later one copying that line from the finding's `review.md` evidence.
    - run every test, regression pin, mutation check and repro that writes inside the snapshot path only —
      never in the main working tree;
    - supply ignored dependencies absent from the snapshot per the project test runner without writing
