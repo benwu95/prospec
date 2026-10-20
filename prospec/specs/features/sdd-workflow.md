@@ -1,9 +1,9 @@
 ---
 feature: sdd-workflow
 status: active
-last_updated: 2026-10-19
-story_count: 52
-req_count: 367
+last_updated: 2026-10-20
+story_count: 54
+req_count: 371
 ---
 
 # SDD Workflow
@@ -23,6 +23,8 @@ req_count: 367
 - [US-50: Human Decisions Are Presented Comparably and Delegated Within Bounds](./sdd-workflow/us-50.md)
 - [US-51: Retain Terminal History Across Worktree Removal](./sdd-workflow/us-51.md)
 - [US-52: Loosened Tests and Test Gates Are a Review Finding](./sdd-workflow/us-52.md)
+- [US-53: Performance Trade-offs Carry Production Data Volume](./sdd-workflow/us-53.md)
+- [US-54: Review Applies the Criteria of Installed Review Skills](./sdd-workflow/us-54.md)
 
 - [US-49: Preserve an Abandoned Attempt and Explain a Retry](./sdd-workflow/us-49.md)
 
@@ -106,6 +108,7 @@ req_count: 367
 
 | Date | Change | Impact | Stories/REQs |
 |------|--------|--------|--------------|
+| 2026-10-20 | extend-review-criteria | ADDED REQ-TEMPLATES-252; ADDED REQ-TESTS-139; ADDED REQ-TEMPLATES-253; ADDED REQ-TESTS-140; MODIFIED REQ-TEMPLATES-238 | US-53, US-54, REQ-TEMPLATES-252, REQ-TESTS-139, REQ-TEMPLATES-253, REQ-TESTS-140, REQ-TEMPLATES-238 |
 | 2026-10-19 | accept-directory-symlink-inputs | MODIFIED REQ-LIB-091; MODIFIED REQ-LIB-100 | REQ-LIB-091, REQ-LIB-100 |
 | 2026-10-18 | add-static-gitignore-block | MODIFIED REQ-TESTS-079 | REQ-TESTS-079 |
 | 2026-10-17 | detect-test-weakening | ADDED REQ-TEMPLATES-251; ADDED REQ-TESTS-138 | US-52, REQ-TEMPLATES-251, REQ-TESTS-138 |
