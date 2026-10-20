@@ -1,7 +1,7 @@
 import { isProvenanceAudited, FINGERPRINT_VERSION, EVIDENCE_SCOPE, TEST_FINGERPRINT_VERSION, TEST_EVIDENCE_SCOPE, TestPolicySchema, type TestEvidenceIdentity, type TestEvidenceReuse } from '../types/change.js';
 import type { TestEvidenceDecision, TestEvidenceFacts } from '../types/station.js';
 import { assessDrops } from './landing-fidelity.js';
-import { KNOWLEDGE_SIZE_RULES, type KnowledgeSizeRule } from '../types/config.js';
+import { KNOWLEDGE_SIZE_RULES, type KnowledgeSizeBudget, type KnowledgeSizeRule } from '../types/config.js';
 import {
   DRIFT_CHECK_IDS,
   DRIFT_REPORT_FILENAME,
@@ -24,6 +24,7 @@ import type {
   FeatureMapGovernanceSource,
   GitTimestampSource,
   ImportEdgeSource,
+  KnowledgeSizeItem,
   KnowledgeSizeSource,
   LinkSource,
   McpReadmeCountSource,
@@ -687,9 +688,12 @@ export function evaluateMetadataCompleteness(src: MetadataCompletenessSource): C
  * one registry (`KNOWLEDGE_SIZE_RULES`), so which budget applies and what an
  * over-budget file should DO about it live together instead of in per-kind
  * branches; only a surface whose rule declares a `lineKey` is graded on lines.
- * WARN-class: the progressive-loading budget is a pressure signal against silent
- * regrowth, never a build breaker. L0 (agent-injected config) is out of scope. An
- * unavailable source (no knowledge base) skips, never a fabricated pass.
+ * WARN-class by default: the progressive-loading budget is a pressure signal. With
+ * `knowledge.size_ratchet` configured, an over-budget unit of a ratchet-governed
+ * kind (L1/L2) that grew past its merge-base size fails instead (REQ-LIB-107) —
+ * existing debt stays a warn, new debt breaks the build — and a ratchet that cannot
+ * be resolved fails closed on `.prospec.yaml`. L0 (agent-injected config) is out of
+ * scope. An unavailable source (no knowledge base) skips, never a fabricated pass.
  */
 export function evaluateKnowledgeSize(src: KnowledgeSizeSource): CheckOutcome {
   if (!src.available) {
@@ -699,31 +703,71 @@ export function evaluateKnowledgeSize(src: KnowledgeSizeSource): CheckOutcome {
   // The prose `detail` and the structured `knowledge_size` are two views of the
   // same fact — kept side by side so the `detail` wording stays byte-identical
   // (existing consumers/tests read it) while the formatter groups off the struct.
-  const warn = (source_path: string, detail: string, knowledge_size: KnowledgeSizeFinding): void => {
-    findings.push({ check: 'knowledge-size', severity: 'warn', source_path, detail, knowledge_size });
+  const push = (
+    severity: 'warn' | 'fail',
+    source_path: string,
+    detail: string,
+    knowledge_size: KnowledgeSizeFinding,
+  ): void => {
+    findings.push({ check: 'knowledge-size', severity, source_path, detail, knowledge_size });
+  };
+  const ratchet = src.ratchet;
+  if (ratchet?.status === 'unresolvable') {
+    // No `knowledge_size`: this finding measures no file (REQ-LIB-054).
+    const base = ratchet.base_ref === undefined ? '' : ` (base \`${ratchet.base_ref}\`)`;
+    findings.push({
+      check: 'knowledge-size',
+      severity: 'fail',
+      source_path: '.prospec.yaml',
+      detail:
+        `knowledge.size_ratchet${base} cannot be resolved: ${ratchet.reason} — fetch the base ref with ` +
+        'full history (CI: `actions/checkout` with `fetch-depth: 0`), or correct `knowledge.size_ratchet.base`',
+    });
+  }
+  const overUnit = (
+    item: KnowledgeSizeItem,
+    rule: KnowledgeSizeRule,
+    unit: 'tokens' | 'lines',
+    budgetKey: keyof KnowledgeSizeBudget,
+    measured: string,
+  ): void => {
+    const budget = src.budget[budgetKey];
+    const actual = item[unit];
+    const facts: KnowledgeSizeFinding = {
+      surface: rule.label,
+      budget_key: budgetKey,
+      budget,
+      actual,
+      unit,
+      tier: 'over',
+      remedy: rule.remedy,
+    };
+    const over = `${rule.label} over ${unit === 'tokens' ? 'token' : 'line'} budget`;
+    const graded = ratchetGrade(ratchet, rule, item, unit);
+    if (graded !== undefined) Object.assign(facts, graded.facts);
+    if (graded === undefined || !graded.grew || !('base_actual' in graded.facts)) {
+      push('warn', item.source_path, `${over}: ${measured} > ${budget} ${budgetKey} budget — ${rule.remedy}`, facts);
+      return;
+    }
+    const was = graded.facts.base_actual === null ? 'absent' : `${graded.facts.base_actual} ${unit}`;
+    push(
+      'fail',
+      item.source_path,
+      `${over} and grew past its merge-base size: ${measured} > ${budget} ${budgetKey} budget; ` +
+        `${was} at merge-base ${graded.facts.base_commit.slice(0, 12)} — ${rule.remedy}`,
+      facts,
+    );
   };
   for (const item of src.items) {
     const rule: KnowledgeSizeRule = KNOWLEDGE_SIZE_RULES[item.kind];
     const tokenBudget = src.budget[rule.tokenKey];
     if (item.tokens > tokenBudget) {
-      warn(
-        item.source_path,
-        `${rule.label} over token budget: ${item.tokens} tokens (${TOKEN_ESTIMATOR_LABEL}) ` +
-          `> ${tokenBudget} ${rule.tokenKey} budget — ${rule.remedy}`,
-        {
-          surface: rule.label,
-          budget_key: rule.tokenKey,
-          budget: tokenBudget,
-          actual: item.tokens,
-          unit: 'tokens',
-          tier: 'over',
-          remedy: rule.remedy,
-        },
-      );
+      overUnit(item, rule, 'tokens', rule.tokenKey, `${item.tokens} tokens (${TOKEN_ESTIMATOR_LABEL})`);
     } else if (src.budget.headroom !== undefined) {
       const headroomThreshold = Math.floor(tokenBudget * src.budget.headroom);
       if (item.tokens > headroomThreshold) {
-        warn(
+        push(
+          'warn',
           item.source_path,
           `${rule.label} pressure signal: ${item.tokens} tokens (${TOKEN_ESTIMATOR_LABEL}) ` +
             `approaches ${tokenBudget} ${rule.tokenKey} budget (headroom ${src.budget.headroom})`,
@@ -739,25 +783,34 @@ export function evaluateKnowledgeSize(src: KnowledgeSizeSource): CheckOutcome {
       }
     }
     if (rule.lineKey === undefined) continue;
-    const lineBudget = src.budget[rule.lineKey];
-    if (item.lines > lineBudget) {
-      warn(
-        item.source_path,
-        `${rule.label} over line budget: ${item.lines} lines > ${lineBudget} ` +
-          `${rule.lineKey} budget — ${rule.remedy}`,
-        {
-          surface: rule.label,
-          budget_key: rule.lineKey,
-          budget: lineBudget,
-          actual: item.lines,
-          unit: 'lines',
-          tier: 'over',
-          remedy: rule.remedy,
-        },
-      );
+    if (item.lines > src.budget[rule.lineKey]) {
+      overUnit(item, rule, 'lines', rule.lineKey, `${item.lines} lines`);
     }
   }
   return outcome('knowledge-size', findings);
+}
+
+/**
+ * The ratchet's verdict on one over-budget unit: undefined when the ratchet does
+ * not apply (not configured, unresolvable, or a kind it does not govern), otherwise
+ * the structured facts to attach and whether the unit grew past its merge-base size.
+ * An absent base (`null`) is new debt, so it counts as grown.
+ */
+function ratchetGrade(
+  ratchet: KnowledgeSizeSource['ratchet'],
+  rule: KnowledgeSizeRule,
+  item: KnowledgeSizeItem,
+  unit: 'tokens' | 'lines',
+):
+  | { grew: false; facts: { base_commit: string; ratchet_skipped: string } }
+  | { grew: boolean; facts: { base_commit: string; base_actual: number | null } }
+  | undefined {
+  if (ratchet?.status !== 'resolved' || !rule.ratchet || item.ratchet === undefined) return undefined;
+  if ('skipped' in item.ratchet) {
+    return { grew: false, facts: { base_commit: ratchet.merge_base, ratchet_skipped: item.ratchet.skipped } };
+  }
+  const base = item.ratchet.base === null ? null : item.ratchet.base[unit];
+  return { grew: base === null || item[unit] > base, facts: { base_commit: ratchet.merge_base, base_actual: base } };
 }
 
 /**

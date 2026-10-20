@@ -509,7 +509,7 @@ claude mcp add -s user prospec-b -- prospec mcp serve --cwd /path/to/B
   - **檢驗維度清單**：
     - **規格與連結**：懸空 REQ 引用、Feature Specs 間 REQ id 唯一性（`req-id-uniqueness`，FAIL）、失效 Markdown 連結、Feature Spec frontmatter 計數對帳（`story_count`/`req_count`）。
     - **架構與依賴**：依 `module-map.yaml` 驗證 import 依賴方向、REQ-prefix 合法性（WARN）、feature→module 邊界（FAIL）。
-    - **知識庫健康**：模組新鮮度（`last_verified` vs 原始碼 commit，WARN）、檔案 Token 與行數預算（`knowledge-size`，WARN）、README 宣告計數真實性（WARN）。
+    - **知識庫健康**：模組新鮮度（`last_verified` vs 原始碼 commit，WARN）、檔案 Token 與行數預算（`knowledge-size`，WARN；設定 `knowledge.size_ratchet` 時，持續成長的超標 L1/L2 檔為 FAIL）、README 宣告計數真實性（WARN）。
     - **審查與測試出處**：
       - `review-provenance`：已實作或已驗證的變更必須具備對應現行程式碼的 review 記錄。
       - `test-provenance`：變更必須具備最新且通過（綠燈）的測試記錄。
@@ -574,7 +574,7 @@ Review、`implemented`、`test-provenance` 與 verify 共用測試閘門。通�
 
 #### 調整 `knowledge-size` 預算
 
-`knowledge-size` 回報超標檔案為 WARN，不影響 `--strict` 的 exit code。各載入面的預設值、`knowledge.token_budget` 欄位、固定的 skill／reference 預算，以及各類超標檔案的處理方式，見[設定參考](./configuration.zh-TW.md#knowledge-預算)。
+`knowledge-size` 回報超標檔案為 WARN，不影響 `--strict` 的 exit code。設定 `knowledge.size_ratchet` 後，已超標且比 merge-base 時更大的 L1/L2 檔為 FAIL，`--strict` 會以非零結束。各載入面的預設值、`knowledge.token_budget` 欄位、ratchet 對 git 歷史的要求、固定的 skill／reference 預算，以及各類超標檔案的處理方式，見[設定參考](./configuration.zh-TW.md#knowledge-預算)。
 
 <details>
 <summary>隨選變異測試（Mutation Testing）</summary>

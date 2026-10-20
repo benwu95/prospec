@@ -200,6 +200,10 @@ export async function assessCurrentDrift(cwd: string): Promise<CurrentDriftAsses
         // The same list the index writers split on — a file the project promoted to
         // a core convention must be graded as L1, not as load-on-demand knowledge.
         config.knowledge?.additional_core_conventions ?? [],
+        // Raw on purpose: the collector validates it and fails the check closed on a
+        // malformed value, rather than the schema failing every config read.
+        config.knowledge?.size_ratchet,
+        inWorkTree,
       ),
       // The resolved command decides whether this check can apply at all — a project
       // with none skips honestly instead of failing a gate it can never satisfy.

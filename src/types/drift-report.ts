@@ -50,7 +50,8 @@ export const DRIFT_CHECK_IDS = [
   'metadata-completeness',
   // Knowledge size budget — an L1 file (index.md or a core convention) over the
   // per-file token budget, or a module README over its per-module token or line
-  // budget, warns (warn). Thresholds come from knowledge.token_budget, defaulting
+  // budget, warns (warn); with `knowledge.size_ratchet` configured, such an L1/L2
+  // file that grew past its merge-base size fails (fail). Thresholds come from knowledge.token_budget, defaulting
   // to DEFAULT_KNOWLEDGE_TOKEN_BUDGET; L0 agent config is deliberately out of
   // scope. Turns the long-declared-but-unenforced index.md layer budgets into a
   // machine check so the progressive-loading model cannot silently regrow.
@@ -253,6 +254,13 @@ export const KnowledgeSizeFindingSchema = z.object({
   tier: z.enum(KNOWLEDGE_SIZE_FINDING_TIERS),
   /** Convergence hint — absent for the headroom (pressure) tier. */
   remedy: z.string().min(1).optional(),
+  /** The `knowledge.size_ratchet` merge-base commit — present on an over-tier finding
+   *  of a ratchet-governed item while the ratchet is resolved. */
+  base_commit: z.string().min(1).optional(),
+  /** The same unit measured at that merge-base; `null` when the file did not exist there. */
+  base_actual: z.number().int().nonnegative().nullable().optional(),
+  /** Why the ratchet was not applied to this file (e.g. a symlink) — in place of `base_actual`. */
+  ratchet_skipped: z.string().min(1).optional(),
 });
 
 export const DriftFindingSchema = z.object({

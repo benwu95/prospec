@@ -422,6 +422,23 @@ describe('knowledge_size structured finding field (REQ-TYPES-083)', () => {
     };
     expect(withField(noBudgetKey).success).toBe(false);
   });
+
+  it('keeps the ratchet fields a resolved ratchet adds (REQ-TYPES-117)', () => {
+    const grown = { ...overFacts, base_commit: 'a'.repeat(40), base_actual: 2900 };
+    const absent = { ...overFacts, base_commit: 'a'.repeat(40), base_actual: null };
+    const skipped = { ...overFacts, base_commit: 'a'.repeat(40), ratchet_skipped: 'symlink' };
+    for (const facts of [grown, absent, skipped]) {
+      const r = withField(facts);
+      expect(r.success).toBe(true);
+      expect(r.success ? r.data.structural.findings[0]!.knowledge_size : null).toEqual(facts);
+    }
+  });
+
+  it('rejects malformed ratchet fields', () => {
+    expect(withField({ ...overFacts, base_actual: -1 }).success).toBe(false);
+    expect(withField({ ...overFacts, base_commit: '' }).success).toBe(false);
+    expect(withField({ ...overFacts, ratchet_skipped: '' }).success).toBe(false);
+  });
 });
 
 describe('DriftReportInvalid', () => {

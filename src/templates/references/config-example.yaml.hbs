@@ -72,8 +72,9 @@ knowledge:
   strategy: auto
   # Per-file size limits for the knowledge-size drift check, one per load surface.
   # Set only the fields you want to change; anything unset falls back to the
-  # default shown here. Over-budget files WARN — a pressure signal, never a build
-  # breaker — and each finding names the convergence path for its surface.
+  # default shown here. Over-budget files WARN — a pressure signal — and each
+  # finding names the convergence path for its surface; `size_ratchet` below turns
+  # the growth of an over-budget L1/L2 file into a FAIL.
   token_budget:
     # L1 — index.md and each core convention
     l1_per_file: 1800
@@ -93,6 +94,14 @@ knowledge:
     # set here: they describe the SKILL.md and reference files prospec itself
     # generates, so their only correct value is the one that version was authored
     # against (measured only where the project holds the skill template sources)
+  # Off when absent. When set, an over-budget L1/L2 file (index.md, a core
+  # convention, a module README or sub-module) that grew past its size at
+  # `git merge-base <base> HEAD` FAILS knowledge-size; existing overage stays a
+  # WARN. CI needs full git history (actions/checkout `fetch-depth: 0`), or the
+  # check fails closed. A renamed, untracked or ignored file has no merge-base
+  # version, so it fails whenever it is over budget.
+  size_ratchet:
+    base: origin/main
 
 # Workflow automation and cascade limits.
 workflow:

@@ -515,7 +515,7 @@ deliberately not included in this version.
   - **Audit Dimensions**:
     - **Specs & Links**: Dangling REQ references, REQ id uniqueness across Feature Specs (`req-id-uniqueness`, FAIL), broken Markdown links, Feature Spec frontmatter count reconciliation (`story_count`/`req_count`).
     - **Architecture & Dependencies**: Import directions enforced by `module-map.yaml`, REQ-prefix legality (WARN), feature→module boundaries (FAIL).
-    - **Knowledge Health**: Module freshness (`last_verified` vs source commit, WARN), token and line size budgets (`knowledge-size`, WARN), README declared resource counts (WARN).
+    - **Knowledge Health**: Module freshness (`last_verified` vs source commit, WARN), token and line size budgets (`knowledge-size`, WARN; FAIL for a growing over-budget L1/L2 file when `knowledge.size_ratchet` is set), README declared resource counts (WARN).
     - **Review & Test Provenance**:
       - `review-provenance`: Implemented or verified changes must have a recorded review matching the current code.
       - `test-provenance`: Changes must have a recorded current, passing (green) test run.
@@ -579,7 +579,7 @@ Honesty rules: an unavailable source degrades the check to `skipped` with an exp
 
 #### Tuning the `knowledge-size` budgets
 
-`knowledge-size` reports over-budget files as WARN without affecting the `--strict` exit code. See the [Configuration Reference](./configuration.md#knowledge-budgets) for per-surface defaults, `knowledge.token_budget` fields, fixed skill/reference budgets and remedies for over-budget files.
+`knowledge-size` reports over-budget files as WARN without affecting the `--strict` exit code. With `knowledge.size_ratchet` set, an over-budget L1/L2 file that grew past its merge-base size is a FAIL, so `--strict` exits non-zero. See the [Configuration Reference](./configuration.md#knowledge-budgets) for per-surface defaults, `knowledge.token_budget` fields, the ratchet's git-history requirements, fixed skill/reference budgets and remedies for over-budget files.
 
 <details>
 <summary>Mutation testing (on-demand audit — NOT a gate)</summary>
