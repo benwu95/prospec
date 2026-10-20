@@ -1,9 +1,9 @@
 ---
 feature: feedback-promotion
 status: active
-last_updated: 2026-10-11
-story_count: 5
-req_count: 26
+last_updated: 2026-10-20
+story_count: 6
+req_count: 28
 ---
 
 # Feedback Promotion Pipeline
@@ -23,6 +23,7 @@ req_count: 26
 - [US-1–US-2](./feedback-promotion/us-1.md)
 - [US-3–US-4](./feedback-promotion/us-3.md)
 - [US-5](./feedback-promotion/us-5.md)
+- [US-6](./feedback-promotion/us-6.md)
 
 ---
 
@@ -71,6 +72,7 @@ _(None)_
 
 | Date | Change | Impact | Stories/REQs |
 |------|--------|--------|--------------|
+| 2026-10-20 | extend-review-criteria | ADDED REQ-TEMPLATES-254; ADDED REQ-TESTS-141; MODIFIED REQ-TESTS-100 | US-6, REQ-TEMPLATES-254, REQ-TESTS-141, REQ-TESTS-100 |
 | 2026-10-11 | unify-review-lenses | ADDED REQ-TYPES-114; MODIFIED REQ-LIB-065; MODIFIED REQ-TEMPLATES-204; MODIFIED REQ-TEMPLATES-072; MODIFIED REQ-TESTS-100 | REQ-TYPES-114, REQ-LIB-065, REQ-TEMPLATES-204, REQ-TEMPLATES-072, REQ-TESTS-100 |
 | 2026-10-10 | remove-stale-spec-claims | MODIFIED REQ-TYPES-024; MODIFIED REQ-TESTS-024 | REQ-TYPES-024, REQ-TESTS-024 |
 | 2026-10-10 | preserve-worktree-history | MODIFIED REQ-SERVICES-099 | REQ-SERVICES-099 |

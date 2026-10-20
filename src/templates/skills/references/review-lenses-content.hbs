@@ -75,6 +75,7 @@ Cite defects against authorization, sensitivity and preservation contracts; vali
 | N+1 query pattern (one query per item) — use a join/include | critical (scales to timeouts) |
 | List endpoints without pagination / unbounded fetch or loops | critical (memory exhaustion, DoS) |
 | Missing indexes on queried columns; blocking I/O on a hot path | major |
+| A change or its plan accepts a cost that grows with data volume (a missing index, a full scan, per-row queries) without production data volume — row counts, growth or total work at the run frequency — as its basis: ask for that data or a way to measure it. When another criterion here files the same cost, add the ask to that finding at the higher of the two severities; the ask never blocks the loop by itself or overturns a decision recorded in the plan | major |
 | Missing or misused caching (none → redundant work; over-use → stale data) | major / minor |
 | Frontend: missing code-splitting/lazy-loading; images without dimensions or responsive sizes; no `fetchpriority` on the LCP image | major (bundle / CLS / LCP) |
 | Unnecessary re-renders (new objects per render); `memo`/`useMemo` overuse | minor (measure first) |
@@ -82,7 +83,7 @@ Cite defects against authorization, sensitivity and preservation contracts; vali
 **Core Web Vitals targets** (good / poor): LCP ≤ 2.5s / > 4.0s · INP ≤ 200ms / > 500ms · CLS ≤ 0.1 / > 0.25.
 **Budget guides:** initial JS < 200KB gzipped · API p95 < 200ms · TTI < 3.5s on 4G · Lighthouse Perf ≥ 90.
 
-> Optimize only after measuring — flagging a "slow" path without a baseline is a minor, not a major.
+> Optimize only after measuring — flagging a "slow" path without a baseline, when no trade-off was decided, is a minor, not a major.
 
 ---
 

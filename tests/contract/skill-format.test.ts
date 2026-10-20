@@ -4612,7 +4612,12 @@ describe('Startup Loading cache-stable prefix ordering (REQ-TEMPLATES-080/081)',
   // re-measured on the base that carries correct-related-modules); ceiling 51_105 → 51_341
   // raised, not earned. The basis for this loosening is the change proposal's Edge Cases
   // entry, written before review. Cumulative 88_668 → 88_686 stays under its anchor.
-  const REFERENCE_CEILING_ANCHOR = 51_341;
+  // extend-review-criteria: the efficiency lens gained the data-volume criterion and the slow-path qualifier (+125), the Spawn
+  // step its criteria selection and review-criteria brief item (+379 after review rounds 1–4 split the
+  // orchestrator's selection out of the brief and named the marker, criterion and lens sources) and Harvest its external-criterion candidate (+60).
+  // Reference total 51_341 → 51_905, ceiling raised, not earned; the basis is the change proposal's
+  // Edge Cases entry, written before review. Cumulative 88_686 → 88_795 stays under its anchor.
+  const REFERENCE_CEILING_ANCHOR = 51_905;
   const CUMULATIVE_CEILING_ANCHOR = 88_807;
 
   const renderSkill = (name: string) => {
@@ -11045,8 +11050,75 @@ describe('quantitative target baselines (issue #331)', () => {
   });
 });
 
+interface SectionRule {
+  name: string;
+  template: string;
+  heading: string;
+  step?: number;
+  item: RegExp;
+  clauses: string[];
+  unique?: boolean;
+}
+
+const renderRuleTemplate = (template: string) => renderTemplate(`skills/${template}.hbs`, TEMPLATE_CONTEXT);
+
+// One instruction line per rule, inside its owning section (and numbered step), carrying every clause;
+// each clause removal and each move out of the section must fail.
+const assertSectionRule = (content: string, rule: SectionRule) => {
+  const section = sectionOf(content, rule.heading);
+  const scope = rule.step === undefined ? section
+    : section.split(/\n(?=\d+\. )/).find((part) => part.startsWith(`${rule.step}. `)) ?? '';
+  expect(scope.length, rule.name).toBeGreaterThan(0);
+  const items = scope.split('\n').filter((line) => rule.item.test(line));
+  expect(items, rule.name).toHaveLength(1);
+  for (const clause of rule.clauses) expect(items[0], rule.name).toContain(clause);
+  if (rule.unique) expect(content.split('\n').filter((line) => rule.item.test(line)), rule.name).toHaveLength(1);
+};
+
+const pinSectionRules = (rules: SectionRule[]) => {
+  for (const rule of rules) {
+    it(`places ${rule.name} in its owning section`, () => assertSectionRule(renderRuleTemplate(rule.template), rule));
+    it.each(rule.clauses)(`${rule.name} rejects removing %s`, (clause) => {
+      const original = renderRuleTemplate(rule.template);
+      assertSectionRule(original, rule);
+      const line = sectionOf(original, rule.heading).split('\n').find((value) => rule.item.test(value))!;
+      const changed = original.replace(line, line.replace(clause, ''));
+      expect(changed).not.toBe(original);
+      expect(() => assertSectionRule(changed, rule)).toThrow();
+    });
+    it(`${rule.name} rejects moving its instruction outside the owning section`, () => {
+      const original = renderRuleTemplate(rule.template);
+      assertSectionRule(original, rule);
+      const line = sectionOf(original, rule.heading).split('\n').find((value) => rule.item.test(value))!;
+      const moved = `${original.replace(line, '')}\n## Unrelated\n${line}\n`;
+      expect(moved).not.toBe(original);
+      expect(() => assertSectionRule(moved, rule)).toThrow();
+      if (rule.step !== undefined) {
+        const section = sectionOf(original, rule.heading);
+        const movedSection = section.replace(line, '').replace(
+          new RegExp(`^${rule.step + 1}\\. .*`, 'm'), (nextStep) => `${nextStep}\n${line}`,
+        );
+        const movedWithinSection = original.replace(section, movedSection);
+        expect(movedWithinSection).not.toBe(original);
+        expect(sectionOf(movedWithinSection, rule.heading)).toContain(line);
+        expect(() => assertSectionRule(movedWithinSection, rule)).toThrow();
+      }
+    });
+    if (rule.unique) {
+      it(`${rule.name} rejects a second copy anywhere in the document`, () => {
+        const original = renderRuleTemplate(rule.template);
+        assertSectionRule(original, rule);
+        const line = sectionOf(original, rule.heading).split('\n').find((value) => rule.item.test(value))!;
+        const copied = `${original}\n## Unrelated\n${line}\n`;
+        expect(copied).not.toBe(original);
+        expect(() => assertSectionRule(copied, rule)).toThrow();
+      });
+    }
+  }
+};
+
 describe('review defect-class sweep (REQ-TEMPLATES-249/250, REQ-TESTS-135)', () => {
-  const rules = [
+  const rules: SectionRule[] = [
     {
       name: 'class filing', template: 'references/delegation-protocol', heading: '## Ticketed delegation', step: 2,
       item: /^ {3}- For review findings:/m,
@@ -11092,46 +11164,8 @@ describe('review defect-class sweep (REQ-TEMPLATES-249/250, REQ-TESTS-135)', () 
       clauses: ['prospec-review', 'The Loop step 3', 'Class sweep', 'Fix ripple', 'Shape check'],
     },
   ];
-  const render = (template: string) => renderTemplate(`skills/${template}.hbs`, TEMPLATE_CONTEXT);
-  const assertRule = (content: string, rule: typeof rules[number]) => {
-    const section = sectionOf(content, rule.heading);
-    const scope = rule.step === undefined ? section
-      : section.split(/\n(?=\d+\. )/).find((part) => part.startsWith(`${rule.step}. `)) ?? '';
-    expect(scope.length, rule.name).toBeGreaterThan(0);
-    const items = scope.split('\n').filter((line) => rule.item.test(line));
-    expect(items, rule.name).toHaveLength(1);
-    for (const clause of rule.clauses) expect(items[0], rule.name).toContain(clause);
-  };
-
-  for (const rule of rules) {
-    it(`places ${rule.name} in its owning section`, () => assertRule(render(rule.template), rule));
-    it.each(rule.clauses)(`${rule.name} rejects removing %s`, (clause) => {
-      const original = render(rule.template);
-      assertRule(original, rule);
-      const line = sectionOf(original, rule.heading).split('\n').find((value) => rule.item.test(value))!;
-      const changed = original.replace(line, line.replace(clause, ''));
-      expect(changed).not.toBe(original);
-      expect(() => assertRule(changed, rule)).toThrow();
-    });
-    it(`${rule.name} rejects moving its instruction outside the owning section`, () => {
-      const original = render(rule.template);
-      assertRule(original, rule);
-      const line = sectionOf(original, rule.heading).split('\n').find((value) => rule.item.test(value))!;
-      const moved = `${original.replace(line, '')}\n## Unrelated\n${line}\n`;
-      expect(moved).not.toBe(original);
-      expect(() => assertRule(moved, rule)).toThrow();
-      if (rule.step !== undefined) {
-        const section = sectionOf(original, rule.heading);
-        const movedSection = section.replace(line, '').replace(
-          new RegExp(`^${rule.step + 1}\\. .*`, 'm'), (nextStep) => `${nextStep}\n${line}`,
-        );
-        const movedWithinSection = original.replace(section, movedSection);
-        expect(movedWithinSection).not.toBe(original);
-        expect(sectionOf(movedWithinSection, rule.heading)).toContain(line);
-        expect(() => assertRule(movedWithinSection, rule)).toThrow();
-      }
-    });
-  }
+  const render = renderRuleTemplate;
+  pinSectionRules(rules);
 
   it('keeps the three fix actions inside step 3 before full-lens re-review', () => {
     const loop = sectionOf(render('prospec-review'), '### The Loop');
@@ -11143,6 +11177,109 @@ describe('review defect-class sweep (REQ-TEMPLATES-249/250, REQ-TESTS-135)', () 
   });
 });
 
+
+describe('extended review criteria (REQ-TESTS-139/140/141)', () => {
+  const DATA_VOLUME_ROW = /^\| A change or its plan accepts a cost that grows with data volume/;
+  const REVIEW_CRITERIA_ITEM = /^ {3}- For review criteria/;
+  const CRITERIA_SELECTION = /^ {3}\*Criteria selection\*/;
+  const rules: SectionRule[] = [
+    {
+      name: 'data-volume criterion', template: 'references/review-lenses-content', heading: '## Efficiency / Performance Lens',
+      item: DATA_VOLUME_ROW, unique: true,
+      clauses: ['production data volume', 'ask for that data or a way to measure it', 'add the ask to that finding',
+        'higher of the two severities', 'never blocks the loop', 'overturns a decision recorded in the plan', '| major |'],
+    },
+    {
+      name: 'slow-path distinction', template: 'references/review-lenses-content', heading: '## Efficiency / Performance Lens',
+      item: /^> Optimize only after measuring/, unique: true,
+      clauses: ['no trade-off was decided', 'is a minor, not a major'],
+    },
+    {
+      name: 'review criteria selection', template: 'references/delegation-protocol', heading: '## Ticketed delegation', step: 2,
+      item: CRITERIA_SELECTION, unique: true,
+      clauses: ['in-session reviewer alike', 'at most three installed review skills', 'outside the `prospec-*` set',
+        'names in its Attribution section', 'without an error or warning',
+        'assigns each criterion to the shipped lens it falls under', 'runs this round and is declared in `--lenses`',
+        "mode B the skill's readable file path or its rules quoted verbatim", "with each rule's lens", 're-review rounds included',
+        'each mode A lens agent only its own rules, quoted verbatim',
+        "a critical's verifier to only the criterion its finding's `review.md` evidence cites"],
+    },
+    {
+      name: 'review criteria', template: 'references/delegation-protocol', heading: '## Ticketed delegation', step: 2,
+      item: REVIEW_CRITERIA_ITEM, unique: true,
+      clauses: ['an in-session reviewer follows it too', 'apply only the criteria you were given', "ignoring the skill's report format, severity names and edit steps",
+        'contradicts the Constitution, `_conventions.md`, the playbook or established practice in the repository',
+        'under its assigned lens at critical, major or minor',
+        'the first, a later round\'s or its verifier\'s', '`External criterion: <skill> — <rule>`',
+        "copying that line from the finding's `review.md` evidence"],
+    },
+    {
+      name: 'review criteria pointer', template: 'prospec-review', heading: '### Review Lenses',
+      item: /^Installed review skills add criteria/, unique: true,
+      clauses: ["delegation protocol's criteria selection and review-criteria brief item", 'The Loop step 1'],
+    },
+    {
+      name: 'harvest candidate', template: 'references/promotion-format', heading: '## Harvest (archive-time auto-extraction)',
+      item: /^A `review\.md` finding with status `fixed`/, unique: true,
+      clauses: ['`External criterion:`', 'lesson candidate', 'key it by that criterion', 'in general terms', 'source skill',
+        'human approval'],
+    },
+    {
+      name: 'archive harvest pointer', template: 'prospec-archive', heading: '### Phase 4.5: Auto-Harvest Recurring Lessons',
+      item: /^1\. Scan this change's/, unique: true,
+      clauses: ['recurring criticals', "Harvest's external-criterion candidates"],
+    },
+    {
+      name: 'collect harvest pointer', template: 'prospec-learn', heading: '### Collect',
+      item: /^- Scan each archived change's/, unique: true,
+      clauses: ["Harvest's external-criterion candidates"],
+    },
+    {
+      name: 'promote never auto-writes conventions', template: 'prospec-learn', heading: '### Promote',
+      item: /^- \*\*convention\*\* \/ \*\*playbook\*\*/, unique: true,
+      clauses: ['**never auto-writes `_conventions.md`**'],
+    },
+  ];
+  pinSectionRules(rules);
+
+  const VENDOR_NAMES = /postgres|mysql|sqlite|mongo|oracle|sql server|\borm\b|sqlalchemy|prisma|hibernate|asyncpg|psycopg|\bdriver\b/i;
+  const dataVolumeRow = (content: string) => sectionOf(content, '## Efficiency / Performance Lens')
+    .split('\n').find((line) => DATA_VOLUME_ROW.test(line)) ?? '';
+
+  it('keeps the data-volume criterion free of database, ORM and driver names', () => {
+    const row = dataVolumeRow(renderRuleTemplate('references/review-lenses-content'));
+    expect(row.length).toBeGreaterThan(0);
+    expect(row).not.toMatch(VENDOR_NAMES);
+  });
+
+  it('rejects a data-volume criterion that names a database', () => {
+    const original = renderRuleTemplate('references/review-lenses-content');
+    const row = dataVolumeRow(original);
+    const changed = original.replace(row, row.replace('a missing index', 'a missing PostgreSQL index'));
+    expect(changed).not.toBe(original);
+    expect(dataVolumeRow(changed)).toMatch(VENDOR_NAMES);
+  });
+
+  const markerOf = (line: string) => /`(External criterion:)[^`]*`/.exec(line)?.[1] ?? '';
+  const harvestLine = (content: string) => sectionOf(content, '## Harvest (archive-time auto-extraction)')
+    .split('\n').find((line) => /^A `review\.md` finding with status `fixed`/.test(line)) ?? '';
+  const criteriaLine = (content: string) => sectionOf(content, '## Ticketed delegation')
+    .split('\n').find((line) => REVIEW_CRITERIA_ITEM.test(line)) ?? '';
+
+  it('uses one evidence marker in the brief and in Harvest', () => {
+    const brief = markerOf(criteriaLine(renderRuleTemplate('references/delegation-protocol')));
+    expect(brief).toBe('External criterion:');
+    expect(markerOf(harvestLine(renderRuleTemplate('references/promotion-format')))).toBe(brief);
+  });
+
+  it('rejects a Harvest marker that drifts from the brief', () => {
+    const original = renderRuleTemplate('references/promotion-format');
+    const line = harvestLine(original);
+    const changed = original.replace(line, line.replace('`External criterion:`', '`External rule:`'));
+    expect(changed).not.toBe(original);
+    expect(markerOf(harvestLine(changed))).not.toBe(markerOf(criteriaLine(renderRuleTemplate('references/delegation-protocol'))));
+  });
+});
 
 describe('unified review lens guidance', () => {
   const labels = ['Correctness & edge cases', 'Security & data integrity', 'Spec-architecture',

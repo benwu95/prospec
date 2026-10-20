@@ -4,7 +4,7 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg?style=flat-square)](LICENSE)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.9-blue?style=flat-square&logo=typescript)](https://www.typescriptlang.org/)
-[![Tests](https://img.shields.io/badge/tests-8511%20total-success?style=flat-square)](./CONTRIBUTING.md#testing)
+[![Tests](https://img.shields.io/badge/tests-8583%20total-success?style=flat-square)](./CONTRIBUTING.md#testing)
 [![Node](https://img.shields.io/badge/node-%3E%3D22.13-brightgreen?style=flat-square&logo=node.js)](https://nodejs.org/)
 [![pnpm](https://img.shields.io/badge/pnpm-%3E%3D11-orange?style=flat-square&logo=pnpm)](https://pnpm.io/)
 
@@ -48,7 +48,7 @@ Three pieces work together:
 
 **Who is it for?** Teams and solo developers who use AI coding agents and want work to remain understandable across sessions or agents, in a new project (greenfield) or an existing codebase (brownfield).
 
-Review uses eight shared lenses: correctness, security and spec-architecture run every round; five conditional lenses follow the diff. Security details load on demand for applicable risk surfaces. `prospec learn yield` groups known aliases and protects must-run lenses from yield-based retirement; see the [CLI reference](./docs/reference/cli-reference.md) for evidence thresholds and declaration behavior.
+Review uses eight shared lenses: correctness, security and spec-architecture run every round; five conditional lenses follow the diff. Security details load on demand for applicable risk surfaces. Review skills installed in your environment that match the diff add their criteria under prospec's own contract and project conventions, and a performance trade-off accepted without production data volume is asked for that data. `prospec learn yield` groups known aliases and protects must-run lenses from yield-based retirement; see the [CLI reference](./docs/reference/cli-reference.md) for evidence thresholds and declaration behavior.
 
 ## Why Prospec?
 
