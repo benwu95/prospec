@@ -1,10 +1,10 @@
-import { beforeEach, afterEach, it, expect, vi } from 'vitest';
+import { beforeEach, afterEach, describe, it, expect, vi } from 'vitest';
 import { promises as fileSystem, mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
 import { execFileSync } from 'node:child_process';
 import { execute } from '../../../src/services/check.service.js';
-import { runTestCommand } from '../../../src/lib/test-runner.js';
+import { DEFAULT_TEST_TIMEOUT_MS, runTestCommand } from '../../../src/lib/test-runner.js';
 import { readChangeMetadata, writeChangeMetadataDoc } from '../../../src/lib/change-metadata.js';
 import { computeChangeState, computeTestState } from '../../../src/lib/drift-sources.js';
 vi.mock('../../../src/lib/test-runner.js', async (original) => {
@@ -122,4 +122,49 @@ it('does not certify an old command against a newly resolved config snapshot (F-
     expect(await status()).toBe('fail');
     expect(meta().test_attempt?.outcome).toBe('unprovable');
   } finally { spy.mockRestore(); }
+});
+
+describe('tech_stack.test_timeout_ms (REQ-TYPES-116)', () => {
+  const writeConfig = (techStack: string) =>
+    writeFileSync(path.join(root, '.prospec.yaml'), `version: "1.0"\nproject:\n  name: t\ntech_stack:\n${techStack}`);
+  const command = `${process.execPath} -e process.exit(0)`;
+
+  it('runs the suite under the configured cap', async () => {
+    writeConfig(`  test_command: ${command}\n  test_timeout_ms: 4321\n`);
+    await run();
+    expect(runTestCommand).toHaveBeenCalledWith(root, command, 4321);
+    expect(meta().test_attempt?.outcome).toBe('passed');
+  });
+
+  it('runs the suite under the shipped default when the key is absent', async () => {
+    await run();
+    expect(runTestCommand).toHaveBeenCalledWith(root, command, DEFAULT_TEST_TIMEOUT_MS);
+  });
+
+  it('records an unprovable attempt naming the key and its remedy without running an invalid cap', async () => {
+    writeConfig(`  test_command: ${command}\n  test_timeout_ms: soon\n`);
+    expect(await run()).toMatchObject({ recorded: false });
+    expect(runTestCommand).not.toHaveBeenCalled();
+    expect(meta().test_attempt).toMatchObject({
+      outcome: 'unprovable',
+      reason: expect.stringContaining('tech_stack.test_timeout_ms'),
+    });
+    expect(meta().test_attempt?.reason).toContain('omit the key');
+    expect(meta().test_attempt?.reason).not.toContain('unreadable');
+  });
+
+  it('keeps a missing test command unavailable whatever the cap holds', async () => {
+    writeConfig('  test_timeout_ms: soon\n');
+    await run();
+    expect(runTestCommand).not.toHaveBeenCalled();
+    expect(meta().test_attempt?.outcome).toBe('unavailable');
+  });
+
+  it('kills a real run at the configured cap and names the setting in the reason', async () => {
+    writeConfig(`  test_command: ${process.execPath} -e setTimeout(()=>{},10000)\n  test_timeout_ms: 300\n`);
+    expect(await run()).toMatchObject({ recorded: false });
+    expect(meta().test_attempt).toMatchObject({ outcome: 'timeout' });
+    expect(meta().test_attempt?.reason).toContain('300 ms');
+    expect(meta().test_attempt?.reason).toContain('tech_stack.test_timeout_ms');
+  });
 });

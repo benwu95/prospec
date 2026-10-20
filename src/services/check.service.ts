@@ -6,6 +6,7 @@ import { randomUUID } from 'node:crypto';
 import {
   readConfig,
   resolveTestCommand,
+  resolveTestTimeoutMs,
 } from '../lib/config.js';
 import { atomicWrite } from '../lib/fs-utils.js';
 import { renderTemplate } from '../lib/template.js';
@@ -14,7 +15,7 @@ import { assessCurrentDrift } from '../lib/drift-assessment.js';
 import { runTestCommand } from '../lib/test-runner.js';
 import { resolveChange } from './change-resolver.js';
 import { DRIFT_REPORT_FILENAME, type DriftReport, type TestInputState } from '../types/drift-report.js';
-import { PrerequisiteError } from '../types/errors.js';
+import { PrerequisiteError, TestTimeoutInvalid } from '../types/errors.js';
 import type { AutoDraftResult } from '../types/auto-draft.js';
 import { execute as autoDraftExecute } from './auto-draft.service.js';
 
@@ -278,8 +279,9 @@ async function recordTestProvenance(
     const configBytes = readFileSync(configPath);
     const config = await readConfig(cwd);
     const command = resolveTestCommand(config, cwd);
+    const timeoutMs = command === null ? null : resolveTestTimeoutMs(config);
     if (!configBytes.equals(readFileSync(configPath))) throw new Error('Configuration changed during command resolution');
-    return { command, configBytes, state: computeTestState(cwd, { config, configBytes, command }) };
+    return { command, timeoutMs, configBytes, state: computeTestState(cwd, { config, configBytes, command }) };
   };
   let before: TestInputState = { digest: null, clean: null, identity: { fingerprintVersion: FINGERPRINT_VERSION, scope: EVIDENCE_SCOPE } };
 
@@ -298,12 +300,17 @@ async function recordTestProvenance(
   const skipped = async (outcome: TestAttempt['outcome'], reason: string, command?: string) =>
     finish({ id, date, outcome, reason, ...(before.digest !== null ? { before_digest: before.digest } : {}), ...(command ? { command } : {}) }, { kind: 'record-tests', change, recorded: false, reason, ...(command ? { command } : {}) });
   let command: string | null;
+  let timeoutMs: number | null;
   let beforeConfig: Buffer;
-  try { const observed = await capture(); command = observed.command; before = observed.state; beforeConfig = observed.configBytes; }
-  catch (error) { return skipped('unprovable', `test configuration is unreadable: ${String(error)}`); }
-  if (command === null) return skipped('unavailable', 'no test command — set tech_stack.test_command in .prospec.yaml');
+  try { const observed = await capture(); command = observed.command; timeoutMs = observed.timeoutMs; before = observed.state; beforeConfig = observed.configBytes; }
+  catch (error) {
+    return skipped('unprovable', error instanceof TestTimeoutInvalid
+      ? `${error.message} — ${error.suggestion}`
+      : `test configuration is unreadable: ${String(error)}`);
+  }
+  if (command === null || timeoutMs === null) return skipped('unavailable', 'no test command — set tech_stack.test_command in .prospec.yaml');
   if (before.digest === null) return skipped('unprovable', before.reason ?? digestFailureReason(cwd), command);
-  const run = runTestCommand(cwd, command);
+  const run = runTestCommand(cwd, command, timeoutMs);
   let after: TestInputState;
   let commandStable = false;
   try {
@@ -320,7 +327,7 @@ async function recordTestProvenance(
     ...(policy.success ? { test_policy: policy.data } : {}) };
   const outcome: TestAttempt['outcome'] = run.timed_out ? 'timeout' : run.exit_code === null
     ? (run.error ? 'unavailable' : 'unprovable') : run.exit_code !== 0 ? 'failed' : stable ? 'passed' : 'unprovable';
-  const reason = run.timed_out ? `test run timed out after ${run.timeout_ms} ms`
+  const reason = run.timed_out ? `test run timed out after ${run.timeout_ms} ms (tech_stack.test_timeout_ms sets the cap)`
     : run.signal ? `test run killed by ${run.signal}` : run.error ?? (stable ? undefined : 'inputs changed during test run or capture is unprovable — re-run against stable inputs');
   const attempt: TestAttempt = { id, date, outcome, ...trace, command: run.command, before_digest: before.digest,
     ...(after.digest !== null ? { after_digest: after.digest } : {}),

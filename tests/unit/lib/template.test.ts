@@ -127,6 +127,16 @@ describe('renderTemplate', () => {
     expect(result).toContain('- cursor');
   });
 
+  it('documents test_timeout_ms as a commented default inside the tech_stack block', () => {
+    const withStack = renderTemplate('init/prospec.yaml.hbs', {
+      project_name: 'timeout',
+      tech_stack: { language: 'typescript' },
+    });
+    const block = withStack.slice(withStack.indexOf('tech_stack:'), withStack.indexOf('\n\n', withStack.indexOf('tech_stack:')));
+    expect(block).toMatch(/^ {2}# test_timeout_ms: 900000$/m);
+    expect(renderTemplate('init/prospec.yaml.hbs', { project_name: 'bare' })).not.toContain('test_timeout_ms');
+  });
+
   it('omits the tech_stack and agents blocks when those keys are absent (falsey {{#if}})', () => {
     const result = renderTemplate('init/prospec.yaml.hbs', {
       project_name: 'bare',

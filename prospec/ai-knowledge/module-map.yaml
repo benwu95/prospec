@@ -63,7 +63,7 @@ modules:
       - MCP 契約
       - 模組分類
     rationale: Leaf module with zero internal deps — all others import from here
-    last_verified: 2026-10-19T04:13:59.143Z
+    last_verified: 2026-10-20T13:42:14.743Z
   - name: lib
     description: Shared stateless utilities — config, file I/O, Handlebars
       rendering, scanning, token accounting, the zero-LLM drift engine
@@ -139,7 +139,7 @@ modules:
       - 漂移檢查
       - 知識讀取
     rationale: Foundational infrastructure shared across services and benchmark scripts
-    last_verified: 2026-10-20T07:50:12.721Z
+    last_verified: 2026-10-20T13:42:14.743Z
   - name: services
     description: Business logic — one `execute()` service per command — including
       shared-output agent invocation-guidance rendering — init / quickstart /
@@ -204,7 +204,7 @@ modules:
       - 漂移檢查
       - 真相層
     rationale: Isolates business logic from I/O layer, enables testability
-    last_verified: 2026-10-18T14:32:57.061Z
+    last_verified: 2026-10-20T13:42:14.743Z
   - name: cli
     description: Thin CLI entry — 20 top-level Commander commands + shared
       formatters that parse → call one service → format output; the cli-first
@@ -306,9 +306,9 @@ modules:
       - 複雜度適配
       - CI 閘門
     rationale: Pure resources — no logic, consumed by lib/template.ts
-    last_verified: 2026-10-20T08:07:38.956Z
+    last_verified: 2026-10-20T13:42:14.743Z
   - name: tests
-    description: 4-layer test suite — 320 files, 8,583 tests (unit 6140 + contract
+    description: 4-layer test suite — 320 files, 8,603 tests (unit 6160 + contract
       1978 + integration 233 + e2e 232). Validates every module — format and
       public-document contracts, the cli-first probe + station-command
       contracts, the drift engine, token corpus, and the MCP protocol over
@@ -356,4 +356,4 @@ modules:
       - 驗證
       - vitest
     rationale: Quality gate — validates all layers with pyramid coverage
-    last_verified: 2026-10-20T07:50:12.721Z
+    last_verified: 2026-10-20T13:42:14.743Z

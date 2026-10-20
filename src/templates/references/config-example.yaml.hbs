@@ -28,6 +28,11 @@ tech_stack:
   # The example below is one such shell-free, shim-free invocation (Node's builtin
   # runner); on POSIX-only projects `pnpm test` also works.
   test_command: node --test
+  # Wall-clock cap for that run, in milliseconds. Defaults to 900000 (15 minutes);
+  # accepts an integer from 1 to 2147483647. When a test command resolves, an
+  # invalid value makes `--record-tests` record an unprovable attempt naming this
+  # key, without running the suite. Changing it makes recorded test evidence stale — re-run the record.
+  test_timeout_ms: 900000
 
 # Enable only when Knowledge is not an input to the project's tests.
 # Absent/false preserves full-scope evidence; true permits certified test reuse.

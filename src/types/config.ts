@@ -21,7 +21,16 @@ const TechStackSchema = z.object({
    *  script. Tokenized on whitespace and run without a shell, so shell syntax
    *  (pipes, `&&`, redirection) is deliberately unsupported. */
   test_command: z.string().optional(),
+  // Wall-clock cap in milliseconds for that command. Shape-agnostic on purpose, like
+  // `workflow.pause_at`: a mistyped value must not fail the whole config;
+  // `resolveTestTimeoutMs` validates it and names the bad value.
+  test_timeout_ms: z.unknown().optional(),
 }).optional();
+
+/** Largest `tech_stack.test_timeout_ms`: the 32-bit signed maximum. The Bun-compiled release
+ *  binary's `spawnSync` wraps larger timeouts (measured on Bun 1.4.0: 2^31 kills after ~4 ms),
+ *  while Node honours them, so the bound is set by the runtime the CLI ships on. */
+export const MAX_TEST_TIMEOUT_MS = 2_147_483_647;
 
 /**
  * Knowledge module partitioning strategies.

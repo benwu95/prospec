@@ -22,6 +22,7 @@ The scanner always excludes common directories such as `node_modules`, `.git`, `
 | `tech_stack.framework` | string | Auto-detected, or unset | Overrides the detected framework. |
 | `tech_stack.package_manager` | string | Auto-detected, or unset | Overrides the detected package manager. |
 | `tech_stack.test_command` | string | Resolved from project configuration and manifests | Command executed by `prospec check --record-tests`; resolution and platform restrictions follow below. |
+| `tech_stack.test_timeout_ms` | integer | `900000` (15 minutes) | Wall-clock cap for that command, from 1 to 2147483647 milliseconds. When a test command resolves, an invalid value makes `--record-tests` record an unprovable attempt naming the key, without running the suite. Changing the value makes recorded test evidence stale; re-run `--record-tests`. |
 
 A nonblank `test_command` wins. Otherwise, a configured `package_manager` supplies `<package_manager> test` when `package.json` declares a test script. If that fallback does not apply, Prospec detects a command from Rust, Python, Go, Node.js or Makefile manifests. If no command is available, the test runner reports a skip.
 

@@ -2,9 +2,10 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { vol } from 'memfs';
-import { resolveConfigPath, readConfig, validateConfig, writeConfig, resolveBasePaths, isArtifactLanguageUnset, resolveKnowledgeTokenBudget, resolveTestCommand, resolveMaxStationRetries, resolvePauseAt, resolveAlwaysEscalate } from '../../../src/lib/config.js';
-import { ConfigNotFound, ConfigInvalid, PauseAtInvalid, AlwaysEscalateInvalid } from '../../../src/types/errors.js';
-import { DEFAULT_KNOWLEDGE_TOKEN_BUDGET, DEFAULT_MAX_STATION_RETRIES, ProspecConfigSchema, SHIPPED_BUDGET_FIELDS, isShippedBudgetField, type ProspecConfig } from '../../../src/types/config.js';
+import { resolveConfigPath, readConfig, validateConfig, writeConfig, resolveBasePaths, isArtifactLanguageUnset, resolveKnowledgeTokenBudget, resolveTestCommand, resolveTestTimeoutMs, resolveMaxStationRetries, resolvePauseAt, resolveAlwaysEscalate } from '../../../src/lib/config.js';
+import { ConfigNotFound, ConfigInvalid, PauseAtInvalid, AlwaysEscalateInvalid, TestTimeoutInvalid } from '../../../src/types/errors.js';
+import { DEFAULT_TEST_TIMEOUT_MS } from '../../../src/lib/test-runner.js';
+import { DEFAULT_KNOWLEDGE_TOKEN_BUDGET, DEFAULT_MAX_STATION_RETRIES, MAX_TEST_TIMEOUT_MS, ProspecConfigSchema, SHIPPED_BUDGET_FIELDS, isShippedBudgetField, type ProspecConfig } from '../../../src/types/config.js';
 
 vi.mock('node:fs', async () => {
   const memfs = await import('memfs');
@@ -241,6 +242,49 @@ describe('resolveTestCommand (REQ-LIB-033)', () => {
     expect(resolveTestCommand(cfg({ test_command: '   ', package_manager: 'pnpm' }), '/p')).toBe('pnpm test');
     vol.fromJSON({ '/r/package.json': JSON.stringify({ scripts: {} }) });
     expect(resolveTestCommand(cfg({ test_command: '' }), '/r')).toBeNull();
+  });
+});
+
+describe('resolveTestTimeoutMs (REQ-TYPES-116)', () => {
+  const cfg = (value?: unknown): ProspecConfig =>
+    ({ project: { name: 't' }, tech_stack: value === undefined ? {} : { test_timeout_ms: value } }) as ProspecConfig;
+
+  it('falls back to the shipped default when the key is absent', () => {
+    expect(resolveTestTimeoutMs(cfg())).toBe(DEFAULT_TEST_TIMEOUT_MS);
+    expect(resolveTestTimeoutMs({ project: { name: 't' } } as ProspecConfig)).toBe(DEFAULT_TEST_TIMEOUT_MS);
+  });
+
+  it('returns an integer within 1..MAX_TEST_TIMEOUT_MS as configured', () => {
+    expect(resolveTestTimeoutMs(cfg(1))).toBe(1);
+    expect(resolveTestTimeoutMs(cfg(3_600_000))).toBe(3_600_000);
+    expect(resolveTestTimeoutMs(cfg(MAX_TEST_TIMEOUT_MS))).toBe(MAX_TEST_TIMEOUT_MS);
+  });
+
+  it.each([
+    ['zero', 0],
+    ['negative', -1],
+    ['fractional', 1.5],
+    ['above the 32-bit timer range', MAX_TEST_TIMEOUT_MS + 1],
+    ['a duration string', '30m'],
+    ['a numeric string', '900000'],
+    ['null', null],
+  ])('throws TestTimeoutInvalid for %s rather than falling back', (_label, value) => {
+    expect(() => resolveTestTimeoutMs(cfg(value))).toThrow(TestTimeoutInvalid);
+  });
+
+  it.each([['.nan', 'NaN'], ['.inf', 'Infinity']])('names a YAML %s value as %s rather than null', (yaml, printed) => {
+    const config = validateConfig(`project:\n  name: t\ntech_stack:\n  test_timeout_ms: ${yaml}\n`);
+    expect(() => resolveTestTimeoutMs(config)).toThrow(`tech_stack.test_timeout_ms: ${printed}`);
+  });
+
+  it('names a self-referencing YAML alias instead of failing to serialize it', () => {
+    const config = validateConfig('project:\n  name: t\ntech_stack:\n  test_timeout_ms: &loop [*loop]\n');
+    expect(() => resolveTestTimeoutMs(config)).toThrow(TestTimeoutInvalid);
+  });
+
+  it('leaves an invalid value readable by validateConfig, so only the record-tests path refuses it', () => {
+    const config = validateConfig('project:\n  name: t\ntech_stack:\n  test_timeout_ms: soon\n');
+    expect(config.tech_stack?.test_timeout_ms).toBe('soon');
   });
 });
 

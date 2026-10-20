@@ -19,6 +19,7 @@ import {
   TestGateError,
   PauseAtInvalid,
   AlwaysEscalateInvalid,
+  TestTimeoutInvalid,
 } from '../../../src/types/errors.js';
 
 describe('ProspecError', () => {
@@ -350,5 +351,18 @@ describe('AlwaysEscalateInvalid (REQ-TYPES-113)', () => {
     expect(err.message).toContain('.prospec.yaml workflow.always_escalate');
     expect(err.message).toContain('"rescope"');
     expect(err.suggestion).toContain('re-scope, break-glass-override, breaking-change');
+  });
+});
+
+describe('TestTimeoutInvalid (REQ-TYPES-116)', () => {
+  it('names the config key and the value and states the accepted range', () => {
+    const err = new TestTimeoutInvalid('"30m"');
+    expect(err).toBeInstanceOf(ProspecError);
+    expect(err.code).toBe('TEST_TIMEOUT_INVALID');
+    expect(err.name).toBe('TestTimeoutInvalid');
+    expect(err.message).toContain('.prospec.yaml tech_stack.test_timeout_ms');
+    expect(err.message).toContain('"30m"');
+    expect(err.suggestion).toContain('2147483647');
+    expect(err.suggestion).toContain('omit the key');
   });
 });
