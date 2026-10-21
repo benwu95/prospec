@@ -1,9 +1,9 @@
 ---
 feature: drift-detection
 status: active
-last_updated: 2026-10-19
-story_count: 21
-req_count: 90
+last_updated: 2026-10-20
+story_count: 22
+req_count: 94
 ---
 
 # Deterministic Drift Check
@@ -28,7 +28,7 @@ req_count: 90
 - [US-17–US-20](./drift-detection/us-17.md)
 - [US-21: Constitution Language Policy drifts from the resolved language scope](./drift-detection/us-21.md)
 - [US-22: A station's reference map is checked where the station reads it](./drift-detection/us-22.md)
-
+- [US-23: knowledge-size ratchet fails growth of over-budget L1/L2 files](./drift-detection/us-23.md)
 
 ## Edge Cases
 
@@ -62,6 +62,7 @@ _(None)_
 
 | Date | Change | Impact | Stories/REQs |
 |------|--------|--------|--------------|
+| 2026-10-20 | ratchet-knowledge-size | ADDED REQ-TYPES-117; ADDED REQ-LIB-107; ADDED REQ-TEMPLATES-255; ADDED REQ-TESTS-142; MODIFIED REQ-TYPES-060; MODIFIED REQ-TYPES-077; MODIFIED REQ-LIB-027; MODIFIED REQ-SERVICES-065; MODIFIED REQ-TYPES-083; MODIFIED REQ-CLI-011; MODIFIED REQ-LIB-054 | REQ-TYPES-117, REQ-LIB-107, REQ-TEMPLATES-255, REQ-TESTS-142, REQ-TYPES-060, REQ-TYPES-077, REQ-LIB-027, REQ-SERVICES-065, REQ-TYPES-083, REQ-CLI-011, REQ-LIB-054 |
 | 2026-10-19 | accept-directory-symlink-inputs | MODIFIED REQ-LIB-024; MODIFIED REQ-LIB-033 | REQ-LIB-024, REQ-LIB-033 |
 | 2026-10-16 | correct-related-modules | MODIFIED REQ-SERVICES-093; MODIFIED REQ-TESTS-096 | REQ-SERVICES-093, REQ-TESTS-096 |
 | 2026-10-13 | reuse-knowledge-test-evidence | ADDED REQ-TYPES-115; ADDED REQ-TESTS-137; MODIFIED REQ-LIB-033; MODIFIED REQ-LIB-024; MODIFIED REQ-LIB-070; MODIFIED REQ-TYPES-095; MODIFIED REQ-CLI-052 | REQ-TYPES-115, REQ-TESTS-137, REQ-LIB-033, REQ-LIB-024, REQ-LIB-070, REQ-TYPES-095, REQ-CLI-052 |
