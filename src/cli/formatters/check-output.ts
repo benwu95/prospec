@@ -271,13 +271,26 @@ function printKnowledgeSizeTiers(group: DriftFinding[]): void {
       if (m.remedy !== undefined) console.log(`        ${pc.dim(m.remedy)}`);
       for (const f of surfaceGroup) {
         const meta = f.knowledge_size!;
+        // The severity is the finding's own: a size-ratchet fail sits in this same
+        // tier and must never be relabelled warn by the grouping (REQ-CLI-011).
+        const sev = f.severity === 'fail' ? pc.red('fail') : pc.yellow('warn');
         console.log(
-          `        [${pc.yellow('warn')}] ${sanitizeTerminal(f.source_path)} ${pc.dim(`— ${meta.actual} ${meta.unit}`)}`,
+          `        [${sev}] ${sanitizeTerminal(f.source_path)} ${pc.dim(`— ${meta.actual} ${meta.unit}${ratchetNote(meta)}`)}`,
         );
       }
     }
   }
   for (const f of bare) printFinding(f, '    ');
+}
+
+/** The size ratchet's facts for one finding line, read from the structured fields
+ *  only — never parsed from `detail`. Empty when the ratchet did not grade it. */
+function ratchetNote(meta: KnowledgeSizeFinding): string {
+  if (meta.base_commit === undefined) return '';
+  const at = `merge-base ${sanitizeTerminal(meta.base_commit.slice(0, 12))}`;
+  if (meta.ratchet_skipped !== undefined) return ` (ratchet not applied: ${sanitizeTerminal(meta.ratchet_skipped)})`;
+  if (meta.base_actual === undefined) return '';
+  return meta.base_actual === null ? ` (absent at ${at})` : ` (${meta.base_actual} ${meta.unit} at ${at})`;
 }
 
 /** Group knowledge-size findings by (surface, budget_key), preserving first-seen order.

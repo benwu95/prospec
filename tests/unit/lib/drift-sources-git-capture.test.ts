@@ -5,9 +5,11 @@ import { execFileSync } from 'node:child_process';
 import { mkdtempSync, rmSync, mkdirSync, writeFileSync } from 'node:fs';
 import {
   collectGitTimestamps,
+  collectKnowledgeSize,
   computeChangeDigest,
   changedPathsFromWorkTree,
 } from '../../../src/lib/drift-sources.js';
+import { DEFAULT_KNOWLEDGE_TOKEN_BUDGET } from '../../../src/types/config.js';
 import type { ModuleMap } from '../../../src/types/module-map.js';
 
 // Real git per test — the house timeout for git-bound suites (the 5s default is
@@ -25,7 +27,14 @@ vi.setConfig({ testTimeout: 30_000 });
  * pattern the diff branch was fixed for.
  */
 
-const state = vi.hoisted(() => ({ failLsFiles: false, failExcludePathspec: false, failStatus: false }));
+const state = vi.hoisted(() => ({
+  failLsFiles: false,
+  failExcludePathspec: false,
+  failStatus: false,
+  failShallowProbe: false,
+  timeoutCatFile: false,
+  catFileTimeouts: [] as unknown[],
+}));
 
 vi.mock('node:child_process', async (importOriginal) => {
   const actual = await importOriginal<typeof import('node:child_process')>();
@@ -33,6 +42,13 @@ vi.mock('node:child_process', async (importOriginal) => {
     ...actual,
     execFileSync: ((file: string, args: readonly string[], opts: unknown) => {
       if (state.failStatus && args.includes('status')) throw new Error('simulated status capture failure');
+      if (state.failShallowProbe && args.includes('--is-shallow-repository')) {
+        throw new Error('simulated shallow-probe failure');
+      }
+      if (Array.isArray(args) && args[0] === 'cat-file') {
+        state.catFileTimeouts.push((opts as { timeout?: unknown } | undefined)?.timeout);
+        if (state.timeoutCatFile) throw Object.assign(new Error('spawnSync git ETIMEDOUT'), { code: 'ETIMEDOUT' });
+      }
       if (state.failLsFiles && Array.isArray(args) && args.includes('ls-files')) {
         throw new Error('simulated ls-files capture failure');
       }
@@ -136,5 +152,69 @@ describe('computeChangeDigest under selective git-capture failure', () => {
       state.failStatus = true;
       expect(changedPathsFromWorkTree(tmpDir)).toBeNull();
     });
+  });
+});
+
+/**
+ * REQ-LIB-107 — the ratchet's own fail-closed paths that a real repository cannot
+ * reach on demand: a malformed `size_ratchet` value, a shallow probe that itself
+ * fails, and a blob read that times out.
+ */
+describe('collectKnowledgeSize ratchet under selective git-capture failure', () => {
+  let tmpDir: string;
+  const git = (...args: string[]) =>
+    execFileSync('git', args, { cwd: tmpDir, stdio: 'pipe', encoding: 'utf-8' });
+  const budget = { ...DEFAULT_KNOWLEDGE_TOKEN_BUDGET, l2_per_module: 50, headroom: 1.0 };
+  const collect = (ratchet: unknown) =>
+    collectKnowledgeSize(tmpDir, path.join(tmpDir, 'prospec'), path.join(tmpDir, 'prospec/ai-knowledge'), budget, [], ratchet, true);
+
+  beforeEach(() => {
+    tmpDir = mkdtempSync(path.join(os.tmpdir(), 'size-ratchet-capture-'));
+    state.failShallowProbe = false;
+    state.timeoutCatFile = false;
+    state.catFileTimeouts = [];
+    git('init', '-q');
+    git('config', 'user.email', 'test@test.dev');
+    git('config', 'user.name', 'test');
+    mkdirSync(path.join(tmpDir, 'prospec/ai-knowledge/modules/x'), { recursive: true });
+    writeFileSync(path.join(tmpDir, 'prospec/index.md'), 'index\n');
+    writeFileSync(path.join(tmpDir, 'prospec/ai-knowledge/modules/x/README.md'), 'A'.repeat(400));
+    git('add', '.');
+    git('commit', '-q', '-m', 'init');
+  });
+
+  afterEach(() => {
+    rmSync(tmpDir, { recursive: true, force: true });
+  });
+
+  it('sanity: resolves and reads the base with the 30-second git timeout', () => {
+    expect(collect({ base: 'HEAD' }).ratchet).toMatchObject({ status: 'resolved' });
+    expect(state.catFileTimeouts).toEqual([30_000]);
+  });
+
+  it.each([
+    ['a bare scalar', 'HEAD', 'mapping'],
+    ['a missing base', {}, 'base'],
+    ['a non-string base', { base: 3 }, 'string'],
+    ['an empty base', { base: '  ' }, 'empty'],
+    ['an option-like base', { base: '--output=/tmp/x' }, 'which git would read as an option'],
+    ['an option that merge-base would accept', { base: '--independent' }, 'which git would read as an option'],
+  ])('is unresolvable for %s, before any git read', (_label, value, mentions) => {
+    const src = collect(value);
+    expect(src.ratchet).toMatchObject({ status: 'unresolvable', reason: expect.stringContaining(mentions) });
+    expect(state.catFileTimeouts).toEqual([]);
+    expect(src.items.length).toBeGreaterThan(0);
+  });
+
+  it('is unresolvable when the shallow probe itself fails (no best-effort fallthrough)', () => {
+    state.failShallowProbe = true;
+    expect(collect({ base: 'HEAD' }).ratchet).toMatchObject({ status: 'unresolvable', reason: expect.stringContaining('shallow') });
+  });
+
+  it('is unresolvable when a blob read times out, keeping every item', () => {
+    state.timeoutCatFile = true;
+    const src = collect({ base: 'HEAD' });
+    expect(src.ratchet).toMatchObject({ status: 'unresolvable', reason: expect.stringContaining('README.md') });
+    expect(src.items.find((i) => i.source_path.endsWith('modules/x/README.md'))!.ratchet).toBeUndefined();
   });
 });

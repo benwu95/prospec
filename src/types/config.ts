@@ -156,6 +156,8 @@ export interface KnowledgeSizeRule {
   label: string;
   /** the named convergence path an over-budget file of this kind should take */
   remedy: string;
+  /** whether `knowledge.size_ratchet` fails an over-budget file of this kind that grew past its merge-base size */
+  ratchet: boolean;
 }
 
 /**
@@ -168,32 +170,38 @@ export const KNOWLEDGE_SIZE_RULES = {
     tokenKey: 'l1_per_file',
     label: 'L1 file',
     remedy: 'trim it, or move detail down into the L2 file that owns it',
+    ratchet: true,
   },
   l2: {
     tokenKey: 'l2_per_module',
     lineKey: 'readme_max_lines',
     label: 'L2 file',
     remedy: 'extract a content-rich, independent sub-area into a linked `{sub-module}.md` before lossy trimming',
+    ratchet: true,
   },
   spec: {
     tokenKey: 'spec_per_file',
     label: 'Feature Spec',
     remedy: 'split it into per-story slices under `specs/features/{feature}/`, or retire superseded stories',
+    ratchet: false,
   },
   'demand-knowledge': {
     tokenKey: 'demand_knowledge_per_file',
     label: 'load-on-demand knowledge file',
     remedy: "run prospec-learn's Staleness Sweep to retire entries that are mechanized, no longer applicable, or contradicted",
+    ratchet: false,
   },
   skill: {
     tokenKey: 'skill_per_file',
     label: 'skill instruction file',
     remedy: 'move phase-specific prose out of the skill body into an on-demand reference',
+    ratchet: false,
   },
   reference: {
     tokenKey: 'reference_per_file',
     label: 'skill reference',
     remedy: 'split it by phase, or fold the rarely-read part back into the skill that owns it',
+    ratchet: false,
   },
 } satisfies Record<KnowledgeSizeKind, KnowledgeSizeRule>;
 
@@ -203,6 +211,10 @@ const KnowledgeSchema = z.object({
   strategy: z.enum(KNOWLEDGE_STRATEGIES).optional(),
   token_budget: TokenBudgetSchema,
   generated_artifacts: z.array(z.string()).optional(),
+  // Shape-agnostic on purpose, like `workflow.pause_at`: a mistyped ratchet must
+  // fail the knowledge-size check that reads it, not every command that loads the
+  // config. `collectKnowledgeSize` validates it and names the bad value.
+  size_ratchet: z.unknown().optional(),
 }).optional();
 
 const WorkflowSchema = z

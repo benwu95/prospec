@@ -4617,7 +4617,9 @@ describe('Startup Loading cache-stable prefix ordering (REQ-TEMPLATES-080/081)',
   // orchestrator's selection out of the brief and named the marker, criterion and lens sources) and Harvest its external-criterion candidate (+60).
   // Reference total 51_341 → 51_905, ceiling raised, not earned; the basis is the change proposal's
   // Edge Cases entry, written before review. Cumulative 88_686 → 88_795 stays under its anchor.
-  const REFERENCE_CEILING_ANCHOR = 51_905;
+  // ratchet-knowledge-size: drift-report-format gained the size-ratchet fields with equivalent
+  // prose compacted (2,439 → 2,432); reference total 51,905 → 51,898, ceiling lowered, earned.
+  const REFERENCE_CEILING_ANCHOR = 51_898;
   const CUMULATIVE_CEILING_ANCHOR = 88_807;
 
   const renderSkill = (name: string) => {

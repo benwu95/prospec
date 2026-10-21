@@ -65,6 +65,20 @@ describe('config example completeness contract', () => {
     expect(content).not.toMatch(/skill_per_file|reference_per_file/);
   });
 
+  // REQ-TEMPLATES-255 — `size_ratchet` is shape-agnostic in the schema, so the
+  // derived key walk above cannot see its `base`; pin the example's shape and its
+  // load-bearing caveats here.
+  it('documents the size ratchet as a mapping with a base ref, and what it fails', async () => {
+    const { content } = await execute();
+    const obj = parse(content) as { knowledge?: { size_ratchet?: unknown } };
+    expect(obj.knowledge?.size_ratchet).toEqual({ base: expect.any(String) });
+    const block = content.slice(content.indexOf('size_ratchet'), content.indexOf('\n# Workflow'));
+    expect(block.length).toBeGreaterThan(0);
+    expect(block).toMatch(/merge-base/);
+    expect(block).toMatch(/fetch-depth: 0/);
+    expect(block).toMatch(/renamed, untracked or ignored/);
+  });
+
   it('carries no removed dead field (schema is closed on those)', async () => {
     const { content } = await execute();
     const obj = parse(content) as Record<string, Record<string, unknown>>;

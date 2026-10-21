@@ -97,6 +97,41 @@ describe('DEFAULT_KNOWLEDGE_TOKEN_BUDGET', () => {
     const withLines = KNOWLEDGE_SIZE_KINDS.filter((k) => 'lineKey' in KNOWLEDGE_SIZE_RULES[k]);
     expect(withLines).toEqual(['l2']);
   });
+
+  it('ratchets exactly the L1 and L2 surfaces (REQ-TYPES-077)', () => {
+    const ratcheted = KNOWLEDGE_SIZE_KINDS.filter((k) => KNOWLEDGE_SIZE_RULES[k].ratchet);
+    expect(ratcheted).toEqual(['l1', 'l2']);
+    for (const kind of KNOWLEDGE_SIZE_KINDS) {
+      expect(typeof KNOWLEDGE_SIZE_RULES[kind].ratchet, `${kind}.ratchet`).toBe('boolean');
+    }
+  });
+});
+
+describe('knowledge.size_ratchet (REQ-TYPES-117)', () => {
+  const parse = (size_ratchet: unknown) =>
+    ProspecConfigSchema.safeParse({ project: { name: 't' }, knowledge: { size_ratchet } });
+
+  it('keeps a well-formed ratchet as written', () => {
+    const parsed = parse({ base: 'origin/main' });
+    expect(parsed.success).toBe(true);
+    expect(parsed.data?.knowledge?.size_ratchet).toEqual({ base: 'origin/main' });
+  });
+
+  it.each([
+    ['a bare scalar', 'origin/main'],
+    ['an empty base', { base: '' }],
+    ['an option-like base', { base: '--output=x' }],
+    ['a numeric base', { base: 123 }],
+  ])('still validates the config for %s — the ratchet grades it, not the schema', (_label, value) => {
+    const parsed = parse(value);
+    expect(parsed.success).toBe(true);
+    expect(parsed.data?.knowledge?.size_ratchet).toEqual(value);
+  });
+
+  it('leaves the ratchet off when the key is absent', () => {
+    const parsed = ProspecConfigSchema.parse({ project: { name: 't' }, knowledge: {} });
+    expect(parsed.knowledge?.size_ratchet).toBeUndefined();
+  });
 });
 
 describe('TokenBudgetSchema (renamed fields)', () => {

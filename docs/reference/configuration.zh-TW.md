@@ -61,8 +61,11 @@ Scanner 一律排除 `node_modules`、`.git`、`dist`、`build`、`coverage` 等
 | `knowledge.token_budget.spec_per_file` | number | `5000` | 每份 Feature Spec、spec slice 或 `product.md` 的 token 上限。 |
 | `knowledge.token_budget.demand_knowledge_per_file` | number | `10000` | 每個 load-on-demand Knowledge 檔案的 token 上限，例如 lessons ledger 或 playbook。 |
 | `knowledge.token_budget.headroom` | number | `0.85` | 開始觸發壓力訊號的預算比例；範圍為 `0`–`1`。 |
+| `knowledge.size_ratchet.base` | string | 未設定（ratchet 關閉） | 比較基準的 git ref，例如 `origin/main`。設定後，已超標且比 `git merge-base <base> HEAD` 時更大的 L1 或 L2 檔，`knowledge-size` 會回報 FAIL。 |
 
-`knowledge-size` 量測 agent 讀取的各個載入面。只覆寫需要調整的欄位，其餘沿用 shipped defaults。新初始化的專案沒有 `token_budget` 區塊。檔案超標產生 WARN，不會造成建置失敗，也不影響 `--strict` 的 exit code。
+`knowledge-size` 量測 agent 讀取的各個載入面。只覆寫需要調整的欄位，其餘沿用 shipped defaults。新初始化的專案沒有 `token_budget` 區塊。未設定 `size_ratchet` 時，檔案超標產生 WARN，不會造成建置失敗，也不影響 `--strict` 的 exit code。
+
+設定 `size_ratchet` 後，既有的超標仍是 WARN；但已超標的 L1/L2 檔若比 merge-base 時更大，或在 merge-base 沒有對應版本（例如改名、未被追蹤或被 ignore 的檔案），會回報 FAIL，`--strict` 以非零結束。finding 會寫出 merge-base commit。這項檢查需要完整的 git 歷史：CI 請以 `fetch-depth: 0` checkout；shallow clone、不存在的 ref 或格式錯誤的 `size_ratchet` 都會讓檢查失敗，而不是默默略過 ratchet。在本機若 base ref 已過時，請先 `git fetch`，否則會以較舊的 merge-base 比較。在 delegation snapshot 中，`origin/*` 指的是主 repo 的本機 branch，因此要改為在主 repo 更新 base branch（例如在主 repo 執行 `git fetch origin main:main`）。同一個 change 調高 `token_budget` 也能讓 FAIL 消失；這類調高必須依預算覆寫的規則明確揭露。
 
 每則 finding 會指出對應載入面的處理方式：縮減 L1 檔案或把細節移至所屬模組、抽出 L2 sub-module、將 Feature Spec 分割至 `specs/features/{feature}/`，或對治理檔案執行 `prospec-learn` 的 Staleness Sweep。封存變更會把正式化的 requirements 加入 Feature Specs；抽出的各 slice 仍適用相同的 `spec_per_file` 預算。
 

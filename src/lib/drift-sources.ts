@@ -5,7 +5,7 @@ import path from 'node:path';
 import { scanDirSync, classifyModulePath, filterConventions } from './scanner.js';
 import { parseYaml } from './yaml-utils.js';
 import { parseDocument, isMap, isScalar } from 'yaml';
-import { DEFAULT_KNOWLEDGE_TOKEN_BUDGET, isShippedBudgetField, type ShippedBudgetField } from '../types/config.js';
+import { DEFAULT_KNOWLEDGE_TOKEN_BUDGET, KNOWLEDGE_SIZE_RULES, isShippedBudgetField, type ShippedBudgetField } from '../types/config.js';
 import { withoutFencedBlocks } from './markdown-fences.js';
 import { gitReadOptional, gitReadRecords, hiddenIndexShape, parseIndexRecord } from './git-read.js';
 import { mergeContent } from './content-merger.js';
@@ -54,7 +54,7 @@ import { PrerequisiteError } from '../types/errors.js';
 import type { InputSnapshot, TestInputState, EvidenceStates } from '../types/drift-report.js';
 import { resolveTestEvidencePolicy } from './config.js';
 import { AGENT_CONFIGS, SKILL_DEFINITIONS } from '../types/skill.js';
-import type { KnowledgeSizeBudget, KnowledgeSizeKind, ProspecConfig } from '../types/config.js';
+import type { KnowledgeSizeBudget, KnowledgeSizeKind, KnowledgeSizeRule, ProspecConfig } from '../types/config.js';
 import { CANONICAL_INIT_DOCS } from '../types/conventions.js';
 
 /**
@@ -175,19 +175,34 @@ export interface McpReadmeCountSource {
   claims: McpReadmeCountClaim[];
 }
 
+/** What the size ratchet measured for one over-budget, ratchet-governed item:
+ *  its size at the merge-base (`null` = absent there), or why it was not ratcheted. */
+export type KnowledgeSizeItemRatchet =
+  | { base: { tokens: number; lines: number } | null }
+  | { skipped: string };
+
 export interface KnowledgeSizeItem {
   /** repo-relative path of the measured knowledge file */
   source_path: string;
   kind: KnowledgeSizeKind;
   tokens: number;
   lines: number;
+  /** present only while `knowledge.size_ratchet` is resolved, and only for an
+   *  over-budget item whose kind the ratchet governs */
+  ratchet?: KnowledgeSizeItemRatchet;
 }
+
+/** `knowledge.size_ratchet` as the collector resolved it (REQ-LIB-107); absent = not configured. */
+export type KnowledgeSizeRatchet =
+  | { status: 'resolved'; base_ref: string; merge_base: string }
+  | { status: 'unresolvable'; base_ref?: string; reason: string };
 
 export interface KnowledgeSizeSource {
   available: boolean;
   reason?: string;
   budget: KnowledgeSizeBudget;
   items: KnowledgeSizeItem[];
+  ratchet?: KnowledgeSizeRatchet;
 }
 
 export interface BudgetOverride {
@@ -1003,6 +1018,10 @@ export function collectKnowledgeSize(
   knowledgePath: string,
   budget: KnowledgeSizeBudget,
   additionalCore: string[],
+  /** `knowledge.size_ratchet` as written (unvalidated); `undefined` = ratchet off */
+  ratchet: unknown,
+  /** the work-tree fact the caller already probed for its other git collectors */
+  inWorkTree: boolean,
 ): KnowledgeSizeSource {
   if (!existsSync(path.resolve(cwd, knowledgePath))) {
     return {
@@ -1081,7 +1100,128 @@ export function collectKnowledgeSize(
     for (const item of collectAuthoredSkillItems(cwd)) items.push(item);
   }
 
-  return { available: true, budget, items };
+  if (ratchet === undefined) return { available: true, budget, items };
+  return { available: true, budget, items, ratchet: applySizeRatchet(cwd, ratchet, inWorkTree, items, budget) };
+}
+
+/** Upper bound on one ratchet git read — the bound `git-read` uses. `cat-file
+ *  --filters` runs smudge drivers (git-lfs can reach the network), and a hung read
+ *  must fail the check closed rather than hang it. */
+const RATCHET_GIT_TIMEOUT_MS = 30_000;
+
+/** Validate the unvalidated `knowledge.size_ratchet` value (the schema accepts any
+ *  shape so a typo cannot fail every command that loads the config). */
+function ratchetBaseRef(value: unknown): { base: string } | { reason: string; base_ref?: string } {
+  if (value === null || typeof value !== 'object' || Array.isArray(value)) {
+    return { reason: '`knowledge.size_ratchet` must be a mapping with a `base` ref' };
+  }
+  const base = (value as { base?: unknown }).base;
+  if (base === undefined) return { reason: '`knowledge.size_ratchet.base` is missing' };
+  if (typeof base !== 'string') return { reason: '`knowledge.size_ratchet.base` must be a string' };
+  if (base.trim() === '') return { reason: '`knowledge.size_ratchet.base` is empty' };
+  // It reaches git's argv; a leading `-` would be parsed as an option.
+  if (base.startsWith('-')) {
+    return { reason: '`knowledge.size_ratchet.base` starts with `-`, which git would read as an option', base_ref: base };
+  }
+  return { base };
+}
+
+function overAnyBudget(item: KnowledgeSizeItem, budget: KnowledgeSizeBudget): boolean {
+  const rule: KnowledgeSizeRule = KNOWLEDGE_SIZE_RULES[item.kind];
+  return item.tokens > budget[rule.tokenKey] || (rule.lineKey !== undefined && item.lines > budget[rule.lineKey]);
+}
+
+/** Whether the file or ANY directory between `cwd` and it is a symlink. git stores a
+ *  symlinked directory as one link blob, so a path through it has no tree entry at
+ *  the merge-base — reading that as "absent" would fail an unchanged file. An
+ *  unreadable segment counts as a symlink: the ratchet then skips the file (it keeps
+ *  its warn) rather than guessing. */
+function symlinkOnPath(cwd: string, rel: string): boolean {
+  let current = cwd;
+  for (const segment of rel.split('/')) {
+    current = path.join(current, segment);
+    try {
+      if (lstatSync(current).isSymbolicLink()) return true;
+    } catch {
+      return true;
+    }
+  }
+  return false;
+}
+
+/**
+ * Resolve `knowledge.size_ratchet` (REQ-LIB-107): the merge-base of the configured
+ * ref and HEAD, and — for every over-budget item of a kind the ratchet governs —
+ * that item's size at the merge-base (`null` = absent there) or why it was not
+ * ratcheted. Fails CLOSED: any unreadable fact makes the whole ratchet unresolvable
+ * and leaves every item unratcheted (PB-013) — the evaluator turns that into a fail
+ * on `.prospec.yaml`, never a silent warn. Items are annotated only once every read
+ * succeeded, so a half-measured source cannot reach the evaluator. Never throws: it
+ * runs inside an argument to `runChecks(...)`.
+ */
+function applySizeRatchet(
+  cwd: string,
+  value: unknown,
+  inWorkTree: boolean,
+  items: KnowledgeSizeItem[],
+  budget: KnowledgeSizeBudget,
+): KnowledgeSizeRatchet {
+  const parsed = ratchetBaseRef(value);
+  if ('reason' in parsed) {
+    return { status: 'unresolvable', ...(parsed.base_ref === undefined ? {} : { base_ref: parsed.base_ref }), reason: parsed.reason };
+  }
+  const base_ref = parsed.base;
+  const unresolvable = (reason: string): KnowledgeSizeRatchet => ({ status: 'unresolvable', base_ref, reason });
+  try {
+    if (!inWorkTree) return unresolvable('not a git work tree');
+    const capture = (args: string[]): string | null => gitCapture(cwd, args, RATCHET_GIT_TIMEOUT_MS);
+    // Unlike collectGitTimestamps' best-effort probe, a failed probe is not "not
+    // shallow" here: a gate cannot assume the history it compares against.
+    const shallow = capture(['rev-parse', '--is-shallow-repository'])?.trim();
+    if (shallow === undefined) return unresolvable('the shallow-clone probe (`git rev-parse --is-shallow-repository`) failed');
+    if (shallow === 'true') return unresolvable('shallow git clone (commit history incomplete)');
+    const mergeBase = capture(['merge-base', base_ref, 'HEAD'])?.trim();
+    if (!mergeBase) return unresolvable(`\`git merge-base ${base_ref} HEAD\` found no merge-base (unknown ref, or no common ancestor)`);
+
+    const targets = items.filter((i) => KNOWLEDGE_SIZE_RULES[i.kind].ratchet && overAnyBudget(i, budget));
+    const measured = new Map<KnowledgeSizeItem, KnowledgeSizeItemRatchet>();
+    if (targets.length > 0) {
+      // Paths are project-relative, and so is ls-tree's output when git runs in the
+      // project directory — which is what keeps a project below the repository root right.
+      const tree = capture(['ls-tree', '-z', mergeBase, '--', ...targets.map((i) => i.source_path)]);
+      if (tree === null) return unresolvable(`could not list the knowledge files at merge-base ${mergeBase.slice(0, 12)}`);
+      const modes = new Map<string, string>();
+      for (const record of tree.split('\0')) {
+        const tab = record.indexOf('\t');
+        if (tab < 0) continue;
+        modes.set(record.slice(tab + 1), record.slice(0, record.indexOf(' ')));
+      }
+      for (const item of targets) {
+        const mode = modes.get(item.source_path);
+        // A symlink's blob is its target path, not the content measured here; a
+        // symlinked parent directory hides the file from the merge-base tree.
+        if (symlinkOnPath(cwd, item.source_path)) {
+          measured.set(item, { skipped: 'symlink on its path in the working tree' });
+        } else if (mode === undefined) {
+          measured.set(item, { base: null });
+        } else if (mode === '120000') {
+          measured.set(item, { skipped: 'symlink at the merge-base' });
+        } else {
+          // --filters applies the same eol/smudge conversion as a checkout, so a CRLF
+          // working tree is compared like for like with its LF blob.
+          const blob = capture(['cat-file', '--filters', `${mergeBase}:./${item.source_path}`]);
+          if (blob === null) {
+            return unresolvable(`could not read ${item.source_path} at merge-base ${mergeBase.slice(0, 12)} (failed or timed out)`);
+          }
+          measured.set(item, { base: { tokens: estimateTokens(blob), lines: countLines(blob) } });
+        }
+      }
+    }
+    for (const [item, ratchet] of measured) item.ratchet = ratchet;
+    return { status: 'resolved', base_ref, merge_base: mergeBase };
+  } catch (err) {
+    return unresolvable(`unexpected error: ${err instanceof Error ? err.message : String(err)}`);
+  }
 }
 
 /**
@@ -1653,13 +1793,14 @@ const GIT_CAPTURE_MAX_BUFFER = 256 * 1024 * 1024;
 
 /** Run git and capture stdout — null on failure, '' on empty success (the two
  *  must stay distinct: an empty diff is a valid state, a git failure is not). */
-function gitCapture(cwd: string, args: string[]): string | null {
+function gitCapture(cwd: string, args: string[], timeout?: number): string | null {
   try {
     return execFileSync('git', args, {
       cwd,
       stdio: 'pipe',
       encoding: 'utf-8',
       maxBuffer: GIT_CAPTURE_MAX_BUFFER,
+      ...(timeout === undefined ? {} : { timeout }),
     });
   } catch {
     return null;

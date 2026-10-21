@@ -52,7 +52,7 @@ nondeterministic serialization this contract exists to remove.
 | **Demand** | Demand Conventions (lessons ledger, playbook, …) | When their topic is relevant — read in slices, never whole | ≤ 20000 tokens per file |
 | **L3** | Source code files | When Agent needs implementation details | No limit (read on demand) |
 
-> Every budget below L0 comes from `.prospec.yaml` `knowledge.token_budget` (this project's values; defaults when unset). Over-budget files WARN via `prospec check` `knowledge-size` (from 0.85 of the limit, a pressure signal), never a build breaker; each finding names its convergence path. L0 is agent-injected config, out of scope.
+> Every budget below L0 comes from `.prospec.yaml` `knowledge.token_budget` (defaults when unset). Over-budget files WARN via `prospec check` `knowledge-size` (from 0.85 of the limit, a pressure signal); a growing over-budget L1/L2 file FAILs under `knowledge.size_ratchet`. Each finding names its convergence path. L0 is agent-injected config, out of scope.
 
 **Principles:**
 1. L0 answers "how to use skills" — L1 answers "where to look" and "what to do" — L2 answers "what it does" (Feature Spec) and "how to modify" (Module README) — L3 answers "how to write"

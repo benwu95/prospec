@@ -36,6 +36,11 @@ knowledge:
     # no Sweep could clear it. PASS here comes from widening the budget, NOT from
     # the knowledge getting smaller.
     demand_knowledge_per_file: 20000
+  # Ratchet (#401): an over-budget L1/L2 file that grew past its size at the
+  # merge-base with origin/main fails knowledge-size, so the overrides above stop
+  # being the only exit. Existing overage stays a WARN until it shrinks.
+  size_ratchet:
+    base: origin/main
 workflow:
   # Every standard and full change confirms its direction after the plan verifier.
   pause_at: [plan]

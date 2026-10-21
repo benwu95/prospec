@@ -109,7 +109,7 @@ describe('collectKnowledgeSize (REQ-LIB-027)', () => {
   const baseDir = () => path.join(tmpDir, 'prospec');
   const knowledgePath = () => path.join(tmpDir, 'prospec', 'ai-knowledge');
   const collect = (additionalCore: string[] = []) =>
-    collectKnowledgeSize(tmpDir, baseDir(), knowledgePath(), BUDGET, additionalCore);
+    collectKnowledgeSize(tmpDir, baseDir(), knowledgePath(), BUDGET, additionalCore, undefined, true);
 
   it('measures index.md + core conventions as L1 and module READMEs as L2, with repo-relative paths', () => {
     write('prospec/index.md', 'A'.repeat(40)); // 40 chars → 10 tokens, 1 line
