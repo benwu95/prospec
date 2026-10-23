@@ -39,6 +39,16 @@ prospec-upgrade                 # 步驟 2：AI Agent 依盤點報告遷移格�
 > - **舊版檔案清理**：若從早於 1.0 的舊版 Prospec 升級，完成升級同步後可手動清理不再使用的舊版檔案與目錄：`GEMINI.md`、`.gemini/skills/`、`.codex/skills/`、`.github/copilot-instructions.md` 與 `.github/instructions/`。
 > - **設定檔版本與觸發詞**：`.prospec.yaml` 的 `version` 會記錄專案上次升級的版本。新增 Skill 後若想單獨檢查或在地化觸發詞，只需直接執行 `prospec agent sync`，系統會明確列出缺少的條目供填補，完全無需重新建立設定檔。
 
+## 升級至 2.9.0
+
+先更新 binary，再執行 `prospec upgrade`：同步後的 Skills 要求 CLI 2.9.0 以上，包含可設定的測試 timeout 與 repository 內的 directory-symlink evidence 支援。維持既有行為不需要修改設定。
+
+若測試需要超過預設的 900,000 ms（15 分鐘），可選擇在 `.prospec.yaml` 設定 `tech_stack.test_timeout_ms`，值須為不超過 2,147,483,647 ms 的正整數。當 test command 可解析時，無效值會記錄為 unprovable attempt，且不執行測試。修改 timeout 會使先前的測試證據過期；須重新執行 `prospec check --record-tests`。詳見[設定參考](../reference/configuration.zh-TW.md)。
+
+`init` 與完整的 `agent sync` 現在會維護帶標記的 `.gitignore` 區塊，涵蓋本機 artifacts 與產生的 Skills。區塊外的內容會保留；若警告其他 ignore 規則仍隱藏 Skill，請檢查該規則。`agent sync --cli <name>` 不會更新此區塊。
+
+升級後執行 `prospec status` 與 `prospec check --strict`。
+
 ## 升級至 2.8.0
 
 先更新 binary，再執行 `prospec upgrade`：同步後的 Skills 要求 CLI 2.8.0 以上，以支援明確的 related-module scope。不需要修改設定。

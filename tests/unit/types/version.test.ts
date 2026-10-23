@@ -30,10 +30,10 @@ describe('PROSPEC_VERSION', () => {
 });
 
 describe('MINIMUM_CLI_VERSION', () => {
-  it('requires the CLI version that ships explicit related-module scope', async () => {
+  it('requires the CLI version that ships configurable test timeouts and symlink evidence', async () => {
     vi.resetModules();
     const { MINIMUM_CLI_VERSION } = await import('../../../src/types/version.js');
-    expect(MINIMUM_CLI_VERSION).toBe('2.8.0');
+    expect(MINIMUM_CLI_VERSION).toBe('2.9.0');
   });
 
   it('is a plain three-part semver literal (the probe floor skills render)', async () => {

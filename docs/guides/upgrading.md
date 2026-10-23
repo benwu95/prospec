@@ -39,6 +39,16 @@ prospec-upgrade                 # Step 2: AI agent migrates drifted doc formats,
 > - **Legacy File Cleanup**: If upgrading from an older pre-1.0 Prospec layout, remove the now-unused legacy files and directories after re-syncing: `GEMINI.md`, `.gemini/skills/`, `.codex/skills/`, `.github/copilot-instructions.md`, and `.github/instructions/`.
 > - **Configuration Version & Triggers**: `.prospec.yaml` `version` tracks the prospec version the project last upgraded to. If you ever need to localize triggers after adding a skill, simply run `prospec agent sync` — it explicitly reports missing `skill_triggers` entries so you fill only the gaps.
 
+## Upgrade to 2.9.0
+
+Update the binary before running `prospec upgrade`: the synced Skills require CLI 2.9.0 or later, including configurable test timeouts and in-repository directory-symlink evidence support. No configuration change is required for existing behavior.
+
+For test suites that need more than the default 900,000 ms (15 minutes), optionally set `tech_stack.test_timeout_ms` in `.prospec.yaml` to a positive integer up to 2,147,483,647 ms. When a test command resolves, an invalid value records an unprovable attempt without running tests. Changing the timeout makes prior test evidence stale; re-run `prospec check --record-tests`. See the [Configuration Reference](../reference/configuration.md).
+
+`init` and full `agent sync` now maintain a marked `.gitignore` block for local artifacts and generated Skills. Content outside the block is preserved; inspect any warning about another ignore rule still hiding a Skill. `agent sync --cli <name>` does not update the block.
+
+Run `prospec status` and `prospec check --strict` after upgrading.
+
 ## Upgrade to 2.8.0
 
 Update the binary before running `prospec upgrade`: the synced Skills require CLI 2.8.0 or later for explicit related-module scope. No configuration change is required.
