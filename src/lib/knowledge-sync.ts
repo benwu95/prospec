@@ -1,9 +1,11 @@
+import { execFileSync } from 'node:child_process';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { resolveBasePaths } from './config.js';
 import { isStale } from './drift-checker.js';
 import { collectGitTimestamps } from './drift-sources.js';
 import { readFileIfExists } from './fs-utils.js';
+import { fixedGitEnv } from './git-read.js';
 import { loadFeatureMap, loadModuleMap, readContained } from './knowledge-reader.js';
 import { iterateDeltaEntries, type DeltaEntry } from './landing-fidelity.js';
 import { isProvenBackfill } from './change-metadata.js';
@@ -11,7 +13,7 @@ import { parseYaml } from './yaml-utils.js';
 import { PrerequisiteError } from '../types/errors.js';
 import type { ProspecConfig } from '../types/config.js';
 import type { FeatureMap } from '../types/feature-map.js';
-import type { ModuleMap } from '../types/module-map.js';
+import { ModuleMapSchema, type ModuleMap } from '../types/module-map.js';
 import type { WorkflowReason } from '../types/status.js';
 
 /** The canonical `REQ-{MODULE}-NNN` id (a 3-digit sequence); capture 1 is the module prefix, hyphenated segments included. */
@@ -426,4 +428,26 @@ export async function checkKnowledgeSync(
   config: ProspecConfig | null,
 ): Promise<boolean> {
   return !hasKnowledgeSyncGap(await findUnsyncedModules(changeDir, metadata, cwd, config));
+}
+
+/**
+ * Each module's `last_verified` in `HEAD`'s copy of the module map — `undefined`
+ * where HEAD lists the module without a stamp — or null when HEAD cannot answer:
+ * no repository, no commit, the file absent at HEAD, or content failing the
+ * schema. `mapFile` is the real file the stamp is written to, so an in-root
+ * symlink reads its target's history rather than the link text.
+ */
+export function readHeadModuleStamps(cwd: string, mapFile: string): Map<string, string | undefined> | null {
+  try {
+    // git names a tree path with `/` on every platform
+    const rel = path.relative(fs.realpathSync(cwd), mapFile).split(path.sep).join('/');
+    const text = execFileSync('git', ['show', `HEAD:./${rel}`], {
+      cwd, env: fixedGitEnv(), stdio: 'pipe', timeout: 30_000,
+    }).toString('utf8');
+    const parsed = ModuleMapSchema.safeParse(parseYaml(text, mapFile));
+    if (!parsed.success) return null;
+    return new Map(parsed.data.modules.map((m) => [m.name, m.last_verified]));
+  } catch {
+    return null;
+  }
 }

@@ -70,9 +70,9 @@ prospec-design                    # (optional after Plan) UI / interaction specs
 prospec-tasks                     # break the plan into an ordered task checklist
 #   ↑ collapse story → plan → tasks in one pass with: prospec-ff add-my-feature
 prospec-implement                 # implement task-by-task (no commit yet)
+prospec-knowledge-update          # sync affected module Knowledge before review (implement's exit runs it)
 prospec-review                    # adversarial review → fix loop
 prospec-verify                    # validate; grade S/A opens the commit boundary
-prospec-knowledge-update          # sync affected module Knowledge into the feature commit
 prospec-archive                   # archive + graduate Feature Specs
 prospec-learn                     # (periodic) promote recurring lessons → team rules
 ```

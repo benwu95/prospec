@@ -5,7 +5,7 @@ Prospec 跑一條線性流程，外包兩條回饋迴圈，讓它**越用越好*
 
 ```mermaid
 flowchart TD
-    E([探索<br/>Explore]) --> S([需求<br/>Story]) --> P([計劃<br/>Plan]) --> D(["設計（UI 工作可選）<br/>Design"]) --> T([任務<br/>Tasks]) --> I([實作<br/>Implement]) --> R([審查<br/>Review]) --> V([驗證<br/>Verify]) --> KU([更新知識<br/>Knowledge Update]) -- Entry Gate --> A([歸檔<br/>Archive]) -- 定期 --> L([學習<br/>Learn])
+    E([探索<br/>Explore]) --> S([需求<br/>Story]) --> P([計劃<br/>Plan]) --> D(["設計（UI 工作可選）<br/>Design"]) --> T([任務<br/>Tasks]) --> I([實作<br/>Implement]) --> KU([更新知識<br/>Knowledge Update]) --> R([審查<br/>Review]) --> V([驗證<br/>Verify]) -- Entry Gate --> A([歸檔<br/>Archive]) -- 定期 --> L([學習<br/>Learn])
 
     V -. quality_log .-> L
     R -. findings .-> L

@@ -253,6 +253,18 @@ describe('status.service — routing in-flight changes', () => {
     expect(report.changes[0]?.next).toBe('review');
     expect(report.changes[0]?.reasons.join(' ')).toContain('legal lifecycle entry');
   });
+
+  // #411: Knowledge sync is checked before review, so an undeclared scope halts
+  // an unreviewed change here instead of only at `verified`.
+  it('halts an unreviewed implemented change whose related_modules scope is undeclared', async () => {
+    vol.fromJSON({
+      [`${CWD}/.prospec/changes/doc-legacy/metadata.yaml`]:
+        'name: doc-legacy\ncreated_at: 2026-01-01T00:00:00.000Z\nstatus: implemented\nscale: backfill\n',
+    });
+    const report = await execute({ cwd: CWD });
+    expect(report.changes[0]?.next).toBeNull();
+    expect(report.changes[0]?.code).toBe('KNOWLEDGE_INPUT_INVALID');
+  });
 });
 
 describe('status.service — unresolved warnings (issue #228)', () => {
@@ -502,9 +514,9 @@ describe('status.service — knowledge-aware routing at verified', () => {
     expect(report.changes[0]!.reasons.join(' ')).toContain('repair module-map.yaml');
   });
 
-  it('does not compute knowledge-sync reasons before a change is verified', async () => {
-    // A module map the typo is absent from, so the same change at `verified`
-    // does carry a reason — the empty list below is the status gate, not the fixture.
+  it('computes knowledge-sync reasons at implemented and verified, and at no earlier status', async () => {
+    // A module map the typo is absent from, so the change carries a reason wherever
+    // it is computed — an empty list below is the status gate, not the fixture.
     const files = (status: string) => ({
       [`${CWD}/.prospec/changes/a-change/metadata.yaml`]: metadataYaml({
         name: 'a-change',
@@ -514,15 +526,38 @@ describe('status.service — knowledge-aware routing at verified', () => {
       [`${CWD}/prospec/ai-knowledge/module-map.yaml`]:
         'modules:\n  - name: types\n    paths: [src/types]\n    keywords: [types]\n',
     });
-    vol.fromJSON(files('verified'));
-    await execute({ cwd: CWD });
-    expect(routedFacts[0]?.knowledgeSyncReasons.length).toBeGreaterThan(0);
+    for (const status of ['implemented', 'verified']) {
+      vol.reset();
+      routedFacts.length = 0;
+      vol.fromJSON(files(status));
+      await execute({ cwd: CWD });
+      expect(routedFacts[0]?.knowledgeSyncReasons.length, status).toBeGreaterThan(0);
+    }
+    for (const status of ['story', 'plan', 'tasks']) {
+      vol.reset();
+      routedFacts.length = 0;
+      vol.fromJSON(files(status));
+      await execute({ cwd: CWD });
+      expect(routedFacts[0]?.knowledgeSyncReasons, status).toEqual([]);
+    }
+  });
 
-    vol.reset();
-    routedFacts.length = 0;
-    vol.fromJSON(files('implemented'));
-    await execute({ cwd: CWD });
+  // #411 R1-3: once reviewed, an implemented change routes by review/verify facts
+  // alone, so its knowledge-sync gaps are not computed — an unreadable map cannot
+  // turn its VERIFY_PENDING route into an error entry.
+  it('does not compute knowledge-sync reasons for an implemented change that already has review provenance', async () => {
+    vol.fromJSON({
+      [`${CWD}/.prospec/changes/a-change/metadata.yaml`]: metadataYaml({
+        name: 'a-change',
+        status: 'implemented',
+        extra: 'related_modules:\n  - types\nreview_provenance:\n  digest: abc123\n  date: 2026-01-02\n',
+      }),
+      [`${CWD}/prospec/ai-knowledge/module-map.yaml`]: 'modules: [\n  - : :\n',
+    });
+    const report = await execute({ cwd: CWD });
     expect(routedFacts[0]?.knowledgeSyncReasons).toEqual([]);
+    expect(report.changes[0]?.next).toBe('verify');
+    expect(report.changes[0]?.code).toBe('VERIFY_PENDING');
   });
 
   it('routes verified to knowledge-update when affected module lacks last_verified', async () => {

@@ -159,6 +159,50 @@ describe('status-router — lifecycle edges', () => {
     expect(route.reasons.join(' ')).not.toContain('did not advance');
   });
 
+  // REQ-LIB-035 (#411): Knowledge syncs before the review baseline and the final
+  // test record, so an unreviewed implemented change checks its knowledge-sync
+  // reasons before it is routed to review.
+  it('implemented without review_provenance and only UNSYNCED reasons → knowledge-update', () => {
+    const route = routeChange(facts({ status: 'implemented', knowledgeSyncReasons: [UNSYNCED] }));
+    expect(route.current).toBe('implement');
+    expect(route.next).toBe('knowledge-update');
+    expect(route.code).toBe('KNOWLEDGE_UNSYNCED');
+    expect(route.blockingGates.join(' ')).toContain('Knowledge synced');
+    expect(route.reasons.join(' ')).toContain('status `implemented`');
+    expect(route.reasons.join(' ')).toContain('prospec-knowledge-update is the next station');
+    expect(route.reasons).toContain(`KNOWLEDGE_UNSYNCED: ${UNSYNCED.message} — ${UNSYNCED.remediation}`);
+  });
+
+  it('implemented without review_provenance and any other reason → KNOWLEDGE_INPUT_INVALID halt, checked before the UNSYNCED route', () => {
+    const other: WorkflowReason = { code: 'CHECK_UNPROVABLE', message: 'm', remediation: 'r' };
+    for (const knowledgeSyncReasons of [[INVALID], [INVALID, UNSYNCED], [UNSYNCED, other]]) {
+      const route = routeChange(facts({ status: 'implemented', knowledgeSyncReasons }));
+      expect(route.current).toBe('implement');
+      expect(route.next).toBeNull();
+      expect(route.code).toBe('KNOWLEDGE_INPUT_INVALID');
+      expect(route.blockingGates.join(' ')).toContain(RELATED_MODULE_HALT_CONDITION);
+      expect(route.reasons.join(' ')).toContain('status `implemented` — a knowledge-sync input no station repairs blocks review');
+      for (const reason of knowledgeSyncReasons) {
+        expect(route.reasons).toContain(`${reason.code}: ${reason.message} — ${reason.remediation}`);
+      }
+    }
+  });
+
+  it('implemented with review_provenance routes to verify whatever the knowledge-sync reasons — verified and archive are the backstop', () => {
+    for (const knowledgeSyncReasons of [[], [UNSYNCED], [INVALID], [INVALID, UNSYNCED]]) {
+      const route = routeChange(facts({ status: 'implemented', hasReviewProvenance: true, knowledgeSyncReasons }));
+      expect(route.next).toBe('verify');
+      expect(route.code).toBe('VERIFY_PENDING');
+    }
+  });
+
+  it('a backfill change at implemented is routed by the same knowledge-sync rules before review', () => {
+    expect(routeChange(facts({ status: 'implemented', scale: 'backfill', knowledgeSyncReasons: [UNSYNCED] })).next).toBe('knowledge-update');
+    const synced = routeChange(facts({ status: 'implemented', scale: 'backfill' }));
+    expect(synced.current).toBe('promote');
+    expect(synced.next).toBe('review');
+  });
+
   it('verified without knowledge sync → knowledge-update with sync gate', () => {
     const route = routeChange(facts({ status: 'verified', knowledgeSyncReasons: [UNSYNCED] }));
     expect(route.current).toBe('verify');

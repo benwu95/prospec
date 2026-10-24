@@ -1,11 +1,19 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { vol } from 'memfs';
 import { execute } from '../../../src/services/knowledge-verify.service.js';
+import { readHeadModuleStamps } from '../../../src/lib/knowledge-sync.js';
 import { PrerequisiteError } from '../../../src/types/errors.js';
 
 vi.mock('node:fs', async () => {
   const memfs = await import('memfs');
   return { ...memfs.fs, default: memfs.fs };
+});
+
+// HEAD is read through git, which memfs cannot serve: every case states what
+// HEAD holds, and by default HEAD cannot answer (no module is skipped).
+vi.mock('../../../src/lib/knowledge-sync.js', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../../../src/lib/knowledge-sync.js')>();
+  return { ...actual, readHeadModuleStamps: vi.fn(() => null) };
 });
 
 vi.mock('../../../src/lib/config.js', () => ({
@@ -27,6 +35,7 @@ const NOW = '2026-08-14T12:00:00.000Z';
 describe('knowledge-verify.service (REQ-SERVICES-090)', () => {
   beforeEach(() => {
     vol.reset();
+    vi.mocked(readHeadModuleStamps).mockReset().mockReturnValue(null);
   });
 
   it('stamps last_verified=now for a named module and preserves the others', async () => {
@@ -169,5 +178,82 @@ describe('knowledge-verify.service (REQ-SERVICES-090)', () => {
       await execute({ modules: ['lib'], cwd: '/test', now: NOW });
       expect(vol.readFileSync(MAP_PATH, 'utf-8')).toBe(`${blockMap}    last_verified: ${NOW}\n`);
     });
+  });
+});
+
+describe('knowledge-verify.service — same-day stamp skip (REQ-SERVICES-090)', () => {
+  const SAME_DAY = '2026-08-14T03:00:00.000Z';
+  const map = (lib: string | null, cli: string | null) =>
+    'modules:\n' +
+    `  - name: lib\n    paths: ["src/lib"]\n    keywords: ["lib"]\n${lib === null ? '' : `    last_verified: "${lib}"\n`}` +
+    `  - name: cli\n    paths: ["src/cli"]\n    keywords: ["cli"]\n${cli === null ? '' : `    last_verified: "${cli}"\n`}`;
+  const head = (entries: Record<string, string | undefined>) =>
+    vi.mocked(readHeadModuleStamps).mockReturnValue(new Map(Object.entries(entries)));
+
+  beforeEach(() => {
+    vol.reset();
+    vi.mocked(readHeadModuleStamps).mockReset().mockReturnValue(null);
+  });
+
+  it('skips a module stamped later than HEAD on the same UTC day, leaving the map byte-identical', async () => {
+    vol.fromJSON({ [MAP_PATH]: map(SAME_DAY, null) });
+    head({ lib: '2026-08-01T00:00:00.000Z', cli: undefined });
+    const before = vol.readFileSync(MAP_PATH, 'utf-8');
+    const result = await execute({ modules: ['lib'], cwd: '/test', now: NOW });
+    expect(result.verified).toEqual([]);
+    expect(result.skipped).toEqual(['lib']);
+    expect(vol.readFileSync(MAP_PATH, 'utf-8')).toBe(before);
+  });
+
+  it('treats a module or stamp absent at HEAD, or an unparsable HEAD stamp, as earlier', async () => {
+    for (const headLib of [undefined, 'not-a-date']) {
+      vol.reset();
+      vol.fromJSON({ [MAP_PATH]: map(SAME_DAY, null) });
+      head(headLib === undefined ? {} : { lib: headLib });
+      const result = await execute({ modules: ['lib'], cwd: '/test', now: NOW });
+      expect(result.skipped, String(headLib)).toEqual(['lib']);
+    }
+  });
+
+  it('stamps when the working-tree stamp equals HEAD, precedes it, falls on another day, or does not parse', async () => {
+    const cases: [string, string][] = [
+      [SAME_DAY, SAME_DAY],
+      ['2026-08-14T01:00:00.000Z', SAME_DAY],
+      ['2026-08-13T23:00:00.000Z', '2026-08-01T00:00:00.000Z'],
+      ['garbage', '2026-08-01T00:00:00.000Z'],
+    ];
+    for (const [worktree, atHead] of cases) {
+      vol.reset();
+      vol.fromJSON({ [MAP_PATH]: map(worktree, null) });
+      head({ lib: atHead });
+      const result = await execute({ modules: ['lib'], cwd: '/test', now: NOW });
+      expect(result.verified, `${worktree} vs ${atHead}`).toEqual(['lib']);
+      expect(result.skipped).toEqual([]);
+      expect(vol.readFileSync(MAP_PATH, 'utf-8')).toContain(`last_verified: ${NOW}`);
+    }
+  });
+
+  it('skips nothing when HEAD cannot answer', async () => {
+    vol.fromJSON({ [MAP_PATH]: map(SAME_DAY, null) });
+    const result = await execute({ modules: ['lib'], cwd: '/test', now: NOW });
+    expect(result.verified).toEqual(['lib']);
+    expect(result.skipped).toEqual([]);
+  });
+
+  it('rewrites only the modules not skipped and lists each kind', async () => {
+    vol.fromJSON({ [MAP_PATH]: map(SAME_DAY, '2026-08-01T00:00:00.000Z') });
+    head({ lib: '2026-08-01T00:00:00.000Z', cli: '2026-08-01T00:00:00.000Z' });
+    const result = await execute({ modules: ['lib', 'cli'], cwd: '/test', now: NOW });
+    expect(result.verified).toEqual(['cli']);
+    expect(result.skipped).toEqual(['lib']);
+    const content = vol.readFileSync(MAP_PATH, 'utf-8') as string;
+    expect(content).toContain(SAME_DAY);
+    expect(content.match(new RegExp(NOW, 'g'))).toHaveLength(1);
+  });
+
+  it('reads HEAD for the real file the stamp is written to', async () => {
+    vol.fromJSON({ [MAP_PATH]: map(null, null) });
+    await execute({ modules: ['lib'], cwd: '/test', now: NOW });
+    expect(readHeadModuleStamps).toHaveBeenCalledWith('/test', MAP_PATH);
   });
 });

@@ -26,9 +26,9 @@ describe('SDD_STATIONS (REQ-TYPES-070)', () => {
       'tasks',
       'promote',
       'implement',
+      'knowledge-update',
       'review',
       'verify',
-      'knowledge-update',
       'archive',
     ]);
   });
@@ -37,9 +37,9 @@ describe('SDD_STATIONS (REQ-TYPES-070)', () => {
     expect(SDD_STATIONS.indexOf('promote')).toBe(SDD_STATIONS.indexOf('implement') - 1);
   });
 
-  it('places knowledge-update immediately between verify and archive', () => {
-    expect(SDD_STATIONS.indexOf('knowledge-update')).toBe(SDD_STATIONS.indexOf('verify') + 1);
-    expect(SDD_STATIONS.indexOf('archive')).toBe(SDD_STATIONS.indexOf('knowledge-update') + 1);
+  it('places knowledge-update immediately between implement and review — Knowledge syncs before the evidence is recorded', () => {
+    expect(SDD_STATIONS.indexOf('knowledge-update')).toBe(SDD_STATIONS.indexOf('implement') + 1);
+    expect(SDD_STATIONS.indexOf('review')).toBe(SDD_STATIONS.indexOf('knowledge-update') + 1);
   });
 
   it('maps every station to a skill that actually exists', () => {

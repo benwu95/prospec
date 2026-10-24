@@ -106,7 +106,7 @@ original goal stays in focus across long task loops (attention anchoring):
 `Progress X/Y | Goal: <proposal one-liner> | Next: <next task>`
 
 X/Y is the command's code-task count (`[M]`/`[V]` excluded — kind schema: tasks-format reference).
-When all code tasks are done it reports `Progress Y/Y (Complete)` — point to `prospec-review`.
+When all code tasks are done it reports `Progress Y/Y (Complete)` — close the station (Phase 6).
 
 > **Phase 5 Gate** — proceed when:
 > - [ ] `prospec change progress --complete <task-id>` flipped the current task's checkbox
@@ -115,7 +115,7 @@ When all code tasks are done it reports `Progress Y/Y (Complete)` — point to `
 ### Phase 6: Move to Next Task
 
 Auto-locate next uncompleted task. If switching architecture layers, load new module knowledge.
-When all **code** tasks are complete (unchecked `[M]`/`[V]` tasks are surfaced as reminders, never blockers — kind schema: tasks-format reference), run `prospec change status implemented` (Bash) — never edit metadata.yaml by hand — then suggest `prospec-review` (adversarial code review before verify). **Do not commit during implement** — the commit boundary is after `prospec-verify` reaches S/A, so implement + review + verify fixes fold into one atomic-by-feature commit.
+When all **code** tasks are complete (unchecked `[M]`/`[V]` are reminders, never blockers — kind schema: tasks-format reference), close in order — never edit metadata.yaml by hand: (1) run `prospec-knowledge-update`, which stamps the affected modules via `prospec knowledge verify <modules...>`, then re-derive factual counts through the project's count generator (else from source); (2) `prospec check --record-tests --change <name>`; (3) `prospec change status implemented`. Then suggest `prospec-review` (adversarial code review before verify). **Do not commit during implement** — the commit boundary is after `prospec-verify` reaches S/A, so implement + review + verify fixes fold into one atomic-by-feature commit.
 
 ## Task Execution Rules
 
@@ -172,7 +172,7 @@ Emit one line: `Met N/M | Unmet: <items> | Overall: PASS|WARN|FAIL | Next: <one-
 ## Next-Step Handoff
 
 After the Output Summary, recommend the next step in the SDD workflow order
-(`story → plan → tasks → implement → review → verify → knowledge-update → archive`, then periodic `learn`) — read
+(`story → plan → tasks → implement → knowledge-update → review → verify → archive`, then periodic `learn`) — read
 `metadata.yaml` status and `prospec/ai-knowledge/_status-lifecycle.md` (review and learn own no
 status transition, so follow this order, not status alone). Provide the direct, actionable Skill
 identity or CLI command for the next step (e.g. `prospec-plan`), allowing smooth continuation

@@ -4,7 +4,7 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg?style=flat-square)](LICENSE)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.9-blue?style=flat-square&logo=typescript)](https://www.typescriptlang.org/)
-[![測試](https://img.shields.io/badge/測試-8667%20總計-success?style=flat-square)](./CONTRIBUTING.md#testing)
+[![測試](https://img.shields.io/badge/測試-8691%20總計-success?style=flat-square)](./CONTRIBUTING.md#testing)
 [![Node](https://img.shields.io/badge/node-%3E%3D22.13-brightgreen?style=flat-square&logo=node.js)](https://nodejs.org/)
 [![pnpm](https://img.shields.io/badge/pnpm-%3E%3D11-orange?style=flat-square&logo=pnpm)](https://pnpm.io/)
 
@@ -24,7 +24,7 @@
 
 **Prospec** 的名稱結合 **Project + Specification**。它讓開發者與 AI coding agent **依據專案內的檔案，共用同一套開發流程**。Spec 記錄預期行為；Constitution、conventions 與模組知識留下開發規則及修改程式碼前需要注意的事。進行中的 change 檔案記錄需求、計畫與任務。工作暫停時，`prospec status` 會列出目前站點、下一個 Skill 與阻擋條件，讓使用同一專案的其他 agent 能依據已記錄的狀態接手。
 
-日常工作由 agent 內的 host-aware **Skills** 驅動（Claude Code、Antigravity、Copilot、Codex）。每一站都有操作說明，指引訪談、文件撰寫、審查與裁決等判斷工作；必裝的獨立執行檔 **`prospec` CLI** 則負責確定性的 scaffold、狀態轉換、結構化紀錄、檢查、評分與 spec sync。標準流程是 `story → plan → design → tasks → implement → review → verify → knowledge-update → archive`；Design 視 UI 範圍執行，change scale 也可能縮短流程。
+日常工作由 agent 內的 host-aware **Skills** 驅動（Claude Code、Antigravity、Copilot、Codex）。每一站都有操作說明，指引訪談、文件撰寫、審查與裁決等判斷工作；必裝的獨立執行檔 **`prospec` CLI** 則負責確定性的 scaffold、狀態轉換、結構化紀錄、檢查、評分與 spec sync。標準流程是 `story → plan → design → tasks → implement → knowledge-update → review → verify → archive`；Design 視 UI 範圍執行，change scale 也可能縮短流程。
 
 三個元件協同運作：
 
@@ -32,7 +32,7 @@
   你 ⇄ AI agent
      │
      ├─ Skills .......... 執行工作流：story → plan → design → tasks →
-     │                    implement → review → verify → knowledge-update → archive
+     │                    implement → knowledge-update → review → verify → archive
      │                        ▲
      │                        │ 讀取並擴充
      ├─ AI Knowledge .... 結構化的專案記憶（模組、規格、教訓）
@@ -57,7 +57,7 @@ Review 共用八個 lenses：correctness、security 與 spec-architecture 每輪
 | AI 不了解你的程式碼庫 | `prospec knowledge init` + `prospec-knowledge-generate` 自動掃描並生成 AI 可讀文件 |
 | 新 agent 不知道工作停在哪裡 | 專案內的 change artifacts 保留進行中的工作；`prospec status` 指出下一站與阻擋條件 |
 | Context window 限制 | 漸進式揭露：先載入摘要，細節按需取用；用 `prospec measure` 驗證你自己 session 的實際影響 |
-| AI 工作流不一致 | 結構化 Skills 強制執行 `story → plan → design → tasks → implement → review → verify → knowledge-update → archive`，條件分支也明確可見 |
+| AI 工作流不一致 | 結構化 Skills 強制執行 `story → plan → design → tasks → implement → knowledge-update → review → verify → archive`，條件分支也明確可見 |
 | 供應商鎖定 | 支援 4+ AI CLI，知識儲存在通用 Markdown 格式 |
 | 設計到程式碼斷裂 | `prospec-design` 生成視覺 + 互動規格，整合 MCP 工具 |
 | Knowledge 容易過時 | 在最終 review/tests/verify 前同步 Knowledge；verify 採 repository-wide Knowledge health，S/A prompt 確認已驗證輸入，archive 複核同步 |
@@ -137,8 +137,7 @@ Agent 接手需求並執行 prospec-ff：
   • 寫出 story → plan → tasks
   • machine gates 通過後自主繼續：
 
-  implement → review → verify → GRADE A
-                           → knowledge update ✓
+  implement → knowledge update ✓ → review → verify → GRADE A
                            → Tastemaker sign-off（你檢視 diff + evidence）
                            → 你核准 commit 與 archive ✓
 ```

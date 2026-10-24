@@ -51,6 +51,23 @@ describe('change-progress-output', () => {
     expect(out).toContain('Progress 5/5 (Complete)');
   });
 
+  // #411 R1-1: the closing hint follows the implement exit — Knowledge sync before
+  // the final test record, both before the status transition and review.
+  it('points a finished implement at the exit order: Knowledge sync, test record, status, then review', () => {
+    const out = captureStdout(() =>
+      formatChangeProgressOutput(
+        baseResult({ progress: { checked: 5, total: 5 }, allCodeDone: true }),
+        'normal',
+      ),
+    );
+    const hint = out.split('\n').find((line) => line.includes('All code tasks done'))!;
+    expect(hint).toBeDefined();
+    const order = ['prospec-knowledge-update', 'prospec check --record-tests', 'prospec change status implemented', 'prospec-review']
+      .map((step) => hint.indexOf(step));
+    expect(order.every((at) => at >= 0)).toBe(true);
+    expect([...order].sort((a, b) => a - b)).toEqual(order);
+  });
+
   it('pins the `Next: ` prefix parse contract', () => {
     const out = captureStdout(() =>
       formatChangeProgressOutput(baseResult({ nextTask: 'Task 4: wire the command' }), 'normal'),

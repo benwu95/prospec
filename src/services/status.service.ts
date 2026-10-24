@@ -81,7 +81,7 @@ export async function execute(options: StatusOptions = {}): Promise<StatusReport
 
   // The next station's skill path is resolved from the project's configured
   // agents (Station Transition Protocol). Read config ONCE here and thread it into
-  // collectFacts — knowledge-sync would otherwise re-read it per verified change.
+  // collectFacts — knowledge-sync would otherwise re-read it per change it checks.
   // The router stays I/O-free.
   const config = await readConfig(cwd).catch(() => null);
   // Resolved once, outside the per-change try/catch: an invalid pause setting must
@@ -285,8 +285,9 @@ async function collectFacts(
       hasPlanSignoffAfterVerifier(metadata.quality_log, escalationHistory, { scale, digest: planDigest }),
     planChangedSinceVerifier: planDigest !== null && planChangedSinceVerifier(metadata.quality_log, planDigest),
     unresolvedWarnings: unresolvedWarnings(metadata.quality_log),
+    // Read where a route depends on it: before review at `implemented`, and at `verified`.
     knowledgeSyncReasons:
-      metadata.status === 'verified'
+      metadata.status === 'verified' || (metadata.status === 'implemented' && metadata.review_provenance === undefined)
         ? knowledgeSyncReasons(await findUnsyncedModules(changeDir, metadata, cwd, config), name)
         : [],
     ...(issue === undefined ? {} : { issue }),

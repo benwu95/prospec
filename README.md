@@ -4,7 +4,7 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg?style=flat-square)](LICENSE)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.9-blue?style=flat-square&logo=typescript)](https://www.typescriptlang.org/)
-[![Tests](https://img.shields.io/badge/tests-8667%20total-success?style=flat-square)](./CONTRIBUTING.md#testing)
+[![Tests](https://img.shields.io/badge/tests-8691%20total-success?style=flat-square)](./CONTRIBUTING.md#testing)
 [![Node](https://img.shields.io/badge/node-%3E%3D22.13-brightgreen?style=flat-square&logo=node.js)](https://nodejs.org/)
 [![pnpm](https://img.shields.io/badge/pnpm-%3E%3D11-orange?style=flat-square&logo=pnpm)](https://pnpm.io/)
 
@@ -24,7 +24,7 @@
 
 **Prospec** combines **Project + Specification**. It gives developers and AI coding agents a **shared workflow grounded in files inside the project**. Specs describe expected behavior; the Constitution, conventions, and module knowledge record project rules and things an agent needs to know before changing code. In-progress change files capture the request, plan, and tasks. When work pauses, `prospec status` reports the current station, next Skill, and blocking gates, so another agent working in the same project can resume from the recorded state.
 
-You work through host-aware **Skills inside your agent** (Claude Code, Antigravity, Copilot, Codex). Each station has instructions for the judgment it needs — interviews, prose, reviews, and verdicts — while the required standalone **`prospec` CLI** handles deterministic scaffolding, status transitions, structured records, checks, grading, and spec sync. The standard path is `story → plan → design → tasks → implement → review → verify → knowledge-update → archive`; Design is conditional on UI scope, and change scale can shorten the path.
+You work through host-aware **Skills inside your agent** (Claude Code, Antigravity, Copilot, Codex). Each station has instructions for the judgment it needs — interviews, prose, reviews, and verdicts — while the required standalone **`prospec` CLI** handles deterministic scaffolding, status transitions, structured records, checks, grading, and spec sync. The standard path is `story → plan → design → tasks → implement → knowledge-update → review → verify → archive`; Design is conditional on UI scope, and change scale can shorten the path.
 
 Three pieces work together:
 
@@ -32,7 +32,7 @@ Three pieces work together:
   You ⇄ AI agent
      │
      ├─ Skills .......... run the workflow:  story → plan → design → tasks →
-     │                    implement → review → verify → knowledge-update → archive
+     │                    implement → knowledge-update → review → verify → archive
      │                        ▲
      │                        │ read & grow
      ├─ AI Knowledge .... structured project memory (modules, specs, lessons)
@@ -57,7 +57,7 @@ Review uses eight shared lenses: correctness, security and spec-architecture run
 | AI doesn't know your codebase | `prospec knowledge init` + `prospec-knowledge-generate` auto-scan and generate AI-readable docs |
 | A new agent cannot tell where work stopped | Project-local change artifacts preserve the current work; `prospec status` names the next station and its blocking gates |
 | Context window limits | Progressive disclosure: load a summary first, details on demand; verify the impact on your own sessions with `prospec measure` |
-| Inconsistent AI workflows | Structured Skills enforce `story → plan → design → tasks → implement → review → verify → knowledge-update → archive` with explicit conditional branches |
+| Inconsistent AI workflows | Structured Skills enforce `story → plan → design → tasks → implement → knowledge-update → review → verify → archive` with explicit conditional branches |
 | Vendor lock-in | Works with 4+ AI CLIs; knowledge stored as universal Markdown |
 | No design-to-code bridge | `prospec-design` generates visual + interaction specs with MCP tool integration |
 | Knowledge becomes stale | Sync Knowledge before final review/tests/verify; verify adopts repository-wide Knowledge health, the S/A prompt confirms validated inputs, and archive re-confirms synchronization |
@@ -137,8 +137,7 @@ The agent picks up the request and runs prospec-ff:
   • writes story → plan → tasks
   • as machine gates pass, continues autonomously:
 
-  implement → review → verify → GRADE A
-                           → knowledge update ✓
+  implement → knowledge update ✓ → review → verify → GRADE A
                            → Tastemaker sign-off (you inspect the diff + evidence)
                            → you approve the commit and archive ✓
 ```

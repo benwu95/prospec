@@ -16,7 +16,7 @@ When triggered, briefly describe:
 
 {{> cli-probe}}
 
-Review/default tests use `snapshot-v2` / `repository-inputs-v2`, independent of staging or equivalent commits. Sync Knowledge/count/generated assets before final review/tests/verify. Revalidate legacy records once.
+Review/default tests use `snapshot-v2` / `repository-inputs-v2`, independent of staging or equivalent commits. Revalidate legacy records once.
 
 ## Startup Loading
 
@@ -196,7 +196,7 @@ never overturn the check's verdict, and you never grade freshness yourself. A `s
 
 **Freshness and coverage** (`{{knowledge_base_path}}/modules/`): the engine compares each registered module's last committed source date with `last_verified` by **UTC calendar day**. A later UTC source date, missing README or missing `last_verified` yields WARN; the current check does not emit FAIL. An uncommitted source edit does not advance that date. Confirm README content alongside these mechanical facts; semantic observations remain supplemental WARN detail.
 
-**Prepare final Knowledge inputs**: name modules needing updates or confirmation and run `prospec-knowledge-update` plus `prospec knowledge verify <modules...>` before final review/tests/verify. A newly registered module has the same coverage and freshness rules. Changed effective inputs require renewed validation. The archive Entry Gate remains the **backstop** for affected-module synchronization.
+**Knowledge inputs**: the implement exit synchronized and stamped affected-module Knowledge before the final test record. Name modules needing updates or confirmation; their synchronization runs at the knowledge-update station (`prospec status` routes a knowledge-sync gap there; a README gap no fact records runs it manually), and its stamp reopens the recorded evidence. New modules follow the same coverage and freshness rules; the archive Entry Gate remains the **backstop**.
 
 **Feature Spec — informational only (does NOT affect the grade):**
 - A permanent Feature Spec lagging an un-archived change → informational note ("graduates at `prospec-archive`"); expected, not drift
@@ -344,9 +344,9 @@ budget-counted WARN. The CLI:
 
 The `metadata-completeness` drift check reads `grade` (`hasVerifyGrade` accepts `grade` ∈ {S,A}); `dimensions` and the review counts are not read by any check — together with `grade` they make quality trends aggregatable across archives.
 
-**Commit prompt (S/A only)**: reaching S/A is the single commit point — the last gate that can require code changes. Follow the canonical **Tastemaker Presentation & Human Gate** protocol defined in [`references/cascade-protocol.md §Tastemaker Presentation & Human Gate`](references/cascade-protocol.md) (confirm affected-module Knowledge and counts were synchronized before final review/tests/verify, updating descriptions without citing not-yet-graduated REQ ids; any later effective-input edit requires renewed validation). Prompt the user to commit the change as a single atomic-by-feature commit that folds the implement, review, and verify fixes plus Knowledge sync together. Do not commit automatically.
+**Commit prompt (S/A only)**: reaching S/A is the single commit point — the last gate that can require code changes. Follow the canonical **Tastemaker Presentation & Human Gate** protocol defined in [`references/cascade-protocol.md §Tastemaker Presentation & Human Gate`](references/cascade-protocol.md) (confirm the implement exit synchronized affected-module Knowledge and counts, with descriptions citing no not-yet-graduated REQ ids). Prompt the user to commit the change as a single atomic-by-feature commit that folds the implement, review, and verify fixes plus Knowledge sync together. Do not commit automatically.
 
-Content-equivalent commits preserve provenance evidence. Before re-verifying after a commit, inspect `knowledge-health`; if accurate Knowledge needs reconfirmation, stamp the modules and validate the changed inputs again. The `prospec-archive` Entry Gate remains the synchronization **backstop**.
+Content-equivalent commits preserve provenance evidence. Before re-verifying after a commit, inspect `knowledge-health` and name the modules whose Knowledge needs reconfirmation; their synchronization runs at the knowledge-update station, and its stamp reopens the recorded evidence. The `prospec-archive` Entry Gate remains the synchronization **backstop**.
 
 ## Knowledge Quality Gate
 
@@ -356,7 +356,7 @@ Final Knowledge consistency summary:
 |------------|------|------|
 | Repository Knowledge verdict | `knowledge-health` PASS | Adopt its WARN or not-adjudicated result; name required module confirmation |
 | No undocumented features | Knowledge entries trace to a delta-spec REQ or shipped behavior | Features in Knowledge without any requirement |
-| Final Knowledge inputs | Synced and stamped before final review/tests/verify; S/A prompt confirms validated content | Effective inputs changed — renew final validation; archive remains the backstop |
+| Final Knowledge inputs | Synced and stamped at the implement exit, before the final test record; S/A prompt confirms validated content | Modules named for the knowledge-update station; archive remains the backstop |
 | Feature Spec graduation | Informational — Feature Specs update at `prospec-archive`; not gated here | — |
 
 WARN items are deployment risks — recommend resolving before `prospec-archive`.

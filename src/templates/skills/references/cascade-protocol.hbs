@@ -9,20 +9,20 @@ This document defines the **Autonomous Pipeline Cascading Protocol** used by `pr
 The cascading workflow dynamically adapts its trajectory based on `metadata.scale`:
 
 ### 1. Scale: Quick (`scale: quick`)
-- **Trajectory**: `story → tasks → implement → review → verify → knowledge-update → Tastemaker Sign-off`
+- **Trajectory**: `story → tasks → implement → knowledge-update → review → verify → Tastemaker Sign-off`
 - **Plan Bypass**: Skips `plan.md` and `delta-spec.md` by contract; moves directly from `proposal.md` to `tasks.md`.
 - **Review/Verify Light Execution**: Evaluates against `proposal.md` acceptance scenarios; delta-spec compliance (2/5) is `not-applicable`.
 
 ### 2. Scale: Standard (`scale: standard` or unset)
-- **Trajectory**: `story → plan → [plan sign-off, when paused] → tasks → implement → review → verify → knowledge-update → Tastemaker Sign-off`
+- **Trajectory**: `story → plan → [plan sign-off, when paused] → tasks → implement → knowledge-update → review → verify → Tastemaker Sign-off`
 - **Linear Progression**: Each station advances immediately upon meeting its entry and exit gates.
 
 ### 3. Scale: Full (`scale: full`)
-- **Trajectory**: `story → plan (candidates + metrics) → [plan sign-off, when paused] → tasks → implement → review → verify → knowledge-update → Tastemaker Sign-off`
+- **Trajectory**: `story → plan (candidates + metrics) → [plan sign-off, when paused] → tasks → implement → knowledge-update → review → verify → Tastemaker Sign-off`
 - **Candidate Selection**: In Phase 4 of Plan, generates orthogonal candidate architectures, measures them with `prospec validate candidates`, and selects in-session. Without the pause the cascade continues into tasks and NEVER asks the human to choose.
 
 ### 4. Scale: Backfill (`scale: backfill`)
-- **Trajectory**: `promote → review → verify → knowledge-update → Tastemaker Sign-off`
+- **Trajectory**: `promote → knowledge-update → review → verify → Tastemaker Sign-off`
 - **Entry, not a skip**: `prospec-promote-backfill` formalizes a reviewed `backfill-draft.md` and lands at `implemented`; plan and tasks are forbidden by contract, and `prospec status` never routes a backfill to them.
 
 On standard and full, the plan sign-off pause (by default for a verified `ai-proposed` Premise, or via `workflow.pause_at: [plan]`; `PROSPEC_PAUSE_AT` decides alone per run, empty or `none` = no pause) has `prospec status` hold the change for a human plan sign-off — NEVER set `PROSPEC_PAUSE_AT` to skip it without an explicit human instruction.
@@ -54,26 +54,22 @@ An autonomous transition to the next station occurs **only** when all preconditi
 | **plan** | `design` (proposal `ui_scope` full/partial) — otherwise `tasks` | Architecture Verifier PASS (or advisory WARN) on five orthogonal dimensions, recorded via `prospec change log --skill prospec-plan --verifier-report <file>` (a Break-Glass grant alone never satisfies the verifier gate); a recorded FLAWS keeps `prospec status` on plan until a later PASS/WARN; under the plan sign-off pause the change also needs a human sign-off that counts for its current plan. |
 | **design** | `tasks` | `design-spec.md` + `interaction-spec.md` produced. |
 | **tasks** | `implement` | Task Contract Verifier PASS (or advisory WARN) on bidirectional coverage, DAG layering and TDD closure, recorded via `prospec change log --skill prospec-tasks --verifier-report <file>`; a recorded FLAWS keeps `prospec status` on tasks until a later PASS/WARN. |
-| **promote** | `review` | Promotion scaffold complete (`prospec validate promote-scaffold`) and `status: implemented` set — the backfill entry. |
-| **implement** | `review` | 100% of code tasks checked off; `prospec change status implemented` executed. |
+| **promote** | `knowledge-update` (affected-module Knowledge unsynced) — otherwise `review` | Promotion scaffold complete (`prospec validate promote-scaffold`), Knowledge synced at its exit, and `status: implemented` set — the backfill entry. |
+| **implement** | `knowledge-update` (affected-module Knowledge unsynced) — otherwise `review` | 100% of code tasks checked off; Knowledge synced and stamped, then tests recorded and `prospec change status implemented` executed. |
 | **review** | `verify` | 0 unresolved critical findings; tests pass; review baseline stamped via `prospec check --record-review`. |
 | **verify** | `knowledge-update` — or `archive` when affected-module Knowledge is already synced — or back to `verify` | Quality Grade **S** or **A** achieved (`status: verified`); a B/C/D grade — even after an earlier S/A — is routed back to verify by `prospec status`, never to archive. |
-| **knowledge-update** | `archive` (after Tastemaker sign-off and the human commit) | Knowledge/count/generated assets synced; final evidence matches resulting inputs — when the sync changed inputs, the provenance gates send the change through review and verify again before sign-off. |
+| **knowledge-update** | `review` — or `archive` when reached after verify (after Tastemaker sign-off and the human commit) | Affected-module Knowledge/count/generated assets synced and stamped. |
 
 ---
 
 ## Tastemaker Presentation & Human Gate
 
-Prepare final inputs before reaching this boundary:
-
-- **Sync affected-module Knowledge**: Run `prospec-knowledge-update` into the feature commit for the modules `prospec knowledge update --change` reports as created or README-pending ∪ `metadata.related_modules` ∪ the modules a working-tree diff attributes through the module map (generated artifacts included) (`scale: backfill`: the modules `prospec knowledge update --change` reports ∪ `metadata.related_modules`, minting nothing). Update descriptions only without citing ungraduated REQs. Stamp freshness via `prospec knowledge verify <modules...>`.
-- **Re-derive factual counts**: If the project has a factual count generator, run it to synchronize documentation counts; otherwise re-derive from source.
+Final inputs are synchronized before the evidence is recorded — at the implement exit (`scale: backfill`: the promote-backfill exit).
 
 When the pipeline completes final Verification with Grade S/A, reaching this boundary marks the **single commit point** for the change:
 
 1. **Commit Boundary & Confirmation (S/A only)**:
-   - **Confirm validated inputs**: Confirm Knowledge sync, freshness stamps and factual counts already belong to the validated inputs. If preparation is incomplete, return to the preparation above, then obtain final review/tests/verify again before presenting S/A.
-   - **Final evidence order**: sync → final review → tests → verify → equivalent commit. If synchronization changed effective inputs, return to final review/tests/verify after sync; present only the resulting S/A. Existing current records need no rerun merely because staging, commit, amend or equivalent history changed.
+   - **Confirm validated inputs**: Confirm Knowledge sync, freshness stamps and factual counts already belong to the validated inputs; an incomplete synchronization runs at the knowledge-update station `prospec status` names, and its stamp reopens the recorded evidence. Existing current records need no rerun merely because staging, commit, amend or equivalent history changed.
 2. **Tastemaker Presentation Payload**: Present a structured delivery summary for the human Tastemaker:
    - **Verify Grade & Status**: S/A rating with verified timestamp.
    - **Delta-Spec Summary**: Overview of added/modified/removed requirements.
@@ -83,7 +79,7 @@ When the pipeline completes final Verification with Grade S/A, reaching this bou
 3. **Strict Invariant — Human Commit Prompt**:
    - The Agent **NEVER** automatically commits, pushes, or archives without explicit human approval.
    - Prompt the user to commit the change as a single atomic-by-feature commit folding implement, review, and verify fixes plus knowledge sync together (`feat: <description>`).
-   - After the commit lands and before pushing, re-run the project's knowledge-sync mechanical gate if declared. Before re-verifying, inspect `knowledge-health`; if accurate Knowledge needs reconfirmation, stamp the modules and validate the changed inputs again. Commit equivalence preserves content evidence, while Knowledge freshness is assessed separately.
+   - After the commit lands and before pushing, re-run the project's knowledge-sync mechanical gate if declared. Before re-verifying, inspect `knowledge-health` and name the modules whose Knowledge needs reconfirmation; their synchronization runs at the knowledge-update station, and its stamp reopens the recorded evidence. Commit equivalence preserves content evidence, while Knowledge freshness is assessed separately.
 4. **Sign-off Options for Developer** (the final delivery sign-off; the plan sign-off is a separate Step 5 loop-exit):
    - **Approve**: Run the git commit command and advance to `prospec-archive`.
    - **Steer / Adjust**: Request additional changes, refinements, or re-verification.

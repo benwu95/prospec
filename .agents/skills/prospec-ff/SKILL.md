@@ -29,7 +29,7 @@ Write each generated document in the language the Constitution's Language Policy
 Hand-executing a CLI-owned mutation is NEVER the fallback — that re-introduces the
 nondeterministic serialization this contract exists to remove.
 
-Evidence uses `snapshot-v2` / `repository-inputs-v2`: repository input content, independent of staging and equivalent commit history. Complete Knowledge/count/generated-asset sync before the final review, test record and verification. A legacy record needs one real revalidation; an equivalent commit alone needs no re-record.
+Evidence uses `snapshot-v2` / `repository-inputs-v2`: repository input content, independent of staging and equivalent commit history. A legacy record needs one real revalidation; an equivalent commit alone needs no re-record.
 
 ## Startup Loading
 
@@ -125,11 +125,10 @@ Before scaffolding, the Agent judges scope (keywords are hints): pass the comple
 **Station Transition & Receipt Protocol**: Re-read each downstream skill before entry and follow its gates and receipt contracts.
 
 Read [`references/cascade-protocol.md`](references/cascade-protocol.md), [`references/circuit-breaker.md`](references/circuit-breaker.md), and [`references/project-test-runner.md`](references/project-test-runner.md) on demand:
-1. **Implementation**: Follow `tasks.md` dependency order and [`references/tasks-format.md`](references/tasks-format.md) / `_conventions.md`. Record passing tests via `check --record-tests`; set `status: implemented`.
+1. **Implementation**: Follow `tasks.md` dependency order and [`references/tasks-format.md`](references/tasks-format.md) / `_conventions.md`. Close in the implement skill's order: Knowledge sync → `check --record-tests` → `status: implemented`.
 2. **Adversarial Review Loop**: Ticket and receive delegates via [`references/delegation-protocol.md`](references/delegation-protocol.md); `prospec review merge` receives `ReviewFindingsInputSchema`. Auto-fix verifier-confirmed criticals; follow [`references/circuit-breaker.md`](references/circuit-breaker.md).
 3. **Verify Audit**: Apply the **Physical Receipt Verification Protocol** in [`references/delegation-protocol.md`](references/delegation-protocol.md) to graders; `prospec verify record` receives `JudgmentDimensionsInputSchema`. Complete the 5+1 audit to Grade S/A (`status: verified`).
-4. **Final evidence convergence**: If Knowledge/count/generated-asset sync changed inputs, repeat review → tests → verify on the resulting snapshot before sign-off.
-5. **Tastemaker Presentation**: Present Git Diff, Verify report, and Delta-Spec summary. **HALT** for human sign-off; do not commit or archive automatically.
+4. **Tastemaker Presentation**: Present Git Diff, Verify report, and Delta-Spec summary. **HALT** for human sign-off; do not commit or archive automatically.
 
 > **Phase 5 Gate** — proceed when:
 > - [ ] all code tasks implemented and test suite green (status: implemented)
@@ -143,7 +142,7 @@ List files and task statistics; planning hands off to `prospec-implement`, casca
 ## Next-Step Handoff
 
 After the Output Summary, recommend the next step in the SDD workflow order
-(`story → plan → tasks → implement → review → verify → knowledge-update → archive`, then periodic `learn`) — read
+(`story → plan → tasks → implement → knowledge-update → review → verify → archive`, then periodic `learn`) — read
 `metadata.yaml` status and `prospec/ai-knowledge/_status-lifecycle.md` (review and learn own no
 status transition, so follow this order, not status alone). Provide the direct, actionable Skill
 identity or CLI command for the next step (e.g. `prospec-plan`), allowing smooth continuation
