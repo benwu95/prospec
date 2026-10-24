@@ -11,7 +11,7 @@ description: "Archive Changes - Archive completed changes, generate summary, syn
 When triggered, briefly describe:
 - That you'll scan `.prospec/changes/` for completed changes
 - The deterministic mutations are executed by `prospec archive <name>` (previewed with `--dry-run`); this skill keeps the judgment work — the Entry Gate, the Review & Verify summary, and REQ semantic graduation
-- Sync affected-module Knowledge before final review/tests/verify; the S/A commit prompt confirms validated content and the Entry Gate re-confirms synchronization (backstop) before archiving
+- Affected-module Knowledge is synced at the implement exit; the S/A commit prompt confirms validated content and the Entry Gate re-confirms synchronization (backstop) before archiving
 
 ## Language Policy
 
@@ -32,7 +32,7 @@ Write each generated document in the language the Constitution's Language Policy
 Hand-executing a CLI-owned mutation is NEVER the fallback — that re-introduces the
 nondeterministic serialization this contract exists to remove.
 
-Evidence uses `snapshot-v2` / `repository-inputs-v2`: repository input content, independent of staging and equivalent commit history. Complete Knowledge/count/generated-asset sync before the final review, test record and verification. A legacy record needs one real revalidation; an equivalent commit alone needs no re-record.
+Evidence uses `snapshot-v2` / `repository-inputs-v2`: repository input content, independent of staging and equivalent commit history. A legacy record needs one real revalidation; an equivalent commit alone needs no re-record.
 
 ## Startup Loading
 
@@ -42,7 +42,7 @@ Evidence uses `snapshot-v2` / `repository-inputs-v2`: repository input content, 
 
 ## Entry Gate
 
-> Blocking precondition check per archive target. If any item FAILs, stop and tell the user what is missing — do not archive that change. This gate is the **backstop** that re-confirms the Knowledge synchronization completed before final review/tests/verify and confirmed at the S/A commit prompt; it still **FAILs and refuses to archive** when affected-module Knowledge is not synced (defense in depth — the sync is moved earlier, not removed).
+> Blocking precondition check per archive target. If any item FAILs, stop and tell the user what is missing — do not archive that change. This gate is the **backstop** that re-confirms the Knowledge synchronization completed at the implement exit and confirmed at the S/A commit prompt; it still **FAILs and refuses to archive** when affected-module Knowledge is not synced (defense in depth — the sync is moved earlier, not removed).
 
 - Archive target is `status: verified` — only `prospec-verify` at grade S/A produces `verified` (lifecycle: `prospec/ai-knowledge/_status-lifecycle.md`).
 - **Metadata completeness (machine-checked)**: `prospec archive` refuses when the `metadata-completeness` check is FAIL — **do not archive**. Fix it (re-run `prospec-verify` if the grade is genuinely absent), then re-archive. `--allow-incomplete` exempts this check only, for a pre-schema record. (The CLI is required — the probe STOPs before this gate when the engine is missing.)
@@ -253,7 +253,7 @@ Emit one line: `Met N/M | Unmet: <items> | Overall: PASS|WARN|FAIL | Next: <one-
 ## Next-Step Handoff
 
 After the Output Summary, recommend the next step in the SDD workflow order
-(`story → plan → tasks → implement → review → verify → knowledge-update → archive`, then periodic `learn`) — read
+(`story → plan → tasks → implement → knowledge-update → review → verify → archive`, then periodic `learn`) — read
 `metadata.yaml` status and `prospec/ai-knowledge/_status-lifecycle.md` (review and learn own no
 status transition, so follow this order, not status alone). Provide the direct, actionable Skill
 identity or CLI command for the next step (e.g. `prospec-plan`), allowing smooth continuation

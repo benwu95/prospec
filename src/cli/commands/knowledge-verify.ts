@@ -16,7 +16,7 @@ import { resolveLogLevel } from '../log-level.js';
 export function registerKnowledgeVerifyCommand(knowledge: Command, program: Command): void {
   knowledge
     .command('verify')
-    .description('Stamp last_verified for the named modules (confirm their knowledge is current)')
+    .description('Stamp last_verified for the named modules (confirm their knowledge is current); skips one already stamped today, later than its HEAD value')
     .argument('<module...>', 'Module name(s) to stamp as verified')
     .action(async (modules: string[]) => {
       const globalOpts = program.opts<GlobalOptions>();

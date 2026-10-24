@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Prospec — a shared, resumable workflow for AI coding agents</title>
-<meta name="description" content="Keep specs, project rules, and change history alongside your code. Prospec helps AI coding agents resume a shared story → plan → design → tasks → implement → review → verify → knowledge update → archive workflow. Skills guide judgment; the CLI executes deterministic steps.">
+<meta name="description" content="Keep specs, project rules, and change history alongside your code. Prospec helps AI coding agents resume a shared story → plan → design → tasks → implement → knowledge update → review → verify → archive workflow. Skills guide judgment; the CLI executes deterministic steps.">
 <meta name="theme-color" content="#0b0f14">
 <link rel="canonical" href="https://benwu95.github.io/prospec/">
 <meta property="og:type" content="website">
@@ -42,7 +42,7 @@
   "@context":"https://schema.org",
   "@type":"SoftwareApplication",
   "name":"Prospec",
-  "description":"A shared, resumable AI development workflow backed by project-local specs, rules, and change history. Skills guide the story → plan → design → tasks → implement → review → verify → knowledge update → archive path; the CLI records state, checks gates, and syncs specs.",
+  "description":"A shared, resumable AI development workflow backed by project-local specs, rules, and change history. Skills guide the story → plan → design → tasks → implement → knowledge update → review → verify → archive path; the CLI records state, checks gates, and syncs specs.",
   "applicationCategory":"DeveloperApplication",
   "operatingSystem":"macOS, Linux, Windows",
   "softwareRequirements":"Standalone binaries require no Node.js. Node.js >= 22.13 is required only for npx, devDependency, or source-development paths.",
@@ -132,7 +132,7 @@
     <span class="eyebrow" data-i18n="hero.eyebrow">Project + Specification</span>
     <h1 data-i18n="hero.h1">A shared workflow.<br><span class="em">For AI coding agents.</span></h1>
     <p class="sub" data-i18n="hero.sub">Project-local specs, rules, and change history keep work resumable across agents and sessions.</p>
-    <p class="sub-pipe"><code>story → plan → design → tasks → implement → review → verify → knowledge update → archive</code></p>
+    <p class="sub-pipe"><code>story → plan → design → tasks → implement → knowledge update → review → verify → archive</code></p>
     <p class="sub sub--tail" data-i18n="hero.subtail">Every station has instructions. <code>prospec status</code> names the next Skill and blocking gates when work changes hands.</p>
 
     <div class="hero__install">
@@ -159,7 +159,7 @@
     </div>
 
     <div class="hero__facts">
-      <span data-i18n="hero.facts.tests"><b>8,667</b> total tests</span><span class="sep" aria-hidden="true">·</span>
+      <span data-i18n="hero.facts.tests"><b>8,691</b> total tests</span><span class="sep" aria-hidden="true">·</span>
       <span data-i18n="hero.facts.skills"><b>17</b> skills</span><span class="sep" aria-hidden="true">·</span>
       <span data-i18n="hero.facts.principles">configurable <b>Constitution</b></span><span class="sep" aria-hidden="true">·</span>
       <span data-i18n="hero.facts.mcp">read-only <b>MCP</b> server</span><span class="sep" aria-hidden="true">·</span>
@@ -178,9 +178,9 @@
         <p class="t-line t-dim t-indent" data-i18n="proof.l3">• scoping &amp; acceptance questions → you answer in plain language</p>
         <p class="t-line t-indent" data-i18n="proof.l4">• writes <span class="hl">story → plan → tasks</span>; machine gates pass automatically:</p>
         <div class="t-steps">
-          <span class="t-desc" data-i18n="proof.s1">implement → <span class="hl">prospec-review</span></span><span class="t-ans">gate ✓</span><span class="t-note"></span>
-          <span class="t-desc" data-i18n="proof.s2">verify → <span class="hl">prospec-knowledge-update</span></span><span class="t-ans">synced ✓</span><span class="t-note"></span>
-          <span class="t-desc" data-i18n="proof.s3">updated inputs → <span class="hl">review + tests + verify</span></span><span class="t-ans">gate ✓</span><span class="t-note"></span>
+          <span class="t-desc" data-i18n="proof.s1">implement → <span class="hl">prospec-knowledge-update</span></span><span class="t-ans">synced ✓</span><span class="t-note"></span>
+          <span class="t-desc" data-i18n="proof.s2">synced inputs → <span class="hl">prospec-review</span></span><span class="t-ans">gate ✓</span><span class="t-note"></span>
+          <span class="t-desc" data-i18n="proof.s3">tests recorded once → <span class="hl">prospec-verify</span></span><span class="t-ans">gate ✓</span><span class="t-note"></span>
           <span class="t-desc" data-i18n="proof.s4">final verify → <span class="grade">GRADE A ✓</span></span><span class="t-ans">gate ✓</span><span class="t-note"></span>
           <span class="t-desc" data-i18n="proof.s5">Tastemaker sign-off → commit + <span class="hl">prospec-archive</span>? (Y/n)</span><span class="t-ans">Y</span><span class="t-note t-ok" data-i18n="proof.s5note">✓ archived</span>
         </div>
@@ -239,7 +239,7 @@
       </div>
       <div class="ledger__row">
         <div class="ledger__p"><span class="k" data-i18n="why.k.challenge">Challenge</span><p data-i18n="why.r3.c">Every AI session improvises a different workflow.</p></div>
-        <div class="ledger__s"><span class="k" data-i18n="why.k.answer">How Prospec answers</span><p data-i18n="why.r3.a">Structured Skills enforce one loop:</p><p class="ledger-pipe"><code>story → plan → design → tasks → implement → review → verify → knowledge update → archive</code></p></div>
+        <div class="ledger__s"><span class="k" data-i18n="why.k.answer">How Prospec answers</span><p data-i18n="why.r3.a">Structured Skills enforce one loop:</p><p class="ledger-pipe"><code>story → plan → design → tasks → implement → knowledge update → review → verify → archive</code></p></div>
       </div>
       <div class="ledger__row">
         <div class="ledger__p"><span class="k" data-i18n="why.k.challenge">Challenge</span><p data-i18n="why.r4.c">Vendor lock-in to one AI CLI.</p></div>
@@ -274,7 +274,7 @@
       <p class="lede" data-i18n="how.lede">A change moves through documented stations. Its specs, rules, and progress stay in the project, so the next agent can read the context and continue from the station <code>prospec status</code> reports.</p>
     </div>
 
-    <div class="diagram-wrap reveal" role="img" aria-label="Prospec's lifecycle as a flow diagram. A linear pipeline runs Explore, Story, Plan, Design (optional for UI work), Tasks, Implement, Review, Verify, Knowledge Update, and Archive. Learn runs periodically. Knowledge Update feeds AI Knowledge; Archive graduates Feature Specs; Learn feeds the Constitution and Playbook. All three accumulating assets loop back as context into the next change's Plan." data-i18n-aria-label="how.diagramAria">
+    <div class="diagram-wrap reveal" role="img" aria-label="Prospec's lifecycle as a flow diagram. A linear pipeline runs Explore, Story, Plan, Design (optional for UI work), Tasks, Implement, Knowledge Update, Review, Verify, and Archive. Learn runs periodically. Knowledge Update feeds AI Knowledge; Archive graduates Feature Specs; Learn feeds the Constitution and Playbook. All three accumulating assets loop back as context into the next change's Plan." data-i18n-aria-label="how.diagramAria">
       <svg class="diagram" viewBox="0 0 1120 460" preserveAspectRatio="xMidYMid meet" aria-hidden="true">
         <defs>
           <marker id="ar" markerUnits="userSpaceOnUse" markerWidth="12" markerHeight="12" viewBox="0 0 12 12" refX="9" refY="6" orient="auto"><path d="M1,1 L11,6 L1,11 z" fill="#30445a"/></marker>
@@ -290,8 +290,8 @@
         <line class="dg-edge" x1="390" y1="63" x2="400" y2="63" marker-end="url(#ar)"/>
         <line class="dg-edge" x1="486" y1="63" x2="496" y2="63" marker-end="url(#ar)"/>
         <line class="dg-edge" x1="582" y1="63" x2="592" y2="63" marker-end="url(#ar)"/>
-        <line class="dg-edge" x1="678" y1="63" x2="688" y2="63" marker-end="url(#ar)"/>
-        <line class="dg-edge" x1="774" y1="63" x2="784" y2="63" marker-end="url(#ar)"/>
+        <line class="dg-edge" x1="708" y1="63" x2="718" y2="63" marker-end="url(#ar)"/>
+        <line class="dg-edge" x1="804" y1="63" x2="814" y2="63" marker-end="url(#ar)"/>
         <line class="dg-edge" x1="900" y1="63" x2="910" y2="63" marker-end="url(#ar)"/>
 
         <!-- pipeline nodes -->
@@ -301,15 +301,15 @@
         <rect class="dg-node" x="304" y="40" width="86" height="46" rx="6"/><text class="dg-name" x="347" y="69" text-anchor="middle">Design</text>
         <rect class="dg-node" x="400" y="40" width="86" height="46" rx="6"/><text class="dg-name" x="443" y="69" text-anchor="middle">Tasks</text>
         <rect class="dg-node" x="496" y="40" width="86" height="46" rx="6"/><text class="dg-name" x="539" y="69" text-anchor="middle">Implement</text>
-        <rect class="dg-node dg-node--own" x="592" y="40" width="86" height="46" rx="6"/><text class="dg-name dg-name--own" x="635" y="69" text-anchor="middle">Review</text>
-        <rect class="dg-node dg-node--own" x="688" y="40" width="86" height="46" rx="6"/><text class="dg-name dg-name--own" x="731" y="69" text-anchor="middle">Verify</text>
-        <rect class="dg-node dg-node--own" x="784" y="40" width="116" height="46" rx="6"/><text class="dg-name dg-name--own dg-name--small" x="842" y="69" text-anchor="middle">Knowledge Update</text>
+        <rect class="dg-node dg-node--own" x="592" y="40" width="116" height="46" rx="6"/><text class="dg-name dg-name--own dg-name--small" x="650" y="69" text-anchor="middle">Knowledge Update</text>
+        <rect class="dg-node dg-node--own" x="718" y="40" width="86" height="46" rx="6"/><text class="dg-name dg-name--own" x="761" y="69" text-anchor="middle">Review</text>
+        <rect class="dg-node dg-node--own" x="814" y="40" width="86" height="46" rx="6"/><text class="dg-name dg-name--own" x="857" y="69" text-anchor="middle">Verify</text>
         <rect class="dg-node dg-node--own" x="910" y="40" width="86" height="46" rx="6"/><text class="dg-name dg-name--own" x="953" y="69" text-anchor="middle">Archive</text>
         <text class="dg-cap" x="1049" y="126" text-anchor="middle" data-i18n="how.dg.periodic">PERIODIC</text>
         <rect class="dg-node dg-node--own" x="1006" y="138" width="86" height="46" rx="6"/><text class="dg-name dg-name--own" x="1049" y="167" text-anchor="middle">Learn</text>
 
         <!-- harvest: late stages deposit into the accumulating assets -->
-        <path class="dg-feed" d="M842,86 V210 H320 V300" marker-end="url(#arg)"/>
+        <path class="dg-feed" d="M650,86 V210 H320 V300" marker-end="url(#arg)"/>
         <path class="dg-feed" d="M953,86 V234 H560 V300" marker-end="url(#arg)"/>
         <path class="dg-feed" d="M1049,184 V234 H800 V300" marker-end="url(#arg)"/>
         <text class="dg-cap" x="60" y="292" data-i18n="how.dg.cap2">ACCUMULATES EVERY CHANGE</text>
@@ -333,10 +333,10 @@
         <text class="dg-cap" x="527" y="438" text-anchor="middle" data-i18n="how.dg.cap3">↺  NEXT CHANGE STARTS FROM A RICHER BASELINE</text>
       </svg>
     </div>
-    <p class="flow__hint" data-i18n="how.hint">The gold stages — <b>Review · Verify · Knowledge Update · Archive · Learn</b> — turn evidence into project memory. The gold arrows are the loop: each change's results feed into the next. <span class="aside">Scroll the diagram sideways on a narrow screen.</span></p>
+    <p class="flow__hint" data-i18n="how.hint">The gold stages — <b>Knowledge Update · Review · Verify · Archive · Learn</b> — turn evidence into project memory. The gold arrows are the loop: each change's results feed into the next. <span class="aside">Scroll the diagram sideways on a narrow screen.</span></p>
 
     <div class="compound__note reveal">
-      <p data-i18n="how.compound"><b>Scale-aware:</b> Design is optional for UI work; a user-confirmed <code>quick</code> change skips Plan (<code>story → tasks</code>). Proven backfill follows <code>backfill → Promote → Knowledge Sync → final Verify → archive</code>; code review is optional for proven backfill. Forward-change scales keep TDD, adversarial review, and Constitution audits. If Knowledge Update changes validated inputs, rerun the affected review, tests, and Verify before Archive.</p>
+      <p data-i18n="how.compound"><b>Scale-aware:</b> Design is optional for UI work; a user-confirmed <code>quick</code> change skips Plan (<code>story → tasks</code>). Proven backfill follows <code>backfill → Promote → Knowledge Sync → final Verify → archive</code>; code review is optional for proven backfill. Forward-change scales keep TDD, adversarial review, and Constitution audits. Knowledge Update runs before review, so the recorded review and test evidence already covers it.</p>
     </div>
 
     <div class="principles reveal" aria-label="Six core principles" data-i18n-aria-label="how.principlesAria">

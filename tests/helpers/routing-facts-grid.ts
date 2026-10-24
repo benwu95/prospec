@@ -81,7 +81,7 @@ const BRANCH_DIMENSIONS: Record<ChangeStatus, Dimension[]> = {
   story: [],
   plan: ['lastPlanVerifierResult', 'planFlawsStreak', 'pauseAtPlan', 'planSignedOff', 'planChangedSinceVerifier', 'uiScope', 'hasDesignSpec'],
   tasks: ['lastTasksVerifierResult', 'tasksFlawsStreak', 'tasksShape'],
-  implemented: ['hasReviewProvenance', 'lastVerifyGrade', 'verifyBelowBarStreak'],
+  implemented: ['hasReviewProvenance', 'lastVerifyGrade', 'verifyBelowBarStreak', 'knowledgeSyncReasons'],
   verified: ['lastVerifyGrade', 'verifyBelowBarStreak', 'knowledgeSyncReasons'],
   archived: [],
   abandoned: [],

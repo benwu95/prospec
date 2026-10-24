@@ -676,17 +676,17 @@ describe('Skill Format Contract', () => {
 
     // #311 R4-2: the gate checks what knowledge update reports ∪ related_modules — a
     // feature-prefix REQ has no "REQ-prefix module", so the old wording under-stamped.
-    it('cascade-protocol commit prompt scopes affected modules to the reported set ∪ related_modules ∪ diff-path (generated included)', () => {
-      const content = render('skills/references/cascade-protocol.hbs');
-      const start = content.indexOf('Commit Boundary & Confirmation');
-      expect(start, 'cascade-protocol commit prompt not found').toBeGreaterThan(-1);
-      const section = sectionOf(content, '## Tastemaker Presentation & Human Gate');
-      expect(section, 'commit prompt section sliced empty').not.toBe('');
-      expect(section).toContain('the modules `prospec knowledge update --change` reports as created or README-pending ∪ `metadata.related_modules` ∪ the modules a working-tree diff attributes through the module map (generated artifacts included)');
-      expect(section).not.toContain('REQ-prefix modules');
-      expect(section).toContain('working-tree diff');
-      expect(section).toContain('generated artifacts included');
-      // post-commit gate re-run, worded project-agnostically
+    // #411: the backfill sync moved from the cascade commit prompt to the
+    // promote-backfill exit; the forward-change set is knowledge-update 3e's.
+    it('promote-backfill exit scopes the backfill sync to the reported set ∪ related_modules, minting nothing', () => {
+      const handoff = sectionOf(render('skills/prospec-promote-backfill.hbs'), '### Phase 5: Handoff');
+      expect(handoff, 'Phase 5 sliced empty').not.toBe('');
+      expect(handoff).toContain('the modules `prospec knowledge update --change` reports ∪ `metadata.related_modules`');
+      expect(handoff).toContain('prospec knowledge verify <modules...>');
+      expect(handoff).not.toContain('REQ-prefix modules');
+      expect(handoff.indexOf('prospec knowledge verify')).toBeLessThan(handoff.indexOf('route the user to `prospec-verify`'));
+      // post-commit gate re-run stays in the commit prompt, worded project-agnostically
+      const section = sectionOf(render('skills/references/cascade-protocol.hbs'), '## Tastemaker Presentation & Human Gate');
       expect(section).toContain('before pushing');
       expect(section).toContain("project's knowledge-sync mechanical gate");
     });
@@ -2303,7 +2303,7 @@ describe('Skill Format Contract', () => {
       const gates = sectionOf(content, '## What each gate checks');
       expect(gates.trim().length).toBeGreaterThan(0);
       expect(gates).toContain('repository-wide');
-      expect(gates).toContain('before final review/tests/verify');
+      expect(gates).toContain('The implement exit syncs and stamps affected Knowledge before the final test record and review baseline');
       expect(content).toContain('backstop');
       // the absolute single-checkpoint claim is gone
       expect(content).not.toContain('single mandatory knowledge-sync checkpoint');
@@ -2889,7 +2889,7 @@ describe('Skill Format Contract', () => {
       );
       expect(applications).toHaveLength(1);
       expect(applications[0]?.description).toContain(
-        'story → plan → design → tasks → implement → review → verify → knowledge update → archive',
+        'story → plan → design → tasks → implement → knowledge update → review → verify → archive',
       );
       expect(applications[0]?.softwareRequirements).toContain(
         'Standalone binaries require no Node.js',
@@ -2901,7 +2901,7 @@ describe('Skill Format Contract', () => {
       const chineseDescription = zhTranslations.get('doc.desc');
       expect(chineseDescription).toBeDefined();
       expect(chineseDescription).toContain(
-        'story → plan → design → tasks → implement → review → verify → knowledge update → archive',
+        'story → plan → design → tasks → implement → knowledge update → review → verify → archive',
       );
 
       const chineseRuntimeBoundary = zhTranslations.get('quickstart.lede');
@@ -2914,7 +2914,7 @@ describe('Skill Format Contract', () => {
       )].map((match) => match[1]);
       expect(seoDescriptions).toHaveLength(1);
       expect(seoDescriptions[0]).toContain(
-        'story → plan → design → tasks → implement → review → verify → knowledge update → archive',
+        'story → plan → design → tasks → implement → knowledge update → review → verify → archive',
       );
 
       const proofAriaLabels = [...website.matchAll(
@@ -2933,7 +2933,7 @@ describe('Skill Format Contract', () => {
     });
 
     it('keeps translated metadata and user-facing claims aligned with visible content', () => {
-      expect(website).toContain('story → plan → design → tasks → implement → review → verify → knowledge update → archive');
+      expect(website).toContain('story → plan → design → tasks → implement → knowledge update → review → verify → archive');
       expect(website).not.toContain('token-saving claim');
       expect(zhOverlay).not.toContain('省 token 的主張');
       const faq = websiteJsonLdBlocks(website).find((block) => block['@type'] === 'FAQPage');
@@ -3166,10 +3166,10 @@ describe('Skill Format Contract', () => {
       expect(facts).toMatch(/missing.*last_verified|no.*last_verified/);
     });
 
-    it('Knowledge V4 prepares final inputs before grading without a lag exemption', () => {
+    it('Knowledge V4 names modules for the knowledge-update station instead of syncing, without a lag exemption', () => {
       const v4 = sectionOf(renderVerify(), '### Verification 4/5');
-      expect(v4).toContain('before final review/tests/verify');
-      expect(v4).toContain('effective inputs');
+      expect(v4).toContain('the implement exit synchronized and stamped affected-module Knowledge before the final test record');
+      expect(v4).toContain('their synchronization runs at the knowledge-update station');
       expect(v4).toContain('backstop');
       expect(v4).not.toMatch(/This change.s Knowledge lag.*informational|must NOT lower the grade/);
     });
@@ -3184,7 +3184,7 @@ describe('Skill Format Contract', () => {
       expect(verdict[1]).toBe('`knowledge-health` PASS');
       expect(verdict[2]).toContain('Adopt its WARN or not-adjudicated result');
       expect(rows.join('\n')).toContain('knowledge-health');
-      expect(rows.join('\n')).toContain('before final review/tests/verify');
+      expect(rows.join('\n')).toContain('Synced and stamped at the implement exit, before the final test record');
       expect(gate).not.toMatch(/pre-existing|This change.s Knowledge sync.*Informational/);
     });
   });
@@ -5237,16 +5237,14 @@ describe('backfill graduation — verify spec-fidelity contract (scale: backfill
     expect(section).not.toBe('');
     const item = section.split('\n').find((l) => l.startsWith('- **Knowledge Sync**:'));
     expect(item, 'Knowledge Sync item missing').toBeDefined();
-    expect(item).toContain('Run `prospec knowledge update --change <name>`');
-    expect(item).toContain('Sync the READMEs of the modules `prospec knowledge update --change` reports ∪ `metadata.related_modules`');
+    expect(item).toContain('The promote-backfill exit synced the READMEs of the modules `prospec knowledge update --change` reports ∪ `metadata.related_modules`');
     expect(item).not.toContain('header names');
     expect(item).not.toContain('would mint phantom modules');
     expect(item).not.toContain('Sync only the module READMEs named in `metadata.related_modules`');
-    expect(item).toContain('before final review/tests/verify');
     const confirmation = section.split('\n').find((l) => l.startsWith('- **Commit Confirmation (S/A only)**:'));
     expect(confirmation, 'Commit Confirmation item missing').toBeDefined();
     expect(confirmation).toContain('already belong to the validated inputs');
-    expect(confirmation).toContain('effective-input edits require final review/tests/verify again');
+    expect(confirmation).toContain('before the human commit boundary');
     expect(confirmation).not.toMatch(/Run `prospec knowledge|stamp freshness via/);
     expect(section.indexOf('- **Knowledge Sync**:')).toBeLessThan(section.indexOf('- **Commit Confirmation (S/A only)**:'));
   });
@@ -6239,45 +6237,71 @@ describe('Lessons-ledger evidence points to committed _archived-history (REQ-TEM
   });
 });
 
-describe('Knowledge sync folded into the verify S/A commit prompt (REQ-TEMPLATES-129, REQ-CHNG-004, REQ-TEMPLATES-216)', () => {
+describe('Knowledge sync at the implement exit (REQ-TEMPLATES-129, REQ-TEMPLATES-255, REQ-TESTS-090, REQ-TESTS-142, REQ-CHNG-004, REQ-TEMPLATES-216)', () => {
   const verify = () => renderTemplate('skills/prospec-verify.hbs', TEMPLATE_CONTEXT);
   const cascade = () => renderTemplate('skills/references/cascade-protocol.hbs', TEMPLATE_CONTEXT);
   const archive = () => renderTemplate('skills/prospec-archive.hbs', TEMPLATE_CONTEXT);
+  const implementExit = () => sectionOf(renderTemplate('skills/prospec-implement.hbs', TEMPLATE_CONTEXT), '### Phase 6: Move to Next Task');
+  const working = (ctx: Record<string, unknown> = TEMPLATE_CONTEXT) =>
+    sectionOf(renderTemplate('agent-configs/entry.md.hbs', ctx), '## Working with This Project');
+  const RULE = "Recording evidence is the last mutation: every planned edit to the evidence snapshot's inputs lands before the final test record and review baseline; an edit afterward reopens them.";
 
-  it('Knowledge final evidence order distinguishes content provenance from post-commit freshness', () => {
+  it('the commit prompt confirms inputs synchronized at the implement exit and keeps post-commit freshness separate', () => {
     const status = sectionOf(cascade(), '## Tastemaker Presentation & Human Gate');
     expect(status.trim().length).toBeGreaterThan(0);
     const boundary = status.slice(status.indexOf('1. **Commit Boundary'), status.indexOf('2. **Tastemaker Presentation Payload'));
     expect(boundary.trim().length).toBeGreaterThan(0);
     expect(boundary).toContain('already belong to the validated inputs');
+    expect(boundary).toContain('its stamp reopens the recorded evidence');
     expect(boundary).not.toMatch(/(?:Run|Stamp freshness via).*`prospec/);
-    const preparation = status.indexOf('Prepare final inputs before reaching this boundary');
-    expect(preparation).toBeGreaterThanOrEqual(0);
-    expect(preparation).toBeLessThan(status.indexOf('When the pipeline completes'));
-    expect(status).toContain('sync → final review → tests → verify → equivalent commit');
-    expect(status).toContain('effective inputs');
+    expect(status.indexOf('at the implement exit')).toBeLessThan(status.indexOf('When the pipeline completes'));
     expect(status).toMatch(/before re-verifying.*knowledge-health/i);
-    expect(status).toMatch(/stamp.*validate.*changed inputs/i);
     expect(status).toContain('knowledge-sync mechanical gate');
     expect(status).not.toMatch(/source-only commit.*(?:no longer|doesn.t).*stale/);
   });
 
-  it('cascade-protocol commit prompt folds knowledge-update + count re-derivation into the feature commit', () => {
-    const status = sectionOf(cascade(), '## Tastemaker Presentation & Human Gate');
-    expect(status).toMatch(/Sync affected-module Knowledge/);
-    expect(status).toContain('prospec-knowledge-update');
-    expect(status).toMatch(/Re-derive factual counts/);
-    expect(status).toContain('into the feature commit');
+  it('the implement exit syncs Knowledge, then records tests, then advances the status', () => {
+    const exit = implementExit();
+    expect(exit.trim().length).toBeGreaterThan(0);
+    const sync = exit.indexOf('run `prospec-knowledge-update`');
+    const stamp = exit.indexOf('prospec knowledge verify <modules...>');
+    const record = exit.indexOf('`prospec check --record-tests --change <name>`');
+    const advance = exit.indexOf('`prospec change status implemented`');
+    for (const at of [sync, stamp, record, advance]) expect(at).toBeGreaterThan(-1);
+    expect(sync).toBeLessThan(record);
+    expect(stamp).toBeLessThan(record);
+    expect(record).toBeLessThan(advance);
+    expect(exit).toContain('re-derive factual counts');
+    expect(exit).not.toContain('pnpm counts');
+    // the completion line hands over to the exit, not straight to review (#411 R1-1)
+    const complete = sectionOf(renderTemplate('skills/prospec-implement.hbs', TEMPLATE_CONTEXT), '### Phase 5: Mark Complete')
+      .split('\n').find((line) => line.includes('Progress Y/Y (Complete)'))!;
+    expect(complete).toContain('Phase 6');
+    expect(complete).not.toContain('prospec-review');
   });
 
-  it('cascade-protocol commit prompt instructs running prospec knowledge verify to stamp freshness', () => {
-    const status = flat(sectionOf(cascade(), '## Tastemaker Presentation & Human Gate'));
-    expect(status).toContain('prospec knowledge verify');
-    expect(status).toContain('prospec knowledge verify <modules...>');
-    expect(status).toContain('scale: backfill');
-    expect(status).toContain('(`scale: backfill`: the modules `prospec knowledge update --change` reports ∪ `metadata.related_modules`, minting nothing)');
-    expect(status).not.toContain('the modules of the feature its `**Feature:**` header names');
-    expect(status).not.toContain('sync only the READMEs named by `metadata.related_modules`');
+  it('the entry config defines the evidence recording order once, for every host shape', () => {
+    for (const persistent of [true, false]) {
+      const section = working({ ...TEMPLATE_CONTEXT, skill_lifecycle_persistent: persistent });
+      expect(section.split(RULE)).toHaveLength(2);
+      const paragraph = section.split('\n').find((line) => line.includes(RULE))!;
+      expect(paragraph).not.toMatch(/\.claude|\.agents|skills\/|Claude|Codex|Copilot|Antigravity|GPT|Gemini/);
+    }
+  });
+
+  it('the evidence-order rule has exactly one home: the entry config, across every shipped skill and reference', () => {
+    const dir = path.resolve(__dirname, '../../src/templates/skills');
+    const templates = [
+      ...fs.readdirSync(dir).filter((f) => f.endsWith('.hbs')).map((f) => `skills/${f}`),
+      ...fs.readdirSync(path.join(dir, 'references')).filter((f) => f.endsWith('.hbs')).map((f) => `skills/references/${f}`),
+    ];
+    const surfaces = [
+      ['agent-configs/entry.md.hbs', renderTemplate('agent-configs/entry.md.hbs', TEMPLATE_CONTEXT)] as const,
+      ...templates.map((t) => [t, renderTemplate(t, TEMPLATE_CONTEXT)] as const),
+    ];
+    expect(surfaces.length).toBeGreaterThan(20);
+    const homes = surfaces.flatMap(([name, text]) => Array(text.split(RULE).length - 1).fill(name));
+    expect(homes).toEqual(['agent-configs/entry.md.hbs']);
   });
 
   it('verify commit prompt cites cascade-protocol and stays generic — no repo-specific count command hardcoded', () => {
@@ -6313,7 +6337,7 @@ describe('Knowledge sync folded into the verify S/A commit prompt (REQ-TEMPLATES
     expect(gateSection(template)).toBe(canonicalSection);
     // the new framing is present in both copies
     expect(canonicalSection).toContain('repository-wide');
-    expect(canonicalSection).toContain('before final review/tests/verify');
+    expect(canonicalSection).toContain('The implement exit syncs and stamps affected Knowledge before the final test record and review baseline');
     expect(canonicalSection).toContain('backstop');
   });
 });
@@ -8555,8 +8579,7 @@ describe('split and trim references contract (REQ-TEMPLATES-215~220, REQ-AGNT-04
   it('consolidates Tastemaker feature commit prompt into cascade-protocol.hbs and cites it in prospec-verify.hbs', () => {
     const cascadeContent = renderTemplate('skills/references/cascade-protocol.hbs', TEMPLATE_CONTEXT);
     expect(cascadeContent).toContain('## Tastemaker Presentation & Human Gate');
-    expect(cascadeContent).toContain('Sync affected-module Knowledge');
-    expect(cascadeContent).toContain('Re-derive factual counts');
+    expect(cascadeContent).toContain('Final inputs are synchronized before the evidence is recorded — at the implement exit');
     expect(cascadeContent).toContain('Strict Invariant — Human Commit Prompt');
 
     const verifyContent = renderTemplate('skills/prospec-verify.hbs', TEMPLATE_CONTEXT);
@@ -9746,8 +9769,7 @@ describe('verified input evidence guidance', () => {
   it('defines attempts, one-time legacy migration and sync before final evidence', () => {
     const metadata = source('skills/references/metadata-format.hbs');
     for (const field of ['fingerprint_version', 'scope', 'attempt_id', 'test_attempt', 'before_digest', 'after_digest', 'unprovable']) expect(metadata).toContain(field);
-    const cascade = source('skills/references/cascade-protocol.hbs');
-    expect(cascade).toContain('sync → final review → tests → verify → equivalent commit');
+    expect(source('agent-configs/entry.md.hbs')).toContain('Recording evidence is the last mutation');
     expect(source('skills/references/project-test-runner.hbs')).toContain('before/after');
     expect(source('init/status-lifecycle.md.hbs')).not.toContain('HEAD is in the digest');
     expect(source('skills/references/drift-report-format.hbs')).toContain('display artifact');
@@ -9996,7 +10018,7 @@ describe('one verdict vocabulary, one station route (issue #266 — REQ-TEMPLATE
   it('cascade-protocol describes the backfill trajectory and the B/C/D re-route', () => {
     const cascade = render('skills/references/cascade-protocol.hbs');
     expect(cascade).toContain('Scale: Backfill');
-    expect(cascade).toContain('`promote → review → verify → knowledge-update → Tastemaker Sign-off`');
+    expect(cascade).toContain('`promote → knowledge-update → review → verify → Tastemaker Sign-off`');
     const verifyRow = sectionOf(cascade, '## Station Transition Gates').split('\n').find((l) => l.startsWith('| **verify** |'))!;
     expect(verifyRow).toMatch(/B\/C\/D grade[^|]*routed back to verify/);
     expect(cascade).not.toContain('awaiting_signoff');
@@ -10049,12 +10071,17 @@ describe('one verdict vocabulary, one station route (issue #266 — REQ-TEMPLATE
       plan: routed(withPlan.flatMap((scale) => uiScopes.map((uiScope) => ({ status: 'plan', scale, uiScope })))),
       design: routed(withPlan.map((scale) => ({ status: 'plan', scale, uiScope: 'full', hasDesignSpec: true }))),
       tasks: routed(withTasks.flatMap((scale) => uiScopes.map((uiScope) => ({ status: 'tasks', scale, uiScope })))),
-      promote: routed(withoutTasks.map((scale) => ({ status: 'implemented', scale }))),
-      implement: routed(withTasks.map((scale) => ({ status: 'implemented', scale }))),
-      review: routed(scales.map((scale) => ({ status: 'implemented', scale, hasReviewProvenance: true }))),
+      // an unreviewed implemented change checks Knowledge before review (#411)
+      promote: routed(withoutTasks.flatMap((scale) => KNOWLEDGE_REASON_VARIANTS.map((knowledgeSyncReasons) => ({ status: 'implemented', scale, knowledgeSyncReasons })))),
+      implement: routed(withTasks.flatMap((scale) => KNOWLEDGE_REASON_VARIANTS.map((knowledgeSyncReasons) => ({ status: 'implemented', scale, knowledgeSyncReasons })))),
+      review: routed(scales.flatMap((scale) => KNOWLEDGE_REASON_VARIANTS.map((knowledgeSyncReasons) => ({ status: 'implemented', scale, hasReviewProvenance: true, knowledgeSyncReasons })))),
       // the knowledge-sync input halt names no station, so the parity is judged on the routed edges alone
       verify: routed(grades.flatMap((lastVerifyGrade) => KNOWLEDGE_REASON_VARIANTS.map((knowledgeSyncReasons) => ({ status: 'verified', lastVerifyGrade, knowledgeSyncReasons })))),
-      'knowledge-update': routed((['S', 'A'] as const).map((lastVerifyGrade) => ({ status: 'verified', lastVerifyGrade, knowledgeSyncReasons: [] }))),
+      // synced before review, or synced again as the backstop after verify
+      'knowledge-update': routed([
+        ...scales.map((scale) => ({ status: 'implemented' as const, scale, knowledgeSyncReasons: [] })),
+        ...(['S', 'A'] as const).map((lastVerifyGrade) => ({ status: 'verified' as const, lastVerifyGrade, knowledgeSyncReasons: [] })),
+      ]),
     };
     for (const [station, next] of Object.entries(expected)) {
       expect([...table.get(station)!].sort(), `row ${station}`).toEqual([...next].sort());
@@ -10728,8 +10755,8 @@ describe('shipped claim audit', () => {
   });
 
   it('secondary summaries avoid unproven effects and repository-specific examples', () => {
-    const counts = sectionOf(render('skills/references/cascade-protocol.hbs'), '## Tastemaker Presentation & Human Gate');
-    expect(counts).toContain('factual count generator');
+    const counts = sectionOf(render('skills/prospec-implement.hbs'), '### Phase 6: Move to Next Task');
+    expect(counts).toContain("re-derive factual counts through the project's count generator");
     expect(counts).not.toContain('pnpm counts');
     const archive = sectionOf(render('skills/references/archive-format.hbs'), '## Spec Archiving');
     expect(archive).toContain('spec-history audit trail');

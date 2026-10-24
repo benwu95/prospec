@@ -21,6 +21,7 @@ function captureStdout(fn: () => void): string {
 const result = (over: Partial<KnowledgeVerifyResult> = {}): KnowledgeVerifyResult => ({
   moduleMapPath: '/p/prospec/ai-knowledge/module-map.yaml',
   verified: ['lib', 'cli'],
+  skipped: [],
   timestamp: '2026-08-14T12:00:00.000Z',
   ...over,
 });
@@ -30,6 +31,18 @@ describe('knowledge-verify-output', () => {
     const out = captureStdout(() => formatKnowledgeVerifyOutput(result(), 'normal'));
     expect(out).toContain('verified lib @ 2026-08-14T12:00:00.000Z');
     expect(out).toContain('verified cli @ 2026-08-14T12:00:00.000Z');
+  });
+
+  it('names each skipped module on its own line, apart from the stamped ones', () => {
+    const out = captureStdout(() =>
+      formatKnowledgeVerifyOutput(result({ verified: ['cli'], skipped: ['lib'] }), 'normal'),
+    );
+    const lines = out.trimEnd().split('\n');
+    expect(lines).toHaveLength(2);
+    expect(lines[0]).toContain('verified cli @ 2026-08-14T12:00:00.000Z');
+    expect(lines[1]).toContain('skipped lib');
+    expect(lines[1]).toContain('already stamped today');
+    expect(lines[1]).not.toContain('verified');
   });
 
   it('writes nothing under quiet', () => {

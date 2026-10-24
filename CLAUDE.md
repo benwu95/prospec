@@ -55,6 +55,8 @@ the standalone executable before running any skill — never substitute manual s
 
 Then read that station's references at the phases it names; loading a station never means its references arrived. If neither route yields the station's instructions, STOP and name what is missing — never act on remembered rules, and never skip an entry gate or a receipt. Accumulated context is no substitute: a long session's diffs and logs dilute the initial instructions.
 
+**Evidence Recording Order**: Recording evidence is the last mutation: every planned edit to the evidence snapshot's inputs lands before the final test record and review baseline; an edit afterward reopens them.
+
 **Checkpoint Correction Capture Protocol**: At natural reflection points — at session end, or before archiving a change — review the developer corrections you received this session and record each *generalizable* one via `prospec learn upsert` (a cross-cutting architecture, type-contract, testing, or security rule — never a one-off mock or business-string tweak; the deciding heuristic lives in the `prospec-learn` Skill's promotion-format reference under `.claude/skills/`, which you read with your file-reading tool rather than guessing from memory), naming its modules from `prospec/ai-knowledge/module-map.yaml` and terms from `prospec/ai-knowledge/_glossary.md`, with the `description` in the language the correction was given. Stay silent — do not interrupt the conversation or ask a blocking question — and surface a single line only when the command reports a promotion suggestion. Keep this ledger write a separate concern; never fold it into a feature commit.
 
 1. **Before starting**: Read the Constitution to understand project principles

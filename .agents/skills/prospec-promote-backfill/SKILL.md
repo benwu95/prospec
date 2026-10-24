@@ -92,7 +92,7 @@ plan.md/tasks.md**, `scale: backfill` + `status: implemented`, and no uncommitte
 
 ### Phase 5: Handoff
 
-Present the produced scaffold and route the user to `prospec-verify` — under `scale: backfill`, verify grades **spec-fidelity** (every REQ's `file:line` must resolve) and treats pre-existing code-quality gaps as informational tech debt, the CLI determines the grade, and eligibility remains subject to the archive gates.
+First run `prospec-knowledge-update` for the modules `prospec knowledge update --change` reports ∪ `metadata.related_modules`, stamping them via `prospec knowledge verify <modules...>`; then present the produced scaffold and route the user to `prospec-verify` — under `scale: backfill`, verify grades **spec-fidelity** (every REQ's `file:line` must resolve) and treats pre-existing code-quality gaps as informational tech debt, the CLI determines the grade, and eligibility remains subject to the archive gates.
 
 ## Output Contract
 
@@ -132,7 +132,7 @@ Emit one line: `Met N/M | Unmet: <items> | Overall: PASS|WARN|FAIL | Next: <one-
 ## Next-Step Handoff
 
 After the Output Summary, recommend the next step in the SDD workflow order
-(`story → plan → tasks → implement → review → verify → knowledge-update → archive`, then periodic `learn`) — read
+(`story → plan → tasks → implement → knowledge-update → review → verify → archive`, then periodic `learn`) — read
 `metadata.yaml` status and `prospec/ai-knowledge/_status-lifecycle.md` (review and learn own no
 status transition, so follow this order, not status alone). Provide the direct, actionable Skill
 identity or CLI command for the next step (e.g. `prospec-plan`), allowing smooth continuation

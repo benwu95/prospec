@@ -5,7 +5,7 @@ Prospec runs one linear flow, wrapped in two feedback loops that make it **compo
 
 ```mermaid
 flowchart TD
-    E([Explore]) --> S([Story]) --> P([Plan]) --> D(["Design (optional for UI work)"]) --> T([Tasks]) --> I([Implement]) --> R([Review]) --> V([Verify]) --> KU([Knowledge Update]) -- Entry Gate --> A([Archive]) -- periodic --> L([Learn])
+    E([Explore]) --> S([Story]) --> P([Plan]) --> D(["Design (optional for UI work)"]) --> T([Tasks]) --> I([Implement]) --> KU([Knowledge Update]) --> R([Review]) --> V([Verify]) -- Entry Gate --> A([Archive]) -- periodic --> L([Learn])
 
     V -. quality_log .-> L
     R -. findings .-> L

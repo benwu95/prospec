@@ -126,7 +126,7 @@ your-project/
 
 - **`prospec knowledge verify <module>...`**
   - **核心用途**：為指定模組在 `module-map.yaml` 戳上 `last_verified` 時間戳記。
-  - **執行行為**：記錄模組知識與原始碼確認一致的時間點；當模組 `src/**` 變動時作為 CI 與 `prospec check` 判斷 staleness 的依據。
+  - **執行行為**：記錄模組知識與原始碼確認一致的時間點；當模組 `src/**` 變動時作為 CI 與 `prospec check` 判斷 staleness 的依據。戳記已晚於 `HEAD` 中的值且與現在同一 UTC 日的模組會略過，輸出為 `skipped`；指名的模組全部略過時不改寫 `module-map.yaml`。
 
 - **`prospec agent sync [--cli <name>]`**
   - **核心用途**：同步各 AI Agent 設定檔並生成對應的 Skills。
@@ -265,7 +265,7 @@ Review 維持 artifact→metadata，verify 維持 metadata→evidence 的寫入�
     - `--json` 將整份 status 報告（含各變更的 `nextSkill`、`unresolvedWarnings` 與 `nextReferenceMap`）輸出至 stdout，供機器讀取。
     - 無任何進行中變更時，讀取 `prospec-report.json` 並回報其**狀態**：`--auto-draft` 會起草的 finding 數量，或該報告無法解析、或是對著不同的程式碼產生的（以 `change_digest` 比對）。無法信任的報告會如實回報，絕不當成「沒有漂移」。
     - 當站點恢復迴圈（verify below-bar、plan verifier flaws、tasks verifier flaws）達到 `workflow.max_station_retries`（預設 3）時，`status` 會路由至 `next: null` 並帶穩定代碼 `ESCALATE_TO_HUMAN`，印出 HALT 指引與失敗摘要，不再無限循環回原站。
-    - 在 `verified`，`prospec-knowledge-update` 修不了的 knowledge-sync gap——缺少 scope 宣告、非 canonical REQ id、無法解析的 `module-map.yaml`、module-map 未註冊、且沒有 ADDED REQ 以新模組引入的 `related_modules` 名稱——會路由至 `next: null` 並帶穩定代碼 `KNOWLEDGE_INPUT_INVALID`，印出 HALT 與每個 gap 的原因及修復方式，每個代碼一條 reason（各自保留自己的代碼）；stale 模組仍路由至 `prospec-knowledge-update`（`KNOWLEDGE_UNSYNCED`）。
+    - 在尚未 review 的 `implemented` 與 `verified`，`prospec-knowledge-update` 修不了的 knowledge-sync gap——缺少 scope 宣告、非 canonical REQ id、無法解析的 `module-map.yaml`、module-map 未註冊、且沒有 ADDED REQ 以新模組引入的 `related_modules` 名稱——會路由至 `next: null` 並帶穩定代碼 `KNOWLEDGE_INPUT_INVALID`，印出 HALT 與每個 gap 的原因及修復方式，每個代碼一條 reason（各自保留自己的代碼）；stale 模組仍路由至 `prospec-knowledge-update`（`KNOWLEDGE_UNSYNCED`）。
     - **Plan 簽核停頓**：變更解析出的停頓站含 `plan` 時——有設 `PROSPEC_PAUSE_AT`（即使為空；空值或 `none`＝不停）以它為準，否則已驗證的 `ai-proposed` Premise 預設停頓，並加上 `workflow.pause_at`——位於 `plan` 的 `standard` 或 `full` 變更若尚無 verifier 結果，或 plan.md／delta-spec.md 在 verifier 審核後被修改，會導回 plan（`PLAN_VERIFIER_PENDING`），有 PASS/WARN verifier 結果後則路由至 `next: null` 並帶 `AWAITING_HUMAN_PLAN_SIGNOFF`，印出簽核 HALT 與 `--signoff` 指令（full：候選方案；standard：`plan`），直到記錄晚於該 verifier 記錄、且綁定目前 plan 版本的簽核為止。沒有 plan 的 scale 不會停頓。停頓只作用於路由：`status`、cascade 與 `prospec-ff` 會停下，手動執行的 `prospec change tasks` 不會被拒絕。停頓值無效時，`status`（含 `--json`）以 exit 1 結束，錯誤訊息指出來源、無效值與合法站名，且不輸出報告；即使沒有進行中的變更也一樣。非 archived 變更的 `next: null` 必帶 `ESCALATE_TO_HUMAN`、`AWAITING_HUMAN_PLAN_SIGNOFF` 或 `KNOWLEDGE_INPUT_INVALID`——請比對 `code`。
 
 - **`prospec change story <name> [options]`**

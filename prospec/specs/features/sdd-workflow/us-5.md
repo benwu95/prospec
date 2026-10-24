@@ -28,8 +28,8 @@ Verification 4/5 adopts the repository-wide `knowledge-health` verdict. Freshnes
 - WHEN ui_scope != none + design-spec.md exists, THEN execute design consistency check
 
 #### REQ-TEMPLATES-045: Verify Knowledge Staleness Detection
-Verify cites the engine's Knowledge freshness and coverage facts. Prepare Knowledge inputs before final validation as described by REQ-TEMPLATES-129.
-- WHEN a change's Knowledge needs updating or confirmation, THEN name the affected modules and complete the necessary synchronization before final review/tests/verify; a subsequent effective-input edit requires renewed validation
+Verify cites the engine's Knowledge freshness and coverage facts. Knowledge inputs are prepared at the implement exit as described by REQ-TEMPLATES-129; verify does not synchronize Knowledge itself.
+- WHEN a change's Knowledge needs updating or confirmation at verify, THEN name the affected modules in the 4/5 result and leave the synchronization to the knowledge-update station — routed by `prospec status` for a knowledge-sync gap (REQ-LIB-035), run manually for a README gap no such fact records
 - WHEN the live assessment is available, THEN adopt the repository-wide `knowledge-health` verdict without re-deriving it; an unavailable mechanical dimension remains not-adjudicated plus WARN (S unreachable), while unprovable required evidence can separately refuse recording
 
 #### REQ-TEMPLATES-063: Verify Grades Constitution by Severity

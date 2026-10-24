@@ -27,10 +27,12 @@ flowchart TD
   b2r0 -->|No| b2r1{"tasks verifier FAIL?"} -->|Yes| b2r1L["TASKS_VERIFIER_FAILED<br>next: tasks"]
   b2r1 -->|No| b2r2L["LIFECYCLE_NEXT<br>next: implement"]
   %% ═══ implemented ═══
-  S -->|implemented| b3r0{"no review provenance?"} -->|Yes| b3r0L["REVIEW_PENDING<br>next: review"]
-  b3r0 -->|No| b3r1{"recorded grade below S/A,<br>no escalation history,<br>streak ≥ max retries?"} -->|Yes| b3r1L["ESCALATE_TO_HUMAN<br>next: null"]
-  b3r1 -->|No| b3r2{"recorded grade below S/A?"} -->|Yes| b3r2L["VERIFY_GRADE_BELOW_BAR<br>next: verify"]
-  b3r2 -->|No| b3r3L["VERIFY_PENDING<br>next: verify"]
+  S -->|implemented| b3r0{"no review provenance,<br>a knowledge-sync reason<br>other than UNSYNCED?"} -->|Yes| b3r0L["KNOWLEDGE_INPUT_INVALID<br>next: null"]
+  b3r0 -->|No| b3r1{"no review provenance,<br>any knowledge-sync reason?"} -->|Yes| b3r1L["KNOWLEDGE_UNSYNCED<br>next: knowledge-update"]
+  b3r1 -->|No| b3r2{"no review provenance?"} -->|Yes| b3r2L["REVIEW_PENDING<br>next: review"]
+  b3r2 -->|No| b3r3{"recorded grade below S/A,<br>no escalation history,<br>streak ≥ max retries?"} -->|Yes| b3r3L["ESCALATE_TO_HUMAN<br>next: null"]
+  b3r3 -->|No| b3r4{"recorded grade below S/A?"} -->|Yes| b3r4L["VERIFY_GRADE_BELOW_BAR<br>next: verify"]
+  b3r4 -->|No| b3r5L["VERIFY_PENDING<br>next: verify"]
   %% ═══ verified ═══
   S -->|verified| b4r0{"latest grade below S/A,<br>no escalation history,<br>streak ≥ max retries?"} -->|Yes| b4r0L["ESCALATE_TO_HUMAN<br>next: null"]
   b4r0 -->|No| b4r1{"latest grade below S/A?"} -->|Yes| b4r1L["VERIFY_GRADE_BELOW_BAR<br>next: verify"]
@@ -43,9 +45,9 @@ flowchart TD
   classDef readyNode fill:#7ED321,color:#fff,stroke:#5CA018
   classDef stateNode fill:#F5A623,color:#fff,stroke:#D4871A
   classDef successNode fill:#417505,color:#fff,stroke:#2E5204
-  class g0,g1,g2,g3,S,b0r0,b1r0,b1r1,b1r2,b1r3,b1r4,b1r5,b2r0,b2r1,b3r0,b3r1,b3r2,b4r0,b4r1,b4r2,b4r3 decisionNode
-  class g2L,b1r0L,b1r4L,b2r0L,b3r1L,b4r0L,b4r2L readyNode
-  class g0L,g1L,g3L,b0r0L,b0r1L,b1r1L,b1r2L,b1r3L,b1r5L,b1r6L,b2r1L,b2r2L,b3r0L,b3r2L,b3r3L,b4r1L,b4r3L,b4r4L stateNode
+  class g0,g1,g2,g3,S,b0r0,b1r0,b1r1,b1r2,b1r3,b1r4,b1r5,b2r0,b2r1,b3r0,b3r1,b3r2,b3r3,b3r4,b4r0,b4r1,b4r2,b4r3 decisionNode
+  class g2L,b1r0L,b1r4L,b2r0L,b3r0L,b3r3L,b4r0L,b4r2L readyNode
+  class g0L,g1L,g3L,b0r0L,b0r1L,b1r1L,b1r2L,b1r3L,b1r5L,b1r6L,b2r1L,b2r2L,b3r1L,b3r2L,b3r4L,b3r5L,b4r1L,b4r3L,b4r4L stateNode
   class b5r0L successNode
 ```
 <!-- routing-flow:end -->

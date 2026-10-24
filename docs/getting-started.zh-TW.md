@@ -70,9 +70,9 @@ prospec-design                    # （Plan 之後可選）UI / 互動規格
 prospec-tasks                     # 把計劃拆成有序的任務清單
 #   ↑ 用 prospec-ff add-my-feature 一次收合 story → plan → tasks
 prospec-implement                 # 逐項實作（先不 commit）
+prospec-knowledge-update          # 在 review 前同步受影響模組的 Knowledge（implement 收尾會執行）
 prospec-review                    # 對抗式審查 → fix 迴圈
 prospec-verify                    # 驗證；達 S/A 後開啟 commit 邊界
-prospec-knowledge-update          # 同步受影響模組的 Knowledge 並折入 feature commit
 prospec-archive                   # 歸檔 + 讓 Feature Specs 正式畢業
 prospec-learn                     # （定期）把反覆出現的教訓晉升為團隊規則
 ```

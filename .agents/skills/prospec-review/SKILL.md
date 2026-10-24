@@ -29,7 +29,7 @@ When triggered, briefly describe:
 Hand-executing a CLI-owned mutation is NEVER the fallback — that re-introduces the
 nondeterministic serialization this contract exists to remove.
 
-Evidence uses `snapshot-v2` / `repository-inputs-v2`: repository input content, independent of staging and equivalent commit history. Complete Knowledge/count/generated-asset sync before the final review, test record and verification. A legacy record needs one real revalidation; an equivalent commit alone needs no re-record.
+Evidence uses `snapshot-v2` / `repository-inputs-v2`: repository input content, independent of staging and equivalent commit history. A legacy record needs one real revalidation; an equivalent commit alone needs no re-record.
 
 ## Startup Loading
 
@@ -180,7 +180,7 @@ Verify the output against this skill's **site-specific** Constitution rule (**de
 ## Next-Step Handoff
 
 After the Output Summary, recommend the next step in the SDD workflow order
-(`story → plan → tasks → implement → review → verify → knowledge-update → archive`, then periodic `learn`) — read
+(`story → plan → tasks → implement → knowledge-update → review → verify → archive`, then periodic `learn`) — read
 `metadata.yaml` status and `prospec/ai-knowledge/_status-lifecycle.md` (review and learn own no
 status transition, so follow this order, not status alone). Provide the direct, actionable Skill
 identity or CLI command for the next step (e.g. `prospec-plan`), allowing smooth continuation

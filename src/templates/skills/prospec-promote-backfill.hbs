@@ -77,7 +77,7 @@ plan.md/tasks.md**, `scale: backfill` + `status: implemented`, and no uncommitte
 
 ### Phase 5: Handoff
 
-Present the produced scaffold and route the user to `prospec-verify` — under `scale: backfill`, verify grades **spec-fidelity** (every REQ's `file:line` must resolve) and treats pre-existing code-quality gaps as informational tech debt, the CLI determines the grade, and eligibility remains subject to the archive gates.
+First run `prospec-knowledge-update` for the modules `prospec knowledge update --change` reports ∪ `metadata.related_modules`, stamping them via `prospec knowledge verify <modules...>`; then present the produced scaffold and route the user to `prospec-verify` — under `scale: backfill`, verify grades **spec-fidelity** (every REQ's `file:line` must resolve) and treats pre-existing code-quality gaps as informational tech debt, the CLI determines the grade, and eligibility remains subject to the archive gates.
 
 ## Output Contract
 

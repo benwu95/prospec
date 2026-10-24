@@ -25,6 +25,10 @@ import { PAUSE_AT_ENV_VAR, PAUSE_AT_NONE } from './config.js';
  * list has no forward planning station, so its only route until it reaches
  * `implemented` is finishing its promotion. It sits immediately before
  * `implement` because that is the status the promotion lands at.
+ *
+ * `knowledge-update` sits between `implement` and `review` because its writes
+ * (module READMEs, `module-map.yaml` stamps) are review and test evidence
+ * inputs: synced after them, it would stale the recorded evidence.
  */
 export const SDD_STATIONS = [
   'story',
@@ -33,9 +37,9 @@ export const SDD_STATIONS = [
   'tasks',
   'promote',
   'implement',
+  'knowledge-update',
   'review',
   'verify',
-  'knowledge-update',
   'archive',
 ] as const;
 
@@ -221,7 +225,7 @@ export interface ChangeRouteFacts {
    *  report audited (false when that report predates the stamp). */
   planChangedSinceVerifier: boolean;
   /** The reasons affected-module Knowledge is not synced (`knowledgeSyncReasons`
-   *  over `findUnsyncedModules`), computed only at `verified`; empty means synced. */
+   *  over `findUnsyncedModules`), computed at `verified` and before review at `implemented`; empty means synced. */
   knowledgeSyncReasons: WorkflowReason[];
   /** Unresolved WARNs computed from this change's `quality_log` (empty when
    *  none). Display data, NOT a routing fact; the router forwards it to the

@@ -348,12 +348,65 @@ const TASKS_BRANCH: RouteBranch = {
   ],
 };
 
+// Only KNOWLEDGE_UNSYNCED is knowledge-update's to repair; any other reason
+// halts for a human rather than naming a station that cannot fix it. Each gap
+// reason keeps its own code: the formatter prefixes every reason line with the
+// route's code, which a co-listed KNOWLEDGE_UNSYNCED reason does not share.
+// `implemented` (before review) and `verified` (the backstop) share these rules.
+function knowledgeRules(scope: {
+  status: 'implemented' | 'verified';
+  /** The station the halt holds the change before. */
+  blocks: 'review' | 'archive';
+  idPrefix: string;
+  labelPrefix: string;
+  when: (c: RouteContext) => boolean;
+}): RouteRule[] {
+  const { status, blocks, idPrefix, labelPrefix, when } = scope;
+  return [
+    {
+      id: `${idPrefix}knowledge-input-invalid`,
+      label: `${labelPrefix}a knowledge-sync reason<br>other than UNSYNCED?`,
+      when: (c) => when(c) && c.facts.knowledgeSyncReasons.some((r) => r.code !== 'KNOWLEDGE_UNSYNCED'),
+      code: 'KNOWLEDGE_INPUT_INVALID',
+      next: null,
+      gates: () => [
+        `knowledge-sync inputs repaired — related_modules scope declared, every delta-spec REQ id canonical, module-map.yaml readable; resolve ${RELATED_MODULE_HALT_CONDITION}`,
+      ],
+      reasons: (c) => [
+        `status \`${status}\` — a knowledge-sync input no station repairs blocks ${blocks}; prospec-knowledge-update cannot fix it, so repair it and re-run prospec status`,
+        ...c.facts.knowledgeSyncReasons.map(formatWorkflowReason),
+      ],
+    },
+    {
+      id: `${idPrefix}knowledge-unsynced`,
+      label: `${labelPrefix}any knowledge-sync reason?`,
+      when: (c) => when(c) && c.facts.knowledgeSyncReasons.length > 0,
+      code: 'KNOWLEDGE_UNSYNCED',
+      next: 'knowledge-update',
+      gates: () => [
+        'affected-module Knowledge synced (module-map.yaml last_verified updated via `prospec knowledge verify` or prospec-knowledge-update)',
+      ],
+      reasons: (c) => [
+        `status \`${status}\` — knowledge is not yet synced for affected modules; prospec-knowledge-update is the next station`,
+        ...c.facts.knowledgeSyncReasons.map(formatWorkflowReason),
+      ],
+    },
+  ];
+}
+
 const IMPLEMENTED_BRANCH: RouteBranch = {
   statuses: ['implemented'],
   preamble: (c) => c.facts.scale === 'backfill'
     ? ['scale: backfill — legal lifecycle entry at `implemented` (brownfield code pre-exists; no plan/tasks by design, not a skipped station)']
     : [],
   rules: [
+    ...knowledgeRules({
+      status: 'implemented',
+      blocks: 'review',
+      idPrefix: 'implemented-',
+      labelPrefix: 'no review provenance,<br>',
+      when: (c) => !c.facts.hasReviewProvenance,
+    }),
     {
       id: 'review-pending',
       label: 'no review provenance?',
@@ -423,43 +476,12 @@ const VERIFIED_BRANCH: RouteBranch = {
         `status stays \`verified\` (forward-only) but the latest prospec-verify grade is ${c.facts.lastVerifyGrade} — fix the WARN/FAIL items and re-run prospec-verify before archive; \`prospec archive\` would refuse this change`,
       ],
     },
-    // Only KNOWLEDGE_UNSYNCED is knowledge-update's to repair; any other reason
-    // halts for a human rather than naming a station that cannot fix it. Each gap
-    // reason keeps its own code: the formatter prefixes every reason line with the
-    // route's code, which a co-listed KNOWLEDGE_UNSYNCED reason does not share.
-    {
-      id: 'knowledge-input-invalid',
-      label: 'a knowledge-sync reason<br>other than UNSYNCED?',
-      when: (c) => c.facts.knowledgeSyncReasons.some((r) => r.code !== 'KNOWLEDGE_UNSYNCED'),
-      code: 'KNOWLEDGE_INPUT_INVALID',
-      next: null,
-      gates: () => [
-        `knowledge-sync inputs repaired — related_modules scope declared, every delta-spec REQ id canonical, module-map.yaml readable; resolve ${RELATED_MODULE_HALT_CONDITION}`,
-      ],
-      reasons: (c) => [
-        'status `verified` — a knowledge-sync input no station repairs blocks archive; prospec-knowledge-update cannot fix it, so repair it and re-run prospec status',
-        ...c.facts.knowledgeSyncReasons.map(formatWorkflowReason),
-      ],
-    },
-    {
-      id: 'knowledge-unsynced',
-      label: 'any knowledge-sync reason?',
-      when: (c) => c.facts.knowledgeSyncReasons.length > 0,
-      code: 'KNOWLEDGE_UNSYNCED',
-      next: 'knowledge-update',
-      gates: () => [
-        'affected-module Knowledge synced (module-map.yaml last_verified updated via `prospec knowledge verify` or prospec-knowledge-update)',
-      ],
-      reasons: (c) => [
-        'status `verified` — knowledge is not yet synced for affected modules; prospec-knowledge-update is the next station',
-        ...c.facts.knowledgeSyncReasons.map(formatWorkflowReason),
-      ],
-    },
+    ...knowledgeRules({ status: 'verified', blocks: 'archive', idPrefix: '', labelPrefix: '', when: () => true }),
     {
       id: 'verified-next', label: 'otherwise', when: OTHERWISE, code: 'LIFECYCLE_NEXT', next: 'archive',
       gates: () => [
         '`prospec archive` refuses unless the change is `verified`',
-        'affected-module Knowledge synced — `prospec archive` refuses otherwise (verify S/A commit prompt is the prevention; the archive Entry Gate is the backstop)',
+        'affected-module Knowledge synced — `prospec archive` refuses otherwise (the implement exit is the prevention; the archive Entry Gate is the backstop)',
         // `verified` is inside PROVENANCE_AUDITED_STATUSES, so these are live gates
         // on this edge, not just on the one before it. Equivalent commits keep
         // repository-input evidence current. Declared, not
