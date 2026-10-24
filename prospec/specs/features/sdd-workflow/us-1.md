@@ -306,9 +306,9 @@ Phase 4 of `/prospec-plan` performs multi-candidate architecture selection with 
 ---
 
 #### REQ-TESTS-090: Contract Tests Pin prospec knowledge verify Guidance
-Contract tests assert that both `prospec-knowledge-update` and `prospec-verify` contain explicit instructions to run `prospec knowledge verify`.
+Contract tests assert that both `prospec-knowledge-update` and `prospec-implement` contain explicit instructions to run `prospec knowledge verify`.
 - `tests/contract/skill-format.test.ts` asserts `skills/prospec-knowledge-update.hbs` instructs running `prospec knowledge verify <modules...>` after README content review/update.
-- `tests/contract/skill-format.test.ts` asserts `skills/prospec-verify.hbs` S/A commit prompt instructs running `prospec knowledge verify <modules...>`.
+- `tests/contract/skill-format.test.ts` asserts `skills/prospec-implement.hbs` instructs running `prospec knowledge verify <modules...>` before its final `prospec check --record-tests`.
 
 ---
 
@@ -423,7 +423,7 @@ The template library includes skill references for cascading execution, circuit 
 - WHEN skills consult cascading references on demand, THEN `cascade-protocol.md`, `circuit-breaker.md`, and `project-test-runner.md` provide clear, verifiable rules for autonomous execution, runaway prevention, and ecosystem adaptation
 - WHEN `cascade-protocol.md` states the plan → tasks transition gate, THEN it requires a recorded Architecture Verifier PASS or advisory WARN on five orthogonal dimensions; a Break-Glass grant alone permits one new attempt under REQ-SERVICES-126 and does not satisfy the verifier gate
 - WHEN `cascade-protocol.md` renders its Station Transition Gates table, THEN every station named is a member of `SDD_STATIONS`, `design` and `promote` have rows, `awaiting_signoff` does not appear, and the verify row states that a B/C/D grade is routed back to verify by `prospec status`
-- WHEN `cascade-protocol.md` lists scale-driven paths, THEN a `Scale: Backfill` trajectory `promote → review → verify → knowledge-update → Tastemaker sign-off` is present alongside quick/standard/full
+- WHEN `cascade-protocol.md` lists scale-driven paths, THEN a `Scale: Backfill` trajectory `promote → knowledge-update → review → verify → Tastemaker sign-off` is present alongside quick/standard/full
 - WHEN cascading and breaker references describe their mechanisms, THEN they state station instructions and stopping conditions without promising model reliability or a monetary cost bound
 - WHEN cascade or breaker references present escalation exits, THEN they echo the CLI decision under REQ-TEMPLATES-244 and do not prescribe another round or self-authorized bypass
 
