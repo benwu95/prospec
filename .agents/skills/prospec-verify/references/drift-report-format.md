@@ -61,7 +61,7 @@ subject_skips? }`, adopted **verbatim**.
 | `spec-counters` | `warn` | Flags feature specs whose frontmatter `story_count`/`req_count` disagrees with actual headings. | Specs absent or unparseable. |
 | `unjustified-budget-override` | `fail` | Flags unjustified `token_budget` overrides and shipped budget keys that bind nothing. | No budget override configured. |
 | `canonical-doc-drift` | `warn` | Flags canonical project docs drifting from rendered canonical templates. | File absent. |
-| `delta-spec-landing-fidelity` | `fail` | Flags MODIFIED `**Spec:**` blocks omitting existing `WHEN/THEN` bullets without `**Dropped:**` declaration. | ADDED entries, no `**Spec:**` block, no changes dir. |
+| `delta-spec-landing-fidelity` | `fail` | Flags MODIFIED `**Spec:**` blocks that drop undeclared `WHEN/THEN` bullets or are empty. | ADDED entries, no `**Spec:**` block, no changes dir. |
 | `req-id-uniqueness` | `fail` | Flags duplicate REQ ID definitions across Feature Specs (slices grouped with parent). | Specs absent or unparseable. |
 | `language-policy-drift` | `warn` | Flags a Constitution whose Language Policy Description no longer matches the one generated for the resolved language scope, or still carries the old seed (the old English seed in an English-only project passes — nothing to migrate). | Constitution unreadable, no Language Policy principle, or no `**Description**:` field. |
 | `task-completion` | `warn`/`fail` | Tracks code-task completion in `tasks.md` (`[M]`/`[V]` excluded). | No tasks.md or not in git repo. |

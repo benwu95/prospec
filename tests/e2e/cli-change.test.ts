@@ -605,6 +605,22 @@ describe('CLI E2E — change & spec', () => {
       expect(alphaSpec()).toBe(before);
     });
 
+    // issue #409: a REQ heading pasted under `**Spec:**` ends the block before any
+    // text. It used to graduate as pending convergence after the feature commit.
+    it.each([false, true])('exits 1 and moves nothing when a **Spec:** block holds only a pasted REQ heading (dryRun=%s)', async (dryRun) => {
+      await writeLossyChange('feat-empty', '#### REQ-LIB-002: existing\nNew body.\n- WHEN a happens, THEN b follows');
+      const before = alphaSpec();
+
+      const { stderr, exitCode } = await runCli(['archive', 'feat-empty', ...(dryRun ? ['--dry-run'] : [])]);
+      expect(exitCode).toBe(1);
+      expect(stderr).toContain('REQ-LIB-002');
+      expect(stderr).toContain('`**Spec:**` block holds no content');
+      expect(stderr).toContain('#### REQ-LIB-002: existing');
+      expect(alphaSpec()).toBe(before);
+      expect(fs.existsSync(path.join(tmpDir, '.prospec', 'changes', 'feat-empty'))).toBe(true);
+      expect(fs.existsSync(path.join(tmpDir, '.prospec', 'archive'))).toBe(false);
+    });
+
     // The recovery path, end to end (REQ-CLI-034). Holding the feature-spec write
     // is only half a guard: the first implementation held it AFTER the bundle had
     // moved and the change was stamped `archived`, so the remedy the CLI printed

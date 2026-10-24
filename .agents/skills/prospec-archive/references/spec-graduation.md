@@ -15,11 +15,11 @@
 - **Action**: Restore them into `**Spec:**` or declare them under `**Dropped:**`; the CLI holds the write until resolved.
 
 ### 3. Refused Requirements (`refusedRequirements`, BLOCKING)
-- **Meaning**: REQs the CLI cannot safely land. Archive preflight reports these before the change is moved; resolve the named cause and retry archive (dry-run reports the same refusal).
+- **Meaning**: REQs the CLI cannot safely land. Archive preflight reports these before the change is moved; resolve the named cause and retry (dry-run reports the same refusal).
 - **Action**: Follow the reported kind; no declaration bypasses a refusal:
-  - `unclosed-fence`: close the fence in the named source file (the feature mother file or a registered slice). The whole feature is left unwritten; do not rewrite the delta-spec to work around it.
+  - `unclosed-fence`: close the fence in the named source file (mother file or registered slice). The whole feature is left unwritten; do not rewrite the delta-spec to work around it.
   - `unresolved-feature`: correct the `**Feature:**` routing header to the feature that hosts the REQ id.
-  - `truncation`: fix the named block (`**Spec:**` for MODIFIED, `**Description:**`/`**Acceptance Criteria:**` for ADDED); inline labeled sections as bullet lists.
+  - `truncation` / `empty-spec`: fix the named block (`**Spec:**` for MODIFIED, `**Description:**`/`**Acceptance Criteria:**` for ADDED); inline labeled sections as bullet lists; drop a pasted REQ heading.
 
 ### 4. Acknowledged Drops (`acknowledgedDrops`)
 - **Meaning**: Declared omissions, including rewrites.

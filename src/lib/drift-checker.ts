@@ -582,9 +582,11 @@ export function evaluateDeltaSpecProvenance(src: DeltaSpecProvenanceSource): Che
  *
  * A mis-pointing routing header (`**Feature:**` naming a feature that does not host
  * the REQ id) → fail, so it can no longer pass by skipping the comparison (issue
- * #211). Undeclared drop → fail (naming the REQ and the bullet); a stale declaration
- * and a prose `**Dropped:**` block that declares nothing → warn; a declared drop and
- * an excluded entry (ADDED-like or no Spec block) produce nothing.
+ * #211). A MODIFIED `**Spec:**` label whose block holds no content → fail, after the
+ * routing verdict as archive orders its refusals (issue #409). Undeclared drop → fail
+ * (naming the REQ and the bullet); a stale declaration and a prose `**Dropped:**`
+ * block that declares nothing → warn; a declared drop and an excluded entry
+ * (ADDED-like or no Spec block) produce nothing.
  */
 export function evaluateDeltaSpecLandingFidelity(
   src: DeltaSpecLandingFidelitySource,
@@ -614,6 +616,24 @@ export function evaluateDeltaSpecLandingFidelity(
           `cross-feature move explicitly (a mis-pointing header would append a stale duplicate)`,
       });
       continue;
+    }
+    // A pasted REQ heading ends the block on its first line, so the entry would read
+    // as "no Spec block" below and archive would graduate the change without its new
+    // body. Archive refuses the SAME entry from the SAME verdict.
+    if (e.emptySpec !== null) {
+      const ended =
+        e.emptySpec.boundary === null
+          ? 'the entry ends'
+          : `\`${e.emptySpec.boundary}\` ends it`;
+      findings.push({
+        check: 'delta-spec-landing-fidelity',
+        severity: 'fail',
+        source_path: e.source_path,
+        detail:
+          `${e.reqId} in change "${e.change}": its \`**Spec:**\` block holds no content — ${ended} ` +
+          `before any text, so archive would refuse it; write the resulting REQ body under the label ` +
+          `without its \`#### REQ-…\` heading`,
+      });
     }
     // A non-empty `**Dropped:**` block that parsed to zero declarations is prose,
     // not an assertion the tool can act on — warn so a "none" is not mistaken for a

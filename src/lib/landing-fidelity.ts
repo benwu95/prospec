@@ -243,8 +243,8 @@ export interface DeltaBlock {
  * refuse the REQ rather than write the remainder (REQ-SERVICES-081).
  */
 export function extractDeltaBlock(bodyLines: string[], label: string): DeltaBlock {
-  const labelRe = new RegExp(`^\\*\\*${label}:\\*\\*\\s*(.*)$`);
-  const start = bodyLines.findIndex((l) => labelRe.test(l.trim()));
+  const labelRe = deltaLabelPattern(label);
+  const start = deltaLabelIndex(bodyLines, label);
   if (start === -1) return { content: '', truncation: null };
 
   const first = bodyLines[start]!.trim().match(labelRe)![1]!.trim();
@@ -282,6 +282,16 @@ export function extractDeltaBlock(bodyLines: string[], label: string): DeltaBloc
     collected.push(line);
   }
   return { content: collected.join('\n').trim(), truncation };
+}
+
+function deltaLabelPattern(label: string): RegExp {
+  return new RegExp(`^\\*\\*${label}:\\*\\*\\s*(.*)$`);
+}
+
+/** Index of the line carrying `**Label:**` — the line `extractDeltaBlock` reads from; -1 when absent. */
+function deltaLabelIndex(bodyLines: string[], label: string): number {
+  const labelRe = deltaLabelPattern(label);
+  return bodyLines.findIndex((l) => labelRe.test(l.trim()));
 }
 
 /** One delta-spec entry as its `### REQ-…` block places it, before any
@@ -356,6 +366,36 @@ export function iterateDeltaEntries(deltaContent: string): DeltaEntry[] {
   }
   push();
   return entries;
+}
+
+/** A MODIFIED entry's `**Spec:**` label whose block holds no content. */
+export interface EmptyLandingBlock {
+  /** The line that ended the block before any content, trimmed; `null` when
+   *  the entry itself ended first. */
+  boundary: string | null;
+}
+
+/**
+ * Whether a MODIFIED entry carries a `**Spec:**` label whose block holds no
+ * content (issue #409). Without this the shape reads exactly like an entry that
+ * never wrote the label — the usual cause is a REQ heading pasted under it, which
+ * ends the block on its first line — so the drift check skipped it and archive
+ * graduated the change without the new body. The `delta-spec-landing-fidelity`
+ * check fails and the archive write path refuses from this one verdict.
+ *
+ * A truncation is left to its own refusal (REQ-SERVICES-081); ADDED falls back to
+ * Description/Acceptance Criteria and REMOVED lands no body, so neither applies.
+ */
+export function emptyLandingBlock(entry: DeltaEntry): EmptyLandingBlock | null {
+  if (entry.section !== 'MODIFIED') return null;
+  const start = deltaLabelIndex(entry.body, 'Spec');
+  if (start === -1) return null;
+  const block = extractDeltaBlock(entry.body, 'Spec');
+  if (block.content !== '' || block.truncation !== null) return null;
+  // An empty block collected only blank lines, so the first non-blank line after
+  // the label is the one that ended it.
+  const boundary = entry.body.slice(start + 1).find((l) => l.trim() !== '');
+  return { boundary: boundary === undefined ? null : boundary.trim() };
 }
 
 /**

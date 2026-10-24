@@ -4059,9 +4059,10 @@ describe('Dropped-behavior graduation gate (REQ-TEMPLATES-168)', () => {
     expect(gate).not.toContain('A refusal means that block was cut short');
     const ref = renderTemplate('skills/references/spec-graduation.hbs', TEMPLATE_CONTEXT);
     const refusals = sectionOf(ref, '### 3. Refused Requirements');
-    for (const kind of ['unclosed-fence', 'unresolved-feature', 'truncation']) {
+    for (const kind of ['unclosed-fence', 'unresolved-feature', 'truncation', 'empty-spec']) {
       expect(refusals).toContain(`\`${kind}\``);
     }
+    expect(refusals).toMatch(/`empty-spec`[^\n]*drop a pasted REQ heading/);
     expect(refusals).toMatch(/unclosed-fence[^\n]*close[^\n]*source file/i);
     expect(refusals).toMatch(/unresolved-feature[^\n]*Feature[^\n]*host/i);
     expect(refusals).toMatch(/truncation[^\n]*named block/i);
@@ -5518,6 +5519,9 @@ describe('backfill graduation — lifecycle + format docs (scale: backfill)', ()
     // negative: the superseded promise must be gone, or authors keep writing the
     // shape that used to be silently truncated
     expect(block).not.toContain('is NOT landed, silently');
+    // A label over an empty block is refused, not read as absent — and the pasted
+    // REQ heading that causes it is named, so authors stop writing it (issue #409).
+    expect(block).toMatch(/`prospec archive` refuses that REQ[^\n]*or a MODIFIED block holds no content \(as after a pasted REQ heading\)/);
     // The declaration that releases a deliberate removal lives in its own h3, so
     // it is scoped separately — asserting it against the whole reference would let
     // the `**Dropped:**` line in the MODIFIED scaffold mask a deletion here.

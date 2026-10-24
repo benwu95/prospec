@@ -5,10 +5,12 @@ import {
   classifyRoutingResolution,
   whenThenBullets,
   declaredDrops,
+  emptyLandingBlock,
   extractDeltaBlock,
   iterateDeltaEntries,
 } from '../../../src/lib/landing-fidelity.js';
 import { collectDeltaSpecLandingFidelity } from '../../../src/lib/drift-sources.js';
+import { evaluateDeltaSpecLandingFidelity } from '../../../src/lib/drift-checker.js';
 import { buildReqHomeIndex } from '../../../src/lib/spec-read.js';
 import { syncToFeatureSpecs } from '../../../src/services/archive.service.js';
 
@@ -125,6 +127,50 @@ describe('landing-fidelity parsers', () => {
     expect(entries).toHaveLength(2);
     expect(entries.map((e) => e.reqId)).toEqual(['REQ-LIB-901', 'REQ-LIB-902']);
     expect(entries[0]!.body.join('\n')).toContain('### REQ-LIB-999: Fenced example');
+  });
+});
+
+describe('emptyLandingBlock — a **Spec:** label whose block holds no content (issue #409)', () => {
+  const entry = (section: string, body: string[]) => {
+    const parsed = iterateDeltaEntries(
+      [`## ${section}`, '', '### REQ-LIB-900: Sample', '', '**Feature:** drift-checks', '', ...body].join('\n'),
+    );
+    expect(parsed).toHaveLength(1);
+    return parsed[0]!;
+  };
+
+  it.each([
+    ['a pasted REQ heading', ['**Spec:**', '#### REQ-LIB-900: Sample', 'Body.', '- WHEN a, THEN x'], '#### REQ-LIB-900: Sample'],
+    ['a heading after blank lines', ['**Spec:**', '', '', '## Notes', 'Body.'], '## Notes'],
+    ['a first-occurrence template field', ['**Spec:**', '**Dropped:**', '- WHEN a, THEN x'], '**Dropped:**'],
+    ['a repeated template field with nothing after it', ['**Reason:**', 'why', '**Spec:**', '**Reason:**', '', '---'], '**Reason:**'],
+    ['a bare foreign label', ['**Spec:**', '**Scenarios:**', '', '**Priority:** High'], '**Scenarios:**'],
+    ['a --- rule', ['**Spec:**', '', '---'], '---'],
+  ])('flags a MODIFIED block ended by %s and names that line', (_shape, body, boundary) => {
+    expect(emptyLandingBlock(entry('MODIFIED', body))).toEqual({ boundary });
+  });
+
+  it('flags a MODIFIED block that runs to the end of the entry with a null boundary', () => {
+    expect(emptyLandingBlock(entry('MODIFIED', ['**Before:**', 'old', '', '**Spec:**', '', '']))).toEqual({ boundary: null });
+  });
+
+  it('does not flag a MODIFIED entry with no **Spec:** label', () => {
+    expect(emptyLandingBlock(entry('MODIFIED', ['**Before:**', 'old', '**After:**', 'new']))).toBeNull();
+  });
+
+  it('does not flag a block whose content sits on the label line or under it', () => {
+    expect(emptyLandingBlock(entry('MODIFIED', ['**Spec:** The lib does things.']))).toBeNull();
+    expect(emptyLandingBlock(entry('MODIFIED', ['**Spec:**', '', 'The lib does things.', '- WHEN a, THEN x']))).toBeNull();
+  });
+
+  it('leaves a truncation to the truncation refusal', () => {
+    const e = entry('MODIFIED', ['**Spec:**', '**Scenarios:**', '- WHEN a, THEN x']);
+    expect(extractDeltaBlock(e.body, 'Spec').truncation).not.toBeNull();
+    expect(emptyLandingBlock(e)).toBeNull();
+  });
+
+  it.each(['ADDED', 'REMOVED'])('does not flag an empty **Spec:** block in a %s entry', (section) => {
+    expect(emptyLandingBlock(entry(section, ['**Spec:**', '#### REQ-LIB-900: Sample', 'Body.']))).toBeNull();
   });
 });
 
@@ -436,5 +482,149 @@ describe('routing-header resolution — check fails and archive refuses from one
     });
     // No brand-new spec is fabricated — the REQ lives in drift-checks.
     expect(vol.existsSync('/repo/prospec/specs/features/brand-new.md')).toBe(false);
+  });
+});
+
+describe('empty **Spec:** block — check fails and archive refuses from one verdict (issue #409)', () => {
+  beforeEach(() => vol.reset());
+
+  const FEATURES = '/repo/prospec/specs/features';
+  const CHANGE = '/repo/.prospec/changes/x';
+  const spec = (feature: string, reqIds: string[], extra: string[] = []): string =>
+    [
+      '---',
+      `feature: ${feature}`,
+      'status: active',
+      'last_updated: 2026-01-01',
+      'story_count: 1',
+      `req_count: ${reqIds.length}`,
+      '---',
+      '',
+      `# ${feature}`,
+      '',
+      '### US-1',
+      '',
+      ...reqIds.flatMap((id) => [`#### ${id}: Sample`, 'The sample requirement.', '- WHEN a, THEN x', '']),
+      ...extra,
+      '## Change History',
+      '',
+      '| Date | Change | Impact | Stories/REQs |',
+      '|------|--------|--------|-------------|',
+      '',
+    ].join('\n');
+  const modified = (reqId: string, feature: string, specLines: string[] | null): string[] => [
+    `### ${reqId}: Sample`,
+    '',
+    `**Feature:** ${feature}`,
+    '**Story:** US-1',
+    '',
+    '**Before:**',
+    'old',
+    '',
+    '**After:**',
+    'new',
+    '',
+    ...(specLines === null ? [] : ['**Spec:**', ...specLines, '']),
+    '**Priority:** High',
+    '',
+    '---',
+    '',
+  ];
+  const delta = (...entries: string[][]): string => ['# Delta', '', '## MODIFIED', '', ...entries.flat()].join('\n');
+  const PASTED = ['#### REQ-LIB-900: Sample', 'The sample requirement.', '- WHEN a, THEN x'];
+  const seed = (deltaContent: string, specs: Record<string, string> = { 'drift-checks': spec('drift-checks', ['REQ-LIB-900']) }) =>
+    vol.fromJSON({
+      ...Object.fromEntries(Object.entries(specs).map(([f, c]) => [`${FEATURES}/${f}.md`, c])),
+      [`${CHANGE}/delta-spec.md`]: deltaContent,
+      [`${CHANGE}/metadata.yaml`]: 'name: x\ncreated_at: 2026-01-01T00:00:00.000Z\nstatus: implemented\nscale: standard\n',
+    });
+
+  it.each([false, true])('refuses a pasted-heading **Spec:** block and leaves the spec byte-identical (dryRun=%s)', async (dryRun) => {
+    seed(delta(modified('REQ-LIB-900', 'drift-checks', PASTED)));
+    const before = vol.readFileSync(`${FEATURES}/drift-checks.md`, 'utf-8');
+    const sync = await syncToFeatureSpecs(CHANGE, FEATURES, 'x', dryRun);
+    expect(sync.refusedRequirements).toEqual([
+      { kind: 'empty-spec', feature: 'drift-checks', reqId: 'REQ-LIB-900', boundary: '#### REQ-LIB-900: Sample' },
+    ]);
+    expect(sync.pendingConvergence).toEqual([]);
+    expect(vol.readFileSync(`${FEATURES}/drift-checks.md`, 'utf-8')).toBe(before);
+  });
+
+  it('names the line that ended the block, or null when the entry ends first', async () => {
+    seed(delta(modified('REQ-LIB-900', 'drift-checks', []).filter((l) => l !== '---')));
+    const sync = await syncToFeatureSpecs(CHANGE, FEATURES, 'x', false);
+    expect(sync.refusedRequirements).toEqual([
+      { kind: 'empty-spec', feature: 'drift-checks', reqId: 'REQ-LIB-900', boundary: '**Priority:** High' },
+    ]);
+    seed(['# Delta', '', '## MODIFIED', '', '### REQ-LIB-900: Sample', '**Feature:** drift-checks', '', '**Spec:**', ''].join('\n'));
+    const atEnd = await syncToFeatureSpecs(CHANGE, FEATURES, 'x', false);
+    expect(atEnd.refusedRequirements).toEqual([
+      { kind: 'empty-spec', feature: 'drift-checks', reqId: 'REQ-LIB-900', boundary: null },
+    ]);
+  });
+
+  it('refuses on the creation path too, writing no new spec', async () => {
+    seed(delta(modified('REQ-LIB-950', 'brand-new', PASTED)));
+    const sync = await syncToFeatureSpecs(CHANGE, FEATURES, 'x', false);
+    expect(sync.refusedRequirements).toEqual([
+      { kind: 'empty-spec', feature: 'brand-new', reqId: 'REQ-LIB-950', boundary: '#### REQ-LIB-900: Sample' },
+    ]);
+    expect(vol.existsSync(`${FEATURES}/brand-new.md`)).toBe(false);
+  });
+
+  it('keeps preserve-and-report for a MODIFIED entry with no **Spec:** label', async () => {
+    seed(delta(modified('REQ-LIB-900', 'drift-checks', null)));
+    const sync = await syncToFeatureSpecs(CHANGE, FEATURES, 'x', false);
+    expect(sync.refusedRequirements).toEqual([]);
+    expect(sync.pendingConvergence.map((p) => p.reqId)).toEqual(['REQ-LIB-900']);
+  });
+
+  it('reports a truncation as a truncation, not as an empty block', async () => {
+    seed(delta(modified('REQ-LIB-900', 'drift-checks', ['**Scenarios:**', '- WHEN a, THEN x'])));
+    const sync = await syncToFeatureSpecs(CHANGE, FEATURES, 'x', false);
+    expect(sync.refusedRequirements.map((r) => r.kind)).toEqual(['truncation']);
+  });
+
+  it.each([
+    ['an existing declared feature', 'sdd-workflow'],
+    ['a feature with no spec yet', 'brand-new'],
+  ])('reports only the mis-route when the header is mis-routed to %s', async (_where, declared) => {
+    seed(delta(modified('REQ-LIB-900', declared, PASTED)), {
+      'drift-checks': spec('drift-checks', ['REQ-LIB-900']),
+      'sdd-workflow': spec('sdd-workflow', ['REQ-SERVICES-900']),
+    });
+    const sync = await syncToFeatureSpecs(CHANGE, FEATURES, 'x', false);
+    expect(sync.refusedRequirements.map((r) => r.kind)).toEqual(['unresolved-feature']);
+    const check = collectDeltaSpecLandingFidelity(FEATURES, '/repo');
+    const findings = evaluateDeltaSpecLandingFidelity(check).findings;
+    expect(findings).toHaveLength(1);
+    expect(findings[0]!.detail).toContain('drift-checks');
+  });
+
+  it('reports the unclosed fence instead of the empty block', async () => {
+    seed(delta(modified('REQ-LIB-900', 'drift-checks', PASTED)), {
+      'drift-checks': spec('drift-checks', ['REQ-LIB-900'], ['~~~md', '']),
+    });
+    const sync = await syncToFeatureSpecs(CHANGE, FEATURES, 'x', false);
+    expect(sync.refusedRequirements.map((r) => r.kind)).toEqual(['unclosed-fence']);
+  });
+
+  it('the check collector and archive flag the identical set of empty-block entries', async () => {
+    seed(
+      delta(
+        modified('REQ-LIB-900', 'drift-checks', PASTED),
+        modified('REQ-LIB-901', 'drift-checks', ['The sample requirement.', '- WHEN a, THEN x']),
+        modified('REQ-LIB-902', 'drift-checks', ['**Dropped:**', '- WHEN a, THEN x']),
+        modified('REQ-LIB-903', 'drift-checks', null),
+      ),
+      { 'drift-checks': spec('drift-checks', ['REQ-LIB-900', 'REQ-LIB-901', 'REQ-LIB-902', 'REQ-LIB-903']) },
+    );
+    const checked = collectDeltaSpecLandingFidelity(FEATURES, '/repo')
+      .entries.filter((e) => e.emptySpec !== null)
+      .map((e) => e.reqId);
+    const sync = await syncToFeatureSpecs(CHANGE, FEATURES, 'x', true);
+    const refused = sync.refusedRequirements.filter((r) => r.kind === 'empty-spec').map((r) => r.reqId);
+    expect(checked).toEqual(['REQ-LIB-900', 'REQ-LIB-902']);
+    expect(refused).toEqual(checked);
   });
 });

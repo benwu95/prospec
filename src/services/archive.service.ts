@@ -31,6 +31,7 @@ import {
   classifyRoutingResolution,
   declaredDrops,
   DELTA_TEMPLATE_FIELDS,
+  emptyLandingBlock,
   extractDeltaBlock,
   iterateDeltaEntries,
   whenThenBullets,
@@ -38,6 +39,7 @@ import {
   type Bullet,
   type DeltaBlock,
   type DeltaBlockTruncation,
+  type EmptyLandingBlock,
 } from '../lib/landing-fidelity.js';
 import { buildReqHomeIndex } from '../lib/spec-read.js';
 // Re-exported so `services/archive.service` stays the documented import site for
@@ -170,6 +172,9 @@ export interface FeatureRoute {
    *  the body carried here is incomplete, so the REQ is refused rather than landed
    *  (REQ-SERVICES-081). */
   truncation?: DeltaBlockTruncation;
+  /** Set when a MODIFIED entry's `**Spec:**` label is present but its block holds no
+   *  content — refused rather than read as "no Spec block" (REQ-SERVICES-131). */
+  emptySpec?: EmptyLandingBlock;
   /** Bullets the entry's `**Dropped:**` block declares it does not carry into the new body —
    *  the only thing that releases a drop for writing (REQ-SERVICES-083). */
   declaredDrops?: Bullet[];
@@ -186,6 +191,9 @@ export interface FeatureRoute {
  * - `truncation` — the landing block was cut short by a label the template does not
  *   own (REQ-SERVICES-081): the block is incomplete, so no comparison against the
  *   current body would mean anything.
+ * - `empty-spec` — a MODIFIED `**Spec:**` label whose block holds no content, usually
+ *   a pasted REQ heading (REQ-SERVICES-131): read as "no Spec block", the change
+ *   would graduate without its new body. `boundary` names the line that ended it.
  * - `unresolved-feature` — a MODIFIED/REMOVED REQ whose `**Feature:**` header names
  *   a feature that does not host that REQ id while the REQ demonstrably lives in
  *   ANOTHER feature (REQ-SERVICES-096): landing it would append a stale duplicate in
@@ -209,6 +217,13 @@ export type SpecRefusal =
       /** The interrupting line as written, so the author can find the spot. */
       firstSwallowedLine: string;
       swallowedCount: number;
+    }
+  | {
+      kind: 'empty-spec';
+      feature: string;
+      reqId: string;
+      /** The line that ended the block before any content; null when the entry did. */
+      boundary: string | null;
     }
   | {
       kind: 'unclosed-fence';
@@ -742,7 +757,7 @@ export async function syncToFeatureSpecs(
       if (!landedAny) continue;
       // Only the routes that landed may claim a Change History row — a no-op today
       // for the same reason, and retained for the same one.
-      const landed = featureRoutes.filter((r) => r.truncation === undefined);
+      const landed = featureRoutes.filter((r) => blockRefusal(r) === undefined);
       
       // The Change History row follows whichever file carries the section — the
       // mother file, or the slice it was moved into to keep an over-budget mother
@@ -790,13 +805,8 @@ export async function syncToFeatureSpecs(
       // A truncated route is refused on the creation path too — landing a fragment
       // into a brand-new spec is the same loss as landing one into an existing
       // file, minus the chance of noticing it in a diff.
-      const refused = featureRoutes.filter((r) => r.truncation !== undefined);
-      refusedRequirements.push(
-        ...refused.map(
-          (r) =>
-            ({ kind: 'truncation', feature: r.feature, reqId: r.reqId, ...r.truncation! }) as SpecRefusal,
-        ),
-      );
+      const truncated = featureRoutes.filter((r) => r.truncation !== undefined);
+      refusedRequirements.push(...truncated.map((r) => blockRefusal(r)!));
       // A MODIFIED/REMOVED route whose REQ demonstrably lives in ANOTHER existing
       // feature is refused rather than fabricated into this brand-new spec
       // (REQ-SERVICES-096, wrong-feature). A REQ that lives nowhere yet is NOT a
@@ -816,7 +826,13 @@ export async function syncToFeatureSpecs(
           });
         }
       }
-      const landable = featureRoutes.filter((r) => r.truncation === undefined && !misrouted.has(r));
+      // An empty landing block is refused after the mis-route, the order the
+      // existing-file path and the drift check report them in.
+      const empty = featureRoutes.filter(
+        (r) => r.truncation === undefined && !misrouted.has(r) && r.emptySpec !== undefined,
+      );
+      refusedRequirements.push(...empty.map((r) => blockRefusal(r)!));
+      const landable = featureRoutes.filter((r) => blockRefusal(r) === undefined && !misrouted.has(r));
       // Every route refused → there is nothing to write. Creating the scaffold
       // anyway would claim the feature is documented when none of it landed.
       if (landable.length === 0) continue;
@@ -1864,6 +1880,7 @@ function extractFeatureRoutes(deltaContent: string): FeatureRoute[] {
     const spec = extractDeltaBlock(entry.body, 'Spec');
     const descriptionBody = buildDescriptionBody(entry.body);
     const declared = declaredDrops(entry.body);
+    const emptySpec = emptyLandingBlock(entry);
     // The truncation that matters is the one on whichever block actually lands.
     // For MODIFIED that is always the Spec block; for ADDED without one, the
     // Description/Acceptance-Criteria fallback IS the landing body, so a foreign
@@ -1887,6 +1904,7 @@ function extractFeatureRoutes(deltaContent: string): FeatureRoute[] {
       ...(spec.content === '' ? {} : { specBody: spec.content }),
       ...(descriptionBody === '' ? {} : { descriptionBody }),
       ...(truncation === null ? {} : { truncation }),
+      ...(emptySpec === null ? {} : { emptySpec }),
       ...(declared.length === 0 ? {} : { declaredDrops: declared }),
     });
   }
@@ -1932,6 +1950,18 @@ function landingBody(route: FeatureRoute): string {
 
 function bodyless(route: FeatureRoute): boolean {
   return route.status !== 'REMOVED' && landingBody(route) === '';
+}
+
+/** The refusal a route's own delta-spec blocks earn — a truncated landing block, or a
+ *  MODIFIED `**Spec:**` label whose block holds no content; undefined when neither. */
+function blockRefusal(route: FeatureRoute): SpecRefusal | undefined {
+  if (route.truncation !== undefined) {
+    return { kind: 'truncation', feature: route.feature, reqId: route.reqId, ...route.truncation };
+  }
+  if (route.emptySpec !== undefined) {
+    return { kind: 'empty-spec', feature: route.feature, reqId: route.reqId, boundary: route.emptySpec.boundary };
+  }
+  return undefined;
 }
 
 function pendingFor(route: FeatureRoute, reason = NO_BODY_REASON): PendingConvergence {
@@ -2003,17 +2033,14 @@ function mergeRequirementInPlace(
   drops?: DropAssessment;
   refused?: SpecRefusal;
 } {
-  // A truncated landing block is refused BEFORE anything is computed against it
-  // (REQ-SERVICES-081). Not even the title line is refreshed: the body carried
-  // here is a fragment, so every downstream comparison — the drop diff above all —
-  // would be measured against text the author never finished. The content is
-  // returned untouched, which is what makes this a refusal rather than a warning.
-  if (route.truncation !== undefined) {
-    return {
-      content,
-      refused: { kind: 'truncation', feature: route.feature, reqId: route.reqId, ...route.truncation },
-    };
-  }
+  // A truncated or empty landing block is refused BEFORE anything is computed
+  // against it (REQ-SERVICES-081, REQ-SERVICES-131). Not even the title line is
+  // refreshed: the body carried here is a fragment or nothing, so every downstream
+  // comparison — the drop diff above all — would be measured against text the
+  // author never finished. The content is returned untouched, which is what makes
+  // this a refusal rather than a warning.
+  const refused = blockRefusal(route);
+  if (refused !== undefined) return { content, refused };
   const body = landingBody(route);
   const specIndex = indexSpec(content);
   const reqs = specIndex.requirements.filter((r) => r.id === route.reqId);
