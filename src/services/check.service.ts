@@ -12,6 +12,7 @@ import { atomicWrite } from '../lib/fs-utils.js';
 import { renderTemplate } from '../lib/template.js';
 import { computeChangeDigest, computeTestState, computeDeltaSpecDigest, isGitWorkTree } from '../lib/drift-sources.js';
 import { assessCurrentDrift } from '../lib/drift-assessment.js';
+import { untrackedInputsHint } from '../lib/drift-checker.js';
 import { runTestCommand } from '../lib/test-runner.js';
 import { resolveChange } from './change-resolver.js';
 import { DRIFT_REPORT_FILENAME, type DriftReport, type TestInputState } from '../types/drift-report.js';
@@ -228,9 +229,11 @@ async function recordReviewProvenance(
     doc.set('delta_spec_provenance', doc.createNode({ digest: deltaSpecDigest, date }));
   }
   const deltaPresent = existsSync(path.join(path.dirname(metadataPath), 'delta-spec.md'));
-  if ((deltaPresent && deltaSpecDigest === null) || computeChangeDigest(cwd) !== digest ||
+  const recheckedDigest = computeChangeDigest(cwd);
+  if ((deltaPresent && deltaSpecDigest === null) || recheckedDigest !== digest ||
       computeDeltaSpecDigest(path.dirname(metadataPath)) !== deltaSpecDigest) {
-    return { kind: 'record-review', change, recorded: false, reason: 'review inputs changed or are unprovable — complete a valid review before recording' };
+    const hint = untrackedInputsHint(recheckedDigest !== null && recheckedDigest !== digest);
+    return { kind: 'record-review', change, recorded: false, reason: `review inputs changed or are unprovable${hint} — complete a valid review before recording` };
   }
   await writeChangeMetadataDoc(metadataPath, doc, change);
   return {
@@ -328,7 +331,8 @@ async function recordTestProvenance(
   const outcome: TestAttempt['outcome'] = run.timed_out ? 'timeout' : run.exit_code === null
     ? (run.error ? 'unavailable' : 'unprovable') : run.exit_code !== 0 ? 'failed' : stable ? 'passed' : 'unprovable';
   const reason = run.timed_out ? `test run timed out after ${run.timeout_ms} ms (tech_stack.test_timeout_ms sets the cap)`
-    : run.signal ? `test run killed by ${run.signal}` : run.error ?? (stable ? undefined : 'inputs changed during test run or capture is unprovable — re-run against stable inputs');
+    : run.signal ? `test run killed by ${run.signal}` : run.error ?? (stable ? undefined
+      : `inputs changed during test run or capture is unprovable${untrackedInputsHint(commandStable && after.digest !== null && after.digest !== before.digest)} — re-run against stable inputs`);
   const attempt: TestAttempt = { id, date, outcome, ...trace, command: run.command, before_digest: before.digest,
     ...(after.digest !== null ? { after_digest: after.digest } : {}),
     ...(run.exit_code !== null ? { exit_code: run.exit_code } : {}),

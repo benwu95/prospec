@@ -37,6 +37,7 @@ import {
   type EvidenceBlock,
 } from '../lib/delegated-evidence.js';
 import { assessCurrentDrift } from '../lib/drift-assessment.js';
+import { UNTRACKED_INPUTS_HINT } from '../lib/drift-checker.js';
 import { adjudicateChangeCheck, mapCheckStatusToVerdict } from '../lib/change-gate.js';
 import { auditConstitution } from '../lib/constitution-audit.js';
 import type { DriftCheckId } from '../types/drift-report.js';
@@ -428,7 +429,7 @@ export async function execute(options: VerifyRecordOptions): Promise<VerifyRecor
         `Run \`prospec verify context --change ${changeName}\` before grading`,
       );
     }
-    let savedContextJson: { context_id?: string };
+    let savedContextJson: { context_id?: string; snapshot?: { digest?: unknown } };
     const savedContextBytes = fs.readFileSync(contextPath);
     try {
       savedContextJson = JSON.parse(savedContextBytes.toString('utf8'));
@@ -449,7 +450,9 @@ export async function execute(options: VerifyRecordOptions): Promise<VerifyRecor
     if (liveContextAssessment.context.context_id !== deltaInput.context_id) {
       throw new PrerequisiteError(
         `Verification context is stale or changed since grading: graded context_id "${deltaInput.context_id}" does not match current repository/spec context_id "${liveContextAssessment.context.context_id}"`,
-        'Inputs (spec, proposal, baseline, tests, or code) changed; re-run verify context and re-grade',
+        `Inputs (spec, proposal, baseline, tests, or code) changed; re-run verify context and re-grade${
+          typeof savedContextJson?.snapshot?.digest === 'string' && savedContextJson.snapshot.digest !== liveContextAssessment.context.snapshot.digest
+            ? ` (the repository snapshot moved: ${UNTRACKED_INPUTS_HINT})` : ''}`,
       );
     }
     if (!VerificationContextSchema.safeParse(savedContextJson).success ||
@@ -623,7 +626,7 @@ export async function execute(options: VerifyRecordOptions): Promise<VerifyRecor
           ? `review-provenance is unprovable for this change — ${reviewGate.reason}`
           : reviewGate.status === 'skipped'
             ? `review-provenance is skipped (${reviewGate.reason}) — this change has no provable review baseline`
-            : 'review-provenance FAILs — this change has no current review baseline',
+            : `review-provenance FAILs — this change has no current review baseline${reviewGate.findings.length > 0 ? `: ${reviewGate.findings.map((f) => f.detail).join(' / ')}` : ''}`,
         'Run `prospec-review`, then `prospec check --record-review`, before recording the verify verdict',
       );
     }

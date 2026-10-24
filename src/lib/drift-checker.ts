@@ -69,6 +69,21 @@ export interface DependencyRules {
   source: 'module-map' | 'constitution-fallback';
 }
 
+/** Appended where review/test evidence is refused on two provable, unequal input digests. */
+export const UNTRACKED_INPUTS_HINT =
+  "untracked files that are not ignored count as inputs unless an evidence policy excludes their path; list them with `git status --porcelain --untracked-files=all` (inside a submodule, run it there); with the human's approval, add files kept only on this machine to the exclude file that `git rev-parse --git-path info/exclude` prints when run in the repository holding them (`.git/info/exclude` in a plain clone) and project outputs to that repository's `.gitignore`";
+const UNTRACKED_INPUTS_HINT_CLAUSE = `; ${UNTRACKED_INPUTS_HINT}`;
+
+/** The hint clause a refusal reason appends, or '' when the compared digests are not both provable and different. */
+export function untrackedInputsHint(inputsMoved: boolean): string {
+  return inputsMoved ? UNTRACKED_INPUTS_HINT_CLAUSE : '';
+}
+
+/** Drops the hint clause, so a refusal joining several reasons can state it once. */
+export function withoutUntrackedInputsHint(text: string): string {
+  return text.replaceAll(UNTRACKED_INPUTS_HINT_CLAUSE, '');
+}
+
 /** Constitution-declared layering used when a project has no module-map.yaml. */
 export const CONSTITUTION_LAYERS = ['cli', 'services', 'lib', 'types'] as const;
 
@@ -484,7 +499,7 @@ export function evaluateReviewProvenance(src: ReviewProvenanceSource): CheckOutc
       findings.push({ check: 'review-provenance', severity: 'fail', source_path: c.source_path,
         detail: !c.version_supported
           ? `legacy or unknown review evidence for change "${c.name}" — complete one valid re-review; re-run prospec-review`
-          : `stale review for change "${c.name}": code changed since the recorded review or current inputs are unprovable — re-run prospec-review`,
+          : `stale review for change "${c.name}": code changed since the recorded review or current inputs are unprovable${untrackedInputsHint(src.current_digest !== null)} — re-run prospec-review`,
       });
     }
   }
@@ -915,7 +930,8 @@ export function evaluateChangeTestEvidence(facts: TestEvidenceFacts): TestEviden
     provenBackfill ? { verdict: 'exempt', exemption: 'proven-backfill', reason } : refuse(reason);
 
   if (attempt?.outcome === 'unavailable') {
-    const reason = `test command unavailable: latest attempt for change "${facts.changeName}"${attemptDetail ? ` — ${attemptDetail}` : ''} — restore the test command, then re-run \`prospec check --record-tests\``;
+    const inputsMoved = facts.currentDigest !== null && typeof attempt.beforeDigest === 'string' && attempt.beforeDigest !== facts.currentDigest;
+    const reason = `test command unavailable: latest attempt for change "${facts.changeName}"${attemptDetail ? ` — ${attemptDetail}` : ''}${untrackedInputsHint(inputsMoved)} — restore the test command, then re-run \`prospec check --record-tests\``;
     // The spawn failure proves the command unavailable only for the inputs it
     // ran against; once the command resolves again and the inputs moved, the
     // attempt is a stale fact and a re-run is due — never an exemption. The
@@ -976,7 +992,7 @@ export function evaluateChangeTestEvidence(facts: TestEvidenceFacts): TestEviden
   }
   if (facts.currentDigest === null || facts.recordedDigest !== facts.currentDigest) {
     return insufficient(
-      `stale test run for change "${facts.changeName}": code changed since the recorded run or current inputs are unprovable${facts.currentDigest === null && facts.snapshotReason ? ` (${facts.snapshotReason})` : ''} — re-run \`prospec check --record-tests\``,
+      `stale test run for change "${facts.changeName}": code changed since the recorded run or current inputs are unprovable${facts.currentDigest === null ? (facts.snapshotReason ? ` (${facts.snapshotReason})` : '') : untrackedInputsHint(true)} — re-run \`prospec check --record-tests\``,
     );
   }
   return { verdict: 'pass', attemptId: attempt.id, ...(projected && policy.success ? { reuse: {

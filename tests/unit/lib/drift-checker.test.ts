@@ -26,6 +26,7 @@ import {
   evaluateChangeTestEvidence,
   evaluateCanonicalDocDrift,
   runChecks,
+  UNTRACKED_INPUTS_HINT,
   type DriftCheckInputs,
 } from '../../../src/lib/drift-checker.js';
 import { DRIFT_CHECK_IDS, DRIFT_CHECK_SCOPES } from '../../../src/types/drift-report.js';
@@ -2689,5 +2690,80 @@ describe('evaluateChangeTestEvidence — status-independent per-change policy (R
     expect(noCommand.result.status).toBe('skipped');
     const backfill = evaluateTestProvenance({ available: true, command_unavailable_reason: null, current_digest: 'CUR', working_tree_clean: true, changes: [{ ...change, scale: 'backfill', backfill_draft_present: true }] });
     expect(backfill.result.status).toBe('pass');
+  });
+});
+
+describe('untracked-input hint on provable digest mismatches (REQ-CLI-052)', () => {
+  const reviewSrc = (over: Partial<ReviewProvenanceSource['changes'][number]>, current: string | null = 'CUR'): ReviewProvenanceSource => ({
+    available: true,
+    current_digest: current,
+    working_tree_clean: false,
+    changes: [{ name: 'c1', source_path: '.prospec/changes/c1/metadata.yaml', status: 'implemented', scale: 'standard', recorded_digest: 'CUR', version_supported: true, backfill_draft_present: false, ...over }],
+  });
+  const passed = { id: 'a1', outcome: 'passed', command: 'pnpm test', exitCode: 0, beforeDigest: 'OLD', afterDigest: 'OLD' };
+  const testFacts = (over: Partial<TestEvidenceFacts> = {}): TestEvidenceFacts => ({
+    changeName: 'c1', scale: 'standard', backfillDraftPresent: false, commandUnavailableReason: null,
+    currentDigest: 'CUR', recordedDigest: 'OLD', recordedExitCode: 0, recordedCommand: 'pnpm test',
+    recordedAttemptId: 'a1', versionSupported: true, latestAttempt: passed, ...over,
+  });
+  const reasonOf = (f: TestEvidenceFacts): string => {
+    const d = evaluateChangeTestEvidence(f);
+    return d.verdict === 'pass' ? '' : d.reason;
+  };
+
+  it('names the ignore exits and the human approval', () => {
+    expect(UNTRACKED_INPUTS_HINT).toContain('git status --porcelain --untracked-files=all');
+    expect(UNTRACKED_INPUTS_HINT).toContain('.git/info/exclude');
+    expect(UNTRACKED_INPUTS_HINT).toContain('git rev-parse --git-path info/exclude` prints when run in the repository holding them');
+    expect(UNTRACKED_INPUTS_HINT).toContain('.gitignore');
+    expect(UNTRACKED_INPUTS_HINT).toContain("human's approval");
+  });
+
+  it('a stale review with both digests provable carries the hint before the remedy', () => {
+    const detail = evaluateReviewProvenance(reviewSrc({ recorded_digest: 'OLD' })).findings[0]!.detail;
+    expect(detail).toContain(UNTRACKED_INPUTS_HINT);
+    expect(detail.indexOf(UNTRACKED_INPUTS_HINT)).toBeLessThan(detail.indexOf('re-run prospec-review'));
+  });
+
+  it('an unprovable current review snapshot or legacy evidence omits the hint', () => {
+    expect(evaluateReviewProvenance(reviewSrc({ recorded_digest: 'OLD' }, null)).findings[0]!.detail).not.toContain(UNTRACKED_INPUTS_HINT);
+    expect(evaluateReviewProvenance(reviewSrc({ recorded_digest: 'OLD', version_supported: false })).findings[0]!.detail).not.toContain(UNTRACKED_INPUTS_HINT);
+  });
+
+  it('a stale test run with both digests provable carries the hint before the remedy', () => {
+    const reason = reasonOf(testFacts());
+    expect(reason).toMatch(/stale test run/);
+    expect(reason).toContain(UNTRACKED_INPUTS_HINT);
+    expect(reason.indexOf(UNTRACKED_INPUTS_HINT)).toBeLessThan(reason.indexOf('re-run `prospec check --record-tests`'));
+  });
+
+  it('an unprovable current test snapshot keeps its snapshot reason without the hint', () => {
+    const reason = reasonOf(testFacts({ currentDigest: null, snapshotReason: 'Input membership changed during capture: x' }));
+    expect(reason).toContain('Input membership changed during capture: x');
+    expect(reason).not.toContain(UNTRACKED_INPUTS_HINT);
+  });
+
+  it('an unavailable attempt refused because its inputs moved carries the hint before the restore remedy', () => {
+    const reason = reasonOf(testFacts({ recordedDigest: null, recordedExitCode: null, recordedCommand: '', recordedAttemptId: undefined,
+      latestAttempt: { id: 'a2', outcome: 'unavailable', beforeDigest: 'OLD', reason: 'spawn ENOENT' } }));
+    expect(reason).toContain(UNTRACKED_INPUTS_HINT);
+    expect(reason.indexOf(UNTRACKED_INPUTS_HINT)).toBeLessThan(reason.indexOf('restore the test command'));
+  });
+
+  it('an unavailable attempt without a provable before digest, or one against the current inputs, omits the hint', () => {
+    const base = { recordedDigest: null, recordedExitCode: null, recordedCommand: '', recordedAttemptId: undefined } as const;
+    expect(reasonOf(testFacts({ ...base, latestAttempt: { id: 'a2', outcome: 'unavailable', reason: 'spawn ENOENT' } }))).not.toContain(UNTRACKED_INPUTS_HINT);
+    expect(reasonOf(testFacts({ ...base, latestAttempt: { id: 'a2', outcome: 'unavailable', beforeDigest: 'CUR', reason: 'spawn ENOENT' } }))).not.toContain(UNTRACKED_INPUTS_HINT);
+    expect(reasonOf(testFacts({ ...base, currentDigest: null, latestAttempt: { id: 'a2', outcome: 'unavailable', beforeDigest: 'OLD', reason: 'spawn ENOENT' } }))).not.toContain(UNTRACKED_INPUTS_HINT);
+  });
+
+  it('an uncertified attempt surfaces a hint its recorded reason already carries, and adds none of its own', () => {
+    const own = reasonOf(testFacts({ recordedDigest: null, recordedExitCode: null, recordedCommand: '', recordedAttemptId: undefined,
+      latestAttempt: { id: 'a2', outcome: 'unprovable', reason: 'inputs changed during test run' } }));
+    expect(own).toMatch(/uncertified test attempt \(unprovable\)/);
+    expect(own).not.toContain(UNTRACKED_INPUTS_HINT);
+    const carried = reasonOf(testFacts({ recordedDigest: null, recordedExitCode: null, recordedCommand: '', recordedAttemptId: undefined,
+      latestAttempt: { id: 'a2', outcome: 'unprovable', reason: `inputs changed during test run; ${UNTRACKED_INPUTS_HINT}` } }));
+    expect(carried.split(UNTRACKED_INPUTS_HINT)).toHaveLength(2);
   });
 });
