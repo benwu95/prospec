@@ -26,9 +26,11 @@ import { stripTrailingCr } from './text-lines.js';
 import {
   classifyRoutingResolution,
   declaredDrops,
+  emptyLandingBlock,
   extractDeltaBlock,
   iterateDeltaEntries,
   type Bullet,
+  type EmptyLandingBlock,
   type RoutingResolution,
 } from './landing-fidelity.js';
 import { buildReqHomeIndex } from './spec-read.js';
@@ -2301,6 +2303,9 @@ export interface LandingFidelityEntry {
   /** True when `**Dropped:**` carries non-empty content — drives the prose-"none"
    *  warning when it nonetheless parses to zero list items. */
   droppedBlockPresent: boolean;
+  /** Set when the `**Spec:**` label is present but its block holds no content — the
+   *  verdict the archive write path refuses on (issue #409); null otherwise. */
+  emptySpec: EmptyLandingBlock | null;
 }
 
 /** Unlike its provenance sibling there is no per-change digest here: the check
@@ -2398,6 +2403,7 @@ export function collectDeltaSpecLandingFidelity(
           landing === '' ? null : resolveExistingReqBody(featuresDir, entry.feature, entry.reqId),
         declared: declaredDrops(entry.body),
         droppedBlockPresent: droppedContent.trim() !== '',
+        emptySpec: emptyLandingBlock(entry),
       });
     }
   }

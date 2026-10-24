@@ -94,6 +94,12 @@ export function formatArchiveOutput(result: ArchiveResult, logLevel: LogLevel): 
           `  ${pc.red('·')} ${sanitizeTerminal(r.feature)} ${sanitizeTerminal(r.reqId)} — ` +
             `its \`**Feature:**\` header does not host this REQ id; the REQ lives in \`${sanitizeTerminal(r.home)}\`\n`,
         );
+      } else if (r.kind === 'empty-spec') {
+        const ended = r.boundary === null ? 'the entry ends' : `\`${sanitizeTerminal(r.boundary)}\` ends it`;
+        process.stderr.write(
+          `  ${pc.red('·')} ${sanitizeTerminal(r.feature)} ${sanitizeTerminal(r.reqId)} — ` +
+            `its \`**Spec:**\` block holds no content; ${ended} before any text\n`,
+        );
       } else {
         process.stderr.write(
           `  ${pc.red('·')} ${sanitizeTerminal(r.feature)} ${sanitizeTerminal(r.reqId)} — ` +
@@ -103,7 +109,7 @@ export function formatArchiveOutput(result: ArchiveResult, logLevel: LogLevel): 
       }
     }
     process.stderr.write(
-      `  fix the source file, routing header or landing block each refusal names — close an unclosed fence in the named source file; for a truncation, inline the labelled section as bullets (a \`**Dropped:**\` declaration does NOT release it); for an unresolved header, route the REQ to the feature that hosts it\n`,
+      `  fix the source file, routing header or landing block each refusal names — close an unclosed fence in the named source file; for a truncation, inline the labelled section as bullets (a \`**Dropped:**\` declaration does NOT release it); for an empty \`**Spec:**\` block, write the resulting REQ body under the label without its REQ heading; for an unresolved header, route the REQ to the feature that hosts it\n`,
     );
   }
 

@@ -3220,6 +3220,22 @@ describe('collectDeltaSpecLandingFidelity (REQ-LIB-061)', () => {
     expect(e.existingBody).toContain('WHEN b, THEN y');
   });
 
+  it('carries the empty-block verdict for a **Spec:** label followed by a pasted REQ heading (issue #409)', () => {
+    write('prospec/specs/features/drift-checks.md', FEATURE_SPEC);
+    write('.prospec/changes/x/metadata.yaml', 'name: x\ncreated_at: 2026-01-01T00:00:00Z\nstatus: implemented\nscale: standard\n');
+    write('.prospec/changes/x/delta-spec.md', modifiedEntry({ spec: '#### REQ-LIB-900: Sample\nThe sample requirement.' }));
+    const e = collectDeltaSpecLandingFidelity(featuresDir(), tmpDir).entries[0]!;
+    expect(e.landing).toBe('');
+    expect(e.emptySpec).toEqual({ boundary: '#### REQ-LIB-900: Sample' });
+  });
+
+  it('carries no empty-block verdict for a non-empty **Spec:** block', () => {
+    write('prospec/specs/features/drift-checks.md', FEATURE_SPEC);
+    write('.prospec/changes/x/metadata.yaml', 'name: x\ncreated_at: 2026-01-01T00:00:00Z\nstatus: implemented\nscale: standard\n');
+    write('.prospec/changes/x/delta-spec.md', modifiedEntry());
+    expect(collectDeltaSpecLandingFidelity(featuresDir(), tmpDir).entries[0]!.emptySpec).toBeNull();
+  });
+
   it('carries the **Dropped:** declaration and its presence flag', () => {
     write('prospec/specs/features/drift-checks.md', FEATURE_SPEC);
     write('.prospec/changes/x/metadata.yaml', 'name: x\ncreated_at: 2026-01-01T00:00:00Z\nstatus: implemented\nscale: standard\n');

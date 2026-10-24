@@ -514,7 +514,7 @@ claude mcp add -s user prospec-b -- prospec mcp serve --cwd /path/to/B
       - `review-provenance`：已實作或已驗證的變更必須具備對應現行程式碼的 review 記錄。
       - `test-provenance`：變更必須具備最新且通過（綠燈）的測試記錄。
       - `delta-spec-provenance`：變更的 `delta-spec.md` 指紋必須與 review 基線一致（防止審查後私自修改規格）。
-      - `delta-spec-landing-fidelity`：MODIFIED 的 delta-spec `**Spec:**` 落地區塊不得在未以 `**Dropped:**` 宣告的情況下丟棄信任區既有的 `WHEN/THEN` bullet（FAIL）——與 archive 寫入路徑共用同一份比對，在每次 check 就浮現遺失，而非等到 commit 之後的 archive。
+      - `delta-spec-landing-fidelity`：MODIFIED 的 delta-spec `**Spec:**` 落地區塊不得在未以 `**Dropped:**` 宣告的情況下丟棄信任區既有的 `WHEN/THEN` bullet（FAIL）——與 archive 寫入路徑共用同一份比對，在每次 check 就浮現遺失，而非等到 commit 之後的 archive。MODIFIED 的 `**Spec:**` 標籤下沒有內容（例如貼上了 REQ 標題）時同樣 FAIL，archive 也會拒收該 REQ。
     - **治理規範**：憲法原則 RFC-2119 標籤（WARN）、工件語言一致性（`artifact-language`，WARN）、Token 預算調高理由註解與寫了也不綁定的 shipped 預算鍵（`unjustified-budget-override`，WARN）、初始文件漂移（`canonical-doc-drift`，WARN）、憲法 Language Policy 與 resolved 語言範圍一致性（`language-policy-drift`，WARN）。
     - **Skill 部署**：`skill-reference-map`（FAIL）比對各已設定 host 的實際部署與 station reference registry——載入點不再引用其 reference、已登記的 reference 未部署、已部署的 reference 無任何載入點認領。已設定 host 的部署目錄不存在也會 FAIL。修復方式是以與部署相符的 prospec 版本執行 `prospec agent sync`。未設定 agent，或 host 根目錄無法讀取且沒有其他已確認失敗時，明示 skipped 與原因；可讀 host 不能代替不可讀 host 通過檢查，已確認失敗仍保留 FAIL。
   - **執行選項與退出碼**：

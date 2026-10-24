@@ -2288,6 +2288,7 @@ describe('evaluateDeltaSpecLandingFidelity (REQ-LIB-061)', () => {
     existingBody: null,
     declared: [],
     droppedBlockPresent: false,
+    emptySpec: null,
     ...over,
   });
   const src = (entries: LandingFidelityEntry[], changes?: string[]): DeltaSpecLandingFidelitySource => ({
@@ -2419,6 +2420,49 @@ describe('evaluateDeltaSpecLandingFidelity (REQ-LIB-061)', () => {
     expect(r.result.status).toBe('fail');
     expect(r.findings).toHaveLength(1);
     expect(r.findings[0]!.detail).toContain('WHEN a, THEN x');
+  });
+
+  // issue #409 — a `**Spec:**` label whose block holds no content used to read as
+  // "no Spec block" and pass by skipping the comparison.
+  it('fails an empty **Spec:** block, naming the REQ and the line that ended it', () => {
+    const r = evaluateDeltaSpecLandingFidelity(
+      src([landingEntry({ emptySpec: { boundary: '#### REQ-LIB-001: Sample' } })]),
+    );
+    expect(r.result.status).toBe('fail');
+    expect(r.findings).toHaveLength(1);
+    expect(r.findings[0]!.severity).toBe('fail');
+    expect(r.findings[0]!.detail).toContain('REQ-LIB-001');
+    expect(r.findings[0]!.detail).toContain('#### REQ-LIB-001: Sample');
+  });
+
+  it('says the entry ended when an empty **Spec:** block has no boundary line', () => {
+    const r = evaluateDeltaSpecLandingFidelity(src([landingEntry({ emptySpec: { boundary: null } })]));
+    expect(r.result.status).toBe('fail');
+    expect(r.findings).toHaveLength(1);
+    expect(r.findings[0]!.detail).toContain('REQ-LIB-001');
+    expect(r.findings[0]!.detail).toMatch(/entry ends/);
+  });
+
+  it('reports only the mis-route for an empty **Spec:** block whose header is mis-routed', () => {
+    const r = evaluateDeltaSpecLandingFidelity(
+      src([
+        landingEntry({
+          resolution: { kind: 'wrong-feature', home: 'sdd-workflow' },
+          emptySpec: { boundary: '#### REQ-LIB-001: Sample' },
+        }),
+      ]),
+    );
+    expect(r.findings).toHaveLength(1);
+    expect(r.findings[0]!.detail).toContain('sdd-workflow');
+    expect(r.findings[0]!.detail).not.toContain('#### REQ-LIB-001: Sample');
+  });
+
+  it('fails an empty **Spec:** block whose REQ lives in no feature yet', () => {
+    const r = evaluateDeltaSpecLandingFidelity(
+      src([landingEntry({ resolution: { kind: 'not-found' }, emptySpec: { boundary: '---' } })]),
+    );
+    expect(r.result.status).toBe('fail');
+    expect(r.findings).toHaveLength(1);
   });
 
   // issue #211 — a mis-pointing `**Feature:**` header fails loudly instead of

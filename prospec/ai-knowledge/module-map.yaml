@@ -139,7 +139,7 @@ modules:
       - 漂移檢查
       - 知識讀取
     rationale: Foundational infrastructure shared across services and benchmark scripts
-    last_verified: 2026-10-24T01:52:09.891Z
+    last_verified: 2026-10-24T04:29:37.756Z
   - name: services
     description: Business logic — one `execute()` service per command — including
       shared-output agent invocation-guidance rendering — init / quickstart /
@@ -204,7 +204,7 @@ modules:
       - 漂移檢查
       - 真相層
     rationale: Isolates business logic from I/O layer, enables testability
-    last_verified: 2026-10-24T01:41:21.480Z
+    last_verified: 2026-10-24T04:29:37.756Z
   - name: cli
     description: Thin CLI entry — 20 top-level Commander commands + shared
       formatters that parse → call one service → format output; the cli-first
@@ -250,7 +250,7 @@ modules:
       - 終端
       - entry point
     rationale: "Thin I/O layer: no business logic, delegates to services"
-    last_verified: 2026-10-24T01:41:21.480Z
+    last_verified: 2026-10-24T04:29:37.756Z
   - name: templates
     description: Handlebars template library — 17 skills + host-labelled invocation
       entry guidance, 11 shared partials, 32 references, 1 agent-config, 5
@@ -306,10 +306,10 @@ modules:
       - 複雜度適配
       - CI 閘門
     rationale: Pure resources — no logic, consumed by lib/template.ts
-    last_verified: 2026-10-20T13:42:14.743Z
+    last_verified: 2026-10-24T04:29:37.756Z
   - name: tests
-    description: 4-layer test suite — 321 files, 8,633 tests (unit 6189 + contract
-      1978 + integration 234 + e2e 232). Validates every module — format and
+    description: 4-layer test suite — 321 files, 8,667 tests (unit 6220 + contract
+      1979 + integration 234 + e2e 234). Validates every module — format and
       public-document contracts, the cli-first probe + station-command
       contracts, the drift engine, token corpus, and the MCP protocol over
       in-memory transport. Real-worktree history fixtures cover publication
@@ -356,4 +356,4 @@ modules:
       - 驗證
       - vitest
     rationale: Quality gate — validates all layers with pyramid coverage
-    last_verified: 2026-10-24T01:41:21.480Z
+    last_verified: 2026-10-24T04:29:37.756Z

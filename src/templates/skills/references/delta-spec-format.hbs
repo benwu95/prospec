@@ -196,21 +196,21 @@ a project whose two zones differ still lands spec bodies in the Feature Specs' l
 - Write rules as general positive statements; use a general negative only when one line replaces several positive ones.
 - Point tests at behavior and structure; a negative string assertion guards only the phrasing it names.
 
-**Write the resulting requirement, not the delta.** A MODIFIED `**Spec:**` block replaces the WHOLE body of the active REQ. Restore omitted behavior or declare its bullets under `**Dropped:**`; undeclared omissions block sync. The archive CLI reports omitted bullets on the MODIFIED path only; ADDED replacing an existing body is reported by neither worklist.
+**Write the resulting requirement, not the delta.** A MODIFIED `**Spec:**` block replaces the WHOLE body of the active REQ. Restore omitted behavior or declare its bullets under `**Dropped:**`. The archive CLI reports omitted bullets on the MODIFIED path only; ADDED replacing an existing body is reported by neither worklist.
 
 With only a struck definition, archive preserves it byte-identical and inserts a new active section: no active body to compare or drops to declare. `req-id-uniqueness` reports the duplicate for human resolution.
 
 | Entry | `**Spec:**` | Without it |
 |-------|-------------|------------|
 | **MODIFIED** | REQUIRED | An existing active body is preserved unchanged; reported as pending convergence |
-| **ADDED** | Optional | `**Description:**` + `**Acceptance Criteria:**` land as body; title only (bare title) if neither |
+| **ADDED** | Optional | `**Description:**` + `**Acceptance Criteria:**` land as body; title only if neither |
 
 Before, After and Reason are narrative, never copied into the Feature Spec.
 
 **Where the block ends**: at one of this template's OWN field labels —
 `**Feature:**`, `**Story:**`, `**Description:**`, `**Acceptance Criteria:**`, `**Before:**`,
 `**After:**`, `**Reason:**`, `**Spec:**`, `**Dropped:**`, `**Priority:**` — appearing for the first
-time in the entry, at any Markdown heading, or at `---`. Any other label causes `prospec archive` to refuse it: `prospec archive` refuses that REQ leaving the feature spec byte-identical.
+time in the entry, at any Markdown heading, or at `---`. `prospec archive` refuses that REQ, leaving the feature spec byte-identical, when any other label with content after it cuts the block or a MODIFIED block holds no content (as after a pasted REQ heading).
 
 ### `**Dropped:**` — declaring a deliberate removal
 
@@ -227,7 +227,7 @@ The library filters items by tag and owner.
 **Priority:** High
 ```
 
-Undeclared dropped bullets cause the CLI to refuse spec sync (the CLI holds the write until declared). A declared bullet not dropped is reported as a **stale declaration**. A `**Dropped:**` declaration does NOT release a refusal. Copy dropped bullets directly from `prospec archive --dry-run`.
+The CLI holds the write until undeclared dropped bullets are declared. A declared bullet not dropped is reported as a **stale declaration**. A `**Dropped:**` declaration does NOT release a refusal. Copy dropped bullets directly from `prospec archive --dry-run`.
 
 ---
 

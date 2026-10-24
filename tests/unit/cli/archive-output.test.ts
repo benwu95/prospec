@@ -468,6 +468,35 @@ describe('formatArchiveOutput — refusals and declarations', () => {
     expect(stderr()).not.toContain('fix the `**Spec:**` block itself');
   });
 
+  // issue #409 — an empty landing block has no interrupting label to name; the
+  // author needs the line that ended it (usually a pasted REQ heading).
+  const emptySpec = {
+    kind: 'empty-spec' as const,
+    feature: 'content-library',
+    reqId: 'REQ-CONTENT-LIBRARY-014',
+    boundary: '#### REQ-CONTENT-LIBRARY-014: Sample',
+  };
+
+  it('prints an empty-block refusal with the REQ and the line that ended the block', () => {
+    formatArchiveOutput(emptyResult({ refusedRequirements: [emptySpec] }), 'normal');
+    const err = stderr();
+    expect(err).toContain('REQ-CONTENT-LIBRARY-014');
+    expect(err).toContain('`**Spec:**` block holds no content');
+    expect(err).toContain('#### REQ-CONTENT-LIBRARY-014: Sample');
+    expect(err).not.toContain('swallowing');
+  });
+
+  it('says the entry ended when an empty block has no boundary line', () => {
+    formatArchiveOutput(emptyResult({ refusedRequirements: [{ ...emptySpec, boundary: null }] }), 'normal');
+    expect(stderr()).toContain('the entry ends before any text');
+  });
+
+  it('routes an empty-block boundary through sanitizeTerminal', () => {
+    const withEscape = `#### REQ-X${String.fromCharCode(27)}[31m: Sample`;
+    formatArchiveOutput(emptyResult({ refusedRequirements: [{ ...emptySpec, boundary: withEscape }] }), 'normal');
+    expect(stderr()).not.toContain(String.fromCharCode(27) + '[31m');
+  });
+
   it('prints nothing for an empty refusal list', () => {
     formatArchiveOutput(emptyResult(), 'normal');
     expect(stderr()).not.toMatch(/refused/i);

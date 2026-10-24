@@ -6,6 +6,7 @@ import {
   extractDeltaBlock,
   whenThenBullets,
 } from '../../src/services/archive.service.js';
+import { emptyLandingBlock, iterateDeltaEntries } from '../../src/lib/landing-fidelity.js';
 
 /**
  * Real-corpus regression for the spec-sync guards.
@@ -21,6 +22,11 @@ import {
  * change the verdict on any text this repository actually contains. A finding here
  * is not "the corpus is wrong", it is "the rule is over-eager and will refuse or
  * report something legitimate".
+ *
+ * The empty-block refusal (issue #409) is the deliberate exception: five historical
+ * MODIFIED entries pasted their `#### REQ-…` heading under `**Spec:**`, so the block
+ * held nothing and archive kept the old body. Those five are pinned exactly, so the
+ * verdict cannot widen to any other entry unnoticed.
  */
 
 const REPO = path.resolve(import.meta.dirname, '../..');
@@ -72,7 +78,7 @@ function featureSpecs(): Array<{ name: string; content: string }> {
   return out;
 }
 
-describe('archived delta-spec corpus — the refusal must not fire on real history', () => {
+describe('archived delta-spec corpus — the truncation refusal must not fire on real history', () => {
   const corpus = archivedDeltaSpecs();
 
   // `.prospec/archive/` is gitignored, so reading the corpus from there left CI
@@ -83,7 +89,7 @@ describe('archived delta-spec corpus — the refusal must not fire on real histo
   });
 
   it(
-    'refuses NO `**Spec:**` block in any archived delta-spec',
+    'refuses NO `**Spec:**` block for truncation in any archived delta-spec',
     () => {
       const refused: string[] = [];
       for (const { name, content } of corpus) {
@@ -115,6 +121,22 @@ describe('archived delta-spec corpus — the refusal must not fire on real histo
       expect([...foreign]).toEqual([]);
     },
   );
+
+  it('flags as an empty block exactly the five pasted-heading entries of #106', () => {
+    const flagged: string[] = [];
+    for (const { name, content } of corpus) {
+      for (const entry of iterateDeltaEntries(content)) {
+        const empty = emptyLandingBlock(entry);
+        if (empty === null) continue;
+        flagged.push(`${name}: ${entry.reqId}`);
+        expect(empty.boundary, `${name}: ${entry.reqId}`).toMatch(new RegExp(`^#{1,6} ${entry.reqId}:`));
+      }
+    }
+    const history = '2026-08-03-fix-issue-106-drift-engine-blindspots';
+    expect(flagged.sort()).toEqual(
+      ['REQ-LIB-015', 'REQ-LIB-024', 'REQ-LIB-033', 'REQ-LIB-036', 'REQ-TEMPLATES-153'].map((id) => `${history}: ${id}`),
+    );
+  });
 
   it('covers a corpus large enough to mean something', () => {
     const blocks = corpus.reduce(
