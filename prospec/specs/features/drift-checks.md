@@ -1,7 +1,7 @@
 ---
 feature: drift-checks
 status: active
-last_updated: 2026-09-29
+last_updated: 2026-10-24
 story_count: 5
 req_count: 5
 ---
@@ -54,12 +54,17 @@ The `canonical-doc-drift` check WARNs when a canonical init doc's template-owned
 ### US-5
 
 #### REQ-LIB-061: Delta-Spec Landing Fidelity Check
-The `delta-spec-landing-fidelity` check fails when a MODIFIED delta-spec landing block would drop an authored trust-zone `WHEN/THEN` bullet it has not declared, surfacing at every `prospec check` the loss the archive write path otherwise catches only after the feature commit. It derives the undeclared-drop set from the same shared implementation the archive write path uses, so the two cannot diverge. It also fails when a MODIFIED or REMOVED entry's `**Feature:**` names a feature that does not host the REQ id while the REQ lives in another feature, so a mis-routed header can no longer pass by skipping the comparison.
+The `delta-spec-landing-fidelity` check fails when a MODIFIED delta-spec landing block would drop an authored trust-zone `WHEN/THEN` bullet it has not declared, surfacing at every `prospec check` the loss the archive write path otherwise catches only after the feature commit. It derives the undeclared-drop set from the same shared implementation the archive write path uses, so the two cannot diverge. It also fails when a MODIFIED or REMOVED entry's `**Feature:**` names a feature that does not host the REQ id while the REQ lives in another feature, so a mis-routed header can no longer pass by skipping the comparison. It also fails when a MODIFIED entry with a `**Feature:**` header carries a `**Spec:**` label whose block holds no content — the block boundary ends it before any text, a REQ heading pasted under the label being the usual cause — and no truncation cut it short, so that gap surfaces at every `prospec check` instead of after the feature commit. The empty-block verdict comes from the same shared implementation the archive write path refuses on, and an entry whose routing header already fails as a mis-route reports only that finding, matching the order the archive write path refuses in.
 - WHEN a MODIFIED entry's `**Spec:**` block omits a `WHEN/THEN` bullet present in the trust-zone REQ body it replaces, and `**Dropped:**` does not declare that bullet, THEN the check fails and the finding names the REQ id and the omitted bullet's source text
 - WHEN the omitted bullet is declared as a `**Dropped:**` list item, THEN the check passes for it as a deliberate, acknowledged drop
 - WHEN the landing block restates every existing trust-zone bullet, THEN the check passes
 - WHEN a `**Dropped:**` declaration names a bullet the landing block did not drop, THEN it is reported with the archive write path's stale-declaration semantics
 - WHEN an entry is ADDED, or a MODIFIED entry carries no `**Spec:**` block, THEN it is excluded from the drop comparison
+- WHEN a MODIFIED entry with a `**Feature:**` header carries a `**Spec:**` label whose block holds no content and does not fail as a mis-route, THEN the check fails and the finding names the REQ id and the line that ended the block, or states that the entry ended
+- WHEN the `**Spec:**` block holds content, THEN the entry is not treated as an empty block
+- WHEN the `**Spec:**` block is cut short by a label outside the template registry with content after it, THEN the entry is not treated as an empty block
+- WHEN an entry with an empty `**Spec:**` block also fails as a mis-route, THEN only the mis-route finding is reported for it
+- WHEN this check and the archive write path assess the same entry's `**Spec:**` block, THEN both derive the empty-block verdict from one shared implementation
 - WHEN a MODIFIED or REMOVED entry's `**Feature:**` does not host its REQ id while the REQ lives in another feature, THEN the check fails and the finding names the REQ id and the feature it actually lives in
 - WHEN a MODIFIED or REMOVED entry's REQ id is defined in no feature yet, THEN it is not treated as a mis-route (a create-and-deprecate shape)
 - WHEN a `**Dropped:**` block carries non-empty content but no parseable list item, THEN a non-fail warning names the entry so the author sees the declaration was not registered
@@ -102,6 +107,7 @@ _(None)_
 
 | Date | Change | Impact | Stories/REQs |
 |------|--------|--------|-------------|
+| 2026-10-24 | fail-empty-modified-spec | MODIFIED REQ-LIB-061 | REQ-LIB-061 |
 | 2026-09-29 | fix-spec-sync-safety | MODIFIED REQ-LIB-061 | REQ-LIB-061 |
 | 2026-09-18 | internalize-skill-budgets | MODIFIED REQ-LIB-001 | REQ-LIB-001 |
 | 2026-09-01 | standardize-module-readme-format | MODIFIED REQ-LIB-052 | REQ-LIB-052 |
