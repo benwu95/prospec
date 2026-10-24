@@ -1,6 +1,7 @@
 import type { DriftReport } from '../types/drift-report.js';
 import type { WorkflowReason } from '../types/status.js';
 import { adjudicateChangeCheck } from './change-gate.js';
+import { UNTRACKED_INPUTS_HINT, withoutUntrackedInputsHint } from './drift-checker.js';
 import { knowledgeSyncReasons, type KnowledgeSyncGaps } from './knowledge-sync.js';
 
 /** The archive Entry-Gate verdict: blocked when any reason is present. */
@@ -63,6 +64,9 @@ const FAIL_REASONS: Record<(typeof GATED_CHECKS)[number], WorkflowReason> = {
   },
 };
 
+/** Provenance FAILs whose findings name the cause (stale vs absent vs failing) and its remedy. */
+const DETAILED_FAILS: ReadonlySet<(typeof GATED_CHECKS)[number]> = new Set(['review-provenance', 'test-provenance']);
+
 /**
  * The archive Entry Gate as a pure verdict over the drift report, adjudicated for
  * ONE target change (`adjudicateChangeCheck`): a sibling change's missing review
@@ -78,6 +82,7 @@ export function evaluateArchiveEntryGate(
   { changeName, knowledgeGaps, allowIncomplete, taskCompletionApplicable }: ArchiveGateInputs,
 ): ArchiveGateVerdict {
   const reasons: WorkflowReason[] = [];
+  let hinted = false;
 
   for (const id of GATED_CHECKS) {
     if (id === 'metadata-completeness' && allowIncomplete) continue;
@@ -103,7 +108,18 @@ export function evaluateArchiveEntryGate(
       });
       continue;
     }
-    if (verdict.status === 'fail') reasons.push({ ...FAIL_REASONS[id] });
+    if (verdict.status === 'fail') {
+      const reason = FAIL_REASONS[id];
+      if (!DETAILED_FAILS.has(id) || verdict.findings.length === 0) {
+        reasons.push({ ...reason });
+        continue;
+      }
+      // Review and test evidence stale together on one untracked file; state its hint once per refusal.
+      let detail = verdict.findings.map((f) => f.detail).join(' / ');
+      if (hinted) detail = withoutUntrackedInputsHint(detail);
+      hinted ||= detail.includes(UNTRACKED_INPUTS_HINT);
+      reasons.push({ ...reason, message: `${reason.message}: ${detail}` });
+    }
   }
   reasons.push(...knowledgeSyncReasons(knowledgeGaps, changeName));
 

@@ -215,7 +215,8 @@ export function formatCheckOutput(
 function formatRecordTests(result: RecordTestsResult): void {
   const cmd = result.command === undefined ? '' : ` (\`${sanitizeTerminal(result.command)}\`)`;
   if (result.treeChangedDuringRun === true) {
-    console.log(`  ${pc.yellow('●')} inputs changed during the run — passing evidence is not certified; re-run after inputs settle`);
+    const reason = result.recorded && result.reason ? ` (${sanitizeTerminal(result.reason)})` : '';
+    console.log(`  ${pc.yellow('●')} inputs changed during the run — passing evidence is not certified; re-run after inputs settle${reason}`);
   }
   if (!result.recorded) {
     console.log(

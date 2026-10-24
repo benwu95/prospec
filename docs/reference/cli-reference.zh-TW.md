@@ -561,6 +561,8 @@ claude mcp add -s user prospec-b -- prospec mcp serve --cwd /path/to/B
 
 Review 與預設測試證據格式為 `snapshot-v2`／`repository-inputs-v2`；精確的輸入範圍與支援檔案類型見[輸入快照規格](../../prospec/specs/features/drift-detection/us-5.md)。測試輸出應宣告於 Git ignore，已追蹤輸出仍算輸入。不支援或不可讀的輸入會維持 unprovable。執行前後的檢查無法偵測所有短暫修改後還原（change-and-restore），也不涵蓋被忽略的依賴、外部服務或儲存庫輸入之外的工具鏈變更。
 
+未被 ignore 的未追蹤檔案同樣算輸入，所以只存在本機的檔案（例如另一個 session 的輸出或本機 log）也會讓證據過期。記錄與目前的 digest 都可算出但不同時，過期或拒收訊息會說明這點，並要求先取得人的同意才排除路徑。用 `git status --porcelain --untracked-files=all` 列出這些檔案（submodule 內的檔案要在該 submodule 目錄執行）。只存在本機的檔案加進不會被 commit 的 exclude 檔：在該檔案所屬的 repository 執行 `git rev-parse --git-path info/exclude` 會印出它的路徑（一般 clone 為 `.git/info/exclude`；linked worktree 與 submodule 各自解析）。專案產物加進該 repository 的 `.gitignore`。CLI 不會寫入這兩個檔案。
+
 
 啟用 `test_evidence.exclude_knowledge` 的條件與路徑限制見[設定參考](./configuration.zh-TW.md#測試證據)。Opt-in 證據使用 `test-inputs-v1`／`repository-inputs-without-knowledge-v1`，attempt 與 provenance 均記錄 `test_policy: {version: 1, excluded_path: <專案相對路徑>}`。Policy、config bytes、解析後命令或任何保留輸入改變，證據即失效；缺少或未知身分必須真正重跑。
 

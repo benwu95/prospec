@@ -41,6 +41,14 @@ it.each(['timeout', 'crash', 'unavailable'])('keeps a real failure through a lat
   expect(meta().test_attempt?.outcome).toBe(kind === 'crash' ? 'unprovable' : kind);
   await run(); expect(await status()).toBe('pass');
 });
+it('keeps a spawn error reason without the untracked-input hint even though inputs moved', async () => {
+  vi.mocked(runTestCommand).mockImplementationOnce(() => {
+    writeFileSync(path.join(root, 'noise.log'), 'x');
+    return outcome(null, { error: 'spawn ENOENT' });
+  });
+  await run();
+  expect(meta().test_attempt).toMatchObject({ outcome: 'unavailable', reason: 'spawn ENOENT' });
+});
 it('leaves running and invalidates older PASS when the runner throws', async () => {
   await run();
   vi.mocked(runTestCommand).mockImplementationOnce(() => { throw Error('runner crashed'); });

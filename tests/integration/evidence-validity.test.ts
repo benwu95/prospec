@@ -1,5 +1,5 @@
 import { beforeEach, afterEach, describe, it, expect, vi } from 'vitest';
-import { mkdtempSync, mkdirSync, readFileSync, writeFileSync, rmSync, readdirSync } from 'node:fs';
+import { appendFileSync, mkdtempSync, mkdirSync, readFileSync, writeFileSync, rmSync, readdirSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
 import path from 'node:path';
 import os from 'node:os';
@@ -10,6 +10,7 @@ import { execute as archive } from '../../src/services/archive.service.js';
 import { execute as changeStatus } from '../../src/services/change-status.service.js';
 import { execute as reviewMerge } from '../../src/services/review-merge.service.js';
 import { TestGateError } from '../../src/types/errors.js';
+import { UNTRACKED_INPUTS_HINT } from '../../src/lib/drift-checker.js';
 import type { QualityDimension } from '../../src/types/change.js';
 vi.setConfig({ testTimeout: 30_000 });
 let root: string;
@@ -35,6 +36,23 @@ afterEach(() => rmSync(root, { recursive: true, force: true }));
 describe('live evidence consumers', () => {
   it('records from live inputs without a saved report', async () => {
     expect((await record()).grade).toBe('A');
+  });
+  it('names the untracked-input rule for a local file and recovers once it is excluded', async () => {
+    expect((await record()).grade).toBe('A');
+    write('noise.log', 'local only\n');
+    const stale = await check({ cwd: root });
+    if (stale.kind !== 'report') throw new Error('expected a report');
+    for (const id of ['review-provenance', 'test-provenance']) {
+      expect(stale.report.structural.findings.find((f) => f.check === id)?.detail).toContain(UNTRACKED_INPUTS_HINT);
+    }
+    const refusal = await archive({ cwd: root, names: ['x'], dryRun: true });
+    expect(refusal.refused[0]!.reason.split(UNTRACKED_INPUTS_HINT)).toHaveLength(2);
+    appendFileSync(path.join(root, '.git/info/exclude'), 'noise.log\n');
+    const current = await check({ cwd: root });
+    if (current.kind !== 'report') throw new Error('expected a report');
+    for (const id of ['review-provenance', 'test-provenance']) {
+      expect(current.report.structural.checks.find((c) => c.id === id)?.status).toBe('pass');
+    }
   });
   it.each(['B', 'C', 'D'])('refuses archive after normal re-verify grade %s even with an older passing report', async (grade) => {
     expect((await record()).grade).toBe('A');
@@ -124,6 +142,7 @@ describe('fresh-test lifecycle gates over real Git evidence (REQ-LIB-080, REQ-LI
     write('src/feature.ts', 'export const later = true;\n');
     const before = readFileSync(metadataPath());
     await expect(changeStatus({ cwd: root, change: 'x', quiet: true, to: 'implemented' })).rejects.toThrow(/stale test run/);
+    await expect(changeStatus({ cwd: root, change: 'x', quiet: true, to: 'implemented' })).rejects.toThrow(UNTRACKED_INPUTS_HINT);
     await expect(merge()).rejects.toBeInstanceOf(TestGateError);
     expect(readFileSync(metadataPath())).toEqual(before);
     expect(readFileSync(metadataPath(), 'utf8')).toContain('status: tasks');

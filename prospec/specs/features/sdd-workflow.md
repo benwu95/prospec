@@ -1,7 +1,7 @@
 ---
 feature: sdd-workflow
 status: active
-last_updated: 2026-10-20
+last_updated: 2026-10-24
 story_count: 54
 req_count: 371
 ---
@@ -108,6 +108,7 @@ req_count: 371
 
 | Date | Change | Impact | Stories/REQs |
 |------|--------|--------|--------------|
+| 2026-10-24 | hint-exclude-on-stale-evidence | MODIFIED REQ-LIB-071; MODIFIED REQ-SERVICES-100 | REQ-LIB-071, REQ-SERVICES-100 |
 | 2026-10-20 | extend-review-criteria | ADDED REQ-TEMPLATES-252; ADDED REQ-TESTS-139; ADDED REQ-TEMPLATES-253; ADDED REQ-TESTS-140; MODIFIED REQ-TEMPLATES-238 | US-53, US-54, REQ-TEMPLATES-252, REQ-TESTS-139, REQ-TEMPLATES-253, REQ-TESTS-140, REQ-TEMPLATES-238 |
 | 2026-10-19 | accept-directory-symlink-inputs | MODIFIED REQ-LIB-091; MODIFIED REQ-LIB-100 | REQ-LIB-091, REQ-LIB-100 |
 | 2026-10-18 | add-static-gitignore-block | MODIFIED REQ-TESTS-079 | REQ-TESTS-079 |

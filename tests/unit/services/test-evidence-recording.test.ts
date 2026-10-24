@@ -7,6 +7,7 @@ import { execute } from '../../../src/services/check.service.js';
 import { assessCurrentTestEvidence } from '../../../src/lib/drift-assessment.js';
 import { parseYaml } from '../../../src/lib/yaml-utils.js';
 import type { ChangeMetadata } from '../../../src/types/change.js';
+import { UNTRACKED_INPUTS_HINT } from '../../../src/lib/drift-checker.js';
 
 vi.setConfig({ testTimeout: 90_000, hookTimeout: 90_000 });
 let root: string;
@@ -58,7 +59,38 @@ describe('policy-bound test recorder', () => {
     script(`const raw=fs.readFileSync('.prospec.yaml','utf8');fs.writeFileSync('.prospec.yaml',${replacement});`);
     expect(await run()).toMatchObject({ recorded: false, treeChangedDuringRun: true });
     expect(metadata().test_attempt!.outcome).toBe('unprovable');
+    expect(metadata().test_attempt!.reason).not.toContain(UNTRACKED_INPUTS_HINT);
     expect(metadata().test_provenance).toBeUndefined();
+  });
+  it('names the untracked-input rule when a run writes a non-ignored file', async () => {
+    script("fs.writeFileSync('noise.log','x');");
+    const result = await run();
+    expect(result).toMatchObject({ recorded: false, treeChangedDuringRun: true });
+    expect(result.kind === 'record-tests' && result.reason).toContain(UNTRACKED_INPUTS_HINT);
+    expect(metadata().test_attempt).toMatchObject({ outcome: 'unprovable', reason: expect.stringContaining(UNTRACKED_INPUTS_HINT) });
+  });
+  it('omits the hint when the after-run capture is unprovable', async () => {
+    script(`fs.writeFileSync('noise.log','x');fs.symlinkSync(${JSON.stringify(os.tmpdir())},'outside-link');`);
+    expect(await run()).toMatchObject({ recorded: false, treeChangedDuringRun: true });
+    expect(metadata().test_attempt).toMatchObject({ outcome: 'unprovable' });
+    expect(metadata().test_attempt!.after_digest).toBeUndefined();
+    expect(metadata().test_attempt!.reason).not.toContain(UNTRACKED_INPUTS_HINT);
+  });
+  it('keeps the hint on a failing run whose inputs moved', async () => {
+    script("fs.writeFileSync('noise.log','x');process.exit(3);");
+    expect(await run()).toMatchObject({ recorded: true, exitCode: 3, treeChangedDuringRun: true });
+    expect(metadata().test_attempt!.reason).toContain(UNTRACKED_INPUTS_HINT);
+  });
+  it.each([
+    ['a signal', "fs.writeFileSync('noise.log','x');process.kill(process.pid,'SIGTERM');setTimeout(()=>{},10000);", /killed by SIGTERM/],
+    ['a timeout', "fs.writeFileSync('noise.log','x');setTimeout(()=>{},60000);", /timed out/],
+  ])('keeps the reason of %s without the hint even though inputs moved', async (_name, tail, reason) => {
+    const file = path.join(root, '.prospec.yaml');
+    writeFileSync(file, readFileSync(file, 'utf8') + '  test_timeout_ms: 1500\n');
+    script(tail);
+    await run();
+    expect(metadata().test_attempt!.reason).toMatch(reason);
+    expect(metadata().test_attempt!.reason).not.toContain(UNTRACKED_INPUTS_HINT);
   });
   it('keeps a real nonzero result durable even if after-capture becomes invalid', async () => {
     script("fs.writeFileSync('.prospec.yaml','invalid: [');process.exit(7);");

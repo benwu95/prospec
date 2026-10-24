@@ -7,6 +7,7 @@ import type { QualityDimension } from '../../../src/types/change.js';
 import { computeAcceptanceDigest } from '../../../src/types/change.js';
 import { RELAYED_FIELD_MAX_CHARS } from '../../../src/types/station.js';
 import { EVIDENCE_SECTION_MARKER } from '../../../src/lib/delegated-evidence.js';
+import { UNTRACKED_INPUTS_HINT } from '../../../src/lib/drift-checker.js';
 import type { ConstitutionRuleEntry } from '../../../src/types/drift-report.js';
 
 vi.mock('node:fs', async () => {
@@ -653,6 +654,7 @@ describe('verify-record Gate A — review-provenance', () => {
     }).catch((e) => e);
     expect(err).toBeInstanceOf(PrerequisiteError);
     expect(err.message).toMatch(/review-provenance FAILs/);
+    expect(err.message).toContain('review-provenance fails');
     expect(err.suggestion).toContain('prospec-review');
     // refuse-before-write: metadata untouched
     expect(vol.readFileSync(META, 'utf-8') as string).toContain('status: implemented');
@@ -1072,6 +1074,34 @@ Spec details.
       await expect(
         execute({ cwd: CWD, dimensionsPath: dimsPath, judgmentDimensions: [], warnings: [] }),
       ).rejects.toThrow(/Verification context is stale or changed since grading/);
+    });
+
+    it.each([
+      ['names the untracked-input rule when the repository snapshot moved', 'moved-snapshot', true],
+      ['omits the hint when the snapshot is unchanged', 'snapshot-digest', false],
+      ['omits the hint when the saved context carries no snapshot digest', 'moved-snapshot', false, true],
+    ])('context drift %s', async (_name, liveSnapshot, hinted, savedWithoutSnapshot = false) => {
+      seed();
+      vol.writeFileSync(DELTA_FILE, sampleDeltaSpec);
+      vol.writeFileSync(CONTEXT_FILE, JSON.stringify(savedWithoutSnapshot ? { ...liveContext.context, snapshot: undefined } : liveContext.context));
+      liveContext.context.context_id = 'different111111110123456789abcdef0123456789abcdef0123456789abcdef';
+      const savedSnapshot = liveContext.context.snapshot.digest;
+      liveContext.context.snapshot.digest = liveSnapshot;
+      const dimsPath = '/repo/dimensions.json';
+      vol.writeFileSync(dimsPath, JSON.stringify([
+        { name: 'delta-spec-compliance', result: 'PASS', graded_by: 'fresh-subagent',
+          context_id: '0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef',
+          items: [{ req_id: 'REQ-WIDGET-001', result: 'PASS', evidence_kind: 'document', evidence: 'test passed' }] },
+        { name: 'constitution', result: 'PASS', graded_by: 'fresh-subagent' },
+        { name: 'design', result: 'not-applicable', graded_by: 'fresh-subagent' },
+      ]));
+      try {
+        const err = await execute({ cwd: CWD, dimensionsPath: dimsPath, judgmentDimensions: [], warnings: [] }).catch((e) => e);
+        expect(err.message).toMatch(/Verification context is stale or changed since grading/);
+        expect(err.suggestion.includes(UNTRACKED_INPUTS_HINT)).toBe(hinted);
+      } finally {
+        liveContext.context.snapshot.digest = savedSnapshot;
+      }
     });
 
     it('refuses when live context assessment recheck fails', async () => {

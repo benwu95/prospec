@@ -177,6 +177,7 @@ The knowledge-sync gaps and the reasons they map to live in a shared `lib` helpe
 - WHEN a sibling change's change-scoped findings FAIL, THEN the target is not blocked by them; WHEN the target is not enumerated in a required check's `subjects` (or the report predates `subjects`), THEN the gate blocks with code `CHECK_UNPROVABLE`
 - WHEN a reason is reported, THEN it is a `WorkflowReason` carrying a `WORKFLOW_REASON_CODES` code, a message and a concrete remediation; the `test command unavailable:` skip of `test-provenance` remains the one accepted skip
 - WHEN `taskCompletionApplicable` is false (the service derives it from `scale: backfill` with `backfill-draft.md` present — a scale whose contract forbids `tasks.md`, so its collector never enumerates it), THEN `task-completion` is not adjudicated for the target and never blocks; an unproven `scale: backfill` follows the ordinary rule and its `CHECK_UNPROVABLE` remediation names the only exits — restore `backfill-draft.md` through `prospec-promote-backfill`, or change the scale with `prospec change scale`
+- WHEN `review-provenance` or `test-provenance` is FAIL for the target, THEN its reason message appends the detail of each finding that decided the verdict, so the archive refusal carries the cause-specific text those findings state, and states the untracked-input hint of REQ-CLI-052 once even when both checks carry it
 
 ---
 
