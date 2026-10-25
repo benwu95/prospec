@@ -84,7 +84,7 @@ so that agents know the trustworthiness of the knowledge they read, and stale kn
 
 **Acceptance Scenarios:**
 - WHEN reading health, THEN the output conforms to the drift-detection `knowledge_health` frozen contract
-- WHEN the environment has no git history (not a git repo / shallow clone), THEN it returns explicit unavailable semantics, not fabricated numbers
+- WHEN git cannot confirm a work tree (not a git repository), THEN it returns explicit unavailable semantics, not fabricated numbers; a shallow clone leaves the commit-time keys null
 
 #### REQ-MCP-004: health reuses the frozen contract
 **Scenarios:**
