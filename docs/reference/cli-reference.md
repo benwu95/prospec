@@ -84,7 +84,7 @@ your-project/
 | `prospec init [options]` | Initialize Prospec project structure (sets language and agents) |
 | `prospec knowledge init [options]` | Static project scan to generate `raw-scan.md` and module boundary skeletons |
 | `prospec knowledge update [options]` | Mechanical incremental knowledge sync from `delta-spec.md` into `module-map` and `index.md` |
-| `prospec knowledge verify <modules>` | Stamp `last_verified` for named modules in `module-map.yaml` for CI staleness checks |
+| `prospec knowledge verify <modules>` | Stamp `last_verified` and `source_digest` for named modules in `module-map.yaml` for staleness checks |
 | `prospec agent sync [--cli <name>]` | Sync AI agent configs and generate Skills across configured harnesses |
 | `prospec agent triggers [--write <file>]` | Print ready-to-translate `skill_triggers` + `skill_exclusions` scaffold and optionally write back |
 | `prospec config example` | Print complete annotated `.prospec.yaml` reference with example values |
@@ -126,8 +126,8 @@ your-project/
     - Never rewrites existing README content (preserving authored knowledge) and reports a `README content pending` worklist.
 
 - **`prospec knowledge verify <module>...`**
-  - **Purpose**: Stamp `last_verified` timestamp for named modules in `module-map.yaml`.
-  - **Behavior**: Records when module knowledge was confirmed current against its source code; used by CI and `prospec check` to detect stale documentation. A module whose stamp is already later than its value at `HEAD` and falls on the current UTC day is skipped and printed as `skipped`; when every named module is skipped, `module-map.yaml` is not rewritten.
+  - **Purpose**: Stamp the `last_verified` timestamp and the `source_digest` of each named module in `module-map.yaml`.
+  - **Behavior**: Records when module knowledge was confirmed current and the digest of the source it was confirmed against; `prospec check` compares that digest with the current source to detect stale documentation. A module whose stamp is already later than its value at `HEAD` and whose source digest is unchanged is skipped and printed as `skipped`; when every named module is skipped, `module-map.yaml` is not rewritten. Inside a git work tree, a module whose digest cannot be computed refuses the whole write; outside one, only `last_verified` is stamped.
 
 - **`prospec agent sync [--cli <name>]`**
   - **Purpose**: Synchronize AI agent configurations and generate Skills.
@@ -515,7 +515,7 @@ deliberately not included in this version.
   - **Audit Dimensions**:
     - **Specs & Links**: Dangling REQ references, REQ id uniqueness across Feature Specs (`req-id-uniqueness`, FAIL), broken Markdown links, Feature Spec frontmatter count reconciliation (`story_count`/`req_count`).
     - **Architecture & Dependencies**: Import directions enforced by `module-map.yaml`, REQ-prefix legality (WARN), feature→module boundaries (FAIL).
-    - **Knowledge Health**: Module freshness (`last_verified` vs source commit, WARN), token and line size budgets (`knowledge-size`, WARN), README declared resource counts (WARN).
+    - **Knowledge Health**: Module freshness (recorded `source_digest` vs the current source, WARN), token and line size budgets (`knowledge-size`, WARN), README declared resource counts (WARN).
     - **Review & Test Provenance**:
       - `review-provenance`: Implemented or verified changes must have a recorded review matching the current code.
       - `test-provenance`: Changes must have a recorded current, passing (green) test run.

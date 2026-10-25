@@ -212,6 +212,37 @@ describe('DriftReportSchema', () => {
     expect(missingCoverage.success).toBe(false);
   });
 
+  it('carries the additive freshness basis without touching the frozen keys (REQ-TYPES-073)', () => {
+    const withFreshness = (freshness: unknown) => DriftReportSchema.safeParse({
+      ...baseReport,
+      structural: {
+        ...baseReport.structural,
+        knowledge_health: {
+          modules: [{
+            name: 'lib',
+            last_src_commit: null,
+            last_readme_commit: '2026-06-10T09:00:00Z',
+            stale: false,
+            last_verified: '2026-06-10T09:00:00Z',
+            freshness,
+          }],
+          coverage: { documented: 1, total: 1 },
+        },
+      },
+    });
+    for (const basis of ['digest-match', 'digest-mismatch', 'no-digest', 'unavailable', 'unverified']) {
+      expect(withFreshness({ basis }).success).toBe(true);
+    }
+    const full = withFreshness({ basis: 'digest-match', recorded_digest: 'source-v1:a', current_digest: 'source-v1:a' });
+    expect(full.success).toBe(true);
+    expect(full.success ? Object.keys(full.data.structural.knowledge_health!.modules[0]!) : []).toEqual(
+      ['name', 'last_src_commit', 'last_readme_commit', 'stale', 'last_verified', 'freshness'],
+    );
+    expect(withFreshness({ basis: 'unavailable', reason: 'git capture failed' }).success).toBe(true);
+    expect(withFreshness({ basis: 'fresh' }).success).toBe(false);
+    expect(withFreshness({ basis: 'digest-match', extra: 1 }).success).toBe(false);
+  });
+
   it('exposes exactly the frozen check ids', () => {
     expect([...DRIFT_CHECK_IDS].sort()).toEqual([...FROZEN_CHECK_IDS].sort());
     // The total comes from the version-controlled baseline, never from a literal

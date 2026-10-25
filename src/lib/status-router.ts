@@ -384,7 +384,7 @@ function knowledgeRules(scope: {
       code: 'KNOWLEDGE_UNSYNCED',
       next: 'knowledge-update',
       gates: () => [
-        'affected-module Knowledge synced (module-map.yaml last_verified updated via `prospec knowledge verify` or prospec-knowledge-update)',
+        'affected-module Knowledge synced (module-map.yaml last_verified and source_digest updated via `prospec knowledge verify` or prospec-knowledge-update)',
       ],
       reasons: (c) => [
         `status \`${status}\` — knowledge is not yet synced for affected modules; prospec-knowledge-update is the next station`,

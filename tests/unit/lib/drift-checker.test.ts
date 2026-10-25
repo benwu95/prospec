@@ -8,6 +8,7 @@ import {
   evaluateFilePaths,
   evaluateImportDirection,
   evaluateKnowledgeHealth,
+  moduleFreshness,
   evaluateKnowledgeSize,
   evaluateBudgetOverrides,
   evaluateMcpReadmeCounts,
@@ -607,6 +608,8 @@ describe('evaluateImportDirection', () => {
 });
 
 describe('evaluateKnowledgeHealth', () => {
+  const D1 = `source-v1:${'a'.repeat(64)}`;
+  const D2 = `source-v1:${'b'.repeat(64)}`;
   const stamps = (over: Partial<GitTimestampSource['modules'][number]>): GitTimestampSource => ({
     available: true,
     modules: [
@@ -618,134 +621,77 @@ describe('evaluateKnowledgeHealth', () => {
         last_readme_commit: '2026-06-11T00:00:00+00:00',
         last_sub_module_commit: null,
         last_verified: '2026-06-11T00:00:00+00:00',
+        source: { recorded: D1, current: D1 },
         ...over,
       },
     ],
   });
 
-  it('warns (never fails) when source is newer than last_verified', () => {
-    const r = evaluateKnowledgeHealth(
-      stamps({ last_src_commit: '2026-06-12T00:00:00+00:00' }),
-    );
+  it('is fresh exactly when the recorded digest equals the current one, whatever the commit times', () => {
+    const r = evaluateKnowledgeHealth(stamps({ last_src_commit: '2030-01-01T00:00:00+00:00' }));
+    expect(r.result.status).toBe('pass');
+    expect(r.knowledgeHealth?.modules[0]).toMatchObject({
+      stale: false,
+      freshness: { basis: 'digest-match', recorded_digest: D1, current_digest: D1 },
+    });
+  });
+
+  it('warns (never fails) when the source digest moved since the stamp, even with an older commit date', () => {
+    const r = evaluateKnowledgeHealth(stamps({ last_src_commit: '2020-01-01T00:00:00+00:00', source: { recorded: D1, current: D2 } }));
     expect(r.result.status).toBe('warn');
     expect(r.findings[0]?.severity).toBe('warn');
-    expect(r.knowledgeHealth?.modules[0]?.stale).toBe(true);
+    expect(r.findings[0]?.detail).toContain('source changed since it was verified');
+    expect(r.knowledgeHealth?.modules[0]?.freshness).toEqual({ basis: 'digest-mismatch', recorded_digest: D1, current_digest: D2 });
   });
 
-  it('compares by UTC day, normalizing timezone offsets', () => {
-    // Same instant expressed in different offsets is the same UTC day → NOT stale.
-    const r = evaluateKnowledgeHealth(
-      stamps({
-        last_src_commit: '2026-06-11T08:00:00+08:00',
-        last_verified: '2026-06-11T00:00:00+00:00',
-      }),
-    );
-    expect(r.result.status).toBe('pass');
-    expect(r.knowledgeHealth?.modules[0]?.stale).toBe(false);
+  it('asks for a re-stamp when the module has no digest of the current version', () => {
+    for (const recorded of [null, 'source-v0:old']) {
+      const r = evaluateKnowledgeHealth(stamps({ source: { recorded, current: D1 } }));
+      expect(r.knowledgeHealth?.modules[0]?.stale).toBe(true);
+      expect(r.knowledgeHealth?.modules[0]?.freshness?.basis).toBe('no-digest');
+      expect(r.findings[0]?.detail).toContain('confirm its README, then run `prospec knowledge verify lib`');
+    }
   });
 
-  it('is NOT stale when source was committed later the same UTC day it was verified (co-commit)', () => {
-    // The load-bearing case: `last_verified` is stamped moments before the commit that
-    // carries both it and the source, so the source commit instant is LATER than the
-    // stamp. Same-day comparison keeps that fresh; an instant comparison would wrongly
-    // mark every freshly-committed module stale forever.
-    const r = evaluateKnowledgeHealth(
-      stamps({
-        last_src_commit: '2026-06-11T18:30:00+00:00',
-        last_verified: '2026-06-11T09:00:00+00:00',
-      }),
-    );
-    expect(r.result.status).toBe('pass');
-    expect(r.knowledgeHealth?.modules[0]?.stale).toBe(false);
+  it('is stale with the reason when the current digest cannot be computed', () => {
+    const r = evaluateKnowledgeHealth(stamps({ source: { recorded: D1, current: null, reason: 'source inventory unavailable: x' } }));
+    expect(r.knowledgeHealth?.modules[0]?.freshness).toEqual({ basis: 'unavailable', recorded_digest: D1, reason: 'source inventory unavailable: x' });
+    expect(r.findings[0]?.detail).toContain('source inventory unavailable: x');
   });
 
-  it('is not stale when last_verified is at or after the source commit', () => {
-    const r = evaluateKnowledgeHealth(
-      stamps({
-        last_src_commit: '2026-06-11T00:00:00+00:00',
-        last_verified: '2026-06-12T00:00:00+00:00',
-      }),
-    );
-    expect(r.result.status).toBe('pass');
-    expect(r.knowledgeHealth?.modules[0]?.stale).toBe(false);
+  it('judges a missing or unparsable last_verified before any digest', () => {
+    for (const last_verified of [null, 'not-a-date']) {
+      const r = evaluateKnowledgeHealth(stamps({ last_verified, source: { recorded: D1, current: D1 } }));
+      expect(r.knowledgeHealth?.modules[0]?.freshness?.basis).toBe('unverified');
+      expect(r.findings[0]?.detail).toContain('confirm its README, then run `prospec knowledge verify lib`');
+    }
   });
 
-  it('is stale when a documented module has no last_verified, regardless of its knowledge commits', () => {
-    const r = evaluateKnowledgeHealth(
-      stamps({
-        last_src_commit: '2026-06-10T00:00:00+00:00',
-        last_readme_commit: '2026-06-20T00:00:00+00:00',
-        last_verified: null,
-      }),
-    );
-    expect(r.result.status).toBe('warn');
-    expect(r.knowledgeHealth?.modules[0]?.stale).toBe(true);
-    expect(r.findings[0]?.detail).toContain('no last_verified');
-  });
-
-  it('reports a documented module stale when source outruns last_verified, naming last_verified', () => {
-    const r = evaluateKnowledgeHealth(
-      stamps({
-        last_src_commit: '2026-06-14T00:00:00+00:00',
-        last_verified: '2026-06-13T00:00:00+00:00',
-      }),
-    );
-    expect(r.result.status).toBe('warn');
-    expect(r.findings[0]?.detail).toContain('2026-06-13T00:00:00+00:00');
-  });
-
-  it('reports a module with no README as a coverage gap, not a timestamp verdict', () => {
-    const r = evaluateKnowledgeHealth(
-      stamps({
-        readme_exists: false,
-        last_readme_commit: null,
-        last_src_commit: '2026-06-10T00:00:00+00:00',
-        last_verified: '2026-06-20T00:00:00+00:00',
-      }),
-    );
-    // last_verified is fresh, but a module with no README is stale by the coverage rule
-    expect(r.knowledgeHealth?.modules[0]?.stale).toBe(true);
+  it('reports a module with no README as a coverage gap, not a digest verdict', () => {
+    const r = evaluateKnowledgeHealth(stamps({ readme_exists: false, last_readme_commit: null }));
+    expect(r.knowledgeHealth?.modules[0]).toMatchObject({ stale: true, freshness: { basis: 'unverified' } });
     expect(r.findings[0]?.detail).toContain('coverage gap');
+    expect(r.knowledgeHealth?.coverage).toEqual({ documented: 0, total: 1 });
   });
 
-  it('keeps the frozen report keys and adds last_verified additively (present) / omits it (absent)', () => {
-    const present = evaluateKnowledgeHealth(stamps({}));
-    expect(Object.keys(present.knowledgeHealth!.modules[0]!)).toEqual([
-      'name',
-      'last_src_commit',
-      'last_readme_commit',
-      'stale',
-      'last_verified',
+  it('keeps the frozen report keys and adds last_verified and freshness additively', () => {
+    expect(Object.keys(evaluateKnowledgeHealth(stamps({})).knowledgeHealth!.modules[0]!)).toEqual([
+      'name', 'last_src_commit', 'last_readme_commit', 'stale', 'last_verified', 'freshness',
     ]);
-    const absent = evaluateKnowledgeHealth(stamps({ last_verified: null }));
-    expect(Object.keys(absent.knowledgeHealth!.modules[0]!)).toEqual([
-      'name',
-      'last_src_commit',
-      'last_readme_commit',
-      'stale',
+    expect(Object.keys(evaluateKnowledgeHealth(stamps({ last_verified: null })).knowledgeHealth!.modules[0]!)).toEqual([
+      'name', 'last_src_commit', 'last_readme_commit', 'stale', 'freshness',
     ]);
   });
 
   it('still carries last_sub_module_commit when present (frozen contract)', () => {
-    const r = evaluateKnowledgeHealth(
-      stamps({ last_sub_module_commit: '2026-06-13T00:00:00+00:00' }),
-    );
+    const r = evaluateKnowledgeHealth(stamps({ last_sub_module_commit: '2026-06-13T00:00:00+00:00' }));
     expect(r.knowledgeHealth?.modules[0]).toMatchObject({
       last_readme_commit: '2026-06-11T00:00:00+00:00',
       last_sub_module_commit: '2026-06-13T00:00:00+00:00',
     });
   });
 
-  it('treats a missing README as a coverage gap warning', () => {
-    const r = evaluateKnowledgeHealth(
-      stamps({ readme_exists: false, last_readme_commit: null }),
-    );
-    expect(r.result.status).toBe('warn');
-    expect(r.findings[0]?.detail).toContain('coverage gap');
-    expect(r.knowledgeHealth?.coverage).toEqual({ documented: 0, total: 1 });
-  });
-
-  it('skips with reason when git timestamps are unavailable', () => {
+  it('skips with reason outside a git work tree', () => {
     const r = evaluateKnowledgeHealth({ available: false, reason: 'source unavailable: not a git repository', modules: [] });
     expect(r.result.status).toBe('skipped');
     expect(r.knowledgeHealth).toBeUndefined();
@@ -762,9 +708,25 @@ describe('evaluateKnowledgeHealth', () => {
         last_readme_commit: null,
         last_sub_module_commit: null,
         last_verified: null,
+        source: { recorded: null, current: null, reason: 'x' },
       })),
     });
     expect(r.result.status).toBe('warn');
+  });
+});
+
+describe('moduleFreshness (REQ-LIB-015, REQ-TYPES-073)', () => {
+  const base = {
+    name: 'lib', readme_path: 'r', readme_exists: true, last_src_commit: null, last_readme_commit: null,
+    last_sub_module_commit: null, last_verified: '2026-06-11T00:00:00Z',
+  };
+  const D = `source-v1:${'c'.repeat(64)}`;
+  it('decides in the precedence unverified → no-digest → unavailable → match/mismatch', () => {
+    expect(moduleFreshness({ ...base, readme_exists: false, source: { recorded: null, current: null } }).basis).toBe('unverified');
+    expect(moduleFreshness({ ...base, source: { recorded: null, current: null, reason: 'r' } }).basis).toBe('no-digest');
+    expect(moduleFreshness({ ...base, source: { recorded: D, current: null, reason: 'r' } }).basis).toBe('unavailable');
+    expect(moduleFreshness({ ...base, source: { recorded: D, current: D } }).basis).toBe('digest-match');
+    expect(moduleFreshness({ ...base, source: { recorded: D, current: `source-v1:${'d'.repeat(64)}` } }).basis).toBe('digest-mismatch');
   });
 });
 
@@ -1098,6 +1060,7 @@ describe('runChecks', () => {
             last_readme_commit: null,
             last_sub_module_commit: null,
             last_verified: null,
+            source: { recorded: null, current: null },
           },
         ],
       },
@@ -1107,7 +1070,7 @@ describe('runChecks', () => {
     expect(report.structural.checks.find((c) => c.id === 'knowledge-health')?.status).toBe('warn');
     expect(report.structural.knowledge_health).toEqual({
       modules: [
-        { name: 'lib', last_src_commit: '2026-06-12T00:00:00Z', last_readme_commit: null, stale: true },
+        { name: 'lib', last_src_commit: '2026-06-12T00:00:00Z', last_readme_commit: null, stale: true, freshness: { basis: 'unverified' } },
       ],
       coverage: { documented: 0, total: 1 },
     });
@@ -1198,47 +1161,6 @@ describe('evaluateImportDirection — unknown from_module', () => {
     expect(r.result.status).toBe('fail');
     expect(r.findings).toHaveLength(1);
     expect(r.findings[0]?.detail).toContain('ghost → b');
-  });
-});
-
-describe('evaluateKnowledgeHealth — last_verified signal edges', () => {
-  it('is never stale when the source commit is null, even with a README and a last_verified', () => {
-    const r = evaluateKnowledgeHealth({
-      available: true,
-      modules: [
-        {
-          name: 'lib',
-          readme_path: 'k/modules/lib/README.md',
-          readme_exists: true,
-          last_src_commit: null,
-          last_readme_commit: '2026-06-11T00:00:00+00:00',
-          last_sub_module_commit: null,
-          last_verified: '2026-06-11T00:00:00+00:00',
-        },
-      ],
-    });
-    expect(r.result.status).toBe('pass');
-    expect(r.findings).toHaveLength(0);
-    expect(r.knowledgeHealth?.modules[0]?.stale).toBe(false);
-  });
-
-  it('reads only last_verified: a documented module with a fresh last_verified is not stale even when its README/sub-module commits are null', () => {
-    const r = evaluateKnowledgeHealth({
-      available: true,
-      modules: [
-        {
-          name: 'lib',
-          readme_path: 'k/modules/lib/README.md',
-          readme_exists: true,
-          last_src_commit: '2026-06-12T00:00:00+00:00',
-          last_readme_commit: null,
-          last_sub_module_commit: null,
-          last_verified: '2026-06-13T00:00:00+00:00',
-        },
-      ],
-    });
-    expect(r.result.status).toBe('pass');
-    expect(r.knowledgeHealth?.modules[0]?.stale).toBe(false);
   });
 });
 

@@ -112,10 +112,11 @@ jobs:
 
       - run: pnpm run build
 
-      # Narrow on purpose: the two files that carry the shim classification and the
-      # record path. `describe.runIf(process.platform === 'win32')` runs here for the
+      # Narrow on purpose: the files that carry the shim classification and the record
+      # path, plus the source-digest suites whose path and line-ending handling must hold
+      # on Windows. `describe.runIf(process.platform === 'win32')` runs here for the
       # first time — the injected tests prove the decision, these prove the reality.
-      - run: pnpm exec vitest run tests/unit/lib/test-runner.test.ts tests/unit/services/check.service.test.ts
+      - run: pnpm exec vitest run tests/unit/lib/test-runner.test.ts tests/unit/services/check.service.test.ts tests/unit/lib/source-digest.test.ts tests/unit/lib/module-digests.test.ts
 
       # The claim skip-unspawnable-test-command shipped without ever executing: on a host
       # where the resolved test command is a `.cmd` shim, test-provenance must be an

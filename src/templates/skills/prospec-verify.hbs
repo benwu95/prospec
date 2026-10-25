@@ -186,7 +186,7 @@ declared rule (`verify record` refuses naming any it lacks).
 ### Verification 4/5: Knowledge ↔ Implementation Consistency — `[machine]`
 
 **Adjudicator: the `knowledge-health` check.** Its status IS this dimension's result — staleness is
-decided by git timestamps, not by your reading. Your work is the layer on top: name the affected
+decided by source digests, not by your reading. Your work is the layer on top: name the affected
 modules, read what each README claims, and explain the drift the check found. You may **add**
 semantic observations (a README describing behavior the code does not have) as WARN detail, but you
 never overturn the check's verdict, and you never grade freshness yourself. A `skipped` check →
@@ -194,7 +194,7 @@ never overturn the check's verdict, and you never grade freshness yourself. A `s
 
 **Repository Knowledge verdict**: adopt the repository-wide check, including this change's own lag. `structural.knowledge_health` supplies module staleness and README coverage (shape: [`references/drift-report-format.md`](references/drift-report-format.md)); cite its facts without re-grading them.
 
-**Freshness and coverage** (`{{knowledge_base_path}}/modules/`): the engine compares each registered module's last committed source date with `last_verified` by **UTC calendar day**. A later UTC source date, missing README or missing `last_verified` yields WARN; the current check does not emit FAIL. An uncommitted source edit does not advance that date. Confirm README content alongside these mechanical facts; semantic observations remain supplemental WARN detail.
+**Freshness and coverage** (`{{knowledge_base_path}}/modules/`): the engine compares each registered module's **source digest** with the `source_digest` its last `prospec knowledge verify` recorded. A changed source (committed or not), missing or outdated `source_digest`, missing README or missing `last_verified` yields WARN; the current check does not emit FAIL. Confirm README content alongside these mechanical facts; semantic observations remain supplemental WARN detail.
 
 **Knowledge inputs**: the implement exit synchronized and stamped affected-module Knowledge before the final test record. Name modules needing updates or confirmation; their synchronization runs at the knowledge-update station (`prospec status` routes a knowledge-sync gap there; a README gap no fact records runs it manually), and its stamp reopens the recorded evidence. New modules follow the same coverage and freshness rules; the archive Entry Gate remains the **backstop**.
 

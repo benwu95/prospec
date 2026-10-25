@@ -47,9 +47,9 @@ Interactive `prospec init` asks for the trust-zone language only when the artifa
 | `knowledge.base_path` | string | `{paths.base_dir}/ai-knowledge` | Knowledge directory; relative paths resolve from the project root. |
 | `knowledge.strategy` | string | `auto` | Module partitioning: `auto`, `architecture`, `domain` or `package`. |
 | `knowledge.additional_core_conventions` | string[] | `[]` | Additional convention files to preload as L1 Core Conventions, relative to the Knowledge directory. |
-| `knowledge.generated_artifacts` | string[] | `[]` | Repository-relative generated artifact patterns excluded from Knowledge staleness timestamp calculations. |
+| `knowledge.generated_artifacts` | string[] | `[]` | Project-relative generated artifact patterns excluded from Knowledge staleness (the module source digest and `last_src_commit`). |
 
-Use `additional_core_conventions` for shared API or security rules that should load alongside the built-in Core Conventions. `generated_artifacts` identifies build outputs in the source tree: their commits do not move `last_src_commit`, so regenerating a bundle does not alone make its module stale. Prospec does not infer this list from your build system.
+Use `additional_core_conventions` for shared API or security rules that should load alongside the built-in Core Conventions. `generated_artifacts` identifies build outputs in the source tree: they are left out of the module's source digest and do not move `last_src_commit`, so regenerating a bundle does not alone make its module stale. Prospec does not infer this list from your build system.
 
 ## Knowledge budgets
 

@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { vol } from 'memfs';
 import { execute } from '../../../src/services/knowledge-verify.service.js';
 import { readHeadModuleStamps } from '../../../src/lib/knowledge-sync.js';
+import { collectModuleDigests, isGitWorkTree } from '../../../src/lib/drift-sources.js';
 import { PrerequisiteError } from '../../../src/types/errors.js';
 
 vi.mock('node:fs', async () => {
@@ -15,6 +16,25 @@ vi.mock('../../../src/lib/knowledge-sync.js', async (importOriginal) => {
   const actual = await importOriginal<typeof import('../../../src/lib/knowledge-sync.js')>();
   return { ...actual, readHeadModuleStamps: vi.fn(() => null) };
 });
+
+// The source digest needs git, which memfs cannot serve: every case states the digest
+// the work tree yields; by default the directory is a work tree whose digest is DIGEST.
+const DIGEST = `source-v1:${'a'.repeat(64)}`;
+const OTHER = `source-v1:${'b'.repeat(64)}`;
+vi.mock('../../../src/lib/drift-sources.js', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../../../src/lib/drift-sources.js')>();
+  return {
+    ...actual,
+    isGitWorkTree: vi.fn(() => true),
+    collectModuleDigests: vi.fn((_cwd: string, _map: unknown, options: { subset?: ReadonlySet<string> }) =>
+      new Map([...(options.subset ?? [])].map((name) => [name, { digest: DIGEST }]))),
+  };
+});
+const digestsAre = (digests: Record<string, string | null>) =>
+  vi.mocked(collectModuleDigests).mockImplementation((_cwd, _map, options) =>
+    new Map([...(options.subset ?? [])].map((name) => [name, digests[name] === null
+      ? { digest: null, reason: 'source inventory unavailable: test' }
+      : { digest: digests[name] ?? DIGEST }])));
 
 vi.mock('../../../src/lib/config.js', () => ({
   readConfig: vi.fn().mockResolvedValue({
@@ -176,16 +196,17 @@ describe('knowledge-verify.service (REQ-SERVICES-090)', () => {
       const blockMap = 'modules:\n  - name: lib\n    paths:\n      - src/lib\n    keywords:\n      - lib\n';
       vol.fromJSON({ [MAP_PATH]: blockMap });
       await execute({ modules: ['lib'], cwd: '/test', now: NOW });
-      expect(vol.readFileSync(MAP_PATH, 'utf-8')).toBe(`${blockMap}    last_verified: ${NOW}\n`);
+      expect(vol.readFileSync(MAP_PATH, 'utf-8')).toBe(`${blockMap}    last_verified: ${NOW}\n    source_digest: ${DIGEST}\n`);
     });
   });
 });
 
-describe('knowledge-verify.service — same-day stamp skip (REQ-SERVICES-090)', () => {
-  const SAME_DAY = '2026-08-14T03:00:00.000Z';
-  const map = (lib: string | null, cli: string | null) =>
+describe('knowledge-verify.service — digest-based skip (REQ-SERVICES-090)', () => {
+  const LATER = '2026-08-14T03:00:00.000Z';
+  const map = (lib: string | null, cli: string | null, libDigest: string | null = DIGEST) =>
     'modules:\n' +
     `  - name: lib\n    paths: ["src/lib"]\n    keywords: ["lib"]\n${lib === null ? '' : `    last_verified: "${lib}"\n`}` +
+    `${libDigest === null ? '' : `    source_digest: "${libDigest}"\n`}` +
     `  - name: cli\n    paths: ["src/cli"]\n    keywords: ["cli"]\n${cli === null ? '' : `    last_verified: "${cli}"\n`}`;
   const head = (entries: Record<string, string | undefined>) =>
     vi.mocked(readHeadModuleStamps).mockReturnValue(new Map(Object.entries(entries)));
@@ -193,10 +214,13 @@ describe('knowledge-verify.service — same-day stamp skip (REQ-SERVICES-090)', 
   beforeEach(() => {
     vol.reset();
     vi.mocked(readHeadModuleStamps).mockReset().mockReturnValue(null);
+    vi.mocked(isGitWorkTree).mockReturnValue(true);
+    vi.mocked(collectModuleDigests).mockClear();
+    digestsAre({});
   });
 
-  it('skips a module stamped later than HEAD on the same UTC day, leaving the map byte-identical', async () => {
-    vol.fromJSON({ [MAP_PATH]: map(SAME_DAY, null) });
+  it('skips a module stamped later than HEAD whose digest has not moved, leaving the map byte-identical', async () => {
+    vol.fromJSON({ [MAP_PATH]: map(LATER, null) });
     head({ lib: '2026-08-01T00:00:00.000Z', cli: undefined });
     const before = vol.readFileSync(MAP_PATH, 'utf-8');
     const result = await execute({ modules: ['lib'], cwd: '/test', now: NOW });
@@ -205,50 +229,80 @@ describe('knowledge-verify.service — same-day stamp skip (REQ-SERVICES-090)', 
     expect(vol.readFileSync(MAP_PATH, 'utf-8')).toBe(before);
   });
 
+  it('stamps again, whatever the day, once the source digest moved after the stamp', async () => {
+    vol.fromJSON({ [MAP_PATH]: map(LATER, null) });
+    head({ lib: '2026-08-01T00:00:00.000Z' });
+    digestsAre({ lib: OTHER });
+    const result = await execute({ modules: ['lib'], cwd: '/test', now: NOW });
+    expect(result.verified).toEqual(['lib']);
+    const content = vol.readFileSync(MAP_PATH, 'utf-8') as string;
+    expect(content).toContain(`last_verified: ${NOW}`);
+    expect(content).toContain(`source_digest: ${OTHER}`);
+  });
+
   it('treats a module or stamp absent at HEAD, or an unparsable HEAD stamp, as earlier', async () => {
     for (const headLib of [undefined, 'not-a-date']) {
       vol.reset();
-      vol.fromJSON({ [MAP_PATH]: map(SAME_DAY, null) });
+      vol.fromJSON({ [MAP_PATH]: map(LATER, null) });
       head(headLib === undefined ? {} : { lib: headLib });
       const result = await execute({ modules: ['lib'], cwd: '/test', now: NOW });
       expect(result.skipped, String(headLib)).toEqual(['lib']);
     }
   });
 
-  it('stamps when the working-tree stamp equals HEAD, precedes it, falls on another day, or does not parse', async () => {
-    const cases: [string, string][] = [
-      [SAME_DAY, SAME_DAY],
-      ['2026-08-14T01:00:00.000Z', SAME_DAY],
-      ['2026-08-13T23:00:00.000Z', '2026-08-01T00:00:00.000Z'],
-      ['garbage', '2026-08-01T00:00:00.000Z'],
+  it('stamps when the working-tree stamp equals HEAD, precedes it, does not parse, or carries no digest', async () => {
+    const cases: [string, string, string | null][] = [
+      [LATER, LATER, DIGEST],
+      ['2026-08-14T01:00:00.000Z', LATER, DIGEST],
+      ['garbage', '2026-08-01T00:00:00.000Z', DIGEST],
+      [LATER, '2026-08-01T00:00:00.000Z', null],
     ];
-    for (const [worktree, atHead] of cases) {
+    for (const [worktree, atHead, recorded] of cases) {
       vol.reset();
-      vol.fromJSON({ [MAP_PATH]: map(worktree, null) });
+      vol.fromJSON({ [MAP_PATH]: map(worktree, null, recorded) });
       head({ lib: atHead });
       const result = await execute({ modules: ['lib'], cwd: '/test', now: NOW });
       expect(result.verified, `${worktree} vs ${atHead}`).toEqual(['lib']);
-      expect(result.skipped).toEqual([]);
-      expect(vol.readFileSync(MAP_PATH, 'utf-8')).toContain(`last_verified: ${NOW}`);
+      expect(vol.readFileSync(MAP_PATH, 'utf-8')).toContain(`source_digest: ${DIGEST}`);
     }
   });
 
   it('skips nothing when HEAD cannot answer', async () => {
-    vol.fromJSON({ [MAP_PATH]: map(SAME_DAY, null) });
+    vol.fromJSON({ [MAP_PATH]: map(LATER, null) });
     const result = await execute({ modules: ['lib'], cwd: '/test', now: NOW });
     expect(result.verified).toEqual(['lib']);
     expect(result.skipped).toEqual([]);
   });
 
   it('rewrites only the modules not skipped and lists each kind', async () => {
-    vol.fromJSON({ [MAP_PATH]: map(SAME_DAY, '2026-08-01T00:00:00.000Z') });
+    vol.fromJSON({ [MAP_PATH]: map(LATER, '2026-08-01T00:00:00.000Z') });
     head({ lib: '2026-08-01T00:00:00.000Z', cli: '2026-08-01T00:00:00.000Z' });
     const result = await execute({ modules: ['lib', 'cli'], cwd: '/test', now: NOW });
     expect(result.verified).toEqual(['cli']);
     expect(result.skipped).toEqual(['lib']);
     const content = vol.readFileSync(MAP_PATH, 'utf-8') as string;
-    expect(content).toContain(SAME_DAY);
+    expect(content).toContain(LATER);
     expect(content.match(new RegExp(NOW, 'g'))).toHaveLength(1);
+  });
+
+  it('refuses, writing nothing, when a named module has no computable digest', async () => {
+    vol.fromJSON({ [MAP_PATH]: map(null, null) });
+    digestsAre({ cli: null });
+    const before = vol.readFileSync(MAP_PATH, 'utf-8');
+    await expect(execute({ modules: ['lib', 'cli'], cwd: '/test', now: NOW })).rejects.toThrow(/cli.*source inventory unavailable: test/);
+    expect(vol.readFileSync(MAP_PATH, 'utf-8')).toBe(before);
+  });
+
+  it('stamps last_verified alone where git cannot confirm a work tree, keeping the recorded digest', async () => {
+    vi.mocked(isGitWorkTree).mockReturnValue(false);
+    vol.fromJSON({ [MAP_PATH]: map(null, null, OTHER) });
+    const result = await execute({ modules: ['lib'], cwd: '/test', now: NOW });
+    expect(result.verified).toEqual(['lib']);
+    const content = vol.readFileSync(MAP_PATH, 'utf-8') as string;
+    expect(content).toContain(`last_verified: ${NOW}`);
+    expect(content).toMatch(new RegExp(`source_digest: "?${OTHER}"?\\n`));
+    expect(content).not.toContain(DIGEST);
+    expect(collectModuleDigests).not.toHaveBeenCalled();
   });
 
   it('reads HEAD for the real file the stamp is written to', async () => {

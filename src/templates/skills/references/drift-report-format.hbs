@@ -86,24 +86,23 @@ structured facts behind its `detail` (additive, so a report without it still val
 ```jsonc
 {
   "modules": [
-    { "name": "lib", "last_src_commit": "<ISO|null>", "last_readme_commit": "<ISO|null>", "last_sub_module_commit": "<ISO>", "stale": true, "last_verified": "<ISO>" }
+    { "name": "lib", "last_src_commit": "<ISO|null>", "last_readme_commit": "<ISO|null>", "last_sub_module_commit": "<ISO>", "stale": true, "last_verified": "<ISO>", "freshness": { "basis": "digest-mismatch", … } }
   ],
   "coverage": { "documented": 23, "total": 23 }
 }
 ```
 
-- Per-module staleness lives on **each element of `modules[]`** as the boolean `stale`.
-  `knowledge_health` has **no** top-level `stale[]` array — to get the stale modules, filter
-  `knowledge_health.modules` by `.stale`: `knowledge_health.modules.filter(m => m.stale)`.
-- `last_verified` is the module's explicit confirmation time (`module-map.yaml`, stamped by
-  `prospec knowledge verify`), **absent** when none is declared. It is the freshness reference: for a
-  **documented** module `stale` recomputes as `last_src_commit` vs `last_verified` **by UTC calendar
-  day** (or stale when `last_verified` absent — a same-day commit reads fresh). A module with no
-  README is stale by the coverage rule — that verdict rides its `coverage gap` finding, not these timestamps.
-- `last_readme_commit` / `last_sub_module_commit` remain in the frozen shape (the latter **absent**
-  when no sub-module, never null-filled) but no longer drive `stale` — reported for downstream continuity.
-- `coverage` is `{ documented, total }` module README counts.
-- The whole object is **optional** (absent when the module map is unavailable) → treat as "no freshness facts", not all-fresh.
+- Staleness is the boolean `stale` on **each element of `modules[]`**; there is **no** top-level
+  `stale[]` — filter: `knowledge_health.modules.filter(m => m.stale)`.
+- `last_verified`: the confirmation time `prospec knowledge verify` stamps; **absent** when undeclared.
+- `freshness` `{ basis, recorded_digest?, current_digest?, reason? }` reproduces `stale` (true unless
+  `basis` is `digest-match`). `basis` by precedence: `unverified` (no README or parsable `last_verified`),
+  `no-digest` (no current-version `source_digest`), `unavailable` (`reason` says why), then
+  `digest-match` / `digest-mismatch`. No README also yields a `coverage gap` finding.
+- The commit-time keys stay for continuity (`last_sub_module_commit` **absent** without sub-modules,
+  never null-filled), never drive `stale`, and are null/absent when commit times are unavailable (shallow, unborn HEAD).
+- `coverage` is `{ documented, total }` README counts. The whole object is **optional** (absent without
+  a module map) → "no freshness facts", not all-fresh.
 
 ## `structural.constitution` (optional) — the rule inventory verify audits against
 

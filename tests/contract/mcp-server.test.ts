@@ -675,6 +675,7 @@ describe('knowledge://health (REQ-MCP-004, SC-006)', () => {
     expect(health.modules.map((m) => m.name)).toEqual(['alpha', 'beta']);
     for (const m of health.modules) {
       expect(Object.keys(m).sort()).toEqual([
+        'freshness',
         'last_readme_commit',
         'last_src_commit',
         'name',

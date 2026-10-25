@@ -83,7 +83,7 @@ your-project/
 | `prospec init [options]` | 初始化 Prospec 專案結構（可設定語言與支援的 Agent） |
 | `prospec knowledge init [options]` | 靜態掃描專案原始碼，生成 `raw-scan.md` 與模組結構骨架 |
 | `prospec knowledge update [options]` | 依 `delta-spec.md` 機械式同步模組邊界與 `index.md` auto 區塊 |
-| `prospec knowledge verify <modules>` | 記錄模組的 `last_verified` 時間戳記，供 CI 判斷知識新鮮度 |
+| `prospec knowledge verify <modules>` | 記錄模組的 `last_verified` 時間戳記與 `source_digest`，供判斷知識新鮮度 |
 | `prospec agent sync [--cli <name>]` | 同步 Agent 配置與生成 Skills（支援多 Agent 規格） |
 | `prospec agent triggers [--write <file>]` | 匯出待在地化的 `skill_triggers` 與 `skill_exclusions` 範本，支援回寫至 `.prospec.yaml` |
 | `prospec config example` | 輸出完整且含逐欄註解的 `.prospec.yaml` 參考範例 |
@@ -125,8 +125,8 @@ your-project/
     - 絕不重寫既有 README 內容（保留手寫知識），並於終端回報待人工撰寫清單（`README content pending`）。
 
 - **`prospec knowledge verify <module>...`**
-  - **核心用途**：為指定模組在 `module-map.yaml` 戳上 `last_verified` 時間戳記。
-  - **執行行為**：記錄模組知識與原始碼確認一致的時間點；當模組 `src/**` 變動時作為 CI 與 `prospec check` 判斷 staleness 的依據。戳記已晚於 `HEAD` 中的值且與現在同一 UTC 日的模組會略過，輸出為 `skipped`；指名的模組全部略過時不改寫 `module-map.yaml`。
+  - **核心用途**：為指定模組在 `module-map.yaml` 戳上 `last_verified` 時間戳記與 `source_digest`。
+  - **執行行為**：記錄模組知識與原始碼確認一致的時間點，以及確認時原始碼的 digest；`prospec check` 以該 digest 比對目前原始碼判斷 staleness。戳記已晚於 `HEAD` 中的值、且原始碼 digest 未變的模組會略過，輸出為 `skipped`；指名的模組全部略過時不改寫 `module-map.yaml`。在 git work tree 內，任一模組的 digest 無法計算時整體拒寫；不在 work tree 內時只寫 `last_verified`。
 
 - **`prospec agent sync [--cli <name>]`**
   - **核心用途**：同步各 AI Agent 設定檔並生成對應的 Skills。
@@ -509,7 +509,7 @@ claude mcp add -s user prospec-b -- prospec mcp serve --cwd /path/to/B
   - **檢驗維度清單**：
     - **規格與連結**：懸空 REQ 引用、Feature Specs 間 REQ id 唯一性（`req-id-uniqueness`，FAIL）、失效 Markdown 連結、Feature Spec frontmatter 計數對帳（`story_count`/`req_count`）。
     - **架構與依賴**：依 `module-map.yaml` 驗證 import 依賴方向、REQ-prefix 合法性（WARN）、feature→module 邊界（FAIL）。
-    - **知識庫健康**：模組新鮮度（`last_verified` vs 原始碼 commit，WARN）、檔案 Token 與行數預算（`knowledge-size`，WARN）、README 宣告計數真實性（WARN）。
+    - **知識庫健康**：模組新鮮度（記錄的 `source_digest` vs 目前原始碼，WARN）、檔案 Token 與行數預算（`knowledge-size`，WARN）、README 宣告計數真實性（WARN）。
     - **審查與測試出處**：
       - `review-provenance`：已實作或已驗證的變更必須具備對應現行程式碼的 review 記錄。
       - `test-provenance`：變更必須具備最新且通過（綠燈）的測試記錄。

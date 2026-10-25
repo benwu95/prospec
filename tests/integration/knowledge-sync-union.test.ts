@@ -7,6 +7,7 @@ import { findUnsyncedModules } from '../../src/lib/knowledge-sync.js';
 import { execute as status } from '../../src/services/status.service.js';
 import { execute as archive } from '../../src/services/archive.service.js';
 import { executeForChange as knowledgeUpdate } from '../../src/services/knowledge-update.service.js';
+import { execute as knowledgeVerify } from '../../src/services/knowledge-verify.service.js';
 
 vi.setConfig({ testTimeout: 30_000 });
 
@@ -18,8 +19,8 @@ const write = (name: string, text: string) => {
 const git = (...args: string[]) => execFileSync('git', args, { cwd: root, stdio: 'pipe' });
 
 // related_modules names only `lib` (fresh), while the delta-spec's REQ-SERVICES
-// entry points at `services`, whose source was committed after its last_verified.
-beforeEach(() => {
+// entry points at `services`, whose source was committed after its stamp.
+beforeEach(async () => {
   root = mkdtempSync(path.join(os.tmpdir(), 'knowledge-sync-union-'));
   git('init', '-q');
   git('config', 'user.name', 'test');
@@ -28,8 +29,8 @@ beforeEach(() => {
   write(
     'prospec/ai-knowledge/module-map.yaml',
     'modules:\n' +
-      '  - name: lib\n    paths: [src/lib]\n    keywords: [lib]\n    last_verified: "2099-01-01T00:00:00Z"\n' +
-      '  - name: services\n    paths: [src/services]\n    keywords: [services]\n    last_verified: "2000-01-01T00:00:00Z"\n',
+      '  - name: lib\n    paths: [src/lib]\n    keywords: [lib]\n' +
+      '  - name: services\n    paths: [src/services]\n    keywords: [services]\n',
   );
   write('prospec/ai-knowledge/modules/lib/README.md', '# lib\n');
   write('prospec/ai-knowledge/modules/services/README.md', '# services\n');
@@ -42,6 +43,10 @@ beforeEach(() => {
   write('.prospec/changes/x/delta-spec.md', '# Delta\n\n## MODIFIED\n\n### REQ-SERVICES-001: change b\n\n**Feature:** alpha\n**Story:** US-1\n');
   git('add', '.');
   git('commit', '-qm', 'fixture');
+  await knowledgeVerify({ modules: ['lib', 'services'], cwd: root, now: '2026-09-28T00:00:00.000Z' });
+  write('src/services/b.ts', 'export const b = 2;\n');
+  git('add', '.');
+  git('commit', '-qm', 'stamp, then a services change after it');
 });
 afterEach(() => rmSync(root, { recursive: true, force: true }));
 

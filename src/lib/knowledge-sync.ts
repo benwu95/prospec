@@ -2,7 +2,7 @@ import { execFileSync } from 'node:child_process';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { resolveBasePaths } from './config.js';
-import { isStale } from './drift-checker.js';
+import { moduleFreshness } from './drift-checker.js';
 import { collectGitTimestamps } from './drift-sources.js';
 import { readFileIfExists } from './fs-utils.js';
 import { fixedGitEnv } from './git-read.js';
@@ -237,7 +237,7 @@ export interface KnowledgeSyncMetadata {
 export interface KnowledgeSyncGaps {
   /** Present only when metadata omits the scope declaration. */
   scopeUnspecified?: true;
-  /** Registered modules whose `last_verified`, README or source-commit currency fails. */
+  /** Registered modules whose `last_verified`, README or source digest currency fails. */
   stale: string[];
   /** Affected names absent from the module map (`related_modules` guesses included). */
   unregistered: string[];
@@ -271,9 +271,9 @@ export async function findUnsyncedModules(
   cwd: string,
   config: ProspecConfig | null,
 ): Promise<KnowledgeSyncGaps> {
-  const knowledgePath = config
-    ? resolveBasePaths(config, cwd).knowledgePath
-    : path.resolve(cwd, 'prospec/ai-knowledge');
+  const { knowledgePath, specsPath } = config
+    ? resolveBasePaths(config, cwd)
+    : { knowledgePath: path.resolve(cwd, 'prospec/ai-knowledge'), specsPath: path.resolve(cwd, 'prospec/specs') };
   const related = (metadata.related_modules ?? []).map((m) => m.toLowerCase());
   const gaps: KnowledgeSyncGaps = { stale: [], unregistered: [], malformedIds: [], moduleMapUnreadable: false };
   if (metadata.related_modules === undefined) gaps.scopeUnspecified = true;
@@ -313,13 +313,10 @@ export async function findUnsyncedModules(
   if (affected.size === 0) return gaps;
 
   const generatedArtifacts = config?.knowledge?.generated_artifacts ?? [];
-  // Only this change's affected modules need timestamps, and collectGitTimestamps
-  // gathers exactly the module set it is handed — so narrow the map before the walk
-  // instead of computing every module's git history and discarding most of it.
-  const affectedMap = {
-    modules: moduleMap.modules.filter((m) => affected.has(m.name.toLowerCase())),
-  };
-  const timestamps = collectGitTimestamps(cwd, affectedMap, knowledgePath, generatedArtifacts);
+  // Only this change's affected modules are reported, but the digests are taken against
+  // the whole map so a failure attributes to the same modules as in `prospec check`.
+  const subset = new Set(moduleMap.modules.filter((m) => affected.has(m.name.toLowerCase())).map((m) => m.name));
+  const timestamps = collectGitTimestamps(cwd, moduleMap, knowledgePath, generatedArtifacts, undefined, { specsPath, subset });
 
   for (const norm of affected) {
     const entry = moduleMap.modules.find((m) => m.name.toLowerCase() === norm);
@@ -410,10 +407,10 @@ function isModuleCurrent(
 ): boolean {
   if (!entry.last_verified || isNaN(Date.parse(entry.last_verified))) return false;
   if (!fs.existsSync(path.join(knowledgePath, 'modules', entry.name, 'README.md'))) return false;
+  // Where git cannot confirm a work tree, only the README and `last_verified` are judged.
   if (!timestamps.available) return true;
   const modTs = timestamps.modules.find((m) => m.name.toLowerCase() === norm);
-  if (!modTs || !modTs.readme_exists || !modTs.last_verified) return false;
-  return !(modTs.last_src_commit && isStale(modTs.last_src_commit, modTs.last_verified));
+  return modTs !== undefined && moduleFreshness(modTs).basis === 'digest-match';
 }
 
 /**

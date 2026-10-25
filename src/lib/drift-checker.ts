@@ -13,6 +13,7 @@ import {
   type ConstitutionRuleEntry,
   type DriftFinding,
   type DriftReport,
+  type KnowledgeFreshness,
   type KnowledgeHealth,
   type KnowledgeSizeFinding,
 } from '../types/drift-report.js';
@@ -23,6 +24,7 @@ import type {
   ConstitutionRuleSource,
   FeatureMapGovernanceSource,
   GitTimestampSource,
+  ModuleTimestamps,
   ImportEdgeSource,
   KnowledgeSizeSource,
   LinkSource,
@@ -52,6 +54,7 @@ import {
   parseSkillReferenceProse,
 } from './skill-reference-prose.js';
 import { TOKEN_ESTIMATOR_LABEL } from './token-accounting.js';
+import { isCurrentDigestFormat } from './source-digest.js';
 import { SEEDED_CONSTITUTION_RULE_NAMES } from './constitution-rules.js';
 import { declaresEveryStation, isUndeclaredStations } from './constitution-slice.js';
 import { SDD_STATIONS } from '../types/status.js';
@@ -231,6 +234,42 @@ export function evaluateImportDirection(
   return outcome('import-direction', findings);
 }
 
+/**
+ * The one freshness verdict (REQ-LIB-015, REQ-TYPES-073) that knowledge-health, the
+ * Knowledge sync gate and the MCP health resource share, decided in this precedence:
+ * no README or no parsable `last_verified` → `unverified`; no `source_digest` of the
+ * current version → `no-digest`; no computable current digest → `unavailable`; else
+ * the digests match or not. Commit times never enter it.
+ */
+export function moduleFreshness(m: ModuleTimestamps): KnowledgeFreshness {
+  const recorded = m.source.recorded === null ? {} : { recorded_digest: m.source.recorded };
+  const current = m.source.current === null ? {} : { current_digest: m.source.current };
+  if (!m.readme_exists || m.last_verified === null || isNaN(Date.parse(m.last_verified))) {
+    return { basis: 'unverified', ...recorded, ...current };
+  }
+  if (!isCurrentDigestFormat(m.source.recorded)) return { basis: 'no-digest', ...recorded, ...current };
+  if (m.source.current === null) {
+    return { basis: 'unavailable', ...recorded, ...(m.source.reason === undefined ? {} : { reason: m.source.reason }) };
+  }
+  return { basis: m.source.current === m.source.recorded ? 'digest-match' : 'digest-mismatch', ...recorded, ...current };
+}
+
+const restamp = (name: string): string => `confirm its README, then run \`prospec knowledge verify ${name}\``;
+
+function staleDetail(m: ModuleTimestamps, freshness: KnowledgeFreshness): string {
+  const head = `stale knowledge: module "${m.name}"`;
+  switch (freshness.basis) {
+    case 'unverified':
+      return `${head} has no parsable last_verified — ${restamp(m.name)}`;
+    case 'no-digest':
+      return `${head} has no source_digest of the current version — ${restamp(m.name)}`;
+    case 'unavailable':
+      return `${head} source digest cannot be computed: ${freshness.reason ?? 'unknown reason'}`;
+    default:
+      return `${head} source changed since it was verified at ${m.last_verified} — update its knowledge, then ${restamp(m.name)}`;
+  }
+}
+
 /** Staleness is permanently WARN-class — it must never fail a build (REQ-LIB-015). */
 export function evaluateKnowledgeHealth(timestamps: GitTimestampSource): CheckOutcome {
   if (!timestamps.available) {
@@ -239,16 +278,8 @@ export function evaluateKnowledgeHealth(timestamps: GitTimestampSource): CheckOu
   const findings: DriftFinding[] = [];
   const healthModules: KnowledgeHealth['modules'] = [];
   for (const m of timestamps.modules) {
-    // Staleness is judged against the module's explicit `last_verified` confirmation
-    // time (module-map.yaml), not the inferred git commit time of its knowledge files.
-    // No README, or no `last_verified`, is stale by the coverage rule regardless of
-    // timestamps. The commit-time keys stay in the report (frozen contract) but no
-    // longer drive the verdict (REQ-LIB-015).
-    const stale = !m.readme_exists
-      ? true
-      : m.last_verified === null
-        ? true
-        : isStale(m.last_src_commit, m.last_verified);
+    const freshness = moduleFreshness(m);
+    const stale = freshness.basis !== 'digest-match';
     healthModules.push({
       name: m.name,
       last_src_commit: m.last_src_commit,
@@ -258,6 +289,7 @@ export function evaluateKnowledgeHealth(timestamps: GitTimestampSource): CheckOu
         : { last_sub_module_commit: m.last_sub_module_commit }),
       stale,
       ...(m.last_verified === null ? {} : { last_verified: m.last_verified }),
+      freshness,
     });
     if (!m.readme_exists) {
       findings.push({
@@ -271,11 +303,7 @@ export function evaluateKnowledgeHealth(timestamps: GitTimestampSource): CheckOu
         check: 'knowledge-health',
         severity: 'warn',
         source_path: m.readme_path,
-        detail:
-          m.last_verified === null
-            ? `stale knowledge: module "${m.name}" has no last_verified — its knowledge is unconfirmed against source`
-            : `stale knowledge: module "${m.name}" source last commit ${m.last_src_commit} ` +
-              `is newer than its last_verified ${m.last_verified}`,
+        detail: staleDetail(m, freshness),
       });
     }
   }
@@ -1433,24 +1461,6 @@ function skipped(id: DriftCheckId, reason: string, subjects?: string[]): CheckOu
     result: { id, status: 'skipped', reason, ...(subjects === undefined ? {} : { subjects }) },
     findings: [],
   };
-}
-
-export function isStale(srcCommit: string | null, reference: string): boolean {
-  // A null `last_verified` is intercepted as stale by the caller before this runs,
-  // so the reference is always a real timestamp here; only a null source (no source
-  // commits) short-circuits — nothing to be stale against.
-  if (srcCommit === null) return false;
-  const srcTs = Date.parse(srcCommit);
-  const refTs = Date.parse(reference);
-  if (isNaN(srcTs) || isNaN(refTs)) return true;
-  // Compare by UTC calendar day, NOT by instant. `last_verified` is a wall-clock stamp
-  // taken moments BEFORE the co-commit that carries it, so an instant comparison would
-  // read every freshly-committed module as stale (commit time > stamp). Day granularity
-  // keeps "verified and committed the same day" fresh while still catching source that
-  // drifts to a later day. %cI carries each committer's own UTC offset — Date.parse
-  // normalizes both to the same epoch before the day floor.
-  const utcDay = (ts: number): number => Math.floor(ts / 86_400_000);
-  return utcDay(srcTs) > utcDay(refTs);
 }
 
 // codepoint order, NOT localeCompare — ICU collation varies per environment

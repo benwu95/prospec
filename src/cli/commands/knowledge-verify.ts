@@ -10,13 +10,14 @@ import { resolveLogLevel } from '../log-level.js';
  * Usage:
  *   prospec knowledge verify <module>...
  *
- * Stamps `last_verified` for each named module in module-map.yaml — the dated
- * confirmation the `knowledge:check` gate requires and `knowledge-health` reads.
+ * Stamps `last_verified` and `source_digest` for each named module in module-map.yaml —
+ * the dated confirmation the `knowledge:check` gate requires and the source digest
+ * `knowledge-health` compares against.
  */
 export function registerKnowledgeVerifyCommand(knowledge: Command, program: Command): void {
   knowledge
     .command('verify')
-    .description('Stamp last_verified for the named modules (confirm their knowledge is current); skips one already stamped today, later than its HEAD value')
+    .description('Stamp last_verified and source_digest for the named modules (confirm their knowledge is current); skips one stamped later than its HEAD value whose source is unchanged')
     .argument('<module...>', 'Module name(s) to stamp as verified')
     .action(async (modules: string[]) => {
       const globalOpts = program.opts<GlobalOptions>();

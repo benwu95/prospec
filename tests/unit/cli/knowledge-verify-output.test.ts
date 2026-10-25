@@ -41,7 +41,7 @@ describe('knowledge-verify-output', () => {
     expect(lines).toHaveLength(2);
     expect(lines[0]).toContain('verified cli @ 2026-08-14T12:00:00.000Z');
     expect(lines[1]).toContain('skipped lib');
-    expect(lines[1]).toContain('already stamped today');
+    expect(lines[1]).toContain('source unchanged since its stamp, which is later than its HEAD value');
     expect(lines[1]).not.toContain('verified');
   });
 

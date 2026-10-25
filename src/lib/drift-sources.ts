@@ -1,13 +1,14 @@
-import { existsSync, readFileSync, readdirSync, lstatSync, statSync, readlinkSync, realpathSync, type Dirent } from 'node:fs';
+import { accessSync, constants as fsConstants, existsSync, readFileSync, readdirSync, lstatSync, statSync, readlinkSync, realpathSync, type Dirent } from 'node:fs';
 import { execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import path from 'node:path';
 import { scanDirSync, classifyModulePath, filterConventions } from './scanner.js';
 import { parseYaml } from './yaml-utils.js';
 import { parseDocument, isMap, isScalar } from 'yaml';
-import { DEFAULT_KNOWLEDGE_TOKEN_BUDGET, isShippedBudgetField, type ShippedBudgetField } from '../types/config.js';
+import { DEFAULT_BASE_DIR, DEFAULT_KNOWLEDGE_TOKEN_BUDGET, isShippedBudgetField, type ShippedBudgetField } from '../types/config.js';
 import { withoutFencedBlocks } from './markdown-fences.js';
-import { gitReadOptional, gitReadRecords, hiddenIndexShape, parseIndexRecord } from './git-read.js';
+import { GIT_READ_TIMEOUT_MS, gitRead, gitReadOptional, gitReadRecords, hiddenIndexShape, parseIndexRecord } from './git-read.js';
+import { gitBlobId, moduleSourceDigest, objectFormatOf, type SourceDigestEntry } from './source-digest.js';
 import { mergeContent } from './content-merger.js';
 import { ARCHIVE_NATIVE_GLOB, ABANDONED_NATIVE_GLOB, compareLanguagePolicy, type LanguagePolicyComparison } from './language-policy.js';
 import type { LanguageScope } from '../types/constitution.js';
@@ -41,6 +42,7 @@ import {
   listFeatureSpecs,
   loadFeatureMap,
   loadFeatureSpecContent,
+  projectRelativePath,
   readContainedText,
   readIndex,
   readModuleReadme,
@@ -53,7 +55,7 @@ import { FINGERPRINT_VERSION, EVIDENCE_SCOPE, TEST_FINGERPRINT_VERSION, TEST_EVI
 import type { TestEvidenceFacts } from '../types/station.js';
 import { readChangeMetadata } from './change-metadata.js';
 import { PrerequisiteError } from '../types/errors.js';
-import type { InputSnapshot, TestInputState, EvidenceStates } from '../types/drift-report.js';
+import type { InputSnapshot, TestInputState, EvidenceStates, SourceInventory } from '../types/drift-report.js';
 import { resolveTestEvidencePolicy } from './config.js';
 import { AGENT_CONFIGS, SKILL_DEFINITIONS } from '../types/skill.js';
 import type { KnowledgeSizeBudget, KnowledgeSizeKind, ProspecConfig } from '../types/config.js';
@@ -151,6 +153,9 @@ export interface ModuleTimestamps {
   last_sub_module_commit: string | null;
   /** The module's declared `last_verified` (module-map.yaml); null when it declares none. */
   last_verified: string | null;
+  /** The freshness facts (REQ-LIB-015): the `source_digest` module-map.yaml records, the
+   *  digest of the current source, and why that one could not be computed. */
+  source: { recorded: string | null; current: string | null; reason?: string };
 }
 
 export interface GitTimestampSource {
@@ -813,28 +818,31 @@ export function collectGitTimestamps(
   /** The one work-tree probe. Defaults to probing so any caller is correct;
    *  check.service shares its once-computed value so the whole run probes once. */
   inWorkTree: boolean = isGitWorkTree(cwd),
+  /** The source-digest inputs (REQ-LIB-015, REQ-LIB-070): the Feature Specs directory to
+   *  exclude, the snapshot's inventory when one exists, and the modules to report — the
+   *  digests are still computed against the whole map. */
+  options: { specsPath?: string; inventory?: SourceInventory; subset?: ReadonlySet<string> } = {},
 ): GitTimestampSource {
   if (!inWorkTree) {
     return { available: false, reason: 'source unavailable: not a git repository', modules: [] };
   }
+  let shallow = false;
   try {
-    const shallow = execFileSync('git', ['rev-parse', '--is-shallow-repository'], {
+    shallow = execFileSync('git', ['rev-parse', '--is-shallow-repository'], {
       cwd,
       stdio: 'pipe',
       encoding: 'utf-8',
-    }).trim();
-    if (shallow === 'true') {
-      // Shallow boundary commits carry the clone date, not the real history —
-      // those would be fabricated staleness facts (REQ-LIB-015: shallow → skipped).
-      return {
-        available: false,
-        reason: 'source unavailable: shallow git clone (commit history incomplete)',
-        modules: [],
-      };
-    }
+    }).trim() === 'true';
   } catch {
     // very old git without --is-shallow-repository — proceed with best effort
   }
+  const digests = collectModuleDigests(cwd, moduleMap, {
+    knowledgePath,
+    specsPath: options.specsPath ?? path.resolve(cwd, DEFAULT_BASE_DIR, 'specs'),
+    generatedArtifacts,
+    ...(options.inventory === undefined ? {} : { inventory: options.inventory }),
+    ...(options.subset === undefined ? {} : { subset: options.subset }),
+  });
 
   // Gather every module's three path-groups, then resolve them ALL in ONE
   // `git log --name-only` walk instead of a `git log -1` per group (17 spawns → 1
@@ -855,6 +863,7 @@ export function collectGitTimestamps(
   const register = (group: TimestampGroup): number => batchGroups.push(group) - 1;
 
   for (const entry of moduleMap.modules) {
+    if (options.subset !== undefined && !options.subset.has(entry.name)) continue;
     // a module name is one path segment, never a traversal — a crafted name
     // (e.g. "../../etc") must not turn health into an existence oracle for
     // files outside the repo (same guard as the MCP listing surface)
@@ -875,10 +884,9 @@ export function collectGitTimestamps(
 
     const pm: PreparedModule = { entry, readmeRel, readmeExists, subModuleRels };
     // Generated artifacts carry code but no knowledge a README could describe, so
-    // regenerating one must not make the module stale (REQ-LIB-015 / REQ-LIB-039);
-    // the same file stays inside computeChangeDigest. The src group batches only
-    // when every include AND exclude is literal — a glob exclude keeps git's own
-    // matching (and its unexcluded fallback) via gitLastCommit.
+    // regenerating one must not move `last_src_commit` (REQ-LIB-039). The src group
+    // batches only when every include AND exclude is literal — a glob exclude keeps
+    // git's own matching (and its unexcluded fallback) via gitLastCommit.
     if (entry.paths.every(isLiteralPathspec) && generatedArtifacts.every(isLiteralPathspec)) {
       pm.srcBatch = register({ includes: entry.paths, excludes: generatedArtifacts });
     }
@@ -887,39 +895,46 @@ export function collectGitTimestamps(
     prepared.push(pm);
   }
 
-  const batched = batchGroupTimestamps(cwd, batchGroups);
-  // A batched hit is the answer; a batch miss (glob group or out-of-window) falls
-  // back to the per-group query, so both paths return the same commit.
-  const resolve = (idx: number | undefined, fallback: () => string | null): string | null =>
-    idx !== undefined && batched[idx] !== undefined ? (batched[idx] as string) : fallback();
-
-  const modules: ModuleTimestamps[] = [];
-  for (const pm of prepared) {
+  // Commit times no longer decide freshness (REQ-LIB-015): a shallow clone's boundary
+  // times are fabricated and an unborn HEAD has none, so either — or any capture
+  // failure — leaves them null while the digests still judge every module.
+  type Times = { src: string | null; readme: string | null; sub: string | null };
+  let times: Map<PreparedModule, Times> | null = null;
+  if (!shallow) {
     try {
-      modules.push({
-        name: pm.entry.name,
-        readme_path: pm.readmeRel.replace(/\\/g, '/'),
-        readme_exists: pm.readmeExists,
-        last_src_commit: resolve(pm.srcBatch, () =>
-          gitLastCommit(cwd, pm.entry.paths, generatedArtifacts),
-        ),
-        last_readme_commit: pm.readmeExists
-          ? resolve(pm.readmeBatch, () => gitLastCommit(cwd, [pm.readmeRel]))
-          : null,
-        last_sub_module_commit:
-          pm.subModuleRels.length > 0
-            ? resolve(pm.subBatch, () => gitLastCommit(cwd, pm.subModuleRels))
-            : null,
-        last_verified: pm.entry.last_verified ?? null,
-      });
-    } catch (e) {
-      return {
-        available: false,
-        reason: `source unavailable: ${e instanceof Error ? e.message : String(e)}`,
-        modules: [],
-      };
+      const batched = batchGroupTimestamps(cwd, batchGroups);
+      // A batched hit is the answer; a batch miss (glob group or out-of-window) falls
+      // back to the per-group query, so both paths return the same commit.
+      const resolve = (idx: number | undefined, fallback: () => string | null): string | null =>
+        idx !== undefined && batched[idx] !== undefined ? (batched[idx] as string) : fallback();
+      times = new Map(prepared.map((pm) => [pm, {
+        src: resolve(pm.srcBatch, () => gitLastCommit(cwd, pm.entry.paths, generatedArtifacts)),
+        readme: pm.readmeExists ? resolve(pm.readmeBatch, () => gitLastCommit(cwd, [pm.readmeRel])) : null,
+        sub: pm.subModuleRels.length > 0 ? resolve(pm.subBatch, () => gitLastCommit(cwd, pm.subModuleRels)) : null,
+      }]));
+    } catch {
+      times = null;
     }
   }
+
+  const modules: ModuleTimestamps[] = prepared.map((pm) => {
+    const time = times?.get(pm);
+    const current = digests.get(pm.entry.name) ?? { digest: null, reason: 'module was not digested' };
+    return {
+      name: pm.entry.name,
+      readme_path: pm.readmeRel.replace(/\\/g, '/'),
+      readme_exists: pm.readmeExists,
+      last_src_commit: time?.src ?? null,
+      last_readme_commit: time?.readme ?? null,
+      last_sub_module_commit: time?.sub ?? null,
+      last_verified: pm.entry.last_verified ?? null,
+      source: {
+        recorded: pm.entry.source_digest ?? null,
+        current: current.digest,
+        ...(current.reason === undefined ? {} : { reason: current.reason }),
+      },
+    };
+  });
   return { available: true, modules };
 }
 
@@ -1655,24 +1670,57 @@ const GIT_CAPTURE_MAX_BUFFER = 256 * 1024 * 1024;
 
 /** Run git and capture stdout — null on failure, '' on empty success (the two
  *  must stay distinct: an empty diff is a valid state, a git failure is not). */
-function gitCapture(cwd: string, args: string[]): string | null {
+function gitCapture(cwd: string, args: string[], options: { input?: string; timeout?: number } = {}): string | null {
   try {
     return execFileSync('git', args, {
       cwd,
       stdio: 'pipe',
       encoding: 'utf-8',
       maxBuffer: GIT_CAPTURE_MAX_BUFFER,
+      ...options,
     });
   } catch {
     return null;
   }
 }
 
+/** One path in the C-quoted form `--stdin-paths` reads: a line starting with `"` is unquoted by git,
+ *  so quoting every path keeps a name that itself starts with `"` (or holds a newline) intact. */
+function cQuotePath(file: string): string {
+  const escaped = [...file].map((ch) => {
+    if (ch === '\\' || ch === '"') return `\\${ch}`;
+    if (ch === '\n') return '\\n';
+    if (ch === '\t') return '\\t';
+    const code = ch.codePointAt(0)!;
+    return code < 0x20 || code === 0x7f ? `\\${code.toString(8).padStart(3, '0')}` : ch;
+  });
+  return `"${escaped.join('')}"`;
+}
+
+/**
+ * The blob id git would record for each work-tree file (REQ-LIB-015): one `git hash-object
+ * --stdin-paths` under the user's own git configuration, deliberately not `fixedGitEnv` —
+ * `core.autocrlf` and clean filters there are exactly what `git add` applies. Paths are
+ * project-relative but `--stdin-paths` resolves them from the repository root, so each gets
+ * the project prefix. Throws when the batch fails, times out or answers short.
+ */
+function hashWorkTreeBlobs(cwd: string, files: readonly string[], prefix: string): Map<string, string> {
+  if (files.length === 0) return new Map();
+  const out = gitCapture(cwd, ['hash-object', '--stdin-paths'], {
+    input: `${files.map((file) => cQuotePath(prefix + file)).join('\n')}\n`,
+    timeout: GIT_READ_TIMEOUT_MS,
+  });
+  if (out === null) throw new Error('git hash-object failed for changed source files');
+  const ids = out.split('\n').filter((line) => line !== '');
+  if (ids.length !== files.length) throw new Error('git hash-object returned an incomplete answer');
+  return new Map(files.map((file, i) => [file, ids[i]!]));
+}
+
 /** Last commit touching `paths`, ignoring `excludes` (repo-relative, posix).
  *
  *  A pathspec the local git cannot parse fails the capture — and folding THAT
- *  into null would report "no source commit", which the staleness rule reads as
- *  fresh (PB-013: a swallowed error must not turn a fact into a constant). Fall
+ *  into null would report "no source commit" as a fact in `knowledge_health`
+ *  (PB-013: a swallowed error must not turn a fact into a constant). Fall
  *  back to the unexcluded query: noisier than intended, but true. */
 function gitLastCommit(
   cwd: string,
@@ -1683,10 +1731,10 @@ function gitLastCommit(
   if (excludes.length > 0) {
     // Fall through on BOTH empty answers, not only on a failed capture: a
     // pathspec git cannot parse and an exclusion covering every file the module
-    // has are the same fact here — no excluded answer exists. `isStale` reads a
-    // null last_src_commit as "not stale", so folding either into null lets one
-    // configured glob (`src/**`) silence a whole module forever. The unexcluded
-    // timestamp is noisier but true — the degradation PB-013 prescribes.
+    // has are the same fact here — no excluded answer exists. Folding either into
+    // null would report a module one configured glob (`src/**`) covers as never
+    // committed. The unexcluded timestamp is noisier but true — the degradation
+    // PB-013 prescribes.
     const excluded = gitCapture(cwd, [...args, ...excludes.map((p) => `:(exclude)${p}`)])?.trim();
     if (excluded) return excluded;
   }
@@ -1741,28 +1789,52 @@ function gitPaths(cwd: string, args: string[]): string[] {
 /** One `ls-files -t --stage --cached --others` record: an untracked path, or an index
  *  entry that must be a plain stage-0 entry the work tree holds. Shared by the
  *  superproject and every submodule, so both refuse the same unprovable shapes. */
-function parseInputRecord(entry: string, label: (file: string) => string): { file: string; gitlink: boolean } {
-  if (entry.startsWith('? ')) return { file: entry.slice(2), gitlink: false };
+function parseInputRecord(
+  entry: string,
+  label: (file: string) => string,
+): { file: string; gitlink: boolean; mode: string | null; oid: string | null } {
+  if (entry.startsWith('? ')) return { file: entry.slice(2), gitlink: false, mode: null, oid: null };
   const record = parseIndexRecord(entry);
   if (hiddenIndexShape(record) !== null) throw new Error(`Unprovable sparse or unmerged input: ${label(record.file)}`);
-  return { file: record.file, gitlink: record.mode === '160000' };
+  return { file: record.file, gitlink: record.mode === '160000', mode: record.mode, oid: record.oid };
 }
 
 const LS_INPUT_ARGS = ['-z', '-t', '--stage', '--cached', '--others', '--exclude-standard'];
 
-/** Effective superproject inputs and which of them are gitlinks (submodules). */
-function inputFiles(cwd: string): { files: string[]; gitlinks: Set<string> } {
-  const paths = new Set<string>();
+/** Effective superproject inputs, which of them are gitlinks (submodules), and each one's index identity. */
+function inputFiles(cwd: string): {
+  files: string[];
+  gitlinks: Set<string>;
+  index: Map<string, { mode: string | null; oid: string | null }>;
+  bookkeeping: Set<string>;
+} {
+  const index = new Map<string, { mode: string | null; oid: string | null }>();
   const gitlinks = new Set<string>();
+  const bookkeeping = new Set<string>();
   for (const entry of gitPaths(cwd, ['ls-files', ...LS_INPUT_ARGS])) {
     const file = entry.startsWith('? ') ? entry.slice(2) : /\t([\s\S]+)$/.exec(entry)?.[1];
     // Bookkeeping is out of scope before its index shape is judged.
-    if (file !== undefined && !inEvidenceScope(file)) continue;
+    if (file !== undefined && !inEvidenceScope(file)) { bookkeeping.add(file); continue; }
     const record = parseInputRecord(entry, (f) => f);
     if (record.gitlink) gitlinks.add(record.file);
-    paths.add(record.file);
+    index.set(record.file, { mode: record.mode, oid: record.oid });
   }
-  return { files: [...paths].sort((a, b) => Buffer.compare(Buffer.from(a), Buffer.from(b))), gitlinks };
+  return { files: [...index.keys()].sort((a, b) => Buffer.compare(Buffer.from(a), Buffer.from(b))), gitlinks, index, bookkeeping };
+}
+
+/** The first path status reports changed that is neither listed nor deleted — an input added between the two captures. */
+function addedDuringCapture(state: ReturnType<typeof workTreePaths>, listed: ReadonlyMap<string, unknown>): string | undefined {
+  return state.changed.find((file) => !listed.has(file) && !state.deleted.has(file));
+}
+
+/** The listing and status the module source digests read (REQ-LIB-070), for a caller with no
+ *  evidence snapshot to share; throws when either capture fails or they disagree on membership. */
+export function captureSourceInventory(cwd: string): SourceInventory {
+  const { index, bookkeeping } = inputFiles(cwd);
+  const state = workTreePaths(cwd);
+  const added = addedDuringCapture(state, index);
+  if (added !== undefined) throw new Error(`Input membership changed during capture: ${added}`);
+  return { entries: index, changed: new Set(state.changed), deleted: new Set(state.deleted), bookkeeping, prefix: state.prefix };
 }
 
 /** One input of the snapshot under its superproject-relative key. A submodule's own
@@ -1924,7 +1996,7 @@ export function gitProjectPrefix(cwd: string): string {
   return text.slice(0, -1);
 }
 
-export function workTreePaths(cwd: string): { changed: string[]; deleted: Set<string> } {
+export function workTreePaths(cwd: string): { changed: string[]; deleted: Set<string>; prefix: string } {
   const prefix = gitProjectPrefix(cwd);
   const relative = (file: string): string | null => file.startsWith(prefix) ? file.slice(prefix.length) : null;
   const records = gitPaths(cwd, ['status', '--porcelain=v1', '-z', '--untracked-files=all']);
@@ -1946,7 +2018,169 @@ export function workTreePaths(cwd: string): { changed: string[]; deleted: Set<st
       if (localFrom !== null && inEvidenceScope(localFrom)) { changed.add(localFrom); deleted.add(localFrom); }
     }
   }
-  return { changed: [...changed].sort((a, b) => Buffer.compare(Buffer.from(a), Buffer.from(b))), deleted };
+  return { changed: [...changed].sort((a, b) => Buffer.compare(Buffer.from(a), Buffer.from(b))), deleted, prefix };
+}
+
+/** One module's source digest (REQ-LIB-015), or why it cannot be computed. */
+export interface ModuleDigest {
+  digest: string | null;
+  reason?: string;
+}
+
+export interface ModuleDigestOptions {
+  knowledgePath: string;
+  /** The Feature Specs directory (`{base_dir}/specs`), which archive writes after the gate. */
+  specsPath: string;
+  generatedArtifacts: readonly string[];
+  /** The snapshot's inventory when the caller has one; otherwise it is captured here. */
+  inventory?: SourceInventory;
+  /** The modules to answer for; the `hash-object` batch still covers every module. */
+  subset?: ReadonlySet<string>;
+}
+
+/** Project-relative POSIX forms of a never-lifted exclusion root: as spelled and as resolved,
+ *  so a symlinked knowledge root excludes the directory it points at as well. */
+function exclusionRoots(cwd: string, root: string): string[] {
+  const roots = new Set([projectRelativePath(cwd, root)]);
+  try { roots.add(projectRelativePath(realpathSync(cwd), realpathSync(root))); } catch { /* absent: spelled form only */ }
+  return [...roots].filter((rel) => rel !== '' && !rel.startsWith('..'));
+}
+
+/** Files a module claims from `git ls-files` itself, for paths or exclusions git must match;
+ *  null when even the unexcluded listing fails. */
+function listModuleFiles(
+  cwd: string, paths: readonly string[], excludes: readonly string[], isSource: (file: string) => boolean,
+): string[] | null {
+  const list = (exclusions: readonly string[]): string[] | null => {
+    const out = gitCapture(cwd, ['ls-files', '-z', '--cached', '--others', '--exclude-standard', '--', ...paths,
+      ...exclusions.map((spec) => `:(exclude)${spec}`)]);
+    return out === null ? null : out.split('\0').filter((file) => file !== '');
+  };
+  const excluded = excludes.length > 0 ? list(excludes) : null;
+  // An exclusion that leaves no source file, or that git cannot parse, is lifted (REQ-LIB-039).
+  if (excluded !== null && excluded.some(isSource)) return excluded;
+  return list([]);
+}
+
+
+/**
+ * Each module's source digest (REQ-LIB-015, REQ-LIB-039, REQ-LIB-070): the files git tracks
+ * or would add under the module's paths, minus generated artifacts (lifted when they cover
+ * every source file), the knowledge base, the Feature Specs and workflow bookkeeping; a clean
+ * tracked file contributes its index entry, anything else what git would record for the
+ * work tree. Attribution, readability and nested-repository checks and the one
+ * `hash-object` batch cover the whole map, so every caller attributes a failure alike.
+ */
+export function collectModuleDigests(cwd: string, moduleMap: ModuleMap, options: ModuleDigestOptions): Map<string, ModuleDigest> {
+  const wanted = moduleMap.modules.filter((m) => options.subset === undefined || options.subset.has(m.name));
+  const unavailable = (reason: string) => new Map(wanted.map((m) => [m.name, { digest: null, reason }]));
+  let inventory: SourceInventory;
+  try { inventory = options.inventory ?? captureSourceInventory(cwd); } catch (error) {
+    return unavailable(`source inventory unavailable: ${error instanceof Error ? error.message : String(error)}`);
+  }
+  const listed = [...inventory.entries.keys()];
+  const never = [...exclusionRoots(cwd, options.knowledgePath), ...exclusionRoots(cwd, options.specsPath)];
+  const outsideNever = (file: string) => !never.some((root) => pathspecCovers(root, file));
+  const generated = options.generatedArtifacts;
+  const generatedLiteral = generated.every(isLiteralPathspec);
+  const generatedRel = generatedLiteral ? generated.map((spec) => projectRelativePath(cwd, spec)) : [];
+  const inInventory = (file: string) => inventory.entries.has(file) || file.endsWith('/');
+  const ancestors = new Map<string, AncestorKind>();
+  // Whether the work tree holds `file` where git reads it — never through a symlinked ancestor.
+  const held = (file: string): boolean => {
+    try { return nonDirectoryAncestor(cwd, file, ancestors) === null && lstatSync(path.join(cwd, file)) !== undefined; } catch { return false; }
+  };
+  // A status-reported deletion may still be on disk (`git rm --cached`), so only a missing file is gone.
+  const gone = (file: string) => inventory.deleted.has(file) && !held(file);
+  // A source file the work tree still holds keeps the generated-artifact exclusion in place.
+  const isSource = (file: string) => outsideNever(file) && !gone(file);
+  const bookkeepingUnder = (rels: readonly string[]): boolean =>
+    [...inventory.bookkeeping].some((file) => rels.some((rel) => pathspecCovers(rel, file)) && held(file));
+
+  // module name → its files, or why they cannot be listed
+  const claimed = new Map<string, string[] | string>();
+  for (const m of moduleMap.modules) {
+    if (m.paths.length === 0) { claimed.set(m.name, 'module declares no source path inside the project'); continue; }
+    let files: string[] | null;
+    let holdsBookkeeping = false;
+    if (m.paths.every(isLiteralPathspec) && generatedLiteral) {
+      const rels = m.paths.map((p) => projectRelativePath(cwd, p));
+      const all = listed.filter((file) => rels.some((rel) => pathspecCovers(rel, file)));
+      const kept = all.filter((file) => !generatedRel.some((rel) => pathspecCovers(rel, file)));
+      files = kept.some(isSource) ? kept : all;
+      holdsBookkeeping = bookkeepingUnder(rels);
+    } else {
+      const raw = listModuleFiles(cwd, m.paths, generated, (file) => inInventory(file) && isSource(file));
+      files = raw === null ? null : raw.filter(inInventory);
+      holdsBookkeeping = raw !== null && raw.some((file) => !inEvidenceScope(file) && held(file));
+    }
+    if (files === null) { claimed.set(m.name, 'git ls-files failed for the module paths'); continue; }
+    // Only files the work tree holds decide it, so staging a deletion cannot flip the answer.
+    const present = files.filter((file) => !gone(file));
+    const kept = files.filter(outsideNever);
+    if ((present.length > 0 || holdsBookkeeping) && !present.some(outsideNever)) {
+      claimed.set(m.name, 'every source file lies in the excluded knowledge base, Feature Specs or bookkeeping');
+      continue;
+    }
+    claimed.set(m.name, kept);
+  }
+
+  const format = objectFormatOf([...inventory.entries.values()].find((e) => e.oid !== null)?.oid ?? '') ?? 'sha1';
+  const ids = new Map<string, string>();
+  const blocked = new Map<string, string>(); // file → why its content cannot be proved
+  const toHash: string[] = [];
+  for (const file of new Set([...claimed.values()].flatMap((v) => (typeof v === 'string' ? [] : v)))) {
+    const entry = inventory.entries.get(file);
+    if (file.endsWith('/')) { blocked.set(file, `untracked nested repository: ${file}`); continue; }
+    if (entry?.mode === '160000') {
+      const state = gitlinkCheckoutState(cwd, file);
+      if (state === 'absent') continue;
+      if (state === 'uninitialized') { ids.set(file, entry.oid!); continue; }
+      if (state === 'stray') { blocked.set(file, `submodule checkout state cannot be determined: ${file}`); continue; }
+      if (state === 'checkout') {
+        const dir = path.join(cwd, file);
+        try {
+          if (gitRead(dir, 'status', ['--porcelain', '--untracked-files=all', '--ignore-submodules=none']).trim() !== '') {
+            blocked.set(file, `submodule checkout holds uncommitted changes: ${file}`);
+          } else ids.set(file, gitRead(dir, 'rev-parse', ['HEAD']).trim());
+        } catch { blocked.set(file, `submodule checkout cannot be read: ${file}`); }
+        continue;
+      }
+    }
+    if (entry?.oid != null && entry.mode !== '160000' && !inventory.changed.has(file)) { ids.set(file, entry.oid); continue; }
+    if (nonDirectoryAncestor(cwd, file, ancestors) !== null) {
+      if (!inventory.deleted.has(file)) blocked.set(file, `source file lies beneath a non-directory: ${file}`);
+      continue;
+    }
+    const absolute = path.join(cwd, file);
+    let stat;
+    try { stat = lstatSync(absolute); } catch { continue; } // deleted from the work tree
+    if (stat.isSymbolicLink()) { ids.set(file, gitBlobId(readlinkSync(absolute, { encoding: 'buffer' }), format)); continue; }
+    if (!stat.isFile()) { blocked.set(file, `unsupported source entry: ${file}`); continue; }
+    try { accessSync(absolute, fsConstants.R_OK); } catch { blocked.set(file, `source file cannot be read: ${file}`); continue; }
+    toHash.push(file);
+  }
+  let hashFailure: string | undefined;
+  try {
+    for (const [file, id] of hashWorkTreeBlobs(cwd, toHash, inventory.prefix)) ids.set(file, id);
+  } catch (error) {
+    hashFailure = error instanceof Error ? error.message : String(error);
+  }
+
+  const result = new Map<string, ModuleDigest>();
+  for (const m of wanted) {
+    const files = claimed.get(m.name)!;
+    if (typeof files === 'string') { result.set(m.name, { digest: null, reason: files }); continue; }
+    const block = files.map((file) => blocked.get(file)).find((why) => why !== undefined);
+    if (block !== undefined) { result.set(m.name, { digest: null, reason: block }); continue; }
+    if (hashFailure !== undefined && files.some((file) => toHash.includes(file))) {
+      result.set(m.name, { digest: null, reason: hashFailure });
+      continue;
+    }
+    const entries: SourceDigestEntry[] = files.filter((file) => ids.has(file)).map((file) => ({ path: file, id: ids.get(file)! }));
+    result.set(m.name, { digest: moduleSourceDigest(entries) });
+  }
+  return result;
 }
 
 export type ChangeState = InputSnapshot;
@@ -1978,6 +2212,7 @@ export function computeEvidenceStates(cwd: string, context?: TestInputContext): 
     : { fingerprintVersion: FINGERPRINT_VERSION, scope: EVIDENCE_SCOPE };
   let policy: TestPolicy | undefined;
   let testReason: string | undefined;
+  let inventory: SourceInventory | undefined;
   const testHash = enabled ? createHash('sha256') : undefined;
   const describeError = (error: unknown): string => error instanceof Error ? error.message : String(error);
   const inputPath = (file: string): string => {
@@ -2012,12 +2247,11 @@ export function computeEvidenceStates(cwd: string, context?: TestInputContext): 
   try {
     cwd = realpathSync(cwd);
     validateTest(validatePolicy);
-    const { files, gitlinks } = inputFiles(cwd);
+    const { files, gitlinks, index, bookkeeping } = inputFiles(cwd);
     const state = workTreePaths(cwd);
-    const listed = new Set(files);
     const validateMembership = (candidate: ReturnType<typeof workTreePaths>): void => {
-      const addedDuringCapture = candidate.changed.find((file) => !listed.has(file) && !candidate.deleted.has(file));
-      if (addedDuringCapture !== undefined) throw new Error(`Input membership changed during capture: ${addedDuringCapture}`);
+      const added = addedDuringCapture(candidate, index);
+      if (added !== undefined) throw new Error(`Input membership changed during capture: ${added}`);
       if (JSON.stringify(candidate.changed) !== JSON.stringify(state.changed)
         || candidate.deleted.size !== state.deleted.size
         || [...candidate.deleted].some((file) => !state.deleted.has(file))) {
@@ -2025,6 +2259,7 @@ export function computeEvidenceStates(cwd: string, context?: TestInputContext): 
       }
     };
     validateMembership(state);
+    inventory = { entries: index, changed: new Set(state.changed), deleted: new Set(state.deleted), bookkeeping, prefix: state.prefix };
     const entries: SnapshotEntry[] = [];
     for (const file of files) {
       const absolute = path.resolve(cwd, file);
@@ -2148,10 +2383,10 @@ export function computeEvidenceStates(cwd: string, context?: TestInputContext): 
     const test: TestInputState = testReason !== undefined
       ? { digest: null, clean: repository.clean, identity, reason: testReason }
       : { ...repository, digest: testHash ? testHash.digest('hex') : repository.digest, identity };
-    return { repository, test };
+    return { repository, test, ...(inventory === undefined ? {} : { inventory }) };
   } catch (error) {
     const repository = { digest: null, clean: null, reason: describeError(error) };
-    return { repository, test: { ...repository, identity } };
+    return { repository, test: { ...repository, identity }, ...(inventory === undefined ? {} : { inventory }) };
   }
 }
 

@@ -47,9 +47,9 @@ Scanner 一律排除 `node_modules`、`.git`、`dist`、`build`、`coverage` 等
 | `knowledge.base_path` | string | `{paths.base_dir}/ai-knowledge` | Knowledge 目錄；相對路徑從專案根目錄解析。 |
 | `knowledge.strategy` | string | `auto` | 模組拆分策略：`auto`、`architecture`、`domain` 或 `package`。 |
 | `knowledge.additional_core_conventions` | string[] | `[]` | 額外預載為 L1 Core Conventions 的慣例檔案，路徑相對 Knowledge 目錄。 |
-| `knowledge.generated_artifacts` | string[] | `[]` | 以儲存庫為基準的 generated artifact patterns，排除於 Knowledge staleness timestamp 計算。 |
+| `knowledge.generated_artifacts` | string[] | `[]` | 以專案根目錄為基準的 generated artifact patterns，排除於 Knowledge staleness（模組原始碼 digest 與 `last_src_commit`）。 |
 
-將應與內建 Core Conventions 一起載入的共用 API 或安全規則加入 `additional_core_conventions`。`generated_artifacts` 標示 source tree 裡的建置輸出：這些檔案的 commits 不會移動 `last_src_commit`，因此單純重新產生 bundle 不會讓模組變成 stale。Prospec 不會從建置系統推導這份清單。
+將應與內建 Core Conventions 一起載入的共用 API 或安全規則加入 `additional_core_conventions`。`generated_artifacts` 標示 source tree 裡的建置輸出：這些檔案不計入模組的原始碼 digest，也不會移動 `last_src_commit`，因此單純重新產生 bundle 不會讓模組變成 stale。Prospec 不會從建置系統推導這份清單。
 
 ## Knowledge 預算
 

@@ -208,13 +208,19 @@ export function loadModuleMap(knowledgePath: string, cwd: string): ModuleMap | n
   return clampModulePaths(parsed.data, cwd);
 }
 
+/** The project-relative path `p` resolves to, with `/` separators so it compares
+ *  against the paths git prints on every platform. `''` is the project root. */
+export function projectRelativePath(cwd: string, p: string, paths: typeof path = path): string {
+  return paths.relative(cwd, paths.resolve(cwd, p)).split(paths.sep).join('/');
+}
+
 /** Drop module paths that escape the repo — they must never drive scanning or reads. */
 export function clampModulePaths(moduleMap: ModuleMap, cwd: string): ModuleMap {
   return {
     modules: moduleMap.modules.map((m) => ({
       ...m,
       paths: m.paths.filter((p) => {
-        const rel = path.relative(cwd, path.resolve(cwd, p));
+        const rel = projectRelativePath(cwd, p);
         return rel !== '' && !rel.startsWith('..') && !path.isAbsolute(rel);
       }),
     })),

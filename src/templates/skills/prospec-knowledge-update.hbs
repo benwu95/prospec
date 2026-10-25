@@ -139,7 +139,7 @@ After the re-run, verify (read, don't write):
 
 #### 3e: Stamp Knowledge Freshness (`prospec knowledge verify`)
 
-After README review, run `prospec knowledge verify <modules...>` (Bash), the sole writer of `last_verified` in `{{knowledge_base_path}}/module-map.yaml`. The affected modules to stamp are the modules `prospec knowledge update --change` reports as created or README-pending ∪ `metadata.related_modules` ∪ the modules a working-tree diff attributes through the module map (generated artifacts included); the diff-attributed ones no REQ named are the `stamp-only` subset Phase 1's report flags. Re-run the project's knowledge-sync mechanical gate, if any, after the feature commit and before pushing.
+After README review, run `prospec knowledge verify <modules...>` (Bash), the sole writer of `last_verified` and `source_digest` in `{{knowledge_base_path}}/module-map.yaml`. The affected modules to stamp are the modules `prospec knowledge update --change` reports as created or README-pending ∪ `metadata.related_modules` ∪ the modules a working-tree diff attributes through the module map (generated artifacts included); the diff-attributed ones no REQ named are the `stamp-only` subset Phase 1's report flags. Re-run the project's knowledge-sync mechanical gate, if any, after the feature commit and before pushing.
 
 ## Output Contract
 

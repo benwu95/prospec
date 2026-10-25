@@ -2,7 +2,7 @@
  * Repository files that are BUILD OUTPUT rather than authored source.
  *
  * Scope is deliberately narrow: these paths are excluded from the module
- * staleness comparison only (`last_src_commit`, REQ-LIB-015). A generated file
+ * source digest and `last_src_commit` only (REQ-LIB-015, REQ-LIB-039). A generated file
  * carries code but no knowledge a module README could describe, so a commit
  * that only regenerates it must not demand a knowledge update — the resulting
  * WARN has no honest fix, since editing the README to move its timestamp is
