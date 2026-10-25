@@ -579,6 +579,23 @@ describe('updateModuleMap', () => {
     expect(content).toContain('2026-08-14T00:00:00Z');
   });
 
+  it("preserves surviving modules' source_digest across an add and a removal (REQ-SERVICES-090)", async () => {
+    const digest = `source-v1:${'e'.repeat(64)}`;
+    vol.fromJSON({
+      '/project/module-map.yaml':
+        'modules:\n' +
+        `  - name: services\n    paths: ["src/services/**"]\n    keywords: ["services"]\n    source_digest: "${digest}"\n` +
+        '  - name: legacy\n    paths: ["src/legacy/**"]\n    keywords: ["legacy"]\n',
+    });
+
+    await updateModuleMap({ added: ['auth'], removed: ['legacy'] }, '/project/module-map.yaml');
+
+    const content = vol.readFileSync('/project/module-map.yaml', 'utf-8') as string;
+    expect(content).toContain(digest);
+    expect(content).not.toContain('legacy');
+    expect(content.match(/source_digest/g)).toHaveLength(1);
+  });
+
   it('should return null when module-map.yaml does not exist', async () => {
     vol.fromJSON({});
     vol.mkdirSync('/project', { recursive: true });

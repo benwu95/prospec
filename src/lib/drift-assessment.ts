@@ -169,6 +169,7 @@ export async function assessCurrentDrift(cwd: string): Promise<CurrentDriftAsses
             paths.knowledgePath,
             config.knowledge?.generated_artifacts ?? [],
             inWorkTree,
+            { specsPath: paths.specsPath, ...(states.inventory === undefined ? {} : { inventory: states.inventory }) },
           )
         : moduleMapMissing({ modules: [] }),
       tasks: collectTaskStates(cwd),

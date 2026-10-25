@@ -15,7 +15,7 @@ export function formatKnowledgeVerifyOutput(
       (m) => `${pc.green('✓')} verified ${sanitizeTerminal(m)} @ ${sanitizeTerminal(result.timestamp)}`,
     ),
     ...result.skipped.map(
-      (m) => `${pc.dim('–')} skipped ${sanitizeTerminal(m)} — already stamped today, later than its HEAD value`,
+      (m) => `${pc.dim('–')} skipped ${sanitizeTerminal(m)} — source unchanged since its stamp, which is later than its HEAD value`,
     ),
   ];
   process.stdout.write(lines.join('\n') + '\n');

@@ -397,6 +397,8 @@ describe('mcp.service health resource', () => {
       expect.anything(),
       '/proj/ai-knowledge',
       ['src/gen/**'],
+      undefined,
+      { specsPath: CTX.specsPath },
     );
   });
 

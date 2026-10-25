@@ -86,9 +86,9 @@ describe('computeChangeDigest under selective git-capture failure', () => {
    * REQ-LIB-015 — the generated-artifact exclusion degrades to the UNEXCLUDED
    * answer, never to null.
    *
-   * `isStale` reads a null source commit as "not stale", so folding a pathspec
-   * failure into null would silence the staleness check for every module at
-   * once — the fail-open shape PB-013 exists to forbid. `:(exclude)` is the only
+   * Folding a pathspec failure into null would report every module as never
+   * committed in `knowledge_health` — a swallowed error turned into a fact,
+   * the shape PB-013 exists to forbid. `:(exclude)` is the only
    * pathspec magic here, so a git that cannot parse it must still get the
    * noisier-but-true pre-exclusion timestamp.
    */
@@ -104,8 +104,7 @@ describe('computeChangeDigest under selective git-capture failure', () => {
       // The exclusion covers the module's ONLY source file, so the unexcluded
       // retry is the only route to a truthy answer: fold the FAILED `:(exclude)`
       // query into null instead of retrying it and this reads as "no source
-      // commit", which `isStale` takes for "not stale" — the fail-open PB-013
-      // forbids. An empty exclude list could not detect that at all: no
+      // commit" — the swallowed-error fact PB-013 forbids. An empty exclude list could not detect that at all: no
       // `:(exclude)` argv would be emitted, so the injected fault would never
       // fire. Note the fault is no longer outcome-determining on its own —
       // an exclusion covering every file also falls through to the unexcluded

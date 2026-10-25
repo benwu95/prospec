@@ -19,6 +19,7 @@ import {
   loadModuleMap,
   loadFeatureMap,
   clampModulePaths,
+  projectRelativePath,
   parseIndexModules,
   stripCellEmphasis,
   searchModules,
@@ -1003,5 +1004,24 @@ describe('resolveContainedTarget (write targets)', () => {
         });
       });
     });
+  });
+});
+
+describe('projectRelativePath (REQ-LIB-015)', () => {
+  it('resolves every literal spelling of a path to one POSIX project-relative path', () => {
+    for (const spec of ['src/lib', './src/lib', 'src/lib/', 'src/lib/.', 'src//lib', 'src/../src/lib']) {
+      expect(projectRelativePath('/proj', spec, path.posix)).toBe('src/lib');
+    }
+  });
+
+  it('uses forward slashes on Windows so the result matches the paths git prints', () => {
+    for (const spec of ['src/lib', './src/lib', 'src/lib/', 'src//lib', 'src/../src/lib', 'src\\lib']) {
+      expect(projectRelativePath('C:\\proj', spec, path.win32)).toBe('src/lib');
+    }
+  });
+
+  it('keeps the root and escapes recognizable for the containment check', () => {
+    expect(projectRelativePath('/proj', '.', path.posix)).toBe('');
+    expect(projectRelativePath('/proj', '../other', path.posix)).toBe('../other');
   });
 });

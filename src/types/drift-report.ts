@@ -291,29 +291,51 @@ export const DriftCheckResultSchema = z
     message: 'a skipped check must carry a reason',
   });
 
+/** Why a module reads fresh or stale (REQ-TYPES-073), decided in this precedence:
+ *  `unverified` (no README or no parsable `last_verified`), `no-digest`, `unavailable`,
+ *  then `digest-match` / `digest-mismatch`. */
+export const KNOWLEDGE_FRESHNESS_BASES = [
+  'digest-match',
+  'digest-mismatch',
+  'no-digest',
+  'unavailable',
+  'unverified',
+] as const;
+
+export const KnowledgeFreshnessSchema = z.object({
+  basis: z.enum(KNOWLEDGE_FRESHNESS_BASES),
+  /** The `source_digest` recorded in `module-map.yaml`, when present. */
+  recorded_digest: z.string().optional(),
+  /** The digest of the module's current source, when computable. */
+  current_digest: z.string().optional(),
+  /** Why the current digest could not be computed (`unavailable`). */
+  reason: z.string().optional(),
+}).strict();
+
 export const KnowledgeHealthModuleSchema = z.object({
   name: z.string().min(1),
-  /** ISO timestamp of the module source's last git commit; null when unresolvable. */
+  /** ISO timestamp of the module source's last git commit; null when unresolvable
+   *  or when commit times cannot be captured (shallow clone, unborn HEAD). */
   last_src_commit: z.string().nullable(),
-  /** ISO timestamp of the module README's last git commit; null when the README is missing. */
+  /** ISO timestamp of the module README's last git commit; null when the README is
+   *  missing or commit times cannot be captured. */
   last_readme_commit: z.string().nullable(),
   /**
    * Newest git commit across the module's extracted sub-module `.md` siblings —
    * absent when the module has none, never a fabricated timestamp. Additive: the
-   * keys above keep their names and meanings. Since REQ-LIB-015 this and
-   * `last_readme_commit` are reported for continuity but no longer drive `stale`
-   * (see `last_verified` below) — they are NOT the freshness reference anymore.
+   * keys above keep their names and meanings. The three commit-time keys are
+   * reported for continuity and no longer drive `stale` (REQ-LIB-015).
    */
   last_sub_module_commit: z.string().optional(),
   stale: z.boolean(),
   /**
    * ISO timestamp the module's knowledge was last explicitly confirmed current
    * (`module-map.yaml` `last_verified`); absent when the module declares none.
-   * Additive to the frozen keys above — since REQ-LIB-015, this is what `stale`
-   * is computed against (source commit vs `last_verified`); the two commit-time
-   * keys are reported for continuity but no longer drive the verdict.
    */
   last_verified: z.string().optional(),
+  /** Additive: the basis `stale` is reproduced from — stale exactly when it is not
+   *  `digest-match` (REQ-TYPES-073). */
+  freshness: KnowledgeFreshnessSchema.optional(),
 });
 
 export const KnowledgeHealthSchema = z.object({
@@ -396,6 +418,7 @@ export type KnowledgeSizeFinding = z.infer<typeof KnowledgeSizeFindingSchema>;
 export type DriftCheckResult = z.infer<typeof DriftCheckResultSchema>;
 export type KnowledgeHealthModule = z.infer<typeof KnowledgeHealthModuleSchema>;
 export type KnowledgeHealth = z.infer<typeof KnowledgeHealthSchema>;
+export type KnowledgeFreshness = z.infer<typeof KnowledgeFreshnessSchema>;
 export type ConstitutionSeverity = (typeof CONSTITUTION_SEVERITIES)[number];
 export type ConstitutionRuleEntry = z.infer<typeof ConstitutionRuleEntrySchema>;
 export type ConstitutionInventory = z.infer<typeof ConstitutionInventorySchema>;
@@ -415,9 +438,26 @@ export interface TestInputState extends InputSnapshot {
   identity: TestEvidenceIdentity;
 }
 
+/** The superproject listing the snapshot captured, handed to the module source digests
+ *  (REQ-LIB-070) so they spawn no listing of their own. */
+export interface SourceInventory {
+  /** Each listed input (project-relative, POSIX) with its index mode and object id; both null for an untracked file. */
+  entries: ReadonlyMap<string, { mode: string | null; oid: string | null }>;
+  /** Inputs `git status --untracked-files=all` reports changed (modified, staged, untracked, deleted, renamed). */
+  changed: ReadonlySet<string>;
+  /** The subset of `changed` status reports deleted from the work tree. */
+  deleted: ReadonlySet<string>;
+  /** Listed paths in the workflow bookkeeping, which `entries` leaves out. */
+  bookkeeping: ReadonlySet<string>;
+  /** The project's path inside its repository (`git rev-parse --show-prefix`), '' at the root. */
+  prefix: string;
+}
+
 export interface EvidenceStates {
   repository: InputSnapshot;
   test: TestInputState;
+  /** Present whenever the listing and status capture succeeded and agreed on membership. */
+  inventory?: SourceInventory;
 }
 
 /** Read-only adjudication and its observation-bound write precondition. */

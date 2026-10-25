@@ -471,35 +471,32 @@ it('keeps nested project paths scoped and deletion identity stable (F-265-2)', (
   git('commit', '-qm', 'nested deletion'); expect(computeChangeState(project).digest).toBe(deleted.digest);
 });
 
-// Knowledge uses committed source dates; provenance hashes effective input bytes.
-it('separates equivalent commit provenance from cross-UTC-day Knowledge freshness', async () => {
+// Knowledge compares source digests; provenance hashes effective input bytes.
+it('separates equivalent commit provenance from Knowledge source-digest freshness', async () => {
   mkdirSync(path.join(root, 'src/lib'), { recursive: true });
   mkdirSync(path.join(root, 'prospec/ai-knowledge/modules/lib'), { recursive: true });
   put('.prospec.yaml', 'project:\n  name: fixture\n');
   const mapPath = 'prospec/ai-knowledge/module-map.yaml';
-  put(mapPath, 'modules:\n  - name: lib\n    paths: [src/lib]\n    keywords: [lib]\n    last_verified: "2026-10-01T08:00:00Z"\n');
+  put(mapPath, 'modules:\n  - name: lib\n    paths: [src/lib]\n    keywords: [lib]\n');
   put('src/lib/value.ts', 'export const value = 1;\n');
   put('prospec/ai-knowledge/modules/lib/README.md', '# lib\n\nExports value.\n');
-  const commitAt = (date: string) => {
-    git('add', '.');
-    execFileSync('git', [...GIT_ID, 'commit', '-qm', 'fixture source'], {
-      cwd: root, stdio: 'pipe',
-      env: { ...process.env, GIT_AUTHOR_DATE: date, GIT_COMMITTER_DATE: date },
-    });
-  };
+  const commit = () => { git('add', '.'); execFileSync('git', [...GIT_ID, 'commit', '-qm', 'fixture source'], { cwd: root, stdio: 'pipe' }); };
   const health = () => evaluateKnowledgeHealth(collectGitTimestamps(
     root, parseYaml<ModuleMap>(readFileSync(path.join(root, mapPath), 'utf8')),
     'prospec/ai-knowledge', [],
   ));
-  commitAt('2026-10-01T07:00:00Z');
+  commit();
+  await stampKnowledge({ cwd: root, modules: ['lib'], now: '2026-10-01T08:00:00Z' });
+  expect(health().result.status).toBe('pass');
+
   put('src/lib/value.ts', 'export const value = 2;\n');
   const beforeCommit = digest();
   expect(beforeCommit).not.toBeNull();
-  expect(health().result.status).toBe('pass');
-
-  commitAt('2026-10-02T09:00:00Z');
-  expect(digest()).toBe(beforeCommit);
   expect(health()).toMatchObject({ result: { status: 'warn' }, knowledgeHealth: { modules: [{ name: 'lib', stale: true }] } });
+
+  commit();
+  expect(digest()).toBe(beforeCommit);
+  expect(health().result.status).toBe('warn');
 
   await stampKnowledge({ cwd: root, modules: ['lib'], now: '2026-10-02T12:00:00Z' });
   expect(health().result.status).toBe('pass');

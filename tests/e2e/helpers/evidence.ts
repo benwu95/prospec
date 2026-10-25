@@ -22,6 +22,14 @@ export async function recordCliEvidence(cwd: string, change: string): Promise<vo
     fs.writeFileSync(path.join(knowledge, 'module-map.yaml'), 'modules: []\n');
   }
   fs.writeFileSync(path.join(cwd, '.prospec/changes', change, 'tasks.md'), '- [x] T1 Fixture complete\n');
+  // Knowledge is stamped inside the repository, before the evidence is recorded, so each
+  // module carries the source digest the freshness rule compares against.
+  const modules = (parseDocument(fs.readFileSync(path.join(knowledge, 'module-map.yaml'), 'utf8')).toJS() as
+    { modules?: Array<{ name: string }> }).modules ?? [];
+  if (modules.length > 0) {
+    const stamped = await runCliInProcess(['knowledge', 'verify', ...modules.map((m) => m.name)], { cwd });
+    if (stamped.exitCode !== 0) throw new Error(`knowledge verify: ${stamped.stderr}\n${stamped.stdout}`);
+  }
   git('add', '.'); git('commit', '--allow-empty', '-qm', 'fixture inputs');
   for (const args of [
     ['change', 'log', '--change', change, '--skill', 'prospec-review', '--result', 'PASS'],

@@ -2,7 +2,8 @@ import * as path from 'node:path';
 import { PrerequisiteError } from '../types/errors.js';
 import { readConfig, resolveBasePaths } from '../lib/config.js';
 import { atomicWrite } from '../lib/fs-utils.js';
-import { readModuleMapRaw, resolveContainedTarget } from '../lib/knowledge-reader.js';
+import { collectModuleDigests, isGitWorkTree } from '../lib/drift-sources.js';
+import { loadModuleMap, readModuleMapRaw, resolveContainedTarget } from '../lib/knowledge-reader.js';
 import { readHeadModuleStamps, readKnownModules } from '../lib/knowledge-sync.js';
 import {
   parseYaml,
@@ -27,24 +28,26 @@ export interface KnowledgeVerifyResult {
   moduleMapPath: string;
   /** Module names stamped, in the order requested (de-duplicated). */
   verified: string[];
-  /** Module names left untouched: stamped later than their HEAD value, on the current UTC day. */
+  /** Module names left untouched: stamped later than their HEAD value with an unchanged source digest. */
   skipped: string[];
   timestamp: string;
 }
 
 /**
- * Stamp `last_verified` for the named modules in `module-map.yaml` — the CLI-owned,
- * dated confirmation that a module's knowledge is current against its source. This
- * is the sole writer of `last_verified`: it is what the `knowledge:check` gate
- * requires to move when a module's source changes, and what `knowledge-health`
- * reads for staleness (REQ-LIB-015). The write goes through the comment-preserving
- * document path so the curated header and every other module's fields survive.
+ * Stamp `last_verified` and `source_digest` for the named modules in `module-map.yaml` —
+ * the CLI-owned, dated confirmation that a module's knowledge is current against its
+ * source, and the digest of the source it was confirmed against. This is the sole
+ * writer of both: `knowledge:check` requires `last_verified` to move when a module's
+ * source changes, and `knowledge-health` compares `source_digest` with the current
+ * source (REQ-LIB-015). The write goes through the comment-preserving document path
+ * so the curated header and every other module's fields survive.
  *
- * A module whose working-tree stamp is later than its value at HEAD and falls on
- * the current UTC day is skipped: freshness compares by UTC day, so re-stamping it
- * adds no information but would change module-map.yaml — a review and test
- * evidence input. "Later than HEAD" keeps each change stamping at least once and
- * keeps the CI gate's strictly-later bump satisfied.
+ * A module whose working-tree stamp is later than its value at HEAD and whose recorded
+ * digest equals its current one is skipped: re-stamping it adds no information but
+ * would change module-map.yaml — a review and test evidence input. "Later than HEAD"
+ * keeps each change stamping at least once and the CI gate's strictly-later bump
+ * satisfied. Inside a git work tree a digest that cannot be computed refuses the
+ * whole write; where git cannot confirm one, only `last_verified` is stamped.
  */
 export async function execute(options: KnowledgeVerifyOptions): Promise<KnowledgeVerifyResult> {
   const cwd = options.cwd ?? process.cwd();
@@ -58,7 +61,7 @@ export async function execute(options: KnowledgeVerifyOptions): Promise<Knowledg
   }
 
   const config = await readConfig(cwd);
-  const { knowledgePath } = resolveBasePaths(config, cwd);
+  const { knowledgePath, specsPath } = resolveBasePaths(config, cwd);
   const moduleMapPath = path.join(knowledgePath, 'module-map.yaml');
 
   const { unreadable } = readKnownModules(knowledgePath, cwd);
@@ -95,17 +98,43 @@ export async function execute(options: KnowledgeVerifyOptions): Promise<Knowledg
     );
   }
 
+  // The same validated, path-clamped map the freshness rule reads (REQ-LIB-015).
+  let digests: Map<string, string> | null = null;
+  if (isGitWorkTree(cwd)) {
+    const clamped = loadModuleMap(knowledgePath, cwd) ?? { modules: [] };
+    const computed = collectModuleDigests(cwd, clamped, {
+      knowledgePath,
+      specsPath,
+      generatedArtifacts: config.knowledge?.generated_artifacts ?? [],
+      subset: new Set(requested),
+    });
+    const failed = requested.map((name) => [name, computed.get(name)] as const)
+      .filter(([, d]) => d?.digest == null)
+      .map(([name, d]) => `${name} (${d?.reason ?? 'not digested'})`);
+    if (failed.length > 0) {
+      throw new PrerequisiteError(
+        `source digest cannot be computed for ${failed.join('; ')} — no last_verified was written`,
+        'resolve the cause named above, then re-run `prospec knowledge verify`',
+      );
+    }
+    digests = new Map(requested.map((name) => [name, computed.get(name)!.digest!]));
+  }
+
   const atHead = readHeadModuleStamps(cwd, target.path);
-  const stampOf = new Map(moduleMap.modules.map((m) => [m.name, m.last_verified]));
-  const skipped = atHead === null
+  const byName = new Map(moduleMap.modules.map((m) => [m.name, m]));
+  const skipped = atHead === null || digests === null
     ? []
-    : requested.filter((name) => stampedToday(stampOf.get(name), atHead.get(name), now));
+    : requested.filter((name) =>
+      laterThanHead(byName.get(name)?.last_verified, atHead.get(name))
+      && byName.get(name)?.source_digest === digests!.get(name));
   const verified = requested.filter((name) => !skipped.includes(name));
   if (verified.length === 0) return { moduleMapPath, verified, skipped, timestamp: now };
 
   const targets = new Set(verified);
   for (const m of moduleMap.modules) {
-    if (targets.has(m.name)) m.last_verified = now;
+    if (!targets.has(m.name)) continue;
+    m.last_verified = now;
+    if (digests !== null) m.source_digest = digests.get(m.name)!;
   }
 
   // Comment-preserving in-place merge: module-map.yaml is a CURATED file. Reusing
@@ -118,12 +147,10 @@ export async function execute(options: KnowledgeVerifyOptions): Promise<Knowledg
   return { moduleMapPath, verified, skipped, timestamp: now };
 }
 
-const utcDay = (ts: number): number => Math.floor(ts / 86_400_000);
-
-/** The working-tree stamp is later than HEAD's (absent or unparsable there counts as earlier) and on `now`'s UTC day. */
-function stampedToday(worktree: string | undefined, atHead: string | undefined, now: string): boolean {
+/** The working-tree stamp parses and is later than HEAD's (absent or unparsable there counts as earlier). */
+function laterThanHead(worktree: string | undefined, atHead: string | undefined): boolean {
   const stamp = worktree === undefined ? NaN : Date.parse(worktree);
-  if (isNaN(stamp) || utcDay(stamp) !== utcDay(Date.parse(now))) return false;
+  if (isNaN(stamp)) return false;
   const head = atHead === undefined ? NaN : Date.parse(atHead);
   return isNaN(head) || stamp > head;
 }

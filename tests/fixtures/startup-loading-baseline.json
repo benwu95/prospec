@@ -88,7 +88,7 @@
         "{{knowledge_base_path}}/module-map.yaml"
       ],
       "mandatory": 1,
-      "mandatory_context_tokens": 4235
+      "mandatory_context_tokens": 4240
     },
     "prospec-learn": {
       "items": [
@@ -175,10 +175,10 @@
         "{{constitution_path}}"
       ],
       "mandatory": 0,
-      "mandatory_context_tokens": 10517
+      "mandatory_context_tokens": 10520
     }
   },
-  "reference_ceiling_tokens": 51905,
+  "reference_ceiling_tokens": 51885,
   "references": {
     "adapter-figma": 589,
     "adapter-html": 663,
@@ -193,7 +193,7 @@
     "delegation-protocol": 2871,
     "delta-spec-format": 1993,
     "design-spec-format": 847,
-    "drift-report-format": 2434,
+    "drift-report-format": 2414,
     "feature-boundary-criteria": 917,
     "feature-spec-format": 1206,
     "human-decision": 709,

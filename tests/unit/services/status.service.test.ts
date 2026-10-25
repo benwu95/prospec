@@ -591,7 +591,7 @@ describe('status.service — knowledge-aware routing at verified', () => {
     expect(routedFacts[0]?.knowledgeSyncReasons.map((r) => r.code)).toEqual(['KNOWLEDGE_UNSYNCED']);
   });
 
-  it('gathers git timestamps for only the affected modules, not the whole map (REQ-LIB-070)', async () => {
+  it('reports only the affected modules while digesting against the whole map (REQ-LIB-070)', async () => {
     vol.fromJSON({
       [`${CWD}/.prospec/changes/a-change/metadata.yaml`]: metadataYaml({
         name: 'a-change',
@@ -608,9 +608,10 @@ describe('status.service — knowledge-aware routing at verified', () => {
     await execute({ cwd: CWD });
     const mock = vi.mocked(collectGitTimestamps);
     expect(mock).toHaveBeenCalled();
-    // The map handed to the collector carries the affected module ONLY — the sibling
-    // `lib` in the map must not be walked for a change that never touched it.
-    expect(mock.mock.calls[0]?.[1].modules.map((m) => m.name)).toEqual(['types']);
+    // The digests are taken against the whole map so a failure attributes alike, while
+    // only the affected module is reported — the sibling `lib` is never walked for times.
+    expect(mock.mock.calls[0]?.[1].modules.map((m) => m.name)).toEqual(['types', 'lib']);
+    expect([...(mock.mock.calls[0]?.[5]?.subset ?? [])]).toEqual(['types']);
   });
 
   it('routes verified to archive when all affected modules are verified with README', async () => {
@@ -652,7 +653,7 @@ describe('status.service — knowledge-aware routing at verified', () => {
     expect(routedFacts[0]?.knowledgeSyncReasons).toEqual([]);
   });
 
-  it('routes verified to knowledge-update when git timestamp indicates stale module knowledge', async () => {
+  it('routes verified to knowledge-update when the source digest indicates stale module knowledge', async () => {
     const { collectGitTimestamps } = await import('../../../src/lib/drift-sources.js');
     vi.mocked(collectGitTimestamps).mockReturnValueOnce({
       available: true,
@@ -665,6 +666,7 @@ describe('status.service — knowledge-aware routing at verified', () => {
           last_readme_commit: '2026-01-01T00:00:00Z',
           last_sub_module_commit: null,
           last_verified: '2026-01-01T00:00:00Z',
+          source: { recorded: `source-v1:${'a'.repeat(64)}`, current: `source-v1:${'b'.repeat(64)}` },
         },
       ],
     });
@@ -687,18 +689,19 @@ describe('status.service — knowledge-aware routing at verified', () => {
 
   it('routes to knowledge-update when a delta-spec module is stale though related_modules is fresh (union)', async () => {
     const { collectGitTimestamps } = await import('../../../src/lib/drift-sources.js');
-    const ts = (name: string, src: string) => ({
+    const ts = (name: string, current: string) => ({
       name,
       readme_path: `prospec/ai-knowledge/modules/${name}/README.md`,
       readme_exists: true,
-      last_src_commit: src,
+      last_src_commit: '2026-01-01T00:00:00Z',
       last_readme_commit: '2026-01-01T00:00:00Z',
       last_sub_module_commit: null,
       last_verified: '2026-01-01T00:00:00Z',
+      source: { recorded: `source-v1:${'a'.repeat(64)}`, current: `source-v1:${current.repeat(64)}` },
     });
     vi.mocked(collectGitTimestamps).mockReturnValueOnce({
       available: true,
-      modules: [ts('lib', '2026-01-01T00:00:00Z'), ts('services', '2026-01-05T00:00:00Z')],
+      modules: [ts('lib', 'a'), ts('services', 'b')],
     });
     vol.fromJSON({
       [`${CWD}/.prospec/changes/a-change/metadata.yaml`]: metadataYaml({
@@ -741,7 +744,7 @@ describe('status.service — knowledge-aware routing at verified', () => {
     expect(routedFacts[0]?.knowledgeSyncReasons).toEqual([]);
   });
 
-  it('routes verified to archive when git timestamps confirm module knowledge is fresh', async () => {
+  it('routes verified to archive when the source digest confirms module knowledge is fresh', async () => {
     const { collectGitTimestamps } = await import('../../../src/lib/drift-sources.js');
     vi.mocked(collectGitTimestamps).mockReturnValueOnce({
       available: true,
@@ -754,6 +757,7 @@ describe('status.service — knowledge-aware routing at verified', () => {
           last_readme_commit: '2026-01-01T00:00:00Z',
           last_sub_module_commit: null,
           last_verified: '2026-01-01T00:00:00Z',
+          source: { recorded: `source-v1:${'a'.repeat(64)}`, current: `source-v1:${'a'.repeat(64)}` },
         },
       ],
     });

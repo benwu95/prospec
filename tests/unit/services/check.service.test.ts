@@ -13,6 +13,7 @@ import { execFileSync } from 'node:child_process';
 import os from 'node:os';
 import path from 'node:path';
 import { execute, CI_WORKFLOW_PATH } from '../../../src/services/check.service.js';
+import { collectModuleDigests } from '../../../src/lib/drift-sources.js';
 import { resolveLanguageScope } from '../../../src/lib/language-policy.js';
 import { languagePolicyRule } from '../../../src/lib/constitution-rules.js';
 import type { ProspecConfig } from '../../../src/types/config.js';
@@ -138,9 +139,8 @@ describe('check.service execute', () => {
     write('prospec/index.md', 'index\n');
     write(
       'prospec/ai-knowledge/module-map.yaml',
-      // last_verified @06-11 confirms the authored 06-10 source; the exclusion under
-      // test keeps last_src_commit at 06-10, so the module is not stale (REQ-LIB-015).
-      'modules:\n  - name: lib\n    paths:\n      - "src/lib"\n    keywords:\n      - lib\n    last_verified: "2026-06-11T00:00:00+00:00"\n',
+      // Re-stamped below, once the authored source exists (REQ-LIB-015).
+      'modules:\n  - name: lib\n    paths:\n      - "src/lib"\n    keywords:\n      - lib\n',
     );
     write('prospec/ai-knowledge/modules/lib/README.md', '# lib\n');
     git(['init', '-q']);
@@ -149,6 +149,17 @@ describe('check.service execute', () => {
     write('src/lib/authored.ts', 'export const a = 1;\n');
     git(['add', '.']);
     git(['commit', '-q', '-m', 'authored'], '2026-06-10T00:00:00+00:00');
+    // The confirmation `knowledge verify` records for the authored source.
+    const stamped = collectModuleDigests(tmpDir, { modules: [{ name: 'lib', paths: ['src/lib'], keywords: ['lib'] }] }, {
+      knowledgePath: path.join(tmpDir, 'prospec/ai-knowledge'),
+      specsPath: path.join(tmpDir, 'prospec/specs'),
+      generatedArtifacts: [],
+    }).get('lib')!.digest!;
+    write(
+      'prospec/ai-knowledge/module-map.yaml',
+      'modules:\n  - name: lib\n    paths:\n      - "src/lib"\n    keywords:\n      - lib\n' +
+        `    last_verified: "2026-06-11T00:00:00+00:00"\n    source_digest: "${stamped}"\n`,
+    );
 
     // Build output regenerated AFTER the README — the case the exclusion exists
     // for, since no README edit could honestly clear the resulting WARN.

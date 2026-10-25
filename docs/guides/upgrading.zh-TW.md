@@ -39,6 +39,14 @@ prospec-upgrade                 # 步驟 2：AI Agent 依盤點報告遷移格�
 > - **舊版檔案清理**：若從早於 1.0 的舊版 Prospec 升級，完成升級同步後可手動清理不再使用的舊版檔案與目錄：`GEMINI.md`、`.gemini/skills/`、`.codex/skills/`、`.github/copilot-instructions.md` 與 `.github/instructions/`。
 > - **設定檔版本與觸發詞**：`.prospec.yaml` 的 `version` 會記錄專案上次升級的版本。新增 Skill 後若想單獨檢查或在地化觸發詞，只需直接執行 `prospec agent sync`，系統會明確列出缺少的條目供填補，完全無需重新建立設定檔。
 
+## 升級至下一個版本（尚未發布）
+
+**Breaking：** Knowledge 新鮮度改以各模組原始碼內容的 digest 判定，不再比較 commit 日期，因此同一天的後續 commit 或以 merge 併入的舊分支不會再被判為新鮮。升級後，`module-map.yaml` 中沒有 `source_digest` 的模組都會判為 stale：`knowledge-health` 發出 WARN，涉及該模組的 change 會停在 Knowledge 同步 gate，直到重新蓋章。
+
+請逐一確認每個模組的 README 仍符合原始碼，再執行 `prospec knowledge verify <module>`；它會在 `last_verified` 旁記錄 `source_digest`。務必在確認後才重新蓋章——蓋章代表知識已經檢查過。shallow clone 現在改以 digest 判定，不再 skipped，報告中的 commit 時間欄位為 null。
+
+升級後執行 `prospec status` 與 `prospec check --strict`。
+
 ## 升級至 2.9.0
 
 先更新 binary，再執行 `prospec upgrade`：同步後的 Skills 要求 CLI 2.9.0 以上，包含可設定的測試 timeout 與 repository 內的 directory-symlink evidence 支援。維持既有行為不需要修改設定。

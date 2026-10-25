@@ -20,8 +20,8 @@ jobs:
     steps:
       - uses: actions/checkout@v7
         with:
-          # Full history — the knowledge-health check compares git commit timestamps;
-          # a shallow clone would honestly degrade it to `skipped`.
+          # Full history — knowledge-health reports each module's commit times, which a
+          # shallow clone leaves null; freshness itself is judged by source content digest.
           fetch-depth: 0
       - uses: pnpm/action-setup@v6
       - uses: actions/setup-node@v6

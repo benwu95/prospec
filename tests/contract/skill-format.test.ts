@@ -24,7 +24,7 @@ import {
 import type { ValidAgent, ProspecConfig } from '../../src/types/config.js';
 import { resolveKnowledgeTokenBudget } from '../../src/lib/config.js';
 import { buildIndexTemplateContext } from '../../src/lib/index-template.js';
-import { DRIFT_CHECK_IDS, KnowledgeHealthModuleSchema, ConstitutionRuleEntrySchema } from '../../src/types/drift-report.js';
+import { DRIFT_CHECK_IDS, KnowledgeHealthModuleSchema, KNOWLEDGE_FRESHNESS_BASES, ConstitutionRuleEntrySchema } from '../../src/types/drift-report.js';
 import { isLegalCheckId } from '../../src/lib/constitution-audit.js';
 import { parseConstitutionRules } from '../../src/lib/constitution-parser.js';
 import { sliceConstitution } from '../../src/lib/constitution-slice.js';
@@ -613,6 +613,20 @@ describe('Skill Format Contract', () => {
       for (const key of Object.keys(KnowledgeHealthModuleSchema.shape)) {
         expect(shape, `knowledge_health shape must document the "${key}" key`).toContain(key);
       }
+    });
+
+    it('drift-report-format lists every freshness basis and how stale is reproduced from it (REQ-TYPES-073)', () => {
+      const ref = render('skills/references/drift-report-format.hbs');
+      const start = ref.indexOf('## `structural.knowledge_health`');
+      const nextHeading = ref.indexOf('\n## ', start + 1);
+      // Prose only: the jsonc example names one basis and must not stand in for the list.
+      const prose = ref.slice(start, nextHeading === -1 ? undefined : nextHeading).replace(/```jsonc[\s\S]*?```/, '');
+      const freshness = prose.split('\n- ').find((bullet) => bullet.startsWith('`freshness`'));
+      expect(freshness, 'knowledge_health prose must carry a `freshness` bullet').toBeDefined();
+      for (const basis of KNOWLEDGE_FRESHNESS_BASES) {
+        expect(freshness, `freshness bullet must name the "${basis}" basis`).toContain(`\`${basis}\``);
+      }
+      expect(freshness).toMatch(/reproduces `stale` \(true unless\s+`basis` is `digest-match`\)/);
     });
 
     it('drift-report-format enumerates every constitution rule key the schema defines (REQ-TEMPLATES-157)', () => {
@@ -3161,7 +3175,7 @@ describe('Skill Format Contract', () => {
       expect(v4).toContain('not-adjudicated');
       expect(v4).not.toMatch(/pre-existing|\*\*FAIL\*\*|PASS\/WARN\/FAIL/);
       const facts = v4.slice(v4.indexOf('**Freshness and coverage'));
-      expect(facts).toMatch(/UTC calendar day/);
+      expect(facts).toMatch(/source digest/);
       expect(facts).toMatch(/missing README|no README/);
       expect(facts).toMatch(/missing.*last_verified|no.*last_verified/);
     });
@@ -4618,7 +4632,7 @@ describe('Startup Loading cache-stable prefix ordering (REQ-TEMPLATES-080/081)',
   // orchestrator's selection out of the brief and named the marker, criterion and lens sources) and Harvest its external-criterion candidate (+60).
   // Reference total 51_341 → 51_905, ceiling raised, not earned; the basis is the change proposal's
   // Edge Cases entry, written before review. Cumulative 88_686 → 88_795 stays under its anchor.
-  const REFERENCE_CEILING_ANCHOR = 51_905;
+  const REFERENCE_CEILING_ANCHOR = 51_885;
   const CUMULATIVE_CEILING_ANCHOR = 88_807;
 
   const renderSkill = (name: string) => {
@@ -5704,7 +5718,7 @@ describe('Verify drift-engine integration (REQ-TEMPLATES-092)', () => {
   it('Verification 4/5 bases freshness on the knowledge_health report section', () => {
     const v4 = sectionOf(render(), '### Verification 4/5');
     expect(v4).toContain('`structural.knowledge_health`');
-    expect(flat(v4)).toContain('UTC calendar day');
+    expect(flat(v4)).toContain('source digest');
     expect(flat(v4)).toMatch(/skipped.*not-adjudicated/);
     // semantic observations stay LLM work, layered on — but never overturning — the verdict
     expect(flat(v4)).toContain('**add** semantic observations');

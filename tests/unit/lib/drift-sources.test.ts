@@ -6,6 +6,7 @@ import path from 'node:path';
 import {
   collectFeatureMapGovernance,
   collectGitTimestamps,
+  collectModuleDigests,
   collectImportEdges,
   collectKnowledgeSize,
   collectMarkdownLinks,
@@ -1358,11 +1359,19 @@ describe('collectGitTimestamps', () => {
     git('config', 'user.name', 'test');
     commitAt('2026-06-10T00:00:00+00:00', { 'src/lib/authored.ts': 'export const a = 1;\n' });
     commitAt('2026-06-11T00:00:00+00:00', { 'knowledge/modules/lib/README.md': '# lib\n' });
+    // The confirmation `knowledge verify` records: the source digest at this point.
+    stamped = collectModuleDigests(tmpDir, LIB_MAP, {
+      knowledgePath: path.join(tmpDir, 'knowledge'),
+      specsPath: path.join(tmpDir, 'specs'),
+      generatedArtifacts: [],
+    }).get('lib')!.digest!;
   };
+  let stamped: string;
 
   const libHealth = (generatedArtifacts: readonly string[] = []) =>
-    evaluateKnowledgeHealth(collectGitTimestamps(tmpDir, LIB_MAP, 'knowledge', generatedArtifacts)).knowledgeHealth
-      ?.modules[0];
+    evaluateKnowledgeHealth(collectGitTimestamps(tmpDir, {
+      modules: [{ ...LIB_MAP.modules[0]!, source_digest: stamped }],
+    }, 'knowledge', generatedArtifacts)).knowledgeHealth?.modules[0];
 
   it('moves last_src_commit when config is empty, meaning the generated artifact is not excluded', () => {
     stagedLibRepo();
@@ -1391,8 +1400,7 @@ describe('collectGitTimestamps', () => {
 
     // A user-writable glob can now cover every file a module has. The excluded
     // query then succeeds and returns EMPTY, which — folded into null — would
-    // read as "not stale" for that module forever, silently. Fail-open is the
-    // one outcome this must never produce, so the answer degrades to the
+    // report the module as never committed. The answer degrades to the
     // unexcluded timestamp instead: noisier, but true.
     expect(libHealth(['src/**'])?.last_src_commit).toContain('2026-06-10');
   });
@@ -1423,7 +1431,7 @@ describe('collectGitTimestamps', () => {
     expect(libHealth([BUNDLED_TEMPLATES_SOURCE])?.stale).toBe(true);
   });
 
-  it('degrades a shallow clone to unavailable instead of fabricating staleness (REQ-LIB-015)', () => {
+  it('judges a shallow clone by digest while its fabricated commit times stay null (REQ-LIB-015)', () => {
     const git = (cwd: string, ...args: string[]) =>
       execFileSync('git', args, { cwd, stdio: 'pipe', encoding: 'utf-8' });
     const originDir = path.join(tmpDir, 'origin');
@@ -1443,8 +1451,9 @@ describe('collectGitTimestamps', () => {
       stdio: 'pipe',
     });
     const r = collectGitTimestamps(cloneDir, MODULE_MAP, 'knowledge', []);
-    expect(r.available).toBe(false);
-    expect(r.reason).toContain('shallow');
+    expect(r.available).toBe(true);
+    expect(r.modules.every((m) => m.last_src_commit === null && m.last_readme_commit === null)).toBe(true);
+    expect(r.modules.every((m) => m.source.current?.startsWith('source-v1:'))).toBe(true);
     // A real `git clone` is the heaviest op in the suite (it completes, it does not
     // hang) — covered by this file's timeout, declared once at the top.
   });

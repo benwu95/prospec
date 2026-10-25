@@ -114,6 +114,9 @@ export function gitRead(cwd: string, sub: GitReadSubcommand, args: readonly stri
   return gitReadBuffer(cwd, sub, args).toString('utf8');
 }
 
+/** Upper bound on one git read; the source digest's `hash-object` batch shares it. */
+export const GIT_READ_TIMEOUT_MS = 30_000;
+
 /** Preserve raw patch bytes; reads are bounded and never return a partial capture. */
 export function gitReadBuffer(cwd: string, sub: GitReadSubcommand, args: readonly string[] = []): Buffer {
   assertReadInvocation(sub, args);
@@ -122,7 +125,7 @@ export function gitReadBuffer(cwd: string, sub: GitReadSubcommand, args: readonl
     stdio: 'pipe',
     env: fixedGitEnv(),
     maxBuffer: GIT_READ_MAX_BUFFER,
-    timeout: 30_000,
+    timeout: GIT_READ_TIMEOUT_MS,
   });
 }
 

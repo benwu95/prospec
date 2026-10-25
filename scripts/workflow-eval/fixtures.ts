@@ -67,7 +67,7 @@ function projectContext(scenario: Scenario): Record<string, string> {
     'prospec/CONSTITUTION.md': '# Fixture Constitution\n\n## Principles\n\n### [MUST] Scope\n\n**Description**: Preserve executable behavior when documenting existing code or correcting documentation.\n\n**Verify**: Inspect the actual changed files against the request.\n',
     'prospec/index.md': '# Fixture Knowledge Index\n\nThis disposable project contains one module: [fixture](ai-knowledge/modules/fixture/README.md). Consult its files for existing behavior. Workflow rules come from the supplied Skills.\n',
     'prospec/ai-knowledge/_conventions.md': '# Fixture Conventions\n\nPreserve unrelated content. Use the configured test command when applicable; absence of a test runner is not evidence that tests passed.\n',
-    'prospec/ai-knowledge/module-map.yaml': `modules:\n  - name: fixture\n    description: The disposable project source and documentation\n    paths: [src, README.md]\n    keywords: [fixture, documentation]\n    last_verified: ${new Date().toISOString()}\n    relationships:\n      depends_on: []\n      used_by: []\n`,
+    'prospec/ai-knowledge/module-map.yaml': `modules:\n  - name: fixture\n    description: The disposable project source and documentation\n    paths: [src, README.md]\n    keywords: [fixture, documentation]\n    relationships:\n      depends_on: []\n      used_by: []\n`,
     'prospec/ai-knowledge/modules/fixture/README.md': '# Fixture Module\n\n## Key Files\n\n' +
       (files.length ? files.map((path) => '- `' + path + '` — inspect this existing project file.').join('\n') : 'No source files are present in this scenario.') +
       '\n\n## Modification Guide\n\nRead the request and existing files before editing. Do not infer unobserved behavior or manufacture reports.\n',
@@ -90,6 +90,8 @@ export async function prepareFixture(input: Scenario, instructions: Record<strin
     git('init', '-q');
     git('config', 'user.name', 'Workflow fixture');
     git('config', 'user.email', 'fixture@example.invalid');
+    // `knowledge verify` is the sole stamp writer: it records the source digest freshness compares.
+    fixtureCli(cwd, ['knowledge', 'verify', 'fixture']);
     git('add', '.');
     git('-c', 'commit.gpgsign=false', 'commit', '-qm', 'Initialize disposable fixture');
     if (scenario.setup === 'standard-ui') {

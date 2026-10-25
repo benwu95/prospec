@@ -1,6 +1,6 @@
 # Shared Kernel
 
-> Config, I/O, templates, scanning, detection, drift engine, status routing, knowledge reads, station engines (73 files)
+> Config, I/O, templates, scanning, detection, drift engine, status routing, knowledge reads, station engines (74 files)
 <!-- prospec:module-readme-format 2026-09-01 -->
 
 <!-- prospec:auto-start -->
@@ -80,7 +80,7 @@ The drift and station engines are detailed in the linked sub-modules; other sing
 - `mergeContent()` relies on exact markers (typos fail silently); `scanDir()` excludes ADD to security defaults; YAML templates MUST run user text through `escapeYamlScalar()`; compose paths with `path.posix.join`.
 - `module-detector.ts` admission is a pure 2-source-file gate; `isSourceFile` is the single classifier.
 - `markdown-fences.ts` owns markdown parsing and `toInlineCodeSpan` (which collapses line breaks to prevent raw newline header forging).
-- `knowledge-reader.ts` owns `readContained` path-traversal safety (`isContainedPath`) and its write-side twin `resolveContainedTarget` (a missing target is judged through its nearest existing ancestor; a target whose path cannot resolve for any reason but an absent entry is refused, never read as absent). Drift-sources imports from it, never the reverse.
+- `knowledge-reader.ts` owns `projectRelativePath` (the POSIX project-relative resolution `clampModulePaths` and the source digest share) and `readContained` path-traversal safety (`isContainedPath`) and its write-side twin `resolveContainedTarget` (a missing target is judged through its nearest existing ancestor; a target whose path cannot resolve for any reason but an absent entry is refused, never read as absent). Drift-sources imports from it, never the reverse.
 - `text-lines.ts` owns line-ending strip for per-line matching (`stripTrailingCr`).
 - `landing-fidelity.ts` is the ONE landing-block comparison — `assessDrops` plus the delta-spec block/bullet parsers (`extractDeltaBlock`/`whenThenBullets`/`declaredDrops`/`iterateDeltaEntries`) — the ONE routing-header verdict, `classifyRoutingResolution` (over the `buildReqHomeIndex` map from `spec-read`), and the ONE empty-block verdict, `emptyLandingBlock` (a MODIFIED `**Spec:**` label whose block holds no content, with the line that ended it). `archive.service`'s fail-closed write and the `delta-spec-landing-fidelity` check call all three; never re-implement the drop diff, the routing verdict or the empty-block test (that divergence is the drift the check guards).
 - The pause fails closed: never resolve an unknowable pause setting to "no pause" — a set `PROSPEC_PAUSE_AT` decides alone, an unreadable config pauses.

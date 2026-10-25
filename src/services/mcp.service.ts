@@ -367,7 +367,9 @@ function readHealth(uriHref: string, ctx: McpServerContext) {
     );
   }
   const outcome = evaluateKnowledgeHealth(
-    collectGitTimestamps(ctx.cwd, moduleMap, ctx.knowledgePath, ctx.config.knowledge?.generated_artifacts ?? []),
+    collectGitTimestamps(ctx.cwd, moduleMap, ctx.knowledgePath, ctx.config.knowledge?.generated_artifacts ?? [], undefined, {
+      specsPath: ctx.specsPath,
+    }),
   );
   // An unavailable git history is an honest environment fact, not an error —
   // mirror the check engine's skip semantics instead of fabricating numbers.

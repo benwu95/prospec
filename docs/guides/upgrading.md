@@ -39,6 +39,14 @@ prospec-upgrade                 # Step 2: AI agent migrates drifted doc formats,
 > - **Legacy File Cleanup**: If upgrading from an older pre-1.0 Prospec layout, remove the now-unused legacy files and directories after re-syncing: `GEMINI.md`, `.gemini/skills/`, `.codex/skills/`, `.github/copilot-instructions.md`, and `.github/instructions/`.
 > - **Configuration Version & Triggers**: `.prospec.yaml` `version` tracks the prospec version the project last upgraded to. If you ever need to localize triggers after adding a skill, simply run `prospec agent sync` — it explicitly reports missing `skill_triggers` entries so you fill only the gaps.
 
+## Upgrade to the next release (unreleased)
+
+**Breaking:** Knowledge freshness is judged by a digest of each module's source content instead of commit dates, so a same-day follow-up commit or a merged older branch no longer reads fresh. After upgrading, every module whose `module-map.yaml` entry has no `source_digest` reads stale: `knowledge-health` warns, and a change touching that module is held at the Knowledge sync gate until it is re-stamped.
+
+For each module, confirm its README still matches the source, then run `prospec knowledge verify <module>`; it records `source_digest` beside `last_verified`. Re-stamp only after that review — the stamp asserts the knowledge was checked. A shallow clone is now judged by digest instead of being skipped, with the report's commit-time fields left null.
+
+Run `prospec status` and `prospec check --strict` after upgrading.
+
 ## Upgrade to 2.9.0
 
 Update the binary before running `prospec upgrade`: the synced Skills require CLI 2.9.0 or later, including configurable test timeouts and in-repository directory-symlink evidence support. No configuration change is required for existing behavior.

@@ -52,3 +52,28 @@ describe('ModuleMapSchema last_verified (REQ-TYPES-084)', () => {
     expect(parsed.success).toBe(false);
   });
 });
+
+describe('ModuleMapSchema source_digest (REQ-TYPES-084)', () => {
+  it('preserves source_digest through the schema instead of stripping it', () => {
+    const parsed = ModuleMapSchema.safeParse({
+      modules: [{ name: 'lib', paths: ['src/lib'], keywords: [], source_digest: 'source-v1:abc' }],
+    });
+    expect(parsed.success).toBe(true);
+    expect(parsed.success && parsed.data.modules[0]?.source_digest).toBe('source-v1:abc');
+  });
+
+  it('parses an entry without source_digest (backward-compatible)', () => {
+    const parsed = ModuleMapSchema.safeParse({
+      modules: [{ name: 'lib', paths: ['src/lib'], keywords: [], last_verified: '2026-08-14T00:00:00Z' }],
+    });
+    expect(parsed.success).toBe(true);
+    expect(parsed.success && parsed.data.modules[0]?.source_digest).toBeUndefined();
+  });
+
+  it('rejects a non-string source_digest', () => {
+    const parsed = ModuleMapSchema.safeParse({
+      modules: [{ name: 'x', paths: ['src/x'], keywords: [], source_digest: 42 }],
+    });
+    expect(parsed.success).toBe(false);
+  });
+});
