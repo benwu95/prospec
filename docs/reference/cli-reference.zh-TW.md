@@ -210,7 +210,7 @@ Entry Points、Dependencies、Config Files 沒有逐語言覆寫機制——未�
 
 | 命令 | 說明 |
 |------|------|
-| `prospec status [--json]` | 唯讀查詢進行中變更的當前階段、建議下一步、阻擋閘門與未解的 `quality_log` WARN；工作區乾淨時回報漂移報告的狀態。每行 `reason:` 帶穩定的 `[CODE]`。`--json` 將完整報告輸出至 stdout |
+| `prospec status [--json]` | 唯讀查詢進行中變更的當前階段、建議下一步、阻擋閘門與未解的 `quality_log` WARN；工作區乾淨時回報漂移報告的狀態。每當判斷 knowledge 新鮮度——工作區乾淨時，以及進行中變更等待 review 或 archive 時——計算模組 source digest 時會把 work tree 記錄到專案外的暫存 index 複本，過程中 git 會執行專案設定的 clean filter 與 `hook.<name>` hooks。每行 `reason:` 帶穩定的 `[CODE]`。`--json` 將完整報告輸出至 stdout |
 | `prospec change story <name> [options]` | 以 `--related-module <m>...` 或 `--no-related-modules` 建立骨架，或凍結／修訂驗收場景基準（`--freeze-scenarios`、`--amend-scenarios`） |
 | `prospec change plan [--change <name>] [--force]` | 建立技術實作計劃骨架（`plan.md` + `delta-spec.md`） |
 | `prospec change tasks [--change <name>] [--force]` | 建立任務清單骨架（`tasks.md`） |
@@ -250,10 +250,10 @@ Entry Points、Dependencies、Config Files 沒有逐語言覆寫機制——未�
 
 Re-scope 是由開發者調整 proposal 或建立新 Story；scenario amendment 仍須通過 reason／digest／lifecycle gate，不倒退 status，也不解鎖 escalation。Abandon 是停止並保留工件與理由；rollback 另由人類決定。
 
-Review 維持 artifact→metadata，verify 維持 metadata→evidence 的寫入順序；receipt 綁定的補件不新增第二筆 accepted verdict，也不再次耗用 grant。Persistent-test refusal 先保存事件、重新檢查，再更新 metrics；事件寫入失敗就保留 metrics。Status 保持唯讀，verify／archive 在 PASS 後仍保留 override 理由、事件綁定與使用狀態。
+Review 維持 artifact→metadata，verify 維持 metadata→evidence 的寫入順序；receipt 綁定的補件不新增第二筆 accepted verdict，也不再次耗用 grant。Persistent-test refusal 先保存事件、重新檢查，再更新 metrics；事件寫入失敗就保留 metrics。Status 不寫入任何 workflow 狀態，verify／archive 在 PASS 後仍保留 override 理由、事件綁定與使用狀態。
 
 - **`prospec status`**
-  - **核心用途**：唯讀查詢所有進行中變更的生命週期狀態與自動化路由建議。
+  - **核心用途**：唯讀查詢所有進行中變更的生命週期狀態與自動化路由建議（計算模組 source digest 時會把 work tree 記錄到專案外的暫存 index 複本，過程中 git 會執行專案設定的 clean filter 與 `hook.<name>` hooks）。
   - **重點條列**：
     - 回報各變更的目前階段（node）、建議的下一個站點、阻擋的閘門（blocking gates）與具體理由。
     - 支援不同的 scale 路由（如 `quick` 跳過 plan 直接進入 tasks、`backfill` 路由至 promote 站）。
@@ -488,7 +488,7 @@ claude mcp add -s user prospec-b -- prospec mcp serve --cwd /path/to/B
 （`… -- npx prospec mcp serve --cwd /path/to/project`），或在 JSON 把 `"command"` 設為 `"npx"`、
 `"prospec"` 當第一個 arg（`["prospec", "mcp", "serve", "--cwd", "/path/to/project"]`）。
 
-誠實邊界：server 為唯讀（沒有任何 tool/resource 能改檔案）、以單一程序服務單一專案（`--cwd` 指定的根目錄）、
+誠實邊界：server 為唯讀（沒有任何 tool/resource 能改檔案；knowledge 新鮮度會把 work tree 記錄到專案外的暫存 index 複本，過程中 git 會執行專案設定的 clean filter 與 `hook.<name>` hooks）、以單一程序服務單一專案（`--cwd` 指定的根目錄）、
 且為純加值面 —— 沒有任何 Skill 或 CLI 命令依賴它，server 不在時一切照常。Transport 僅 stdio；HTTP/SSE
 刻意不納入本版。
 

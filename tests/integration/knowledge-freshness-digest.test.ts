@@ -319,8 +319,8 @@ describe('submodules under a module path', () => {
   });
 });
 
-describe('one hash-object batch for every caller (REQ-LIB-070)', () => {
-  it('attributes a failed batch to the same modules whether the caller asks for all or a subset', () => {
+describe('one work-tree recording for every caller (REQ-LIB-070)', () => {
+  it('attributes a failed recording to the same modules whether the caller asks for all or a subset', () => {
     const dir = repo('batch');
     put(dir, 'src/cli/b.ts', 'b\n');
     put(dir, '.gitattributes', 'src/cli/** filter=boom\n');

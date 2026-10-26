@@ -77,7 +77,7 @@
     {
       "@type":"Question",
       "name":"What does it deliberately not do?",
-      "acceptedAnswer":{"@type":"Answer","text":"The MCP server is read-only (no tool can modify files), serves one project per process, and is stdio-only — HTTP/SSE is intentionally excluded. The drift check is deterministic and never claims to judge semantic spec↔code consistency. Forward changes retain TDD, review, and Constitution audits; proven backfill instead uses a fidelity contract where code review is optional."}
+      "acceptedAnswer":{"@type":"Answer","text":"The MCP server is read-only (no tool can modify files; computing knowledge freshness lets git run the project's clean filters and config-defined hooks against temporary index copies), serves one project per process, and is stdio-only — HTTP/SSE is intentionally excluded. The drift check is deterministic and never claims to judge semantic spec↔code consistency. Forward changes retain TDD, review, and Constitution audits; proven backfill instead uses a fidelity contract where code review is optional."}
     },
     {
       "@type":"Question",
@@ -159,7 +159,7 @@
     </div>
 
     <div class="hero__facts">
-      <span data-i18n="hero.facts.tests"><b>8,767</b> total tests</span><span class="sep" aria-hidden="true">·</span>
+      <span data-i18n="hero.facts.tests"><b>8,789</b> total tests</span><span class="sep" aria-hidden="true">·</span>
       <span data-i18n="hero.facts.skills"><b>17</b> skills</span><span class="sep" aria-hidden="true">·</span>
       <span data-i18n="hero.facts.principles">configurable <b>Constitution</b></span><span class="sep" aria-hidden="true">·</span>
       <span data-i18n="hero.facts.mcp">read-only <b>MCP</b> server</span><span class="sep" aria-hidden="true">·</span>
@@ -621,7 +621,7 @@
       </details>
       <details>
         <summary><span class="q">Q4</span><span data-i18n="faq.q4.q">What does it deliberately <em>not</em> do?</span><span class="pm" aria-hidden="true">+</span></summary>
-        <div data-i18n="faq.q4.a">The MCP server is read-only (no tool can modify files), serves one project per process, and is stdio-only — HTTP/SSE is intentionally excluded. The drift check is deterministic and never claims to judge semantic spec↔code consistency. Forward changes retain TDD, review, and Constitution audits; proven backfill instead uses a fidelity contract where code review is optional.</div>
+        <div data-i18n="faq.q4.a">The MCP server is read-only (no tool can modify files; computing knowledge freshness lets git run the project's clean filters and config-defined hooks against temporary index copies), serves one project per process, and is stdio-only — HTTP/SSE is intentionally excluded. The drift check is deterministic and never claims to judge semantic spec↔code consistency. Forward changes retain TDD, review, and Constitution audits; proven backfill instead uses a fidelity contract where code review is optional.</div>
       </details>
       <details>
         <summary><span class="q">Q5</span><span data-i18n="faq.q5.q">Greenfield or brownfield?</span><span class="pm" aria-hidden="true">+</span></summary>

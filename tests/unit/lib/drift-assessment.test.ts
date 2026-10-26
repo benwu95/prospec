@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { mkdtempSync, mkdirSync, writeFileSync, rmSync, readFileSync } from 'node:fs';
+import { chmodSync, mkdtempSync, mkdirSync, writeFileSync, rmSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
 import { execFileSync } from 'node:child_process';
@@ -8,7 +8,7 @@ import { assessCurrentDrift, assessCurrentTestEvidence } from '../../../src/lib/
 import { validateConfig, resolveTestCommand } from '../../../src/lib/config.js';
 import { assessVerificationContext } from '../../../src/lib/verification-context.js';
 import { DRIFT_CHECK_IDS } from '../../../src/types/drift-report.js';
-const gitCalls = vi.hoisted(() => ({ count: 0, hashObject: 0, failConfig: false, addAfterListing: false, observedAddition: false, addOnStatus: 0, statusCount: 0, spawns: 0 }));
+const gitCalls = vi.hoisted(() => ({ count: 0, recording: 0, updateIndex: 0, adds: 0, failConfig: false, addAfterListing: false, observedAddition: false, addOnStatus: 0, statusCount: 0, spawns: 0 }));
 const configRace = vi.hoisted(() => ({ onFirstConfigRead: null as (() => void) | null }));
 vi.mock('node:fs', async (original) => {
   const actual = await original<typeof import('node:fs')>();
@@ -27,7 +27,12 @@ vi.mock('node:child_process', async (original) => {
     return (actual.spawnSync as (...a: unknown[]) => unknown)(...args);
   }) as typeof actual.spawnSync, execFileSync: ((file: string, args: string[], opts: unknown) => {
     if (file === 'git') gitCalls.count++;
-    if (file === 'git' && args[0] === 'hash-object') gitCalls.hashObject++;
+    // The source digest's work-tree recording: locating the index, then git against its copies.
+    if (file === 'git' && (args.includes('--git-path') || String((opts as { env?: NodeJS.ProcessEnv } | undefined)?.env?.GIT_INDEX_FILE ?? '').includes('prospec-digest-'))) {
+      gitCalls.recording++;
+      if (args.includes('update-index')) gitCalls.updateIndex++;
+      if (args.includes('add')) gitCalls.adds++;
+    }
     if (gitCalls.failConfig && args[0] === 'config') throw Error('config unreadable');
     if (args[0] === 'status' && gitCalls.addOnStatus > 0 && ++gitCalls.statusCount === gitCalls.addOnStatus) {
       writeFileSync(path.join((opts as { cwd: string }).cwd, 'new-input.ts'), 'unchecked');
@@ -141,15 +146,47 @@ describe('current assessment', () => {
   });
 });
 
-it('keeps ordinary assessment within six Git subprocesses plus one hash-object for changed module files (REQ-LIB-070)', async () => {
+it('keeps ordinary assessment within six Git subprocesses plus the work-tree recording for changed module files (REQ-LIB-070)', async () => {
   write('prospec/ai-knowledge/module-map.yaml', 'modules:\n  - name: lib\n    paths: [src/lib]\n    keywords: []\n');
   write('src/lib/input.ts', 'export const value = 1;');
   gitCalls.count = 0;
-  gitCalls.hashObject = 0;
+  gitCalls.recording = 0;
   await assessCurrentDrift(root);
-  expect(gitCalls.hashObject).toBe(1);
-  expect(gitCalls.count - gitCalls.hashObject).toBeLessThanOrEqual(6);
-  expect(gitCalls.count - gitCalls.hashObject).toBeGreaterThanOrEqual(4);
+  expect(gitCalls.recording).toBe(5);
+  expect(gitCalls.count - gitCalls.recording).toBeLessThanOrEqual(6);
+  expect(gitCalls.count - gitCalls.recording).toBeGreaterThanOrEqual(4);
+});
+
+it.skipIf(process.platform === 'win32' || process.getuid?.() === 0)('records a refused work tree once, however many modules read it (REQ-LIB-070)', () => {
+  const map = { modules: Array.from({ length: 20 }, (_, i) => ({ name: `m${i}`, paths: [`src/m${i}`], keywords: [] })) };
+  for (let i = 0; i < 20; i++) write(`src/m${i}/a.ts`, `${i}`);
+  write('junk.txt', 'unreadable\n');
+  chmodSync(path.join(root, 'junk.txt'), 0o000);
+  gitCalls.adds = 0;
+  try {
+    const digests = collectModuleDigests(root, map, {
+      knowledgePath: path.join(root, 'prospec/ai-knowledge'),
+      specsPath: path.join(root, 'prospec/specs'),
+      generatedArtifacts: [],
+    });
+    expect([...digests.values()].every((d) => d.digest === null)).toBe(true);
+    expect(gitCalls.adds).toBe(1);
+  } finally {
+    chmodSync(path.join(root, 'junk.txt'), 0o644);
+  }
+});
+
+it('records object ids only for changed files a module lists whose entry the index does not already hold (REQ-LIB-070)', async () => {
+  write('prospec/ai-knowledge/module-map.yaml', 'modules:\n  - name: lib\n    paths: [src/lib]\n    keywords: []\n');
+  write('src/lib/input.ts', 'export const value = 1;');
+  execFileSync('git', ['add', 'src/lib/input.ts'], { cwd: root });
+  write('docs/outside.md', 'not in any module\n');
+  gitCalls.count = 0;
+  gitCalls.recording = 0;
+  gitCalls.updateIndex = 0;
+  await assessCurrentDrift(root);
+  expect(gitCalls.recording).toBe(3);
+  expect(gitCalls.updateIndex).toBe(0);
 });
 
 it('spends a module-count-independent number of Git subprocesses on source digests (REQ-LIB-070)', () => {
@@ -174,16 +211,16 @@ it('spends a module-count-independent number of Git subprocesses on source diges
   expect(committed[0]).toBe(committed[1]);
 });
 
-it('spends no Git subprocess beyond hash-object on a handed-over inventory, for bookkeeping modules and subdirectory projects alike (REQ-LIB-070)', () => {
+it('spends no Git subprocess beyond the work-tree recording on a handed-over inventory, for bookkeeping modules and subdirectory projects alike (REQ-LIB-070)', () => {
   const project = path.join(root, 'proj');
   mkdirSync(path.join(project, '.prospec/changes/c'), { recursive: true });
   writeFileSync(path.join(project, '.prospec/changes/c/proposal.md'), '# c\n');
   mkdirSync(path.join(project, 'src'), { recursive: true });
   writeFileSync(path.join(project, 'src/a.ts'), 'a\n');
   const { inventory } = computeEvidenceStates(project);
-  expect(inventory?.prefix).toBe('proj/');
+  expect([...inventory!.entries.keys()]).toContain('src/a.ts');
   gitCalls.count = 0;
-  gitCalls.hashObject = 0;
+  gitCalls.recording = 0;
   const digests = collectModuleDigests(project, {
     modules: [{ name: 'src', paths: ['src'], keywords: [] }, { name: 'bk', paths: ['.prospec'], keywords: [] }],
   }, {
@@ -194,8 +231,8 @@ it('spends no Git subprocess beyond hash-object on a handed-over inventory, for 
   });
   expect(digests.get('src')?.digest).toMatch(/^source-v1:/);
   expect(digests.get('bk')?.digest).toBeNull();
-  expect(gitCalls.hashObject).toBe(1);
-  expect(gitCalls.count).toBe(1);
+  expect(gitCalls.recording).toBe(5);
+  expect(gitCalls.count).toBe(5);
 });
 it('refuses an unavailable Git configuration observation even with provable content', async () => {
   gitCalls.failConfig = true;
