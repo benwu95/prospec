@@ -11,8 +11,6 @@ export interface SourceDigestEntry {
   id: string;
 }
 
-export type ObjectFormat = 'sha1' | 'sha256';
-
 function frame(hash: ReturnType<typeof createHash>, data: string): void {
   const bytes = Buffer.from(data);
   const length = Buffer.alloc(8);
@@ -38,18 +36,4 @@ export function moduleSourceDigest(entries: readonly SourceDigestEntry[]): strin
 
 export function isCurrentDigestFormat(value: unknown): value is string {
   return typeof value === 'string' && CURRENT_DIGEST.test(value);
-}
-
-/** The id git assigns a blob holding `bytes` — used for a symlink's link text, which `git hash-object` cannot hash without following the link. */
-export function gitBlobId(bytes: Buffer, format: ObjectFormat): string {
-  return createHash(format)
-    .update(Buffer.from(`blob ${bytes.length}\0`))
-    .update(bytes)
-    .digest('hex');
-}
-
-export function objectFormatOf(id: string): ObjectFormat | null {
-  if (/^[0-9a-f]{40}$/.test(id)) return 'sha1';
-  if (/^[0-9a-f]{64}$/.test(id)) return 'sha256';
-  return null;
 }

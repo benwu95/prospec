@@ -28,11 +28,11 @@ export type GitSnapshotSubcommand = (typeof GIT_SNAPSHOT_SUBCOMMANDS)[number];
 
 export const SNAPSHOT_PREFIX = 'prospec-snapshot-';
 
-/**
- * Variables that point git at another repository, index or object store, and the
- * ones that change how a pathspec is read (`GIT_LITERAL_PATHSPECS=1` turns the
- * whole-index pathspec `:/` into a literal file name that matches nothing).
- */
+/** Variables that change how a pathspec is read (`GIT_LITERAL_PATHSPECS=1` turns the
+ *  whole-index pathspec `:/` into a literal file name that matches nothing). */
+export const PATHSPEC_ENV = ['GIT_LITERAL_PATHSPECS', 'GIT_GLOB_PATHSPECS', 'GIT_NOGLOB_PATHSPECS', 'GIT_ICASE_PATHSPECS'] as const;
+
+/** Variables that point git at another repository, index or object store, and the pathspec ones. */
 const REPOSITORY_SELECTING_ENV = [
   'GIT_DIR',
   'GIT_WORK_TREE',
@@ -40,10 +40,7 @@ const REPOSITORY_SELECTING_ENV = [
   'GIT_OBJECT_DIRECTORY',
   'GIT_ALTERNATE_OBJECT_DIRECTORIES',
   'GIT_COMMON_DIR',
-  'GIT_LITERAL_PATHSPECS',
-  'GIT_GLOB_PATHSPECS',
-  'GIT_NOGLOB_PATHSPECS',
-  'GIT_ICASE_PATHSPECS',
+  ...PATHSPEC_ENV,
 ] as const;
 
 const SYMBOLIC_REF_READ_OPTIONS = new Set(['-q', '--short']);
@@ -114,7 +111,7 @@ export function gitRead(cwd: string, sub: GitReadSubcommand, args: readonly stri
   return gitReadBuffer(cwd, sub, args).toString('utf8');
 }
 
-/** Upper bound on one git read; the source digest's `hash-object` batch shares it. */
+/** Upper bound on one git read; the source digest's work-tree recording shares it. */
 export const GIT_READ_TIMEOUT_MS = 30_000;
 
 /** Preserve raw patch bytes; reads are bounded and never return a partial capture. */

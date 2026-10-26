@@ -211,7 +211,7 @@ Entry Points, Dependencies, and Config Files have no per-language override — t
 
 | Command | Description |
 |---------|-------------|
-| `prospec status [--json]` | Read-only check of in-flight changes, lifecycle station, next steps, blocking gates, and unresolved `quality_log` WARNs; each `reason:` line carries a stable `[CODE]`. On a clean workspace, reports the drift report's state. `--json` emits the full report to stdout |
+| `prospec status [--json]` | Read-only check of in-flight changes, lifecycle station, next steps, blocking gates, and unresolved `quality_log` WARNs; each `reason:` line carries a stable `[CODE]`. On a clean workspace, reports the drift report's state. Whenever it judges knowledge freshness — on a clean workspace, and for an in-flight change awaiting review or archive — computing module source digests records the work tree into temporary index copies outside the project, and git runs the project's clean filters and `hook.<name>` hooks while doing so. `--json` emits the full report to stdout |
 | `prospec change story <name> [options]` | Create a scaffold with `--related-module <m>...` or `--no-related-modules`, or freeze/amend acceptance scenario baselines (`--freeze-scenarios`, `--amend-scenarios`) |
 | `prospec change plan [--change <name>] [--force]` | Create technical implementation plan scaffold (`plan.md` + `delta-spec.md`) |
 | `prospec change tasks [--change <name>] [--force]` | Create task checklist scaffold (`tasks.md`) |
@@ -252,10 +252,10 @@ The lifetime ledger is `quality_log`; non-default `workflow.max_station_retries`
 
 Re-scope means a developer-approved proposal change or new Story; scenario amendments retain reason/digest/lifecycle gates and cannot regress status or unlock escalation. Abandon means stopping while retaining artifacts and reasons; rollback requires a separate human decision.
 
-Review preserves artifact→metadata ordering; verify preserves metadata→evidence ordering. Receipt-bound repairs never append a second accepted verdict or consume another grant. Persistent-test refusal records the event before rechecking and splicing metrics; failed event writes leave metrics unchanged. Status is read-only, and verify/archive retain durable override reasons, event binding and usage after PASS.
+Review preserves artifact→metadata ordering; verify preserves metadata→evidence ordering. Receipt-bound repairs never append a second accepted verdict or consume another grant. Persistent-test refusal records the event before rechecking and splicing metrics; failed event writes leave metrics unchanged. Status writes no workflow state, and verify/archive retain durable override reasons, event binding and usage after PASS.
 
 - **`prospec status`**
-  - **Purpose**: Read-only deterministic routing for all active in-flight changes.
+  - **Purpose**: Read-only deterministic routing for all active in-flight changes (computing module source digests records the work tree into temporary index copies outside the project, and git runs the project's clean filters and `hook.<name>` hooks while doing so).
   - **Key Details**:
     - Reports current lifecycle node, suggested next station, blocking gates, and specific reasons.
     - Supports scale-specific routes (`quick` skipping plan to tasks, `backfill` entering at promote).
@@ -493,7 +493,7 @@ Pinned prospec as a devDependency rather than installed globally? Route through 
 Claude Code command (`… -- npx prospec mcp serve --cwd /path/to/project`), or in JSON set
 `"command": "npx"` with `"prospec"` as the first arg (`["prospec", "mcp", "serve", "--cwd", "/path/to/project"]`).
 
-Honest boundaries: the server is read-only (no tool or resource can modify files), serves one project
+Honest boundaries: the server is read-only (no tool or resource can modify files; knowledge freshness records the work tree into temporary index copies outside the project, and git runs the project's clean filters and `hook.<name>` hooks while doing so), serves one project
 per process (the root given by `--cwd`), and is a pure add-on — no Skill or CLI command depends on it,
 so everything works unchanged when it is not running. Transport is stdio only; HTTP/SSE is
 deliberately not included in this version.

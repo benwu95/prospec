@@ -1,16 +1,13 @@
 import { describe, it, expect } from 'vitest';
 import {
   SOURCE_DIGEST_VERSION,
-  gitBlobId,
   isCurrentDigestFormat,
   moduleSourceDigest,
-  objectFormatOf,
 } from '../../../src/lib/source-digest.js';
 
-// Expected values computed independently: blob ids by `git hash-object` in a sha1 and a
-// sha256 repository, digests by a separate implementation of the length-prefixed framing.
+// Expected values computed independently: the blob id by `git hash-object`, digests by a
+// separate implementation of the length-prefixed framing.
 const HELLO_SHA1 = 'ce013625030ba8dba906f756967f9e9ca394464a';
-const HELLO_SHA256 = '2cf8d83d9ee29543b34a87727421fdecb7e3f3a183d337639025de576db9ebb4';
 const OTHER_ID = 'f9b1b3292aef3b8c2b4b5c7f4f2d0f6b5c1a0d3e';
 
 describe('moduleSourceDigest (REQ-LIB-015)', () => {
@@ -49,19 +46,5 @@ describe('isCurrentDigestFormat', () => {
     expect(isCurrentDigestFormat(`${SOURCE_DIGEST_VERSION}:${'0'.repeat(63)}`)).toBe(false);
     expect(isCurrentDigestFormat(`${SOURCE_DIGEST_VERSION}:${'G'.repeat(64)}`)).toBe(false);
     expect(isCurrentDigestFormat(undefined)).toBe(false);
-  });
-});
-
-describe('gitBlobId', () => {
-  it('matches git hash-object for both object formats', () => {
-    expect(gitBlobId(Buffer.from('hello\n'), 'sha1')).toBe(HELLO_SHA1);
-    expect(gitBlobId(Buffer.from('hello\n'), 'sha256')).toBe(HELLO_SHA256);
-    expect(gitBlobId(Buffer.from('../target.txt'), 'sha1')).toBe('f9b1b32e6647369a82e9f90b38393d3cbe785a10');
-  });
-
-  it('infers the object format from an object id', () => {
-    expect(objectFormatOf(HELLO_SHA1)).toBe('sha1');
-    expect(objectFormatOf(HELLO_SHA256)).toBe('sha256');
-    expect(objectFormatOf('abc')).toBeNull();
   });
 });

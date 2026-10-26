@@ -445,12 +445,10 @@ export interface SourceInventory {
   entries: ReadonlyMap<string, { mode: string | null; oid: string | null }>;
   /** Inputs `git status --untracked-files=all` reports changed (modified, staged, untracked, deleted, renamed). */
   changed: ReadonlySet<string>;
-  /** The subset of `changed` status reports deleted from the work tree. */
-  deleted: ReadonlySet<string>;
+  /** Workflow bookkeeping paths `git status --untracked-files=all` reports changed, which `changed` leaves out. */
+  changedBookkeeping: ReadonlySet<string>;
   /** Listed paths in the workflow bookkeeping, which `entries` leaves out. */
   bookkeeping: ReadonlySet<string>;
-  /** The project's path inside its repository (`git rev-parse --show-prefix`), '' at the root. */
-  prefix: string;
 }
 
 export interface EvidenceStates {
