@@ -126,6 +126,12 @@ Review every match; negative assertions and historical upgrade prose can be legi
 actual release surfaces:
 
 - `package.json` → the top-level `"version": "X.Y.Z"` only
+- `src/types/version.ts` → audit `MINIMUM_CLI_VERSION` against the commands and evidence contracts
+  required by the shipped Skills. Raise the floor when those Skills require a newer CLI command or
+  evidence contract, setting it to the earliest CLI version that supports all required contracts.
+  The floor is independent of the package version; keep it unchanged when no newer contract is
+  required, and confirm `X.Y.Z` is at least the floor. If raised, update
+  `tests/unit/types/version.test.ts` and rebuild/sync the generated Skills and entry configs.
 - `.prospec.yaml` → `version: X.Y.Z`
 - `docs/index.html` → **three release-owned fields**: `"softwareVersion":"X.Y.Z"`, the nav brand
   `<span class="ver">X.Y.Z</span>` (bare — no `v`), and `"dateModified":"YYYY-MM-DD"`.
