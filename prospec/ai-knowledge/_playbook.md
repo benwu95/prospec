@@ -154,7 +154,7 @@ Entry format: `.claude/skills/prospec-learn/references/promotion-format.md`.
 - **Source**: configurable-generated-artifacts, fix-spec-sync-safety, align-skill-guidance · **Criteria**: freq=3, modules=5 (templates, lib, services, tests, types) · **Kind**: playbook · **Approved-by**: benwu95 · **Date**: 2026-10-10
 - **Stations**: implement, review
 - **TTL**: review by 2027-04-10
-- **Guidance**: in the shipped templates and both `_status-lifecycle.md` copies, only `## What each gate checks` is pinned string-equal to the engine; a statement elsewhere about what a check reads turned false in both copies and both deployed SKILL.md files when the check's criterion was inverted, and only adversarial review noticed. Rule: when a change edits an engine check's inputs, grep shipped prose for statements about that check and fix or delete each; state engine behavior only inside a guarded section, otherwise name the check without describing its criterion.
+- **Guidance**: When a change edits an engine check's inputs, grep shipped prose for statements about that check and fix or delete each; state engine behavior only inside a guarded section, otherwise name the check without describing its criterion.
 
 ## Sweep Decisions
 
@@ -162,6 +162,8 @@ Entry format: `.claude/skills/prospec-learn/references/promotion-format.md`.
 |---|---|---|---|---|
 | 2026-10-13 | PB-002, PB-010, PB-011, PB-012, PB-013, PB-015, PB-017, PB-019, PB-020, PB-021, PB-022, PB-023 | Compact existing guidance; preserve operative clauses, original provenance, Stations and TTL. | benwu95 | Explicit approval: apply all reviewed cleanup drafts; before/after retained in Git history. |
 | 2026-10-13 | PB-018 | Scope the title to subprocess tests that execute dist; guidance unchanged. | benwu95 | Explicit approval: apply all reviewed cleanup drafts. |
+| 2026-10-27 | PB-019 | Record test/mutation-verify-must-hit-the-deployed-copy as already covered; retain its full description, counters and sources. Existing PB-019 Guidance is unchanged. | benwu95 | Explicit approval of both cleanup drafts in the Learn report; ledger frequency=5, impact_modules=3; PB-019 requires mutation to reach the exercised copy. |
+| 2026-10-27 | PB-026 | Remove the inaccurate guard claim and its historical narrative; retain the operative rule, provenance, Stations and TTL. | benwu95 | Explicit approval of both cleanup drafts in the Learn report; tests/contract/skill-format.test.ts compares both Gates and What each gate checks between local and template documents. |
 
 ## Retired Entries
 
