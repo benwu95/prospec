@@ -23,8 +23,8 @@ export const PROSPEC_VERSION: string = process.env.PROSPEC_VERSION || pkgVersion
 /**
  * The oldest CLI supporting the deployed skills' command and evidence contracts.
  * Injected into every startup probe as `{{minimum_cli_version}}`.
- * Configurable test timeouts and in-repo directory-symlink evidence need 2.9.0.
+ * Source-digest freshness and Knowledge sync before review need 2.10.0.
  * Raise this floor when shipped skills require a newer contract,
  * independently of package releases.
  */
-export const MINIMUM_CLI_VERSION = '2.9.0';
+export const MINIMUM_CLI_VERSION = '2.10.0';

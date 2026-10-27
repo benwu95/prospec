@@ -46,7 +46,7 @@ Lens changes require independent eight-lens expectations, alias/custom and thres
 
 ## Ripple Effects
 
-- Template/skill/service/CLI changes ripple to contract + E2E expectations; public README, `docs/` page or website claims ripple to the section-scoped document contracts; a new station command needs a formatter unit test AND an E2E case. Release bumps update website/social-preview assertions in `skill-format.test.ts`; a CLI floor bump updates `version.test.ts` (2.9.0: configurable test timeout and directory-symlink evidence).
+- Template/skill/service/CLI changes ripple to contract + E2E expectations; public README, `docs/` page or website claims ripple to the section-scoped document contracts; a new station command needs a formatter unit test AND an E2E case. Release bumps update website/social-preview assertions in `skill-format.test.ts`; a CLI floor bump updates `version.test.ts` (2.10.0: source-digest freshness and Knowledge sync before review).
 
 ## Pitfalls
 
@@ -81,7 +81,7 @@ Lens changes require independent eight-lens expectations, alias/custom and thres
 - [Contract Guards](./contract-guards.md) — the `tests/contract/` pins and the assertion discipline that keeps them falsifiable
 - [Workflow Evaluator](./workflow-evaluator.md) — the instruction-grading harness's suites, and why they are never model evidence
 
-The release contract pins the 2.9.0 website and social-preview version; the version unit test pins the matching minimum CLI capability and evidence contract.
+The release contract pins the 2.10.0 website and social-preview version; the version unit test pins the matching minimum CLI capability and evidence contract.
 
 <!-- prospec:auto-end -->
 
