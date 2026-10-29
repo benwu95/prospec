@@ -49,7 +49,7 @@ Interactive `prospec init` asks for the trust-zone language only when the artifa
 | `knowledge.additional_core_conventions` | string[] | `[]` | Additional convention files to preload as L1 Core Conventions, relative to the Knowledge directory. |
 | `knowledge.generated_artifacts` | string[] | `[]` | Project-relative generated artifact patterns excluded from Knowledge staleness (the module source digest and `last_src_commit`). |
 
-Use `additional_core_conventions` for shared API or security rules that should load alongside the built-in Core Conventions. `generated_artifacts` identifies build outputs in the source tree: they are left out of the module's source digest and do not move `last_src_commit`, so regenerating a bundle does not alone make its module stale. Prospec does not infer this list from your build system.
+Use `additional_core_conventions` for shared API or security rules that should load alongside the built-in Core Conventions. `generated_artifacts` identifies build outputs in the source tree: they are left out of the module's source digest and do not move `last_src_commit`, so regenerating a bundle does not alone make its module stale. Prospec does not infer this list from your build system. Each entry is read like a `module-map.yaml` path: without `*` it is a literal path, and with `*` it is a glob git matches with `:(glob)`, where `*` stays within one directory and `**/` matches any number of directories. A pattern `prospec check` reports under `unsupported-module-path` excludes nothing.
 
 ## Knowledge budgets
 

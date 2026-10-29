@@ -19,6 +19,8 @@ import {
   loadModuleMap,
   loadFeatureMap,
   clampModulePaths,
+  classifyModulePathSpec,
+  escapesProject,
   projectRelativePath,
   parseIndexModules,
   stripCellEmphasis,
@@ -295,6 +297,21 @@ describe('loadModuleMap (moved from check.service, REQ-MCP-006)', () => {
       tmpDir,
     );
     expect(clamped.modules[0]?.paths).toEqual(['src/lib']);
+  });
+
+  it('keeps a literal project root and in-project refused paths, and drops every escape and every glob that resolves to the root', () => {
+    const outside = path.join(path.dirname(tmpDir), 'elsewhere', '**');
+    const clamped = clampModulePaths(
+      {
+        modules: [{
+          name: 'all',
+          paths: ['.', './', 'src/..', '..cache/x', ':(top)x', 'src/{a,b}/**', '../x/**', outside, 'src/../../x/**', '*/..'],
+          keywords: [],
+        }],
+      },
+      tmpDir,
+    );
+    expect(clamped.modules[0]?.paths).toEqual(['.', './', 'src/..', '..cache/x', ':(top)x', 'src/{a,b}/**']);
   });
 });
 
@@ -1023,5 +1040,60 @@ describe('projectRelativePath (REQ-LIB-015)', () => {
   it('keeps the root and escapes recognizable for the containment check', () => {
     expect(projectRelativePath('/proj', '.', path.posix)).toBe('');
     expect(projectRelativePath('/proj', '../other', path.posix)).toBe('../other');
+  });
+});
+
+describe('escapesProject (REQ-LIB-014)', () => {
+  it('judges an escape by path segment, not by string prefix', () => {
+    expect(escapesProject('..', path.posix)).toBe(true);
+    expect(escapesProject('../a', path.posix)).toBe(true);
+    expect(escapesProject('/abs', path.posix)).toBe(true);
+    expect(escapesProject('..cache/x', path.posix)).toBe(false);
+    expect(escapesProject('a/..b', path.posix)).toBe(false);
+    expect(escapesProject('', path.posix)).toBe(false);
+  });
+
+  it('treats another drive as an escape on Windows', () => {
+    expect(escapesProject(projectRelativePath('C:\\proj', 'D:\\x', path.win32), path.win32)).toBe(true);
+    expect(escapesProject(projectRelativePath('C:\\proj', 'src\\..\\..\\x', path.win32), path.win32)).toBe(true);
+  });
+});
+
+describe('classifyModulePathSpec (REQ-LIB-015, REQ-LIB-107)', () => {
+  const classify = (raw: string) => classifyModulePathSpec(raw, '/proj', path.posix);
+
+  it('resolves every literal spelling, the project root included, to its project-relative path', () => {
+    const cases: Array<[string, string]> = [
+      ['.', ''], ['./', ''], ['src/..', ''], ['./x', 'x'], ['x/', 'x'], ['x/.', 'x'], ['x//y', 'x/y'],
+      ['x/../x', 'x'], ['..cache/x', '..cache/x'], ['/proj/src', 'src'], ['app/[id]', 'app/[id]'], ['src/?.ts', 'src/?.ts'],
+    ];
+    for (const [raw, rel] of cases) expect(classify(raw), raw).toEqual({ kind: 'literal', rel });
+  });
+
+  it('hands a glob to git exactly as written', () => {
+    for (const raw of ['src/*.ts', '**/name/**', './src/**', 'src//**', 'packages/*/src/**', 'app/[[]id]/**']) {
+      expect(classify(raw), raw).toEqual({ kind: 'glob', raw });
+    }
+  });
+
+  it('refuses each unsupported spelling with its reason and a rewrite hint', () => {
+    const cases: Array<[string, string]> = [
+      ['../x', 'outside'], ['/elsewhere', 'outside'], ['../x/**', 'outside'], ['/elsewhere/**', 'outside'],
+      ['src/../../x/**', 'outside'], [':(top)x', 'magic'], [':src', 'magic'], ['src/{a,b}/**', 'brace'],
+      ['*/..', 'dotdot'], ['src/*/../a/**', 'dotdot'], ['/proj/src/**', 'absolute'],
+    ];
+    for (const [raw, reason] of cases) {
+      const spec = classify(raw);
+      expect(spec.kind, raw).toBe('refused');
+      if (spec.kind !== 'refused') continue;
+      expect(spec.reason, raw).toBe(reason);
+      expect(spec.hint.length, raw).toBeGreaterThan(0);
+    }
+  });
+
+  it('splits glob segments on a backslash too on Windows', () => {
+    expect(classifyModulePathSpec('src\\..\\..\\x\\**', 'C:\\proj', path.win32)).toMatchObject({ kind: 'refused', reason: 'outside' });
+    expect(classifyModulePathSpec('src\\*\\..\\a\\**', 'C:\\proj', path.win32)).toMatchObject({ kind: 'refused', reason: 'dotdot' });
+    expect(classifyModulePathSpec('C:\\proj\\src\\**', 'C:\\proj', path.win32)).toMatchObject({ kind: 'refused', reason: 'absolute' });
   });
 });

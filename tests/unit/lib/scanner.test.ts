@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import fg from 'fast-glob';
 import { scanDir, scanDirSync, listGitTrackedFiles, filterConventions, classifyModulePath, moduleScanPatterns } from '../../../src/lib/scanner.js';
 import { CORE_CONVENTIONS } from '../../../src/types/conventions.js';
+import { clampModulePaths } from '../../../src/lib/knowledge-reader.js';
 import { ScanError } from '../../../src/types/errors.js';
 
 // scanner uses fast-glob directly, so we test with real filesystem using temp dirs
@@ -348,6 +349,17 @@ describe('classifyModulePath', () => {
     } finally {
       fs.rmSync(outsideAbs, { force: true });
     }
+  });
+
+  it('keeps a directory whose name starts with two dots inside the project, as the clamp does', () => {
+    createFiles({ '..cache/x/a.ts': '' });
+    expect(classifyModulePath('..cache/x', tmpDir)).toBe('dir');
+    const kept = clampModulePaths({ modules: [{ name: 'm', paths: ['..cache/x'], keywords: [] }] }, tmpDir);
+    expect(kept.modules[0]?.paths).toEqual(['..cache/x']);
+  });
+
+  it('classifies the project root as missing, whatever its spelling, though the clamp keeps it', () => {
+    for (const spelling of ['.', './', 'src/..']) expect(classifyModulePath(spelling, tmpDir), spelling).toBe('missing');
   });
 });
 

@@ -1,9 +1,9 @@
 ---
 feature: drift-detection
 status: active
-last_updated: 2026-10-26
-story_count: 21
-req_count: 90
+last_updated: 2026-10-29
+story_count: 22
+req_count: 91
 ---
 
 # Deterministic Drift Check
@@ -28,7 +28,9 @@ req_count: 90
 - [US-17–US-20](./drift-detection/us-17.md)
 - [US-21: Constitution Language Policy drifts from the resolved language scope](./drift-detection/us-21.md)
 - [US-22: A station's reference map is checked where the station reads it](./drift-detection/us-22.md)
+- [US-23: Module paths git cannot read as written are refused with a rewrite hint](./drift-detection/us-23.md)
 
+---
 
 ## Edge Cases
 
@@ -62,6 +64,7 @@ _(None)_
 
 | Date | Change | Impact | Stories/REQs |
 |------|--------|--------|--------------|
+| 2026-10-29 | resolve-module-paths-via-git | ADDED REQ-LIB-107; MODIFIED REQ-LIB-014; MODIFIED REQ-LIB-015; MODIFIED REQ-LIB-039; MODIFIED REQ-LIB-070 | REQ-LIB-107, REQ-LIB-014, REQ-LIB-015, REQ-LIB-039, REQ-LIB-070 |
 | 2026-10-26 | compute-digest-via-temp-index | MODIFIED REQ-LIB-015; MODIFIED REQ-LIB-070; MODIFIED REQ-TYPES-082 | REQ-LIB-015, REQ-LIB-070, REQ-TYPES-082 |
 | 2026-10-25 | judge-freshness-by-content-digest | MODIFIED REQ-LIB-015; MODIFIED REQ-LIB-039; MODIFIED REQ-LIB-070; MODIFIED REQ-TYPES-073; MODIFIED REQ-TESTS-112; MODIFIED REQ-TESTS-067 | REQ-LIB-015, REQ-LIB-039, REQ-LIB-070, REQ-TYPES-073, REQ-TESTS-112, REQ-TESTS-067 |
 | 2026-10-24 | hint-exclude-on-stale-evidence | MODIFIED REQ-CLI-052 | REQ-CLI-052 |

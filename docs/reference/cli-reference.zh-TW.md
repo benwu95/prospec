@@ -509,7 +509,7 @@ claude mcp add -s user prospec-b -- prospec mcp serve --cwd /path/to/B
   - **檢驗維度清單**：
     - **規格與連結**：懸空 REQ 引用、Feature Specs 間 REQ id 唯一性（`req-id-uniqueness`，FAIL）、失效 Markdown 連結、Feature Spec frontmatter 計數對帳（`story_count`/`req_count`）。
     - **架構與依賴**：依 `module-map.yaml` 驗證 import 依賴方向、REQ-prefix 合法性（WARN）、feature→module 邊界（FAIL）。
-    - **知識庫健康**：模組新鮮度（記錄的 `source_digest` vs 目前原始碼，WARN）、檔案 Token 與行數預算（`knowledge-size`，WARN）、README 宣告計數真實性（WARN）。
+    - **知識庫健康**：模組新鮮度（記錄的 `source_digest` vs 目前原始碼，WARN）、檔案 Token 與行數預算（`knowledge-size`，WARN）、README 宣告計數真實性（WARN）、source digest 無法照寫法讀取的模組路徑（`unsupported-module-path`，WARN）。
     - **審查與測試出處**：
       - `review-provenance`：已實作或已驗證的變更必須具備對應現行程式碼的 review 記錄。
       - `test-provenance`：變更必須具備最新且通過（綠燈）的測試記錄。

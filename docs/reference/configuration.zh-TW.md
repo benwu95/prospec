@@ -49,7 +49,7 @@ Scanner 一律排除 `node_modules`、`.git`、`dist`、`build`、`coverage` 等
 | `knowledge.additional_core_conventions` | string[] | `[]` | 額外預載為 L1 Core Conventions 的慣例檔案，路徑相對 Knowledge 目錄。 |
 | `knowledge.generated_artifacts` | string[] | `[]` | 以專案根目錄為基準的 generated artifact patterns，排除於 Knowledge staleness（模組原始碼 digest 與 `last_src_commit`）。 |
 
-將應與內建 Core Conventions 一起載入的共用 API 或安全規則加入 `additional_core_conventions`。`generated_artifacts` 標示 source tree 裡的建置輸出：這些檔案不計入模組的原始碼 digest，也不會移動 `last_src_commit`，因此單純重新產生 bundle 不會讓模組變成 stale。Prospec 不會從建置系統推導這份清單。
+將應與內建 Core Conventions 一起載入的共用 API 或安全規則加入 `additional_core_conventions`。`generated_artifacts` 標示 source tree 裡的建置輸出：這些檔案不計入模組的原始碼 digest，也不會移動 `last_src_commit`，因此單純重新產生 bundle 不會讓模組變成 stale。Prospec 不會從建置系統推導這份清單。每個項目的讀法與 `module-map.yaml` 的 path 相同：不含 `*` 時是字面路徑，含 `*` 時是 git 以 `:(glob)` 比對的 glob，其中 `*` 只匹配單一目錄層，`**/` 匹配任意層目錄。`prospec check` 以 `unsupported-module-path` 回報的 pattern 不排除任何檔案。
 
 ## Knowledge 預算
 

@@ -515,7 +515,7 @@ deliberately not included in this version.
   - **Audit Dimensions**:
     - **Specs & Links**: Dangling REQ references, REQ id uniqueness across Feature Specs (`req-id-uniqueness`, FAIL), broken Markdown links, Feature Spec frontmatter count reconciliation (`story_count`/`req_count`).
     - **Architecture & Dependencies**: Import directions enforced by `module-map.yaml`, REQ-prefix legality (WARN), feature→module boundaries (FAIL).
-    - **Knowledge Health**: Module freshness (recorded `source_digest` vs the current source, WARN), token and line size budgets (`knowledge-size`, WARN), README declared resource counts (WARN).
+    - **Knowledge Health**: Module freshness (recorded `source_digest` vs the current source, WARN), token and line size budgets (`knowledge-size`, WARN), README declared resource counts (WARN), module paths the source digest cannot read as written (`unsupported-module-path`, WARN).
     - **Review & Test Provenance**:
       - `review-provenance`: Implemented or verified changes must have a recorded review matching the current code.
       - `test-provenance`: Changes must have a recorded current, passing (green) test run.

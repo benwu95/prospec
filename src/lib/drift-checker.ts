@@ -41,6 +41,7 @@ import type {
   TestProvenanceSource,
   TestProvenanceChange,
   BudgetOverrideSource,
+  UnsupportedModulePathSource,
   CanonicalDocDriftSource,
   LanguagePolicyDriftSource,
   SkillReferenceMapSource,
@@ -107,6 +108,7 @@ export interface DriftCheckInputs {
   metadataCompleteness: MetadataCompletenessSource;
   knowledgeSize: KnowledgeSizeSource;
   budgetOverrides: BudgetOverrideSource;
+  unsupportedModulePaths: UnsupportedModulePathSource;
   testProvenance: TestProvenanceSource;
   constitutionRules: ConstitutionRuleSource;
   artifactLanguage: ArtifactLanguageSource;
@@ -823,6 +825,31 @@ export function evaluateKnowledgeSize(src: KnowledgeSizeSource): CheckOutcome {
   return outcome('knowledge-size', findings);
 }
 
+const GENERATED_ARTIFACTS_OWNER = 'knowledge.generated_artifacts';
+
+const REFUSAL_WHY: Record<UnsupportedModulePathSource['paths'][number]['reason'], string> = {
+  outside: 'it resolves outside the project',
+  magic: 'it begins with git pathspec magic',
+  brace: 'git does not expand braces',
+  dotdot: 'a glob with a `..` segment can leave the project',
+  absolute: 'an absolute glob is not project-relative',
+};
+
+/** Module paths the source digest cannot read as written (REQ-LIB-107) — WARN-only. */
+export function evaluateUnsupportedModulePaths(src: UnsupportedModulePathSource): CheckOutcome {
+  if (!src.available) return skipped('unsupported-module-path', src.reason ?? 'source unavailable');
+  const findings: DriftFinding[] = src.paths.map((p) => ({
+    check: 'unsupported-module-path',
+    severity: 'warn',
+    source_path: p.source_path,
+    // A refused module path drops its files from freshness; a refused generated pattern keeps them in.
+    detail: `unsupported module path: ${p.owner} declares \`${p.path}\`, ${p.owner === GENERATED_ARTIFACTS_OWNER
+      ? 'which excludes nothing from the source digest or last_src_commit'
+      : 'which the source digest and last_src_commit read nothing through'} — ${REFUSAL_WHY[p.reason]}. Rewrite: ${p.hint}.`,
+  }));
+  return outcome('unsupported-module-path', findings);
+}
+
 /**
  * Budget overrides — any token_budget override > default must have an adjacent YAML
  * comment, and a shipped budget key (skill / reference) written into token_budget is
@@ -1406,6 +1433,7 @@ export function runChecks(inputs: DriftCheckInputs): DriftReport {
     'req-id-uniqueness': evaluateReqIdUniqueness(inputs.reqIdUniqueness),
     'language-policy-drift': evaluateLanguagePolicyDrift(inputs.languagePolicyDrift),
     'skill-reference-map': evaluateSkillReferenceMap(inputs.skillReferenceMap),
+    'unsupported-module-path': evaluateUnsupportedModulePaths(inputs.unsupportedModulePaths),
   };
   const checks = DRIFT_CHECK_IDS.map((id) => outcomes[id].result);
   const findings = DRIFT_CHECK_IDS.flatMap((id) => outcomes[id].findings).sort(compareFindings);

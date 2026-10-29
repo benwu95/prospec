@@ -146,7 +146,7 @@ describe('US-1: history moves around a stamp', () => {
     expect(isStale(dir, ['src/lib/gen.ts'])).toBe(false);
   });
 
-  it('lists the module without the exclusion when git cannot parse the generated-artifact pathspec', () => {
+  it('excludes nothing for a generated-artifact pattern the unsupported-module-path check refuses', () => {
     const generated = [':(bogus)src/lib/*.ts'];
     stamp(dir, generated);
     expect(freshness(dir, generated).freshness?.basis).toBe('digest-match');

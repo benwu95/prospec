@@ -30,6 +30,7 @@ const FROZEN_CHECK_IDS = [
   'req-id-uniqueness',
   'language-policy-drift',
   'skill-reference-map',
+  'unsupported-module-path',
 ] as const;
 import { DriftReportInvalid } from '../../../src/types/errors.js';
 

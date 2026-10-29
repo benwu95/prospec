@@ -214,14 +214,54 @@ export function projectRelativePath(cwd: string, p: string, paths: typeof path =
   return paths.relative(cwd, paths.resolve(cwd, p)).split(paths.sep).join('/');
 }
 
-/** Drop module paths that escape the repo — they must never drive scanning or reads. */
+/** Whether a `projectRelativePath` result leaves the project — judged by path segment, so
+ *  a directory named `..cache` stays inside. */
+export function escapesProject(rel: string, paths: typeof path = path): boolean {
+  return rel === '..' || rel.startsWith('../') || paths.isAbsolute(rel);
+}
+
+export type ModulePathRefusal = 'outside' | 'magic' | 'brace' | 'dotdot' | 'absolute';
+
+/** How a module path reaches git: a literal path by its project-relative form (`''` is the
+ *  project root), a glob exactly as written under `:(glob)`, or refused with a rewrite hint. */
+export type ModulePathSpec =
+  | { kind: 'literal'; rel: string }
+  | { kind: 'glob'; raw: string }
+  | { kind: 'refused'; reason: ModulePathRefusal; hint: string };
+
+const REFUSAL_HINTS: Record<ModulePathRefusal, string> = {
+  outside: 'point it at a path inside the project, or remove it',
+  magic: 'remove the leading `:` — prospec applies its own pathspec magic',
+  brace: 'list each alternative as its own path',
+  dotdot: 'write the glob without `..` segments',
+  absolute: 'write the glob relative to the project root',
+};
+
+/** The one rule every git-backed reader of module paths applies (REQ-LIB-015, REQ-LIB-107).
+ *  A glob is never rewritten: only its segments are inspected, so git sees what was written. */
+export function classifyModulePathSpec(raw: string, cwd: string, paths: typeof path = path): ModulePathSpec {
+  const refused = (reason: ModulePathRefusal): ModulePathSpec => ({ kind: 'refused', reason, hint: REFUSAL_HINTS[reason] });
+  const rel = projectRelativePath(cwd, raw, paths);
+  if (escapesProject(rel, paths)) return refused('outside');
+  if (raw.startsWith(':')) return refused('magic');
+  if (!raw.includes('*')) return { kind: 'literal', rel };
+  if (/[{}]/.test(raw)) return refused('brace');
+  const separator = paths.sep === '\\' ? /[\\/]/ : /\//;
+  if (raw.split(separator).includes('..')) return refused('dotdot');
+  if (paths.isAbsolute(raw)) return refused('absolute');
+  return { kind: 'glob', raw };
+}
+
+/** Drop module paths that escape the project — they must never drive scanning or reads — and
+ *  every glob whose project-relative form is the root itself; a literal project root stays. */
 export function clampModulePaths(moduleMap: ModuleMap, cwd: string): ModuleMap {
   return {
     modules: moduleMap.modules.map((m) => ({
       ...m,
       paths: m.paths.filter((p) => {
-        const rel = projectRelativePath(cwd, p);
-        return rel !== '' && !rel.startsWith('..') && !path.isAbsolute(rel);
+        const spec = classifyModulePathSpec(p, cwd);
+        if (spec.kind === 'refused' && spec.reason === 'outside') return false;
+        return !(p.includes('*') && projectRelativePath(cwd, p) === '');
       }),
     })),
   };

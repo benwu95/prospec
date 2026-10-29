@@ -5,6 +5,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { collectModuleDigests, computeEvidenceStates } from '../../../src/lib/drift-sources.js';
 import type { ModuleMap } from '../../../src/types/module-map.js';
+import { loadModuleMap } from '../../../src/lib/knowledge-reader.js';
 import { gitIn } from '../../helpers/git-fixture.js';
 
 vi.setConfig({ testTimeout: 30_000 });
@@ -197,7 +198,8 @@ describe('collectModuleDigests (REQ-LIB-015)', () => {
     expect(digestOf(['src/empty']).digest).toMatch(/^source-v1:/);
     const none = digests([mod('m', [])]).get('m')!;
     expect(none.digest).toBeNull();
-    expect(none.reason).toMatch(/no source path/);
+    expect(none.reason).toMatch(/no supported source path/);
+    expect(none.reason).toContain('unsupported-module-path');
   });
 
   // Creating symlinks needs a privilege Windows CI runners do not grant.
@@ -665,5 +667,128 @@ describe('what git would record (REQ-LIB-015)', () => {
     gitIn(root, 'add', '-A');
     gitIn(root, 'commit', '-qm', 'link');
     expect(digestOf(['src']).digest).toBe(unstaged);
+  });
+});
+
+describe('module paths as git reads them (REQ-LIB-015, REQ-LIB-039)', () => {
+  const lsGlob = (glob: string, cwd = root) =>
+    execFileSync('git', ['ls-files', '-z', '--cached', '--others', '--exclude-standard', '--', `:(glob)${glob}`], { cwd })
+      .toString().split('\0').filter(Boolean);
+
+  it('gives a project-root module, whatever its spelling, a digest that follows every source file', () => {
+    const base = digestOf(['.']);
+    expect(base.digest, base.reason).toMatch(/^source-v1:/);
+    for (const spelling of ['./', 'src/..']) expect(digestOf([spelling]).digest, spelling).toBe(base.digest);
+    expect(base.digest).toBe(digestOf(['src', '.gitignore']).digest);
+    put('src/other/c.ts', 'edited\n');
+    expect(digestOf(['.']).digest).not.toBe(base.digest);
+  });
+
+  it('keeps the knowledge base, the Feature Specs and the bookkeeping out of a project-root module', () => {
+    const base = digestOf(['.']).digest;
+    put('prospec/ai-knowledge/module-map.yaml', 'modules: [] # stamped\n');
+    put('prospec/specs/features/x.md', '# graduated\n');
+    put('.prospec/changes/c/proposal.md', '# c\n');
+    expect(digestOf(['.']).digest).toBe(base);
+  });
+
+  it('confines a project-root module to a project in a repository subdirectory', () => {
+    put('proj/src/a.ts', 'a\n');
+    gitIn(root, 'add', 'proj');
+    gitIn(root, 'commit', '-qm', 'proj');
+    const project = path.join(root, 'proj');
+    const base = digests([mod('m', ['.'])], [], project).get('m')!.digest;
+    expect(base).toBe(digests([mod('m', ['src'])], [], project).get('m')!.digest);
+    put('src/lib/a.ts', 'outside the project\n');
+    expect(digests([mod('m', ['.'])], [], project).get('m')!.digest).toBe(base);
+    put('proj/src/a.ts', 'inside\n');
+    expect(digests([mod('m', ['.'])], [], project).get('m')!.digest).not.toBe(base);
+  });
+
+  it('covers exactly the files git lists for a glob under :(glob), in the repository root and a subdirectory', () => {
+    put('src/top.ts', 't\n');
+    put('name/x/n.ts', 'n\n');
+    put('pkg/name/y/m.ts', 'm\n');
+    put('proj/name/z.ts', 'z\n');
+    put('proj/src/deep/d.ts', 'd\n');
+    put('proj/src/p.ts', 'p\n');
+    gitIn(root, 'add', '.');
+    gitIn(root, 'commit', '-qm', 'globs');
+    const project = path.join(root, 'proj');
+    for (const [glob, cwd] of [['src/*.ts', root], ['**/name/**', root], ['src/*.ts', project], ['**/name/**', project]] as const) {
+      const listed = lsGlob(glob, cwd);
+      expect(listed.length, `${glob} in ${cwd}`).toBeGreaterThan(0);
+      expect(digests([mod('m', [glob])], [], cwd).get('m')!.digest, `${glob} in ${cwd}`)
+        .toBe(digests([mod('m', listed)], [], cwd).get('m')!.digest);
+    }
+    const single = digestOf(['src/*.ts']).digest;
+    put('src/lib/a.ts', 'nested\n');
+    expect(digestOf(['src/*.ts']).digest).toBe(single);
+    const named = digestOf(['**/name/**']).digest;
+    put('name/x/n.ts', 'top-level\n');
+    expect(digestOf(['**/name/**']).digest).not.toBe(named);
+  });
+
+  it('reads a glob the way git normalizes it', () => {
+    const base = digestOf(['src/**']).digest;
+    for (const spelling of ['./src/**', 'src//**']) expect(digestOf([spelling]).digest, spelling).toBe(base);
+  });
+
+  it('counts no file through a refused path, and names the refused paths when no supported path remains', () => {
+    const base = digestOf(['src/lib']).digest;
+    const refused = ['src/{a,b}/**', ':(top)src/other', 'src/*/../other/**', path.join(root, 'src/other/**')];
+    expect(digestOf(['src/lib', ...refused]).digest).toBe(base);
+    const none = digestOf(['src/{a,b}/**', ':(top)src/other']);
+    expect(none.digest).toBeNull();
+    expect(none.reason).toMatch(/no supported source path/);
+    expect(none.reason).toContain('src/{a,b}/**');
+    expect(none.reason).toContain(':(top)src/other');
+    expect(none.reason).toContain('unsupported-module-path');
+  });
+
+  it('refers to the unsupported-module-path check when the clamp already dropped every declared path (review R1-1)', () => {
+    put('prospec/ai-knowledge/module-map.yaml', [
+      'modules:',
+      '  - name: out',
+      '    paths: ["../elsewhere", "src/../../x/**"]',
+      '    keywords: []',
+      '  - name: rootglob',
+      '    paths: ["*/.."]',
+      '    keywords: []',
+    ].join('\n'));
+    const map = loadModuleMap(path.join(root, 'prospec/ai-knowledge'), root)!;
+    expect(map.modules.map((m) => m.paths)).toEqual([[], []]);
+    const result = collectModuleDigests(root, map, {
+      knowledgePath: path.join(root, 'prospec/ai-knowledge'),
+      specsPath: path.join(root, 'prospec/specs'),
+      generatedArtifacts: [],
+    });
+    for (const name of ['out', 'rootglob']) {
+      expect(result.get(name)!.digest, name).toBeNull();
+      expect(result.get(name)!.reason, name).toMatch(/no supported source path/);
+      expect(result.get(name)!.reason, name).toContain('unsupported-module-path');
+    }
+  });
+
+  it('matches a literal path holding brackets or a question mark as the path it names', () => {
+    put('app/[id]/p.ts', 'p\n');
+    put('app/i/x.ts', 'x\n');
+    gitIn(root, 'add', 'app');
+    gitIn(root, 'commit', '-qm', 'app');
+    const base = digestOf(['app/[id]']).digest;
+    expect(base).toBe(digestOf(['app/[id]/p.ts']).digest);
+    put('app/i/x.ts', 'edited\n');
+    expect(digestOf(['app/[id]']).digest).toBe(base);
+    expect(digestOf(['src/lib/?.ts']).digest).toBe(digestOf(['src/lib/none.ts']).digest);
+  });
+
+  it('reads generated artifacts by the same rule, a refused pattern excluding nothing', () => {
+    put('src/top.ts', 't\n');
+    gitIn(root, 'add', '.');
+    gitIn(root, 'commit', '-qm', 'top');
+    expect(digestOf(['src'], ['src/*.ts']).digest).toBe(digestOf(['src/lib', 'src/other']).digest);
+    expect(digestOf(['src/lib'], ['src/lib/{a,b}.ts']).digest).toBe(digestOf(['src/lib']).digest);
+    expect(digestOf(['src/lib'], ['../outside']).digest).toBe(digestOf(['src/lib']).digest);
+    expect(digestOf(['src/lib'], ['.']).digest).toBe(digestOf(['src/lib']).digest);
   });
 });

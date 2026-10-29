@@ -48,6 +48,16 @@ describe('partitionMissingSync (REQ-TESTS-088)', () => {
     expect(r.missing).toEqual(['cli']);
   });
 
+  it('counts no file toward a project-root module, so only the other modules are source-touched (REQ-LIB-014)', () => {
+    const head = map([
+      { name: 'whole', paths: ['.', './', 'src/..'], last_verified: '2026-01-01T00:00:00Z' },
+      { name: 'lib', paths: ['src/lib'], last_verified: '2026-01-01T00:00:00Z' },
+    ]);
+    const r = partitionMissingSync(['top.ts', 'src/other.ts', 'src/lib/foo.ts'], head, head);
+    expect(r.srcModules).toEqual(['lib']);
+    expect(r.missing).toEqual(['lib']);
+  });
+
   it('ignores non-module paths (scripts, docs, knowledge)', () => {
     const r = partitionMissingSync(
       ['scripts/x.ts', 'README.md', 'prospec/ai-knowledge/modules/lib/README.md'],

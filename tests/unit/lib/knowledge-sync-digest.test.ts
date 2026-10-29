@@ -63,6 +63,20 @@ describe('findUnsyncedModules by source digest (REQ-LIB-097)', () => {
     expect((await gaps()).stale).toEqual(['lib']);
   });
 
+  it('reads a project-root module from the loaded, clamped map and judges it by its digest', async () => {
+    const rootMap = (lib: Partial<ModuleMap['modules'][number]>): ModuleMap => baseMap({ paths: ['.'], ...lib });
+    const rootDigest = collectModuleDigests(root, rootMap({}), {
+      knowledgePath: knowledge(),
+      specsPath: path.join(root, 'prospec/specs'),
+      generatedArtifacts: [],
+    }).get('lib')!.digest!;
+    expect(rootDigest).toMatch(/^source-v1:/);
+    writeMap(rootMap({ source_digest: rootDigest }));
+    expect((await gaps()).stale).toEqual([]);
+    put('src/cli/b.ts', 'edited outside src/lib\n');
+    expect((await gaps()).stale).toEqual(['lib']);
+  });
+
   it('answers the affected module the same way the whole-map assessment does', async () => {
     writeMap(baseMap({ source_digest: currentDigest() }));
     put('src/cli/b.ts', 'edited\n');

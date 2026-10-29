@@ -5,6 +5,7 @@ import { execFileSync } from 'node:child_process';
 import { mkdtempSync, rmSync, mkdirSync, writeFileSync } from 'node:fs';
 import {
   collectGitTimestamps,
+  collectModuleDigests,
   computeChangeDigest,
   changedPathsFromWorkTree,
 } from '../../../src/lib/drift-sources.js';
@@ -25,7 +26,7 @@ vi.setConfig({ testTimeout: 30_000 });
  * pattern the diff branch was fixed for.
  */
 
-const state = vi.hoisted(() => ({ failLsFiles: false, failExcludePathspec: false, failStatus: false }));
+const state = vi.hoisted(() => ({ failLsFiles: false, failExcludePathspec: false, failStatus: false, failGlobListing: false }));
 
 vi.mock('node:child_process', async (importOriginal) => {
   const actual = await importOriginal<typeof import('node:child_process')>();
@@ -39,9 +40,12 @@ vi.mock('node:child_process', async (importOriginal) => {
       if (
         state.failExcludePathspec &&
         Array.isArray(args) &&
-        args.some((a) => typeof a === 'string' && a.startsWith(':(exclude)'))
+        args.some((a) => typeof a === 'string' && a.startsWith(':(exclude'))
       ) {
         throw new Error('simulated pathspec-magic failure');
+      }
+      if (state.failGlobListing && args.includes('ls-files') && args.some((a) => typeof a === 'string' && a.startsWith(':(glob)'))) {
+        throw new Error('simulated glob listing failure');
       }
       return (actual.execFileSync as (...a: unknown[]) => unknown)(file, args, opts);
     }) as typeof import('node:child_process').execFileSync,
@@ -60,6 +64,7 @@ describe('computeChangeDigest under selective git-capture failure', () => {
     state.failStatus = false;
     state.failLsFiles = false;
     state.failExcludePathspec = false;
+    state.failGlobListing = false;
     git('init', '-q');
     git('config', 'user.email', 'test@test.dev');
     git('config', 'user.name', 'test');
@@ -114,6 +119,28 @@ describe('computeChangeDigest under selective git-capture failure', () => {
 
       expect(r.available).toBe(true);
       expect(r.modules[0]?.last_src_commit).toBeTruthy();
+    });
+  });
+
+  // REQ-LIB-039 — a generated-artifact glob git cannot list lifts the exclusion, never
+  // leaving the module digested without files the exclusion was never proven to cover.
+  describe('generated-artifact glob under a listing failure', () => {
+    const digestWith = (generated: string[]) => collectModuleDigests(tmpDir, { modules: [{ name: 'lib', paths: ['src/lib'], keywords: [] }] }, {
+      knowledgePath: path.join(tmpDir, 'prospec/ai-knowledge'),
+      specsPath: path.join(tmpDir, 'prospec/specs'),
+      generatedArtifacts: generated,
+    }).get('lib')!;
+
+    it('digests the module without any generated-artifact exclusion, literal patterns included', () => {
+      writeFileSync(path.join(tmpDir, 'src/lib/gen.ts'), 'generated\n');
+      writeFileSync(path.join(tmpDir, 'src/lib/other.ts'), 'authored\n');
+      git('add', '.');
+      git('commit', '-q', '-m', 'gen');
+      const generated = ['src/lib/gen*.ts', 'src/lib/x.ts'];
+      const unexcluded = digestWith([]).digest;
+      expect(digestWith(generated).digest).not.toBe(unexcluded);
+      state.failGlobListing = true;
+      expect(digestWith(generated).digest).toBe(unexcluded);
     });
   });
 

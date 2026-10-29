@@ -137,6 +137,23 @@ describe('auto-draft.service', () => {
     expect(metadata).toMatch(/related_modules:\n\s+- services/);
   });
 
+  it('drafts an unsupported module path as a quick fix (REQ-LIB-107)', async () => {
+    const findings: DriftFinding[] = [
+      {
+        check: 'unsupported-module-path',
+        severity: 'warn',
+        source_path: 'prospec/ai-knowledge/module-map.yaml',
+        detail: 'unsupported module path: lib declares `src/{a,b}/**`',
+      },
+    ];
+
+    const result = await execute({ cwd, findings });
+
+    // The finding sits in module-map.yaml, which no module's paths cover, so it drafts under `general`.
+    expect(result.changes[0]!.name).toBe('fix-general-unsupported-module-path');
+    expect(result.changes[0]!.scale).toBe('quick');
+  });
+
   it('attributes a source path through module-map, not a hardcoded src/ shape', async () => {
     const findings: DriftFinding[] = [
       {

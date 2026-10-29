@@ -5,6 +5,7 @@ import { promisify } from 'node:util';
 import path from 'node:path';
 import { ScanError } from '../types/errors.js';
 import { CORE_CONVENTIONS } from '../types/conventions.js';
+import { escapesProject, projectRelativePath } from './knowledge-reader.js';
 
 const execFileAsync = promisify(execFile);
 
@@ -234,15 +235,16 @@ export type ModulePathKind = 'glob' | 'file' | 'dir' | 'missing';
 /**
  * Classify one `module-map.yaml` `paths` entry by what it points at on disk —
  * the single source of truth for how the entry is scanned/attributed. A glob
- * (contains `*`) is honored verbatim. An entry that resolves outside `cwd` (same
- * lexical containment as `clampModulePaths`) or does not exist is `missing`, so
+ * (contains `*`) is honored verbatim. An entry that escapes `cwd` (judged by the
+ * `escapesProject` predicate `clampModulePaths` also applies), resolves to the project
+ * root itself, or does not exist is `missing`, so
  * callers fall back to literal-prefix behavior rather than fabricating a match.
  */
 export function classifyModulePath(rawPath: string, cwd: string): ModulePathKind {
   if (rawPath.includes('*')) return 'glob';
   const abs = path.resolve(cwd, rawPath);
-  const rel = path.relative(cwd, abs);
-  if (rel === '' || rel.startsWith('..') || path.isAbsolute(rel)) return 'missing';
+  const rel = projectRelativePath(cwd, rawPath);
+  if (rel === '' || escapesProject(rel)) return 'missing';
   try {
     const stat = statSync(abs);
     if (stat.isDirectory()) return 'dir';
