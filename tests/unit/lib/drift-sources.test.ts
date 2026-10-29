@@ -31,6 +31,7 @@ import {
   computeWorkingTreeClean,
   computeDeltaSpecDigest,
   collectBudgetOverrides,
+  collectUnsupportedModulePaths,
   moduleAttributor,
   collectCanonicalDocDrift,
   changedPathsFromWorkTree,
@@ -38,6 +39,7 @@ import {
   collectLanguagePolicyDrift,
 } from '../../../src/lib/drift-sources.js';
 import { ProspecError } from '../../../src/types/errors.js';
+import { clampModulePaths, loadModuleMap } from '../../../src/lib/knowledge-reader.js';
 import { resolveLanguageScope } from '../../../src/lib/language-policy.js';
 import { languagePolicyRule } from '../../../src/lib/constitution-rules.js';
 import { evaluateKnowledgeHealth, evaluateReqReferences, evaluateChangeTestEvidence } from '../../../src/lib/drift-checker.js';
@@ -1113,6 +1115,29 @@ describe('collectImportEdges', () => {
     expect(edges).toEqual([]);
   });
 
+  it('scans no project-root path, so a project declaring only the root reports what it reported before (REQ-LIB-014)', () => {
+    write('src/a.ts', "import { b } from './b.js';\n");
+    write('src/b.ts', '');
+    for (const root of ['.', './', 'src/..']) {
+      const r = collectImportEdges(tmpDir, { modules: [{ name: 'whole', paths: [root], keywords: [] }] });
+      expect(r.available, root).toBe(false);
+      expect(r.reason, root).toContain('source unavailable');
+    }
+  });
+
+  it('reads no file through a glob that escapes the project, once the clamp has dropped it (REQ-LIB-014)', () => {
+    const project = path.join(tmpDir, 'pkg');
+    write('src/outside.ts', "import { x } from '../pkg/src/a.js';\n");
+    write('pkg/src/a.ts', '');
+    const clamped = clampModulePaths(
+      { modules: [{ name: 'evil', paths: ['../src/**', path.join(tmpDir, 'src/**')], keywords: [] }, { name: 'own', paths: ['src'], keywords: [] }] },
+      project,
+    );
+    expect(clamped.modules[0]?.paths).toEqual([]);
+    const r = collectImportEdges(project, clamped);
+    expect(r.edges.some((e) => e.from_path.startsWith('..'))).toBe(false);
+  });
+
   it('reports unavailable when none of the module paths exist on disk (FR-007)', () => {
     const r = collectImportEdges(tmpDir, MODULE_MAP);
     expect(r.available).toBe(false);
@@ -1459,7 +1484,7 @@ describe('collectGitTimestamps', () => {
   });
 });
 
-describe('collectGitTimestamps batched walk (REQ-LIB-070)', () => {
+describe('collectGitTimestamps per path-group (REQ-LIB-070)', () => {
   const git = (args: string[], date?: string) =>
     execFileSync('git', args, {
       cwd: tmpDir,
@@ -1472,7 +1497,7 @@ describe('collectGitTimestamps batched walk (REQ-LIB-070)', () => {
     git(['add', '.']);
     git(['commit', '-q', '-m', date], date);
   };
-  /** Independent per-module `git log -1` — the byte-identical reference the batch replaces. */
+  /** Independent per-module `git log -1` — the reference each path-group's query must equal. */
   const logOne = (paths: string[], excludes: string[] = []): string | null => {
     const base = ['log', '-1', '--format=%cI', '--', ...paths];
     if (excludes.length > 0) {
@@ -1488,7 +1513,7 @@ describe('collectGitTimestamps batched walk (REQ-LIB-070)', () => {
     );
   };
 
-  it('stays byte-identical to per-module git log across excludes, sub-modules and later commits', () => {
+  it('matches git log for each path-group across excludes, sub-modules and later commits', () => {
     git(['init', '-q']);
     git(['config', 'user.email', 't@t.dev']);
     git(['config', 'user.name', 't']);
@@ -1507,7 +1532,7 @@ describe('collectGitTimestamps batched walk (REQ-LIB-070)', () => {
       'src/cli/generated.ts': 'gen',
     });
     // A LATER commit touching ONLY cli's generated artifact — it must not move cli's
-    // last_src_commit off 05-03 (the exclude reproduced in-walk, REQ-LIB-039).
+    // last_src_commit off 05-03 (the generated-artifact exclusion, REQ-LIB-039).
     commit('2026-05-04T00:00:00+00:00', { 'src/cli/generated.ts': 'gen2' });
 
     const generated = ['src/cli/generated.ts'];
@@ -1537,8 +1562,8 @@ describe('collectGitTimestamps batched walk (REQ-LIB-070)', () => {
   it('attributes a module to a merge commit that combined edits from both parents (REQ-LIB-070)', () => {
     // Regression pin (issue #223 review F-1): `git log --name-only` omits merge diffs
     // by default, so a module whose newest source change is a combining merge would
-    // resolve to the OLDER branch commit — fail-open staleness. The batch must use
-    // combined-diff (`-c`) so it matches `git log -1 -- <path>` (which returns the merge).
+    // resolve to the OLDER branch commit — fail-open staleness. Each path-group asks
+    // `git log -1` itself, which returns the merge.
     git(['init', '-q']);
     git(['config', 'user.email', 't@t.dev']);
     git(['config', 'user.name', 't']);
@@ -1569,6 +1594,73 @@ describe('collectGitTimestamps batched walk (REQ-LIB-070)', () => {
     expect(ref).toContain('2026-02-04'); // sanity: the merge is the last touch per git
     const r = collectGitTimestamps(tmpDir, MAP, 'knowledge', []);
     expect(r.modules.find((m) => m.name === 'lib')?.last_src_commit).toBe(ref);
+  });
+
+  const lastSrc = (cwd: string, paths: string[], name = 'm') =>
+    collectGitTimestamps(cwd, { modules: [{ name, paths, keywords: [], relationships: { depends_on: [] } }] }, 'knowledge', [])
+      .modules.find((m) => m.name === name)?.last_src_commit ?? null;
+  const initRepo = () => {
+    git(['init', '-q']);
+    git(['config', 'user.email', 't@t.dev']);
+    git(['config', 'user.name', 't']);
+  };
+
+  it('answers a project in a repository subdirectory without a same-named path outside it', () => {
+    initRepo();
+    commit('2026-05-01T00:00:00+00:00', { 'pkg/src/a.ts': 'a' });
+    commit('2026-05-02T00:00:00+00:00', { 'src/x.ts': 'outside the project' });
+    const project = path.join(tmpDir, 'pkg');
+    expect(lastSrc(project, ['src'])).toContain('2026-05-01');
+    expect(lastSrc(project, ['.'])).toContain('2026-05-01');
+  });
+
+  it('answers a merge whose two sides change different files of one module, at the root and in a subdirectory', () => {
+    initRepo();
+    for (const prefix of ['', 'pkg/']) {
+      const side = prefix === '' ? 'side-root' : 'side-pkg';
+      commit('2026-02-01T00:00:00+00:00', { [`${prefix}src/lib/a.ts`]: 'a', [`${prefix}src/lib/b.ts`]: 'b' });
+      const base = git(['rev-parse', '--abbrev-ref', 'HEAD']).trim();
+      git(['checkout', '-q', '-b', side]);
+      commit('2026-02-02T00:00:00+00:00', { [`${prefix}src/lib/a.ts`]: 'a2' });
+      git(['checkout', '-q', base]);
+      commit('2026-02-03T00:00:00+00:00', { [`${prefix}src/lib/b.ts`]: 'b2' });
+      git(['merge', '--no-ff', '-q', side, '-m', 'merge'], '2026-02-04T00:00:00+00:00');
+      expect(lastSrc(path.join(tmpDir, prefix), ['src/lib']), prefix || 'root').toContain('2026-02-04');
+    }
+  });
+
+  it('answers a glob module by the files :(glob) covers', () => {
+    initRepo();
+    commit('2026-03-01T00:00:00+00:00', { 'src/top.ts': 't' });
+    commit('2026-03-02T00:00:00+00:00', { 'src/a/deep.ts': 'd' });
+    expect(lastSrc(tmpDir, ['src/*.ts'])).toContain('2026-03-01');
+    expect(lastSrc(tmpDir, ['src/**'])).toContain('2026-03-02');
+  });
+
+  it('ignores a commit that touches only a refused path, and answers null with no supported path', () => {
+    initRepo();
+    commit('2026-04-01T00:00:00+00:00', { 'src/lib/x.ts': 'x' });
+    commit('2026-04-02T00:00:00+00:00', { 'src/a/y.ts': 'y' });
+    expect(lastSrc(tmpDir, ['src/lib', 'src/{a,b}/**'])).toContain('2026-04-01');
+    for (const paths of [['src/{a,b}/**'], [], ['../elsewhere']]) expect(lastSrc(tmpDir, paths), paths.join(',')).toBeNull();
+  });
+
+  it('answers alike whatever pathspec variables the caller exports', () => {
+    initRepo();
+    commit('2026-06-01T00:00:00+00:00', { 'src/top.ts': 't' });
+    const glob = lastSrc(tmpDir, ['src/*.ts']);
+    const literal = lastSrc(tmpDir, ['src']);
+    try {
+      vi.stubEnv('GIT_LITERAL_PATHSPECS', '1');
+      expect(lastSrc(tmpDir, ['src/*.ts'])).toBe(glob);
+      expect(lastSrc(tmpDir, ['src'])).toBe(literal);
+      vi.unstubAllEnvs();
+      vi.stubEnv('GIT_ICASE_PATHSPECS', '1');
+      expect(lastSrc(tmpDir, ['SRC'])).toBeNull();
+      expect(lastSrc(tmpDir, ['SRC/*.ts'])).toBeNull();
+    } finally {
+      vi.unstubAllEnvs();
+    }
   });
 
   it('short-circuits on the shared inWorkTree=false even inside a real repo', () => {
@@ -2275,6 +2367,20 @@ describe('moduleAttributor', () => {
       ],
     });
     expect(attribute('src/services/a.ts')).toBe('literal');
+  });
+
+  it('attributes no file to a project-root path, leaving every other module its files (REQ-LIB-014)', () => {
+    const attribute = moduleAttributor({
+      modules: [
+        { name: 'whole', paths: ['.', './', 'src/..'], keywords: [] },
+        { name: 'lib', paths: ['src/lib'], keywords: [] },
+        { name: 'auth', paths: ['**/auth/**'], keywords: [] },
+      ],
+    });
+    expect(attribute('top.ts')).toBeNull();
+    expect(attribute('src/other.ts')).toBeNull();
+    expect(attribute('src/lib/a.ts')).toBe('lib');
+    expect(attribute('src/features/auth/login.ts')).toBe('auth');
   });
 });
 
@@ -3541,3 +3647,130 @@ describe('collectChangeTestEvidence — target-scoped facts for the lifecycle ga
     expect(evaluateChangeTestEvidence(facts)).toMatchObject({ verdict: 'refuse', knownFailure: true, failedAttemptId: 'a2' });
   });
 });
+
+describe('collectUnsupportedModulePaths (REQ-LIB-107)', () => {
+  let cwd: string;
+  const kp = () => path.join(cwd, 'prospec/ai-knowledge');
+  const writeMap = (lines: string[]) => {
+    mkdirSync(kp(), { recursive: true });
+    writeFileSync(path.join(kp(), 'module-map.yaml'), `${lines.join('\n')}\n`);
+  };
+  const entries = (r: ReturnType<typeof collectUnsupportedModulePaths>) =>
+    r.paths.map(({ owner, path: p, reason, source_path }) => ({ owner, path: p, reason, source_path }));
+
+  beforeEach(() => {
+    cwd = mkdtempSync(path.join(os.tmpdir(), 'prospec-unsupported-paths-'));
+  });
+  afterEach(() => {
+    rmSync(cwd, { recursive: true, force: true });
+  });
+
+  it('skips when module-map.yaml is absent', () => {
+    const r = collectUnsupportedModulePaths(cwd, kp());
+    expect(r.available).toBe(false);
+    expect(r.reason).toMatch(/module-map\.yaml/);
+  });
+
+  it('skips, and never throws, when module-map.yaml cannot be parsed', () => {
+    writeMap(['modules: [', '  - name: x']);
+    const r = collectUnsupportedModulePaths(cwd, kp());
+    expect(r.available).toBe(false);
+    expect(r.reason).toMatch(/module-map\.yaml/);
+  });
+
+  it('reads the map as written, before the clamp, and names each refused path with its owner, reason and hint', () => {
+    writeMap([
+      'modules:',
+      '  - name: lib',
+      '    paths:',
+      '      - src/lib',
+      '      - ../outside',
+      '      - src/{a,b}/**',
+      '    keywords: []',
+      '  - name: whole',
+      '    paths: [".", ":(top)x"]',
+      '    keywords: []',
+    ]);
+    writeFileSync(path.join(cwd, '.prospec.yaml'), 'knowledge:\n  generated_artifacts:\n    - src/lib/gen.ts\n    - "*/../x/**"\n');
+    const r = collectUnsupportedModulePaths(cwd, kp());
+    expect(r.available).toBe(true);
+    expect(entries(r)).toEqual([
+      { owner: 'lib', path: '../outside', reason: 'outside', source_path: 'prospec/ai-knowledge/module-map.yaml' },
+      { owner: 'lib', path: 'src/{a,b}/**', reason: 'brace', source_path: 'prospec/ai-knowledge/module-map.yaml' },
+      { owner: 'whole', path: ':(top)x', reason: 'magic', source_path: 'prospec/ai-knowledge/module-map.yaml' },
+      { owner: 'knowledge.generated_artifacts', path: '*/../x/**', reason: 'dotdot', source_path: '.prospec.yaml' },
+    ]);
+    for (const entry of r.paths) {
+      expect(entry.hint.length).toBeGreaterThan(0);
+      expect(entry).not.toHaveProperty('line');
+    }
+  });
+
+  it('resolves YAML aliases as loadModuleMap does (review R3-1)', () => {
+    writeMap([
+      'shared: &p',
+      '  - ../outside',
+      '  - src/{a,b}/**',
+      'one: &one "src/*/../x/**"',
+      'modules:',
+      '  - name: lib',
+      '    paths: *p',
+      '    keywords: []',
+      '  - name: mixed',
+      '    paths: [src/lib, *one]',
+      '    keywords: []',
+    ]);
+    writeFileSync(path.join(cwd, '.prospec.yaml'), 'gen: &g\n  - "src/{x,y}/*.ts"\nknowledge:\n  generated_artifacts: *g\n');
+    const r = collectUnsupportedModulePaths(cwd, kp());
+    expect(entries(r).map(({ owner, path: p, reason }) => ({ owner, path: p, reason }))).toEqual([
+      { owner: 'lib', path: '../outside', reason: 'outside' },
+      { owner: 'lib', path: 'src/{a,b}/**', reason: 'brace' },
+      { owner: 'mixed', path: 'src/*/../x/**', reason: 'dotdot' },
+      { owner: 'knowledge.generated_artifacts', path: 'src/{x,y}/*.ts', reason: 'brace' },
+    ]);
+    const loaded = loadModuleMap(kp(), cwd)!;
+    expect(loaded.modules.map((m) => m.paths)).toEqual([['src/{a,b}/**'], ['src/lib', 'src/*/../x/**']]);
+  });
+
+  it('reads merge keys a %YAML 1.1 document enables, as loadModuleMap does (review R3-1, round 4)', () => {
+    writeMap([
+      '%YAML 1.1',
+      '---',
+      'base: &base',
+      '  paths: ["../outside", "src/lib"]',
+      'modules:',
+      '  - name: merged',
+      '    <<: *base',
+      '    keywords: []',
+    ]);
+    writeFileSync(path.join(cwd, '.prospec.yaml'), '%YAML 1.1\n---\nshared: &k\n  generated_artifacts: ["src/{x,y}/*.ts"]\nknowledge:\n  <<: *k\n');
+    expect(loadModuleMap(kp(), cwd)!.modules[0]?.paths).toEqual(['src/lib']);
+    expect(entries(collectUnsupportedModulePaths(cwd, kp())).map(({ owner, path: p, reason }) => ({ owner, path: p, reason }))).toEqual([
+      { owner: 'merged', path: '../outside', reason: 'outside' },
+      { owner: 'knowledge.generated_artifacts', path: 'src/{x,y}/*.ts', reason: 'brace' },
+    ]);
+  });
+
+  // Creating symlinks needs a privilege Windows CI runners do not grant.
+  it.skipIf(process.platform === 'win32')('skips with its reason when .prospec.yaml resolves outside the project, a symlinked config being unsupported (review R3-1, round 5)', () => {
+    writeMap(['modules:', '  - name: lib', '    paths: [src/lib]', '    keywords: []']);
+    const outside = mkdtempSync(path.join(os.tmpdir(), 'prospec-outside-config-'));
+    try {
+      writeFileSync(path.join(outside, 'prospec.yaml'), 'knowledge:\n  generated_artifacts: ["src/{x,y}/*.ts"]\n');
+      symlinkSync(path.join(outside, 'prospec.yaml'), path.join(cwd, '.prospec.yaml'));
+      const r = collectUnsupportedModulePaths(cwd, kp());
+      expect(r.available).toBe(false);
+      expect(r.reason).toMatch(/\.prospec\.yaml/);
+      expect(r.reason).toMatch(/symlink/);
+    } finally {
+      rmSync(outside, { recursive: true, force: true });
+    }
+  });
+
+  it('reports nothing when every path is accepted, and reads no generated pattern without .prospec.yaml', () => {
+    writeMap(['modules:', '  - name: whole', '    paths: [".", "src/*.ts", "app/[id]"]', '    keywords: []']);
+    const r = collectUnsupportedModulePaths(cwd, kp());
+    expect(r).toEqual({ available: true, paths: [] });
+  });
+});
+

@@ -3,6 +3,7 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 import * as os from 'node:os';
 import { parse as parseYamlRaw } from 'yaml';
+import { execFileSync } from 'node:child_process';
 import { runCliInProcess } from './helpers/run-cli.js';
 
 // In-process runs still shell out to git via the drift/status/check services;
@@ -150,6 +151,59 @@ describe('CLI E2E — knowledge, agent & measure', () => {
       const { exitCode } = await runCli(['knowledge', 'verify', 'ghost']);
       expect(exitCode).not.toBe(0);
       expect(await fs.promises.readFile(mapPath, 'utf-8')).toBe(before);
+    });
+  });
+
+  describe('module paths through knowledge verify and check (REQ-LIB-015, REQ-LIB-107)', () => {
+    const git = (...args: string[]) =>
+      execFileSync('git', ['-c', 'user.email=t@t.dev', '-c', 'user.name=t', ...args], { cwd: tmpDir, stdio: 'pipe' });
+    const setup = async (paths: string[]): Promise<string> => {
+      await fs.promises.writeFile(path.join(tmpDir, 'package.json'), JSON.stringify({ name: 'paths-test' }));
+      await runCli(['init', '--name', 'paths-test', '--agents', 'claude']);
+      const mapPath = path.join(tmpDir, 'prospec', 'ai-knowledge', 'module-map.yaml');
+      await fs.promises.mkdir(path.join(tmpDir, 'prospec', 'ai-knowledge', 'modules', 'm'), { recursive: true });
+      await fs.promises.writeFile(path.join(tmpDir, 'prospec', 'ai-knowledge', 'modules', 'm', 'README.md'), '# m\n');
+      await fs.promises.writeFile(mapPath, `modules:\n  - name: m\n    paths: ${JSON.stringify(paths)}\n    keywords: ["m"]\n`);
+      await fs.promises.mkdir(path.join(tmpDir, 'src', 'lib'), { recursive: true });
+      await fs.promises.writeFile(path.join(tmpDir, 'src', 'lib', 'a.ts'), 'export const a = 1;\n');
+      git('init', '-q');
+      git('add', '-A');
+      git('commit', '-qm', 'base');
+      return mapPath;
+    };
+    const health = async () => {
+      await runCli(['check', '--json']);
+      const report = JSON.parse(await fs.promises.readFile(path.join(tmpDir, 'prospec-report.json'), 'utf-8'));
+      return report as {
+        structural: {
+          knowledge_health: { modules: Array<{ name: string; stale: boolean; freshness?: { basis: string } }> };
+          findings: Array<{ check: string; detail: string }>;
+        };
+      };
+    };
+
+    it('stamps a project-root module, reads it fresh, and stale once a source file changes', async () => {
+      await setup(['.']);
+      const verified = await runCli(['knowledge', 'verify', 'm']);
+      expect(verified.exitCode, verified.stderr).toBe(0);
+      const fresh = (await health()).structural.knowledge_health.modules.find((m) => m.name === 'm');
+      expect(fresh?.freshness?.basis).toBe('digest-match');
+      expect(fresh?.stale).toBe(false);
+      await fs.promises.writeFile(path.join(tmpDir, 'src', 'lib', 'a.ts'), 'export const a = 2;\n');
+      expect((await health()).structural.knowledge_health.modules.find((m) => m.name === 'm')?.stale).toBe(true);
+    });
+
+    it('warns about a refused path and leaves its spelling untouched through check and verify', async () => {
+      const mapPath = await setup(['src/lib', 'src/{a,b}/**']);
+      const before = await fs.promises.readFile(mapPath, 'utf-8');
+      const findings = (await health()).structural.findings.filter((f) => f.check === 'unsupported-module-path');
+      expect(findings).toHaveLength(1);
+      expect(findings[0]?.detail).toContain('src/{a,b}/**');
+      expect(await fs.promises.readFile(mapPath, 'utf-8')).toBe(before);
+      const verified = await runCli(['knowledge', 'verify', 'm']);
+      expect(verified.exitCode, verified.stderr).toBe(0);
+      const after = parseYamlRaw(await fs.promises.readFile(mapPath, 'utf-8')) as { modules: Array<{ paths: string[] }> };
+      expect(after.modules[0]?.paths).toEqual(['src/lib', 'src/{a,b}/**']);
     });
   });
 

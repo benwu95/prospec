@@ -8,7 +8,7 @@ import { assessCurrentDrift, assessCurrentTestEvidence } from '../../../src/lib/
 import { validateConfig, resolveTestCommand } from '../../../src/lib/config.js';
 import { assessVerificationContext } from '../../../src/lib/verification-context.js';
 import { DRIFT_CHECK_IDS } from '../../../src/types/drift-report.js';
-const gitCalls = vi.hoisted(() => ({ count: 0, recording: 0, updateIndex: 0, adds: 0, failConfig: false, addAfterListing: false, observedAddition: false, addOnStatus: 0, statusCount: 0, spawns: 0 }));
+const gitCalls = vi.hoisted(() => ({ count: 0, logOne: 0, recording: 0, updateIndex: 0, adds: 0, failConfig: false, addAfterListing: false, observedAddition: false, addOnStatus: 0, statusCount: 0, spawns: 0 }));
 const configRace = vi.hoisted(() => ({ onFirstConfigRead: null as (() => void) | null }));
 vi.mock('node:fs', async (original) => {
   const actual = await original<typeof import('node:fs')>();
@@ -27,6 +27,7 @@ vi.mock('node:child_process', async (original) => {
     return (actual.spawnSync as (...a: unknown[]) => unknown)(...args);
   }) as typeof actual.spawnSync, execFileSync: ((file: string, args: string[], opts: unknown) => {
     if (file === 'git') gitCalls.count++;
+    if (file === 'git' && args[0] === 'log' && args.includes('-1')) gitCalls.logOne++;
     // The source digest's work-tree recording: locating the index, then git against its copies.
     if (file === 'git' && (args.includes('--git-path') || String((opts as { env?: NodeJS.ProcessEnv } | undefined)?.env?.GIT_INDEX_FILE ?? '').includes('prospec-digest-'))) {
       gitCalls.recording++;
@@ -146,15 +147,21 @@ describe('current assessment', () => {
   });
 });
 
-it('keeps ordinary assessment within six Git subprocesses plus the work-tree recording for changed module files (REQ-LIB-070)', async () => {
+it('keeps ordinary assessment within five Git subprocesses besides one git log -1 per path group and the work-tree recording (REQ-LIB-070)', async () => {
   write('prospec/ai-knowledge/module-map.yaml', 'modules:\n  - name: lib\n    paths: [src/lib]\n    keywords: []\n');
+  write('prospec/ai-knowledge/modules/lib/README.md', '# lib\n');
   write('src/lib/input.ts', 'export const value = 1;');
+  // A born HEAD, so every path group is asked (an unborn one fails the first query).
+  execFileSync('git', ['-c', 'user.email=t@t.dev', '-c', 'user.name=t', 'commit', '-q', '--allow-empty', '-m', 'base'], { cwd: root });
   gitCalls.count = 0;
+  gitCalls.logOne = 0;
   gitCalls.recording = 0;
   await assessCurrentDrift(root);
   expect(gitCalls.recording).toBe(5);
-  expect(gitCalls.count - gitCalls.recording).toBeLessThanOrEqual(6);
-  expect(gitCalls.count - gitCalls.recording).toBeGreaterThanOrEqual(4);
+  // One query for the source group and one for the README group.
+  expect(gitCalls.logOne).toBe(2);
+  expect(gitCalls.count - gitCalls.recording - gitCalls.logOne).toBeLessThanOrEqual(5);
+  expect(gitCalls.count - gitCalls.recording - gitCalls.logOne).toBeGreaterThanOrEqual(3);
 });
 
 it.skipIf(process.platform === 'win32' || process.getuid?.() === 0)('records a refused work tree once, however many modules read it (REQ-LIB-070)', () => {

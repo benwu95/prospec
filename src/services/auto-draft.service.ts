@@ -59,6 +59,8 @@ const SCALE_BY_CHECK: Record<DriftCheckId, ChangeScale> = {
   // A fix re-syncs a host's deployed skills (or corrects the registry), which
   // touches templates, the registry and every deployed copy — cross-layer work.
   'skill-reference-map': 'standard',
+  // A fix rewrites one module-map path or generated-artifact pattern.
+  'unsupported-module-path': 'quick',
 };
 
 /**

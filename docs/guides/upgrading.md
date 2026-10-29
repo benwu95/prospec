@@ -39,6 +39,16 @@ prospec-upgrade                 # Step 2: AI agent migrates drifted doc formats,
 > - **Legacy File Cleanup**: If upgrading from an older pre-1.0 Prospec layout, remove the now-unused legacy files and directories after re-syncing: `GEMINI.md`, `.gemini/skills/`, `.codex/skills/`, `.github/copilot-instructions.md`, and `.github/instructions/`.
 > - **Configuration Version & Triggers**: `.prospec.yaml` `version` tracks the prospec version the project last upgraded to. If you ever need to localize triggers after adding a skill, simply run `prospec agent sync` — it explicitly reports missing `skill_triggers` entries so you fill only the gaps.
 
+## Upgrade to the next release (unreleased)
+
+Module paths in `module-map.yaml` now reach git through one rule. A path without `*` is a literal path; one that resolves to the project root (`.`, `./`, `src/..`) covers the whole project, so a whole-project module can be stamped with `prospec knowledge verify`. A path with `*` is a glob git matches with `:(glob)`: `*` stays within one directory and `**/` also matches at the top level.
+
+**Breaking:** A glob whose coverage changes reads stale once. That is a single `*` above deeper files — `dir/*.ts`, or a root `*` or `*.ts`, which now covers top-level files only (write `.` or `**` for the whole project) — and a leading `**/` with a same-named top-level directory (`**/name/**`). Confirm the README, then re-stamp with `prospec knowledge verify`. In a glob, `[` opens a character class: write `[[]` for a literal bracket. A path without `*` is literal, so `app/[id]` names that directory and `src/?.ts` is not a wildcard.
+
+`prospec check` reports `unsupported-module-path` (WARN) for a path it cannot read as written — one outside the project, one beginning with `:`, or a glob holding a brace, a `..` segment or an absolute root — and suggests a rewrite. Such a module path contributes nothing to freshness, so a stamp covers none of its files until it is rewritten. `knowledge.generated_artifacts` is read by the same rule, and a refused pattern there excludes nothing. A single `*` in a generated pattern no longer reaches deeper files either: `src/gen/*.ts` stops excluding `src/gen/sub/*.ts`, so the module reads stale after every regeneration until the pattern is rewritten as `src/gen/**`. A `.prospec.yaml` that resolves outside the project, such as a symlink to a shared file, is unsupported: the check reports skipped instead of reading it.
+
+Commit-time fields come from `git log -1` per path group. A project-root module's `last_src_commit` also moves with the commit that re-stamps it; these fields are reported only, and freshness stays judged by digest.
+
 ## Upgrade to 2.10.0
 
 Update the binary before running `prospec upgrade`: the synced Skills require CLI 2.10.0 or later for source-digest freshness and Knowledge sync before review.

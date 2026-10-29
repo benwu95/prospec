@@ -38,15 +38,20 @@ import {
 import { buildReqHomeIndex } from './spec-read.js';
 import {
   ARCHIVED_EXCLUDES,
+  classifyModulePathSpec,
   isContainedPath,
   isSafeResourceName,
   listFeatureSpecs,
   loadFeatureMap,
   loadFeatureSpecContent,
   projectRelativePath,
+  readContained,
   readContainedText,
   readIndex,
+  readModuleMapRaw,
   readModuleReadme,
+  type ModulePathRefusal,
+  type ModulePathSpec,
 } from './knowledge-reader.js';
 import { estimateTokens } from './token-accounting.js';
 import { DRIFT_REPORT_FILENAME, type ConstitutionRuleEntry } from '../types/drift-report.js';
@@ -218,6 +223,24 @@ export interface BudgetOverrideSource {
   source_path: string;
   overrides: BudgetOverride[];
   ineffective: IneffectiveBudgetKey[];
+}
+
+/** A module path or generated-artifact pattern the source digest refuses (REQ-LIB-107). */
+export interface UnsupportedModulePath {
+  /** The module that declares it, or `knowledge.generated_artifacts`. */
+  owner: string;
+  /** The path exactly as written. */
+  path: string;
+  reason: ModulePathRefusal;
+  hint: string;
+  /** Repo-relative file the path is written in. */
+  source_path: string;
+}
+
+export interface UnsupportedModulePathSource {
+  available: boolean;
+  reason?: string;
+  paths: UnsupportedModulePath[];
 }
 
 export interface CanonicalDocDriftItem {
@@ -675,9 +698,10 @@ export function collectImportEdges(cwd: string, moduleMap: ModuleMap): ImportEdg
   for (const entry of moduleMap.modules) {
     for (const prefix of entry.paths) {
       const isGlob = prefix.includes('*');
-      // A literal dir prefix is gated by its on-disk existence; a domain glob
-      // ('**/auth/**') has no literal path to stat, so it is scanned directly.
-      if (!isGlob && !existsSync(path.resolve(cwd, prefix))) continue;
+      // A literal path is scanned only when classifyModulePath finds it on disk inside the
+      // project — a missing, escaping or project-root path claims no import here; a domain
+      // glob ('**/auth/**') has no literal path to stat, so it is scanned directly.
+      if (!isGlob && classifyModulePath(prefix, cwd) === 'missing') continue;
       const pattern = importScanPattern(prefix, cwd);
       if (pattern === null) continue; // non-source file entry — carries no import edges
       const { files } = scanDirSync(pattern, { cwd });
@@ -729,85 +753,23 @@ export function collectImportEdges(cwd: string, moduleMap: ModuleMap): ImportEdg
   return { available: true, edges };
 }
 
-/** Newest commits the batched timestamp walk scans. A path-group untouched within
- *  this window falls back to its own `git log -1`, so the number only trades spawn
- *  count against nothing — never byte-identical correctness. */
-const TIMESTAMP_BATCH_WINDOW = 400;
-
-/** A literal pathspec carries no git glob magic, so the batch walk can match it with
- *  exact/prefix rules identical to git's default pathspec; a glob spec is left to
- *  `git log -1` (git's own matching) rather than reimplemented here. */
-function isLiteralPathspec(spec: string): boolean {
-  return !/[*?[\]]/.test(spec);
-}
-
-/** git default pathspec over a literal spec: a file matches its exact self or
- *  anything beneath it as a directory prefix. */
+/** git default pathspec over a literal project-relative path: a file matches its exact self or
+ *  anything beneath it as a directory prefix; the project root (`''`) covers every file. */
 function pathspecCovers(spec: string, file: string): boolean {
-  return file === spec || file.startsWith(`${spec}/`);
+  return spec === '' || file === spec || file.startsWith(`${spec}/`);
 }
 
-/** One path-group's last-commit query for the batched walk. */
-interface TimestampGroup {
-  includes: readonly string[];
-  excludes: readonly string[];
+/** A module path or generated-artifact pattern as git reads it (REQ-LIB-015): a literal path by
+ *  its project-relative form, a glob exactly as written; a refused spec reaches git as nothing. */
+function gitPathspec(spec: ModulePathSpec, exclude = false): string | null {
+  const magic = exclude ? 'exclude,' : '';
+  if (spec.kind === 'literal') return `:(${magic}literal)${spec.rel === '' ? '.' : spec.rel}`;
+  if (spec.kind === 'glob') return `:(${magic}glob)${spec.raw}`;
+  return null;
 }
 
-/**
- * Resolve each group's newest touching commit (its `%cI`) in ONE `git log
- * --name-only` pass. Returns a parallel array: the ISO date for a group matched
- * within the scan window, or `undefined` for a group not matched — the caller then
- * falls back to a per-group `git log -1`, so an out-of-window (or capture-failed)
- * group resolves byte-identically to the un-batched form. The newest-first scan
- * order mirrors `git log -1`'s default, so a matched group's commit is the same one
- * that per-group query would return; the exclude test reproduces `:(exclude)` in-walk.
- *
- * `-c` (combined diff) is what makes a MERGE commit list files in `--name-only`: git
- * omits merge diffs by default, but `git log -1 -- <path>`'s pathspec simplification
- * DOES return a merge whose tree differs from all parents for that path. Combined diff
- * lists exactly those files (differ from all parents) — so a combining or evil merge is
- * attributed to the merge (matching the per-module query), while a clean merge that is
- * TREESAME to a parent lists nothing and is correctly skipped. Without `-c` a module
- * last touched by a merge resolved to an older commit — a fail-open staleness bug.
- */
-function batchGroupTimestamps(cwd: string, groups: TimestampGroup[]): (string | undefined)[] {
-  const result: (string | undefined)[] = groups.map(() => undefined);
-  if (groups.length === 0) return result;
-  const out = gitCapture(cwd, [
-    'log',
-    '-c',
-    '--format=%x00%cI',
-    '--name-only',
-    '-n',
-    String(TIMESTAMP_BATCH_WINDOW),
-  ]);
-  if (out === null) return result; // capture failed — every group falls back below
-  const pending = new Set(groups.map((_, i) => i));
-  // Records are NUL-delimited (%x00): each chunk is `<ISO>\n<changed files…>`.
-  for (const chunk of out.split('\0')) {
-    if (pending.size === 0) break;
-    const nl = chunk.indexOf('\n');
-    if (nl === -1) continue; // the empty lead chunk before the first record
-    const iso = chunk.slice(0, nl).trim();
-    if (iso === '') continue;
-    const files = chunk
-      .slice(nl + 1)
-      .split('\n')
-      .filter((line) => line.length > 0);
-    for (const gi of [...pending]) {
-      const group = groups[gi] as TimestampGroup;
-      const hit = files.some(
-        (file) =>
-          group.includes.some((inc) => pathspecCovers(inc, file)) &&
-          !group.excludes.some((exc) => pathspecCovers(exc, file)),
-      );
-      if (hit) {
-        result[gi] = iso;
-        pending.delete(gi);
-      }
-    }
-  }
-  return result;
+function gitPathspecs(cwd: string, raw: readonly string[], exclude = false): string[] {
+  return raw.flatMap((p) => gitPathspec(classifyModulePathSpec(p, cwd), exclude) ?? []);
 }
 
 /** Collect per-module last-commit timestamps for sources and READMEs. */
@@ -845,23 +807,16 @@ export function collectGitTimestamps(
     ...(options.subset === undefined ? {} : { subset: options.subset }),
   });
 
-  // Gather every module's three path-groups, then resolve them ALL in ONE
-  // `git log --name-only` walk instead of a `git log -1` per group (17 spawns → 1
-  // on this repo). A group whose pathspecs carry git glob magic — or that the walk
-  // window does not reach — is left to `gitLastCommit` below, so the batched result
-  // is byte-identical to the per-module queries it replaces.
+  // Each module's three path-groups ask git themselves (REQ-LIB-070): a merge whose sides
+  // touch different files of a group, and a project in a repository subdirectory, are
+  // answered exactly as `git log -1` answers them.
   interface PreparedModule {
     entry: ModuleMap['modules'][number];
     readmeRel: string;
     readmeExists: boolean;
     subModuleRels: string[];
-    srcBatch?: number;
-    readmeBatch?: number;
-    subBatch?: number;
   }
   const prepared: PreparedModule[] = [];
-  const batchGroups: TimestampGroup[] = [];
-  const register = (group: TimestampGroup): number => batchGroups.push(group) - 1;
 
   for (const entry of moduleMap.modules) {
     if (options.subset !== undefined && !options.subset.has(entry.name)) continue;
@@ -883,18 +838,12 @@ export function collectGitTimestamps(
       .filter((file) => file !== 'README.md')
       .map((file) => path.join(path.dirname(readmeRel), file));
 
-    const pm: PreparedModule = { entry, readmeRel, readmeExists, subModuleRels };
-    // Generated artifacts carry code but no knowledge a README could describe, so
-    // regenerating one must not move `last_src_commit` (REQ-LIB-039). The src group
-    // batches only when every include AND exclude is literal — a glob exclude keeps
-    // git's own matching (and its unexcluded fallback) via gitLastCommit.
-    if (entry.paths.every(isLiteralPathspec) && generatedArtifacts.every(isLiteralPathspec)) {
-      pm.srcBatch = register({ includes: entry.paths, excludes: generatedArtifacts });
-    }
-    if (readmeExists) pm.readmeBatch = register({ includes: [readmeRel], excludes: [] });
-    if (subModuleRels.length > 0) pm.subBatch = register({ includes: subModuleRels, excludes: [] });
-    prepared.push(pm);
+    prepared.push({ entry, readmeRel, readmeExists, subModuleRels });
   }
+  // Generated artifacts carry code but no knowledge a README could describe, so
+  // regenerating one must not move `last_src_commit` (REQ-LIB-039).
+  const generatedExcludes = gitPathspecs(cwd, generatedArtifacts, true);
+  const literal = (rel: string) => `:(literal)${rel.split(path.sep).join('/')}`;
 
   // Commit times no longer decide freshness (REQ-LIB-015): a shallow clone's boundary
   // times are fabricated and an unborn HEAD has none, so either — or any capture
@@ -903,15 +852,10 @@ export function collectGitTimestamps(
   let times: Map<PreparedModule, Times> | null = null;
   if (!shallow) {
     try {
-      const batched = batchGroupTimestamps(cwd, batchGroups);
-      // A batched hit is the answer; a batch miss (glob group or out-of-window) falls
-      // back to the per-group query, so both paths return the same commit.
-      const resolve = (idx: number | undefined, fallback: () => string | null): string | null =>
-        idx !== undefined && batched[idx] !== undefined ? (batched[idx] as string) : fallback();
       times = new Map(prepared.map((pm) => [pm, {
-        src: resolve(pm.srcBatch, () => gitLastCommit(cwd, pm.entry.paths, generatedArtifacts)),
-        readme: pm.readmeExists ? resolve(pm.readmeBatch, () => gitLastCommit(cwd, [pm.readmeRel])) : null,
-        sub: pm.subModuleRels.length > 0 ? resolve(pm.subBatch, () => gitLastCommit(cwd, pm.subModuleRels)) : null,
+        src: gitLastCommit(cwd, gitPathspecs(cwd, pm.entry.paths), generatedExcludes),
+        readme: pm.readmeExists ? gitLastCommit(cwd, [literal(pm.readmeRel)]) : null,
+        sub: pm.subModuleRels.length > 0 ? gitLastCommit(cwd, pm.subModuleRels.map(literal)) : null,
       }]));
     } catch {
       times = null;
@@ -1183,6 +1127,58 @@ export function collectBudgetOverrides(cwd: string): BudgetOverrideSource {
   } catch {
     return { available: false, reason: 'source unavailable: failed to parse .prospec.yaml AST', source_path: '.prospec.yaml', overrides: [], ineffective: [] };
   }
+}
+
+const asRecord = (value: unknown): Record<string, unknown> | null =>
+  value !== null && typeof value === 'object' && !Array.isArray(value) ? (value as Record<string, unknown>) : null;
+const stringItems = (value: unknown): string[] =>
+  Array.isArray(value) ? value.filter((item): item is string => typeof item === 'string') : [];
+
+/**
+ * Module paths and generated-artifact patterns the source digest refuses (REQ-LIB-107),
+ * read as written — before `clampModulePaths` drops the ones that escape the project. Values
+ * come from the same `toJS()` reading `parseYaml` gives
+ * `loadModuleMap` and the config, so aliases, merge keys and directives agree. A `.prospec.yaml`
+ * that resolves outside the project — a symlinked config — is unsupported: `readConfig` would
+ * follow it where this contained read cannot, so the check skips rather than pass unseen.
+ * Unreadable inputs skip, never throw: this collector is an argument to `runChecks(...)`.
+ */
+export function collectUnsupportedModulePaths(cwd: string, knowledgePath: string): UnsupportedModulePathSource {
+  const mapText = readModuleMapRaw(knowledgePath);
+  if (mapText === null) {
+    return { available: false, reason: 'source unavailable: module-map.yaml not found or unreadable', paths: [] };
+  }
+  const mapDoc = parseDocument(mapText);
+  if (mapDoc.errors.length > 0) {
+    return { available: false, reason: 'source unavailable: module-map.yaml cannot be parsed', paths: [] };
+  }
+  const mapPath = path.relative(cwd, path.join(knowledgePath, 'module-map.yaml')).split(path.sep).join('/');
+  const declared: Array<{ owner: string; value: string; source_path: string }> = [];
+  const modules = asRecord(mapDoc.toJS())?.modules;
+  for (const entry of Array.isArray(modules) ? modules : []) {
+    const module = asRecord(entry);
+    if (module === null) continue;
+    const owner = typeof module.name === 'string' ? module.name : '';
+    for (const value of stringItems(module.paths)) declared.push({ owner, value, source_path: mapPath });
+  }
+  const config = readContained(path.resolve(cwd, '.prospec.yaml'), cwd);
+  if (!config.ok && config.reason === 'escaped') {
+    return { available: false, reason: 'source unavailable: .prospec.yaml resolves outside the project — a symlinked config is unsupported', paths: [] };
+  }
+  if (!config.ok && config.reason === 'unreadable') {
+    return { available: false, reason: 'source unavailable: .prospec.yaml cannot be read', paths: [] };
+  }
+  const configDoc = config.ok ? parseDocument(config.text) : null;
+  if (configDoc !== null && configDoc.errors.length === 0) {
+    for (const value of stringItems(asRecord(asRecord(configDoc.toJS())?.knowledge)?.generated_artifacts)) {
+      declared.push({ owner: 'knowledge.generated_artifacts', value, source_path: '.prospec.yaml' });
+    }
+  }
+  const paths = declared.flatMap(({ owner, value, source_path }) => {
+    const spec = classifyModulePathSpec(value, cwd);
+    return spec.kind === 'refused' ? [{ owner, path: value, reason: spec.reason, hint: spec.hint, source_path }] : [];
+  });
+  return { available: true, paths };
 }
 
 /**
@@ -1672,9 +1668,13 @@ const GIT_CAPTURE_MAX_BUFFER = 256 * 1024 * 1024;
 /** Run git and capture stdout — null on failure, '' on empty success (the two
  *  must stay distinct: an empty diff is a valid state, a git failure is not). */
 function gitCapture(cwd: string, args: string[]): string | null {
+  // The pathspecs prospec builds carry their own magic; these variables would reread them.
+  const env: NodeJS.ProcessEnv = { ...process.env };
+  for (const name of PATHSPEC_ENV) delete env[name];
   try {
     return execFileSync('git', args, {
       cwd,
+      env,
       stdio: 'pipe',
       encoding: 'utf-8',
       maxBuffer: GIT_CAPTURE_MAX_BUFFER,
@@ -1772,7 +1772,8 @@ function recordObjectIds(cwd: string, index: string, files: readonly string[]): 
     { input: files.map((file) => `${file}\0`).join('') });
 }
 
-/** Last commit touching `paths`, ignoring `excludes` (repo-relative, posix).
+/** Last commit touching `pathspecs`, ignoring the `excludes` pathspecs; null when no pathspec
+ *  remains, since `git log -1 --` alone would answer with the newest commit of the repository.
  *
  *  A pathspec the local git cannot parse fails the capture — and folding THAT
  *  into null would report "no source commit" as a fact in `knowledge_health`
@@ -1780,10 +1781,11 @@ function recordObjectIds(cwd: string, index: string, files: readonly string[]): 
  *  back to the unexcluded query: noisier than intended, but true. */
 function gitLastCommit(
   cwd: string,
-  paths: string[],
+  pathspecs: string[],
   excludes: readonly string[] = [],
 ): string | null {
-  const args = ['log', '-1', '--format=%cI', '--', ...paths];
+  if (pathspecs.length === 0) return null;
+  const args = ['log', '-1', '--format=%cI', '--', ...pathspecs];
   if (excludes.length > 0) {
     // Fall through on BOTH empty answers, not only on a failed capture: a
     // pathspec git cannot parse and an exclusion covering every file the module
@@ -1791,11 +1793,11 @@ function gitLastCommit(
     // null would report a module one configured glob (`src/**`) covers as never
     // committed. The unexcluded timestamp is noisier but true — the degradation
     // PB-013 prescribes.
-    const excluded = gitCapture(cwd, [...args, ...excludes.map((p) => `:(exclude)${p}`)])?.trim();
+    const excluded = gitCapture(cwd, [...args, ...excludes])?.trim();
     if (excluded) return excluded;
   }
   const out = gitCapture(cwd, args);
-  if (out === null) throw new Error(`git log capture failed for paths: ${paths.join(' ')}`);
+  if (out === null) throw new Error(`git log capture failed for paths: ${pathspecs.join(' ')}`);
   return out.trim() || null;
 }
 
@@ -2104,20 +2106,18 @@ function exclusionRoots(cwd: string, root: string): string[] {
   return [...roots].filter((rel) => rel !== '' && !rel.startsWith('..'));
 }
 
-/** Files a module claims from `git ls-files` itself, for paths or exclusions git must match;
- *  null when even the unexcluded listing fails. */
-function listModuleFiles(
-  cwd: string, paths: readonly string[], excludes: readonly string[], isSource: (file: string) => boolean,
-): string[] | null {
-  const list = (exclusions: readonly string[]): string[] | null => {
-    const out = gitCapture(cwd, ['ls-files', '-z', '--cached', '--others', '--exclude-standard', '--', ...paths,
-      ...exclusions.map((spec) => `:(exclude)${spec}`)]);
-    return out === null ? null : out.split('\0').filter((file) => file !== '');
-  };
-  const excluded = excludes.length > 0 ? list(excludes) : null;
-  // An exclusion that leaves no source file, or that git cannot parse, is lifted (REQ-LIB-039).
-  if (excluded !== null && excluded.some(isSource)) return excluded;
-  return list([]);
+/** The files git tracks or would add under `pathspecs`; null when git cannot list them. */
+function listPathspecs(cwd: string, pathspecs: readonly string[]): string[] | null {
+  const out = gitCapture(cwd, ['ls-files', '-z', '--cached', '--others', '--exclude-standard', '--', ...pathspecs]);
+  return out === null ? null : out.split('\0').filter((file) => file !== '');
+}
+
+/** Why a module with no supported path has no digest. The clamp has already dropped the paths that
+ *  escape the project, so the reason points to the check that reads the map as written. */
+function noSupportedPathReason(paths: readonly string[], specs: readonly ModulePathSpec[]): string {
+  const refused = specs.flatMap((spec, i) => (spec.kind === 'refused' ? [`${paths[i]} (${spec.reason})`] : []));
+  const named = refused.length === 0 ? '' : `: ${refused.join(', ')}`;
+  return `module declares no supported source path inside the project${named} — see the unsupported-module-path check`;
 }
 
 
@@ -2139,9 +2139,18 @@ export function collectModuleDigests(cwd: string, moduleMap: ModuleMap, options:
   const listed = [...inventory.entries.keys()];
   const never = [...exclusionRoots(cwd, options.knowledgePath), ...exclusionRoots(cwd, options.specsPath)];
   const outsideNever = (file: string) => !never.some((root) => pathspecCovers(root, file));
-  const generated = options.generatedArtifacts;
-  const generatedLiteral = generated.every(isLiteralPathspec);
-  const generatedRel = generatedLiteral ? generated.map((spec) => projectRelativePath(cwd, spec)) : [];
+  const generatedSpecs = options.generatedArtifacts.map((spec) => classifyModulePathSpec(spec, cwd));
+  const generatedRels = generatedSpecs.flatMap((spec) => (spec.kind === 'literal' ? [spec.rel] : []));
+  const generatedGlobs = generatedSpecs.flatMap((spec) => (spec.kind === 'glob' ? [gitPathspec(spec)!] : []));
+  // Listed once, when a module first asks; a listing git cannot answer lifts the exclusion (REQ-LIB-039).
+  let generatedListed: Set<string> | null | undefined;
+  const isGenerated = (file: string): boolean => {
+    if (generatedListed === undefined) {
+      const out = generatedGlobs.length > 0 ? listPathspecs(cwd, generatedGlobs) : [];
+      generatedListed = out === null ? null : new Set(out);
+    }
+    return generatedListed !== null && (generatedRels.some((rel) => pathspecCovers(rel, file)) || generatedListed.has(file));
+  };
   const inInventory = (file: string) => inventory.entries.has(file) || file.endsWith('/');
   const nested = [...listed, ...inventory.bookkeeping].filter((file) => file.endsWith('/')).map((dir) => dir.slice(0, -1));
   let index: string | undefined;
@@ -2167,22 +2176,23 @@ export function collectModuleDigests(cwd: string, moduleMap: ModuleMap, options:
   // module name → its files, or why they cannot be listed
   const claimed = new Map<string, string[] | string>();
   for (const m of moduleMap.modules) {
-    if (m.paths.length === 0) { claimed.set(m.name, 'module declares no source path inside the project'); continue; }
+    const specs = m.paths.map((p) => classifyModulePathSpec(p, cwd));
+    const rels = specs.flatMap((spec) => (spec.kind === 'literal' ? [spec.rel] : []));
+    const globs = specs.flatMap((spec) => (spec.kind === 'glob' ? [gitPathspec(spec)!] : []));
+    if (rels.length === 0 && globs.length === 0) { claimed.set(m.name, noSupportedPathReason(m.paths, specs)); continue; }
     try {
-      let files: string[] | null;
-      let bookkeeping: () => string[];
-      if (m.paths.every(isLiteralPathspec) && generatedLiteral) {
-        const rels = m.paths.map((p) => projectRelativePath(cwd, p));
-        const all = listed.filter((file) => rels.some((rel) => pathspecCovers(rel, file)));
-        const kept = all.filter((file) => !generatedRel.some((rel) => pathspecCovers(rel, file)));
-        files = kept.some(isSource) ? kept : all;
-        bookkeeping = () => [...inventory.bookkeeping].filter((file) => rels.some((rel) => pathspecCovers(rel, file)));
-      } else {
-        const raw = listModuleFiles(cwd, m.paths, generated, (file) => inInventory(file) && isSource(file));
-        files = raw === null ? null : raw.filter(inInventory);
-        bookkeeping = () => (raw ?? []).filter((file) => !inEvidenceScope(file));
-      }
-      if (files === null) { claimed.set(m.name, 'git ls-files failed for the module paths'); continue; }
+      // Literal paths filter the inventory; only globs need git's own listing.
+      const globbed = globs.length > 0 ? listPathspecs(cwd, globs) : [];
+      if (globbed === null) { claimed.set(m.name, 'git ls-files failed for the module paths'); continue; }
+      const covered = (file: string) => rels.some((rel) => pathspecCovers(rel, file));
+      const all = [...new Set([...listed.filter(covered), ...globbed.filter(inInventory)])];
+      const kept = all.filter((file) => !isGenerated(file));
+      // An exclusion that leaves no source file is lifted (REQ-LIB-039).
+      const files = kept.some(isSource) ? kept : all;
+      const bookkeeping = () => [...new Set([
+        ...[...inventory.bookkeeping].filter(covered),
+        ...globbed.filter((file) => !inEvidenceScope(file)),
+      ])];
       // A source file git would record settles it; only without one are the excluded files read.
       if (!files.filter(outsideNever).some(present) && holdsAny([...files, ...bookkeeping()])) {
         claimed.set(m.name, 'every source file lies in the excluded knowledge base, Feature Specs or bookkeeping');

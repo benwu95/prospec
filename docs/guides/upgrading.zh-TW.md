@@ -39,6 +39,16 @@ prospec-upgrade                 # 步驟 2：AI Agent 依盤點報告遷移格�
 > - **舊版檔案清理**：若從早於 1.0 的舊版 Prospec 升級，完成升級同步後可手動清理不再使用的舊版檔案與目錄：`GEMINI.md`、`.gemini/skills/`、`.codex/skills/`、`.github/copilot-instructions.md` 與 `.github/instructions/`。
 > - **設定檔版本與觸發詞**：`.prospec.yaml` 的 `version` 會記錄專案上次升級的版本。新增 Skill 後若想單獨檢查或在地化觸發詞，只需直接執行 `prospec agent sync`，系統會明確列出缺少的條目供填補，完全無需重新建立設定檔。
 
+## 升級至下一個版本（尚未發布）
+
+`module-map.yaml` 的模組路徑現在以同一套規則交給 git。不含 `*` 的 path 是字面路徑；解析為專案根（`.`、`./`、`src/..`）時涵蓋整個專案，因此涵蓋整個專案的模組可以用 `prospec knowledge verify` 蓋章。含 `*` 的 path 是 git 以 `:(glob)` 比對的 glob：`*` 只匹配單一目錄層，`**/` 也匹配頂層。
+
+**Breaking：** 涵蓋範圍改變的 glob 會判為 stale 一次。包括下方有更深層檔案的單獨 `*`——`dir/*.ts`，以及專案根的 `*` 或 `*.ts`，現在只涵蓋頂層檔案（要涵蓋整個專案請寫 `.` 或 `**`）——和以 `**/` 開頭且頂層有同名目錄的 glob（`**/name/**`）。確認 README 後，以 `prospec knowledge verify` 重新蓋章。在 glob 中 `[` 開始一個字元類別：字面的方括號請寫 `[[]`。不含 `*` 的 path 是字面路徑，所以 `app/[id]` 指的就是該目錄，`src/?.ts` 也不是萬用字元。
+
+`prospec check` 會對無法照寫法讀取的 path 回報 `unsupported-module-path`（WARN）——位於專案外、以 `:` 開頭，或含 brace、`..` segment、絕對路徑的 glob——並建議改寫方式。這類模組 path 不影響新鮮度，因此在改寫前，蓋章不涵蓋它底下的任何檔案。`knowledge.generated_artifacts` 以同一套規則讀取，被拒收的 pattern 不排除任何檔案。generated pattern 中的單獨 `*` 也不再涵蓋更深層的檔案：`src/gen/*.ts` 不再排除 `src/gen/sub/*.ts`，因此在 pattern 改寫為 `src/gen/**` 前，每次重新產生都會讓模組判為 stale。解析到專案外的 `.prospec.yaml`（例如指向共用檔案的 symlink）不受支援：這個 check 會回報 skipped，不讀取它。
+
+commit 時間欄位改由每個 path group 各自的 `git log -1` 回答。專案根模組的 `last_src_commit` 也會隨重新蓋章的 commit 前進；這些欄位只供報告，新鮮度仍以 digest 判定。
+
 ## 升級至 2.10.0
 
 先更新 binary，再執行 `prospec upgrade`：同步後的 Skills 要求 CLI 2.10.0 以上，支援以 source digest 判定 Knowledge 新鮮度，以及在 review 前同步 Knowledge。

@@ -50,7 +50,7 @@ subject_skips? }`, adopted **verbatim**.
   `test-provenance`, `constitution-severity`, `artifact-language`, `spec-counters`,
   `delta-spec-provenance`, `unjustified-budget-override`, `canonical-doc-drift`,
   `delta-spec-landing-fidelity`, `req-id-uniqueness`, `language-policy-drift`,
-  `skill-reference-map`.
+  `skill-reference-map`, `unsupported-module-path`.
 
 ### Key Check Interpretations
 
@@ -68,6 +68,7 @@ subject_skips? }`, adopted **verbatim**.
 | `constitution-severity` | `warn` | Checks Constitution principles for RFC-2119 severity tags (`MUST`/`SHOULD`/`MAY`). | Constitution missing or empty. |
 | `knowledge-health` | `warn`/`fail` | Reports freshness and coverage; see `structural.knowledge_health` below. | Module map unavailable. |
 | `test-provenance` | `fail` | Validates test execution record, freshness, and exit code. | No test command configured (skips honestly). |
+| `unsupported-module-path` | `warn` | Names each module path or `generated_artifacts` pattern the source digest refuses, with a rewrite. | Module map absent or unparseable; `.prospec.yaml` outside the project or unreadable. |
 
 **Verdicts are definitive**: `prospec-verify` machine dimensions adopt check results verbatim; `skipped` maps to `not-adjudicated`, never `pass`.
 

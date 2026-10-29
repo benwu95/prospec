@@ -44,6 +44,7 @@ import {
   computeEvidenceStates,
   computeTestState,
   collectBudgetOverrides,
+  collectUnsupportedModulePaths,
   collectCanonicalDocDrift,
   collectSkillReferenceMap,
   isGitWorkTree,
@@ -193,6 +194,7 @@ export async function assessCurrentDrift(cwd: string): Promise<CurrentDriftAsses
       deltaSpecLandingFidelity: collectDeltaSpecLandingFidelity(featuresDir, cwd),
       metadataCompleteness: collectMetadataCompleteness(cwd),
       budgetOverrides: collectBudgetOverrides(cwd),
+      unsupportedModulePaths: collectUnsupportedModulePaths(cwd, paths.knowledgePath),
       knowledgeSize: collectKnowledgeSize(
         cwd,
         paths.baseDir,

@@ -586,6 +586,17 @@ describe('Skill Format Contract', () => {
       }
     });
 
+    it('drift-report-format interprets unsupported-module-path as a warn-only row of its interpretation table', () => {
+      const ref = render('skills/references/drift-report-format.hbs');
+      const start = ref.indexOf('### Key Check Interpretations');
+      expect(start, 'Key Check Interpretations section not found').toBeGreaterThan(-1);
+      const section = ref.slice(start, ref.indexOf('\n## ', start));
+      const rows = section.split('\n').filter((line) => line.startsWith('| `'));
+      const row = rows.find((line) => line.startsWith('| `unsupported-module-path` |'));
+      expect(row, 'unsupported-module-path row missing').toBeDefined();
+      expect(row!.split('|')[2]?.trim()).toBe('`warn`');
+    });
+
     it('drift-report-format documents knowledge_health as modules[] filtered by stale', () => {
       const ref = render('skills/references/drift-report-format.hbs');
       expect(ref).toContain('knowledge_health.modules');

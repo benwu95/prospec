@@ -11,6 +11,7 @@ import {
   moduleFreshness,
   evaluateKnowledgeSize,
   evaluateBudgetOverrides,
+  evaluateUnsupportedModulePaths,
   evaluateMcpReadmeCounts,
   evaluateMetadataCompleteness,
   evaluateReqReferences,
@@ -104,6 +105,7 @@ const emptyInputs: DriftCheckInputs = {
     overrides: [],
     ineffective: [],
   },
+  unsupportedModulePaths: { available: true, paths: [] },
   testProvenance: {
     available: true,
     command_unavailable_reason: null,
@@ -437,6 +439,54 @@ describe('evaluateBudgetOverrides', () => {
     expect(r.findings[0]?.line).toBe(7);
     expect(r.findings[1]?.detail).toContain('reference_per_file');
     expect(r.findings[1]?.line).toBe(8);
+  });
+});
+
+describe('evaluateUnsupportedModulePaths (REQ-LIB-107)', () => {
+  it('skips with the collector reason when the source is unavailable', () => {
+    const r = evaluateUnsupportedModulePaths({ available: false, reason: 'source unavailable: module-map.yaml not found', paths: [] });
+    expect(r.result.status).toBe('skipped');
+    expect(r.result.reason).toContain('module-map.yaml');
+  });
+
+  it('passes when every path is accepted', () => {
+    const r = evaluateUnsupportedModulePaths({ available: true, paths: [] });
+    expect(r.result.status).toBe('pass');
+    expect(r.findings).toEqual([]);
+  });
+
+  it('warns once per refused path, naming its owner, the path as written, why and how to rewrite it', () => {
+    const r = evaluateUnsupportedModulePaths({
+      available: true,
+      paths: [
+        { owner: 'lib', path: 'src/{a,b}/**', reason: 'brace', hint: 'list each alternative as its own path', source_path: 'prospec/ai-knowledge/module-map.yaml' },
+        { owner: 'knowledge.generated_artifacts', path: '../gen', reason: 'outside', hint: 'point it at a path inside the project, or remove it', source_path: '.prospec.yaml' },
+      ],
+    });
+    expect(r.result.status).toBe('warn');
+    expect(r.findings).toHaveLength(2);
+    expect(r.findings.every((f) => f.check === 'unsupported-module-path' && f.severity === 'warn')).toBe(true);
+    expect(r.findings[0]).toMatchObject({ source_path: 'prospec/ai-knowledge/module-map.yaml' });
+    expect(r.findings[0]).not.toHaveProperty('line');
+    expect(r.findings[0]?.detail).toContain('lib');
+    expect(r.findings[0]?.detail).toContain('src/{a,b}/**');
+    expect(r.findings[0]?.detail).toContain('list each alternative as its own path');
+    expect(r.findings[1]).toMatchObject({ source_path: '.prospec.yaml' });
+    expect(r.findings[1]?.detail).toContain('knowledge.generated_artifacts');
+  });
+
+  it('says a refused module path is read through by nothing and a refused generated pattern excludes nothing (review R1-2)', () => {
+    const r = evaluateUnsupportedModulePaths({
+      available: true,
+      paths: [
+        { owner: 'lib', path: 'src/{a,b}/**', reason: 'brace', hint: 'list each alternative as its own path', source_path: 'prospec/ai-knowledge/module-map.yaml' },
+        { owner: 'knowledge.generated_artifacts', path: 'src/{a,b}.ts', reason: 'brace', hint: 'list each alternative as its own path', source_path: '.prospec.yaml' },
+      ],
+    });
+    expect(r.findings[0]?.detail).toMatch(/read nothing through/);
+    expect(r.findings[0]?.detail).not.toMatch(/excludes nothing/);
+    expect(r.findings[1]?.detail).toMatch(/excludes nothing/);
+    expect(r.findings[1]?.detail).not.toMatch(/read nothing through/);
   });
 });
 

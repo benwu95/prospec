@@ -189,6 +189,12 @@ export const DRIFT_CHECK_IDS = [
   // than a silent divergence from the source of truth. Unreadable inputs and a
   // project with no configured agent are explicitly skipped, never certified.
   'skill-reference-map',
+  // Module paths the source digest cannot read as written (warn-only) — a path
+  // that resolves outside the project, begins with `:`, or is a glob holding a
+  // brace, a `..` segment or an absolute root, in `module-map.yaml` as written
+  // (before the clamp) or in `knowledge.generated_artifacts`. A refused path
+  // contributes nothing to the digest; the finding names it with a rewrite.
+  'unsupported-module-path',
 ] as const;
 
 export const DRIFT_CHECK_STATUSES = ['pass', 'warn', 'fail', 'skipped'] as const;
@@ -224,6 +230,7 @@ export const DRIFT_CHECK_SCOPES = {
   'req-id-uniqueness': 'repository',
   'language-policy-drift': 'repository',
   'skill-reference-map': 'repository',
+  'unsupported-module-path': 'repository',
 } as const satisfies Record<(typeof DRIFT_CHECK_IDS)[number], 'change' | 'repository'>;
 
 export type DriftCheckScope = (typeof DRIFT_CHECK_SCOPES)[keyof typeof DRIFT_CHECK_SCOPES];
