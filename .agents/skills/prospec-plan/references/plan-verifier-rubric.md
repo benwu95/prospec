@@ -34,6 +34,7 @@ The Verifier audits the planning artifacts across five orthogonal dimensions:
   - **Bidirectional Mapping**: Is every User Story and acceptance scenario in `proposal.md` mapped to at least one REQ in `delta-spec.md`?
   - **Delta Clarity**: For MODIFIED requirements, are Before, After, Reason, and `**Spec:**` blocks clearly articulated and testable?
   - **No Orphaned Scope**: Does `delta-spec.md` contain ungrounded requirements outside the proposal's scope?
+  - **Scope questions**: a concern holding only under a requirement the proposal does not state meets no FLAWS condition; report it as a WARN naming the scope question.
   - **Quantitative Target Baseline**: For each quantitative acceptance target in proposal Success Criteria or delta-spec requirements, does the plan record the measured HEAD/version, baseline value, target project's measurement command, target and gap? For an unmet gap, does it name a closing mechanism and estimated improvement distinct from measured evidence, so feasibility can be assessed against the target?
   - If the baseline already meets the target, record the value and gap; no closing mechanism is required. With no quantitative acceptance target, no baseline is required. Identifiers, versions and non-acceptance examples do not alone trigger this check. If measurement is unavailable, disclose the reason; never invent a value or use unmeasured zero — a missing measured baseline remains FLAWS.
 

@@ -648,7 +648,7 @@ src/
 ├── services/     — 業務邏輯（33 個 service）
 ├── lib/          — 純工具函式（config、fs、logger 等）
 ├── types/        — Zod schema + TypeScript 型別
-└── templates/    — Handlebars 範本（82 個 .hbs 檔案）
+└── templates/    — Handlebars 範本（83 個 .hbs 檔案）
     └── skills/   — 17 個 Skill 範本 + 32 個 reference 範本
 ```
 

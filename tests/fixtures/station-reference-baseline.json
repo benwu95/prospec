@@ -598,7 +598,7 @@
       "proven-backfill": 23694,
       "equivalent-commit": 12794,
       "reverify-c": 15678,
-      "missing-receipt": 5891,
+      "missing-receipt": 6807,
       "stale-delta": 13156,
       "multi-change": 12794
     },

@@ -5,7 +5,7 @@ Prospec 生成 17 個 Skills —— 15 個涵蓋完整 SDD 生命週期，外加
 
 | Skill | Canonical Skill | 說明 |
 |-------|---------------|------|
-| **探索** | `prospec-explore` | 思考夥伴，協助釐清需求 |
+| **探索** | `prospec-explore` | 思考夥伴，協助釐清需求；選定技術方向前查找既有做法 |
 | **新需求** | `prospec-new-story` | 建立結構化的變更需求 |
 | **設計** | `prospec-design` | 生成視覺 + 互動規格（Generate/Extract 雙模式） |
 | **計劃** | `prospec-plan` | 生成實作計劃 + delta-spec |
@@ -34,7 +34,7 @@ Prospec 生成 17 個 Skills —— 15 個涵蓋完整 SDD 生命週期，外加
 - **依 host 能力進站** — 生成的 entry config 與 cascade protocol 會依 host 宣告的 skill content lifecycle（`persistent-reattach`、`tool-output` 或 `unknown`，每個值在 agent registry 都有註明日期的出處）分岐。skill 機制能讓已載入內容存活的 host，會被指示以該機制調用、並於重入時重新調用該站 Skill；其餘 host 以及未宣告 lifecycle 的 host，一律先跑 `prospec status` 再讀該站 `SKILL.md`，然後才進 entry gates。兩條路徑都不豁免 gate，且載入站點指示不代表其 references 已抵達。
 - **Station reference map** — `prospec status` 依 phase 顯示下一站的 references，包含條件式載入提示。共用 registry 驅動產生的 reference maps 與部署清單；`prospec check` 的 `skill-reference-map` 檢查可偵測缺檔與 phase 引用不符。修正來源後，執行 `prospec agent sync` 更新已部署的 Skills。詳見 [CLI 參考](../reference/cli-reference.zh-TW.md)。
 - **Entry / Exit gates** — Skill 啟動前檢查前置條件（Entry）、結束時比對 Constitution（Exit）；WARN/FAIL 記入跨階段 `quality_log`，讓前一階段的疑慮在下一階段被 surface。
-- **Skill 指令品質** — 每個 numbered phase 帶自己的 gate checklist（比 skill 層 Entry/Exit gate 更細）；在 `prospec-ff` cascade 之外，線性流程 Skill（plan→tasks→implement→review→verify→archive）結尾有 status-aware 的**下一步 handoff**；新 session 偵測進行中的變更以接續；`prospec-implement` 每完成一個 task 後重錨 `Progress X/Y | Goal | Next`；`prospec-explore` 與 `prospec-knowledge-generate` 在 Constitution 仍實質空白時提醒（否則其 gate 形同 no-op）。
+- **Skill 指令品質** — 每個 numbered phase 帶自己的 gate checklist（比 skill 層 Entry/Exit gate 更細）；在 `prospec-ff` cascade 之外，線性流程 Skill（plan→tasks→implement→review→verify→archive）結尾有 status-aware 的**下一步 handoff**；新 session 偵測進行中的變更以接續；`prospec-implement` 每完成一個 task 後重錨 `Progress X/Y | Goal | Next`；`prospec-explore` 與 `prospec-knowledge-generate` 在 Constitution 仍實質空白時提醒（否則其 gate 形同 no-op）；選定技術方向前，`prospec-explore` 與 `prospec-plan` 以需求本身查找既有做法——優先第一手來源、每項主張標明是來源事實、推論或本專案實測、有停止條件，無搜尋能力時揭露限制；plan verifier 判 FLAWS 時，`prospec-plan` 依 proposal 分流每個 finding，並在同一機制的修補一再引入新問題時重新比較替代方案。
 - **可執行 Constitution** — 規則帶 RFC-2119 嚴重度（MUST→FAIL／SHOULD→WARN／MAY→資訊性），由 `prospec-verify` 分級。
 - **確定性 drift 閘門** — `prospec check` 以零 token 機器驗證 spec ↔ code ↔ knowledge 的指涉完整性；`prospec-verify` 在開發期消費同一份報告，scaffold 出的 CI workflow 在每個 PR 強制執行。搭配選配的 `feature-map.yaml`（feature→module 索引，archive 時 bootstrap）再加兩條治理檢查：REQ-prefix 合法性（WARN）與 feature→module 邊（FAIL）。
 - **對抗式審查** — `prospec-review` 位於 implement 與 verify 之間：獨立 fresh-context reviewer 審整個 change diff；僅經驗證確認、可 drop-in 的 critical 自動修，其餘升級給人。**commit 邊界**在 verify 達 S/A **之後**，讓 implement + review + verify 的修正落入單一 atomic commit（prospec 提示、絕不自動 commit）。 Findings 依同一失效模式歸為一條。每次修正掃描該類別與受影響平行站點，包含測試計數與擁有者規格；下一輪 reviewer 取得已修類別與判準並重跑。重複的宣稱措辭迴圈以刪除宣稱收斂。環境中已安裝且與 diff 相符的審查 skill 每輪在 prospec 契約與專案慣例之下加入其準則；沒有 production 資料量依據就接受的效能取捨，會被要求補上資料量。

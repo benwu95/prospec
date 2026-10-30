@@ -77,9 +77,14 @@ function declaredMandatory(skillPath: string, instructions: Record<string, strin
 // mandatory review-format adds +26. Measured closures +289: proven-backfill
 // 23_405 → 23_694 and stale-delta 12_867 → 13_156. Ceilings raised, not earned:
 // 23_556 → 23_694 and 12_939 → 13_156; other routes retain their bounds.
+// External research: the plan skill renders the shared research rules, its Phase 4 trigger
+// and the Phase 6 FLAWS triage (+898 body tokens). Measured missing-receipt closure
+// 5_887 → 6_786; ceiling raised, not earned: 5_891 → 6_786; other routes retain their bounds.
+// PR #422 follow-up: the triage line that a FLAWS-graded finding stays open adds +21
+// (6_786 → 6_807), at the developer's request; other routes retain their bounds.
 const CEILING_ANCHORS: Record<string, number> = {
   quick: 16_516, 'standard-ui': 15_380, 'proven-backfill': 23_694, 'equivalent-commit': 12_794,
-  'reverify-c': 15_678, 'missing-receipt': 5_891, 'stale-delta': 13_156, 'multi-change': 12_794,
+  'reverify-c': 15_678, 'missing-receipt': 6_807, 'stale-delta': 13_156, 'multi-change': 12_794,
 };
 
 describe('scenario mandatory context closure (REQ-TEMPLATES-081, REQ-TESTS-116)', () => {
