@@ -140,8 +140,8 @@ modules:
       - 漂移檢查
       - 知識讀取
     rationale: Foundational infrastructure shared across services and benchmark scripts
-    last_verified: 2026-10-29T12:40:33.211Z
-    source_digest: source-v1:84d1e05b6a90afdef5f1ccef29213ad053ddd8d91baf7f41c7ae6fda8726e84d
+    last_verified: 2026-10-30T02:20:04.294Z
+    source_digest: source-v1:4cc1410ac29cc1f82193cf7c324c981f1377419a194d8eee10bd2a10065cc6cf
   - name: services
     description: Business logic — one `execute()` service per command — including
       shared-output agent invocation-guidance rendering — init / quickstart /
@@ -257,8 +257,8 @@ modules:
     source_digest: source-v1:94efd6f446b601d07893a40645af79b3b1d1a23acfe6ebccfa68c7de7a3cf6a8
   - name: templates
     description: Handlebars template library — 17 skills + host-labelled invocation
-      entry guidance, 11 shared partials, 32 references, 1 agent-config, 5
-      change, 15 init/knowledge (82 `.hbs` templates) — the source of every
+      entry guidance, 12 shared partials, 32 references, 1 agent-config, 5
+      change, 15 init/knowledge (83 `.hbs` templates) — the source of every
       generated skill, README, and index; every skill delegates its
       deterministic steps to the CLI behind the shared `_cli-probe` partial.
       Terminal-history guidance uses CLI-reported roots and identities with
@@ -310,11 +310,11 @@ modules:
       - 複雜度適配
       - CI 閘門
     rationale: Pure resources — no logic, consumed by lib/template.ts
-    last_verified: 2026-10-29T12:54:55.526Z
-    source_digest: source-v1:a7ef1e7f781c476b64cfb1ec219992460ee58e3b73bd4694aad7eaec701df54c
+    last_verified: 2026-10-30T02:20:04.294Z
+    source_digest: source-v1:3b3c12a09e4767bd1173282ab97bd56e3f6e1b9921cec9de765d767dec2d317d
   - name: tests
-    description: 4-layer test suite — 329 files, 8,833 tests (unit 6358 + contract
-      1986 + integration 253 + e2e 236). Validates every module — format and
+    description: 4-layer test suite — 329 files, 8,860 tests (unit 6358 + contract
+      2013 + integration 253 + e2e 236). Validates every module — format and
       public-document contracts, the cli-first probe + station-command
       contracts, the drift engine, token corpus, and the MCP protocol over
       in-memory transport. Real-worktree history fixtures cover publication
@@ -361,5 +361,5 @@ modules:
       - 驗證
       - vitest
     rationale: Quality gate — validates all layers with pyramid coverage
-    last_verified: 2026-10-29T12:24:25.952Z
-    source_digest: source-v1:a632adee48f74a296c82a8ef50567737321cd7d331a097fd7bec5c67a83a689c
+    last_verified: 2026-10-30T02:20:04.294Z
+    source_digest: source-v1:4dde2b418cecee9d5b364f8c93be2bfc1c9788195f005c26b4fc2633f251feca

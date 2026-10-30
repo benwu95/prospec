@@ -1,9 +1,9 @@
 ---
 feature: sdd-workflow
 status: active
-last_updated: 2026-10-25
-story_count: 54
-req_count: 374
+last_updated: 2026-10-30
+story_count: 55
+req_count: 379
 ---
 
 # SDD Workflow
@@ -25,6 +25,7 @@ req_count: 374
 - [US-52: Loosened Tests and Test Gates Are a Review Finding](./sdd-workflow/us-52.md)
 - [US-53: Performance Trade-offs Carry Production Data Volume](./sdd-workflow/us-53.md)
 - [US-54: Review Applies the Criteria of Installed Review Skills](./sdd-workflow/us-54.md)
+- [US-55: Direction Choices Are Grounded in Bounded External Research](./sdd-workflow/us-55.md)
 
 - [US-49: Preserve an Abandoned Attempt and Explain a Retry](./sdd-workflow/us-49.md)
 
@@ -108,6 +109,7 @@ req_count: 374
 
 | Date | Change | Impact | Stories/REQs |
 |------|--------|--------|--------------|
+| 2026-10-30 | ground-decisions-in-research | ADDED REQ-TEMPLATES-256; ADDED REQ-TEMPLATES-257; ADDED REQ-TEMPLATES-258; ADDED REQ-TEMPLATES-259; ADDED REQ-TESTS-143 | US-55, REQ-TEMPLATES-256, REQ-TEMPLATES-257, REQ-TEMPLATES-258, REQ-TEMPLATES-259, REQ-TESTS-143 |
 | 2026-10-25 | judge-freshness-by-content-digest | MODIFIED REQ-LIB-097; MODIFIED REQ-TESTS-142 | REQ-LIB-097, REQ-TESTS-142 |
 | 2026-10-24 | sync-knowledge-before-evidence | ADDED REQ-TEMPLATES-255; ADDED REQ-TESTS-142; MODIFIED REQ-TYPES-070; MODIFIED REQ-LIB-035; MODIFIED REQ-SERVICES-070; MODIFIED REQ-TEMPLATES-228; MODIFIED REQ-TEMPLATES-192; MODIFIED REQ-TEMPLATES-129; MODIFIED REQ-TEMPLATES-045; MODIFIED REQ-TESTS-090; MODIFIED REQ-TESTS-128 | REQ-TEMPLATES-255, REQ-TESTS-142, REQ-TYPES-070, REQ-LIB-035, REQ-SERVICES-070, REQ-TEMPLATES-228, REQ-TEMPLATES-192, REQ-TEMPLATES-129, REQ-TEMPLATES-045, REQ-TESTS-090, REQ-TESTS-128 |
 | 2026-10-24 | fail-empty-modified-spec | ADDED REQ-SERVICES-131; MODIFIED REQ-SERVICES-072; MODIFIED REQ-SERVICES-081; MODIFIED REQ-TEMPLATES-166; MODIFIED REQ-TESTS-077; MODIFIED REQ-CLI-032 | REQ-SERVICES-131, REQ-SERVICES-072, REQ-SERVICES-081, REQ-TEMPLATES-166, REQ-TESTS-077, REQ-CLI-032 |

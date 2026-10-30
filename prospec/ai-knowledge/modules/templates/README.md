@@ -1,6 +1,6 @@
 # Template Library
 
-> Handlebars template library — 82 `.hbs` files across skills, references, agent-configs, change, init/knowledge.
+> Handlebars template library — 83 `.hbs` files across skills, references, agent-configs, change, init/knowledge.
 <!-- prospec:module-readme-format 2026-09-01 -->
 
 <!-- prospec:auto-start -->

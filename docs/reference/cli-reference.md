@@ -653,7 +653,7 @@ src/
 ├── services/     — Business logic (33 services)
 ├── lib/          — Pure utility functions (config, fs, logger, etc.)
 ├── types/        — Zod schemas + TypeScript types
-└── templates/    — Handlebars templates (82 .hbs files)
+└── templates/    — Handlebars templates (83 .hbs files)
     └── skills/   — 17 Skill templates + 32 reference templates
 ```
 

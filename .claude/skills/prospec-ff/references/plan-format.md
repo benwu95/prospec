@@ -84,6 +84,16 @@ When this change touches a third-party library, plan.md MAY append the following
 - If no Context7 MCP is available, or the lookup returns nothing: skip silently and leave at most one informational line — `Context7 not consulted — skipped` — never a WARN/FAIL, never blocking.
 ```
 
+**Optional — External Research (both modes, additive):** one row per external approach Phase 4 researched; unverified assumptions and accepted limits go to Risk Assessment.
+
+```markdown
+### External Research
+
+| Source | Approach | Applies when | Limits | Decision |
+|--------|----------|--------------|--------|----------|
+| [link] | [approach] | [conditions] | [limits] | [adopted / excluded: reason; fact, inference or measured here] |
+```
+
 ---
 
 ### 3. Affected Modules
