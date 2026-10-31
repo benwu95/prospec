@@ -3,6 +3,7 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 import * as os from 'node:os';
 import { runCliInProcess } from './helpers/run-cli.js';
+import { gitIn } from '../helpers/git-fixture.js';
 
 vi.setConfig({ testTimeout: 90_000, hookTimeout: 90_000 });
 
@@ -27,6 +28,7 @@ describe('knowledge-sync gap routing e2e (REQ-CLI-039, REQ-CLI-060, REQ-TESTS-12
 
   beforeEach(async () => {
     tmpDir = await fs.promises.mkdtemp(path.join(os.tmpdir(), 'prospec-gap-routing-e2e-'));
+    gitIn(tmpDir, 'init', '-q');
     await fs.promises.writeFile(path.join(tmpDir, 'package.json'), JSON.stringify({ name: 'test-e2e' }));
     await runCli(['init', '--name', 'test-e2e', '--agents', 'claude']);
     const kp = path.join(tmpDir, 'prospec', 'ai-knowledge');
@@ -70,6 +72,8 @@ describe('knowledge-sync gap routing e2e (REQ-CLI-039, REQ-CLI-060, REQ-TESTS-12
     expect(fixed.exitCode).toBe(0);
     expect(fixed.stdout).toContain('typo: related_modules [lib, lbi] → [lib]');
 
+    // Inside a git work tree freshness is judged by the source digest, which only a stamp records.
+    expect((await runCli(['knowledge', 'verify', 'lib'])).exitCode).toBe(0);
     const after = await runCli(['status']);
     expect(after.stdout).not.toContain('lbi');
     expect(after.stdout).not.toContain('KNOWLEDGE_INPUT_INVALID');

@@ -21,6 +21,11 @@ const HEAVY = {
   handlebars: '/handlebars/',
 };
 
+// Project modules a command loads only on demand; node_modules counts cannot see them.
+const LAZY = {
+  'git-prerequisite': '/git-prerequisite.js',
+};
+
 process.on('exit', () => {
   let nodeModules = 0;
   let own = 0;
@@ -32,7 +37,10 @@ process.on('exit', () => {
   for (const [name, needle] of Object.entries(HEAVY)) {
     if ([...loaded].some((u) => u.includes(needle))) heavy.push(name);
   }
+  const lazy = Object.entries(LAZY)
+    .filter(([, needle]) => [...loaded].some((u) => !u.includes('/node_modules/') && u.includes(needle)))
+    .map(([name]) => name);
   process.stderr.write(
-    `PROSPEC_STARTUP ${JSON.stringify({ nodeModules, own, heavy: heavy.sort() })}\n`,
+    `PROSPEC_STARTUP ${JSON.stringify({ nodeModules, own, heavy: heavy.sort(), lazy: lazy.sort() })}\n`,
   );
 });

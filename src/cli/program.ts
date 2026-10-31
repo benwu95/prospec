@@ -45,6 +45,42 @@ import type { GlobalOptions } from './index.js';
  */
 const INIT_COMMANDS = new Set(['init', 'quickstart', 'help', 'print-template', 'config']);
 
+/**
+ * Top-level commands that read no project and so run outside a git work tree
+ * (REQ-SETUP-025). Matched on the command directly under the root, so a nested
+ * subcommand sharing one of these names is not exempt. `help` and `--help` need
+ * no entry: Commander answers them before any preAction hook runs.
+ */
+const GIT_EXEMPT_COMMANDS = new Set(['print-template', 'config']);
+
+function topLevelCommand(command: Command): Command {
+  let cmd = command;
+  while (cmd.parent?.parent) cmd = cmd.parent;
+  return cmd;
+}
+
+function requireConfig(actionCommand: Command, targetCwd: string | undefined): void {
+  // Walk up to find if any ancestor is in INIT_COMMANDS
+  let cmd: Command | null = actionCommand;
+  while (cmd) {
+    if (INIT_COMMANDS.has(cmd.name())) return;
+    cmd = cmd.parent;
+  }
+
+  // `mcp serve --cwd <dir>` targets another project root, so the guard must
+  // resolve .prospec.yaml against that dir — not the directory the agent was
+  // launched from (which may not be a Prospec project at all).
+  if (targetCwd !== undefined) {
+    const configPath = path.join(targetCwd, '.prospec.yaml');
+    if (!fs.existsSync(configPath)) throw new ConfigNotFound(configPath);
+    return;
+  }
+
+  if (!fs.existsSync('.prospec.yaml')) {
+    throw new ConfigNotFound();
+  }
+}
+
 export function createProgram(): Command {
   const program = new Command();
 
@@ -61,32 +97,17 @@ export function createProgram(): Command {
     .showHelpAfterError('(use --help for additional information)')
     .exitOverride();
 
-  // preAction hook: check .prospec.yaml existence for non-init commands
-  program.hook('preAction', (_thisCommand, actionCommand) => {
-    const cmdName = actionCommand.name();
-    // Walk up to find if any ancestor is in INIT_COMMANDS
-    let cmd: Command | null = actionCommand;
-    while (cmd) {
-      if (INIT_COMMANDS.has(cmd.name())) return;
-      cmd = cmd.parent;
-    }
+  // preAction hook: check .prospec.yaml existence for non-init commands, then
+  // require a git work tree for every non-exempt command
+  program.hook('preAction', async (_thisCommand, actionCommand) => {
+    if (GIT_EXEMPT_COMMANDS.has(topLevelCommand(actionCommand).name())) return;
 
-    // Skip check for root program (e.g. --version, --help)
-    if (cmdName === 'prospec') return;
-
-    // `mcp serve --cwd <dir>` targets another project root, so the guard must
-    // resolve .prospec.yaml against that dir — not the directory the agent was
-    // launched from (which may not be a Prospec project at all).
     const targetCwd = (actionCommand.opts() as { cwd?: string }).cwd;
-    if (targetCwd !== undefined) {
-      const configPath = path.join(targetCwd, '.prospec.yaml');
-      if (!fs.existsSync(configPath)) throw new ConfigNotFound(configPath);
-      return;
-    }
+    requireConfig(actionCommand, targetCwd);
 
-    if (!fs.existsSync('.prospec.yaml')) {
-      throw new ConfigNotFound();
-    }
+    const { requireGitWorkTree } = await import('../services/git-prerequisite.js');
+    // An empty --cwd resolves to the current directory, as requireConfig's path.join reads it.
+    requireGitWorkTree(targetCwd || process.cwd());
   });
 
   // Register subcommand groups

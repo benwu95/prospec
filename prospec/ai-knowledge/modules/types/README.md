@@ -1,6 +1,6 @@
 # Contract Registry
 
-> Zod schemas, errors, frozen registries — the leaf layer every module imports (27 files)
+> Zod schemas, errors, frozen registries — the leaf layer every module imports (28 files)
 <!-- prospec:module-readme-format 2026-09-01 -->
 
 <!-- prospec:auto-start -->
@@ -20,6 +20,7 @@
 | `errors.ts` | `ProspecError` base + 22 error subclasses (incl. `DelegationRefusedError` — one `code` per operation: issue, receive, fail, settle —, `InvalidTransitionError`, `PauseAtInvalid` / `AlwaysEscalateInvalid` / `TestTimeoutInvalid` — name the source and value and the valid names or range, `TestGateError` — entrance, actual reason, target-scoped remediation, optional tripped `CircuitBreakerState`, `warningRecorded` for the warning-only partial outcome) |
 | `knowledge.ts` | `index.md` columns (INDEX_TABLE_COLUMNS) + header/separator helpers — reorderable in one edit, `INDEX_COLUMN` pinned to its order by a contract test |
 | `gitignore-block.ts` | `GitignoreBlockResult` / `GITIGNORE_BLOCK_STATUSES` — the `.gitignore` block writer's result, shared by the services that run it and the CLI formatter that prints it |
+| `git-prerequisite.ts` | `GitWorkTreeProbe` — the CLI entry probe's states: `work-tree`, `git-missing`, `not-work-tree` (detail or `null` when git answered cleanly), `git-failed` (detail) |
 | `module-map.ts` | `ModuleMapSchema`, `ModuleEntry` (incl. optional `last_verified` and `source_digest` — load-bearing: a field absent from the schema is stripped by the validating reader before freshness can read it), `ModuleRelationships` |
 | `skill.ts` / `station-references.ts` | Skill and agent registries, plus `STATION_REFERENCES` — the ONE map from a shipped skill to its reference files, each one's load point, purpose and scale/UI applicability (`skill.ts` re-exports it; `skillHasReferences` derives from it, never a second flag); closed host `InvocationProfile` metadata and `mergeGroupInvocationGuidance` for shared entry-config output; a closed `skillContentLifecycle` per host (`persistent-reattach` / `tool-output` / `unknown`; a declared value carries a dated source inline, absence of one stays `unknown`), merged by the same per-key reducer registry and projected by `renderFlagContext`; every `description` ends in a negative-scope clause and `exclude` holds its short-phrase English baseline (translation source only, never rendered) |
 | `delegation.ts` | The host-neutral delegation contract, with no restore surface — `DELEGATION_STATIONS` (review/verify), stem grammar `<station>-<role>-<round>-<attempt>` and `formatDelegationRole` (free text → role), `DELEGATION_STATES`, `GIT_STATE_FACETS` (defined once) and `RepoStateSchema` (an unreadable facet carries its reason), the versioned `DelegationTicketSchema` (pre-spawn state, snapshot, `CheckpointSchema` entries with normalized relative paths plus the index sha256, refusal observation, human acceptance record), `DELEGATION_AWAIT` (10 min / 6 polls / 1 re-spawn), `FRESH_ROLE_SUFFIX`; `DELEGATION_PRODUCER` sits beside `TEST_GATE_PRODUCER` in `station.ts` |

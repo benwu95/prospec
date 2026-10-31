@@ -18,6 +18,7 @@ import * as path from 'node:path';
 import * as os from 'node:os';
 import { execFile, spawn } from 'node:child_process';
 import { promisify } from 'node:util';
+import { gitIn } from '../helpers/git-fixture.js';
 
 // Cold subprocess spawns under the parallel suite can exceed a tight default
 // (PB-010); give this file the same generous headroom as the other spawn-bound
@@ -34,6 +35,7 @@ let tmpDir: string;
 
 beforeEach(async () => {
   tmpDir = await fs.promises.mkdtemp(path.join(os.tmpdir(), 'prospec-e2e-smoke-'));
+  gitIn(tmpDir, 'init', '-q');
 });
 
 afterEach(async () => {

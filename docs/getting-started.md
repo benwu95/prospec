@@ -87,6 +87,7 @@ That's the full SDD loop. Because `prospec-quickstart` already seeded AI Knowled
 
 ```bash
 mkdir my-project && cd my-project
+git init                               # prospec runs inside a git work tree
 prospec quickstart --name my-project   # init + agent sync (interactive assistant + language selection)
 # then, inside your AI agent:
 prospec-quickstart                     # localize triggers · re-sync · generate AI Knowledge
@@ -120,7 +121,7 @@ prospec agent sync               # → per-agent config + Skills (Claude Code �
 On a fresh repo, `prospec-knowledge-generate` produces a minimal Knowledge base that fills in as you ship changes. Then run your first change exactly as in step 3 above.
 
 ### Brownfield (existing projects)
-same two commands; `prospec-quickstart` reads your existing code into AI Knowledge:
+same two commands; `prospec-quickstart` reads your existing code into AI Knowledge. The raw scan lists only the files git tracks, so a project not yet in git needs `git init` and a commit of its existing files first:
 
 ```bash
 cd existing-project

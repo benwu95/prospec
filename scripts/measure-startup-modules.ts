@@ -42,6 +42,9 @@ export type StatusScenario = 'no-report' | 'current-report' | 'stale-report' | '
 const ALL_HEAVY = ['mcp-sdk', 'inquirer', 'fast-xml-parser', 'smol-toml', 'handlebars'] as const;
 type Heavy = (typeof ALL_HEAVY)[number];
 
+/** Project modules `startup-load-counter.mjs` reports when loaded — the CLI entry's git check (REQ-SETUP-025). */
+type Lazy = 'git-prerequisite';
+
 /** The four command-irrelevant heavy deps forbidden on every measured path. */
 const FORBIDDEN_FOUR: Heavy[] = ['mcp-sdk', 'inquirer', 'fast-xml-parser', 'smol-toml'];
 
@@ -50,6 +53,8 @@ export interface StartupPath {
   args: string[];
   /** heavy deps that must NOT appear in this path's load set */
   forbidden: Heavy[];
+  /** on-demand project modules that must NOT appear in this path's load set */
+  forbiddenLazy?: Lazy[];
   /** node_modules ceiling; undefined = uncapped */
   maxNodeModules?: number;
   /** Isolated status state, independent of the developer's active changes/report. */
@@ -57,7 +62,7 @@ export interface StartupPath {
 }
 
 export const STARTUP_PATHS: StartupPath[] = [
-  { label: '--version', args: ['--version'], forbidden: [...ALL_HEAVY], maxNodeModules: REGISTRATION_MAX },
+  { label: '--version', args: ['--version'], forbidden: [...ALL_HEAVY], forbiddenLazy: ['git-prerequisite'], maxNodeModules: REGISTRATION_MAX },
   { label: 'status', args: ['status', '--json'], scenario: 'no-report', forbidden: [...ALL_HEAVY], maxNodeModules: DRIFT_PATH_MAX },
   { label: 'status current report', args: ['status', '--json'], scenario: 'current-report', forbidden: FORBIDDEN_FOUR, maxNodeModules: REPORT_PATH_MAX },
   { label: 'status stale report', args: ['status', '--json'], scenario: 'stale-report', forbidden: FORBIDDEN_FOUR, maxNodeModules: REPORT_PATH_MAX },
@@ -83,6 +88,7 @@ export interface StartupMeasurement {
   nodeModules: number;
   own: number;
   heavy: Heavy[];
+  lazy: Lazy[];
   stdout: string;
   exitCode: number | null;
 }
@@ -175,6 +181,10 @@ export function checkStartupContract(cliPath: string = DEFAULT_CLI): {
     const leaked = p.forbidden.filter((h) => m.heavy.includes(h));
     if (leaked.length > 0) {
       violations.push({ label: p.label, message: `loads forbidden heavy dep(s): ${leaked.join(', ')}` });
+    }
+    const eager = (p.forbiddenLazy ?? []).filter((l) => m.lazy.includes(l));
+    if (eager.length > 0) {
+      violations.push({ label: p.label, message: `loads on-demand module(s) eagerly: ${eager.join(', ')}` });
     }
     if (p.maxNodeModules !== undefined && m.nodeModules > p.maxNodeModules) {
       violations.push({ label: p.label, message: `node_modules ${m.nodeModules} > ${p.maxNodeModules}` });

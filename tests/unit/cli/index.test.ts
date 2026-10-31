@@ -9,7 +9,7 @@ import {
 import { vol } from 'memfs';
 import { Command } from 'commander';
 import { createRequire } from 'node:module';
-import { ConfigNotFound } from '../../../src/types/errors.js';
+import { ConfigNotFound, PrerequisiteError } from '../../../src/types/errors.js';
 
 // Resolve the real version the same way src/cli/index.ts does, so the test
 // pins the actual package.json wiring (catches a misrouted/stale value)
@@ -96,6 +96,18 @@ vi.mock('../../../src/cli/commands/mcp.js', () => ({
       .option('--cwd <path>', 'project root')
       .action(() => undefined);
   },
+}));
+
+vi.mock('../../../src/cli/commands/config.js', () => ({
+  registerConfigCommand: (program: Command) =>
+    program.command('config').command('example').action(() => undefined),
+}));
+
+// The git work-tree probe spawns git in a directory that exists only in memfs;
+// the entry hook's own wiring is what this file pins.
+const requireGitWorkTreeMock = vi.fn();
+vi.mock('../../../src/services/git-prerequisite.js', () => ({
+  requireGitWorkTree: (...args: unknown[]) => requireGitWorkTreeMock(...args),
 }));
 
 const handleErrorMock = vi.fn();
@@ -270,6 +282,66 @@ describe('preAction config guard', () => {
     await expect(
       program.parseAsync(['node', 'prospec', 'knowledge', 'init']),
     ).resolves.toBeDefined();
+  });
+});
+
+describe('preAction git guard', () => {
+  it('probes the current directory for an initialized command', async () => {
+    vol.fromJSON({ '.prospec.yaml': 'version: 1\n' }, process.cwd());
+    await freshProgram().parseAsync(['node', 'prospec', 'check']);
+    expect(requireGitWorkTreeMock).toHaveBeenCalledExactlyOnceWith(process.cwd());
+  });
+
+  it('probes the --cwd target instead of the launch directory', async () => {
+    vol.fromJSON({ '/other/proj/.prospec.yaml': 'version: 1\n' }, '/');
+    await freshProgram().parseAsync(['node', 'prospec', 'mcp', 'serve', '--cwd', '/other/proj']);
+    expect(requireGitWorkTreeMock).toHaveBeenCalledExactlyOnceWith('/other/proj');
+  });
+
+  it('probes the current directory for an empty --cwd, as the config check reads it', async () => {
+    vol.fromJSON({ '.prospec.yaml': 'version: 1\n' }, process.cwd());
+    await freshProgram().parseAsync(['node', 'prospec', 'mcp', 'serve', '--cwd', '']);
+    expect(requireGitWorkTreeMock).toHaveBeenCalledExactlyOnceWith(process.cwd());
+  });
+
+  it('still probes the commands that skip the config check', async () => {
+    for (const args of [['init'], ['quickstart'], ['knowledge', 'init']]) {
+      requireGitWorkTreeMock.mockClear();
+      await freshProgram().parseAsync(['node', 'prospec', ...args]);
+      expect(requireGitWorkTreeMock, args.join(' ')).toHaveBeenCalledExactlyOnceWith(process.cwd());
+    }
+  });
+
+  it('reports ConfigNotFound before probing git', async () => {
+    await expect(freshProgram().parseAsync(['node', 'prospec', 'check'])).rejects.toBeInstanceOf(ConfigNotFound);
+    expect(requireGitWorkTreeMock).not.toHaveBeenCalled();
+  });
+
+  it('exempts the top-level print-template and config commands', async () => {
+    await freshProgram().parseAsync(['node', 'prospec', 'print-template', 'x.hbs']);
+    await freshProgram().parseAsync(['node', 'prospec', 'config', 'example']);
+    expect(requireGitWorkTreeMock).not.toHaveBeenCalled();
+  });
+
+  it('does not exempt a nested subcommand that shares an exempt name', async () => {
+    vol.fromJSON({ '.prospec.yaml': 'version: 1\n' }, process.cwd());
+    const program = freshProgram();
+    program.command('group').command('config').action(() => undefined);
+    await program.parseAsync(['node', 'prospec', 'group', 'config']);
+    expect(requireGitWorkTreeMock).toHaveBeenCalledExactlyOnceWith(process.cwd());
+  });
+
+  it('refuses the command with the probe error before its action runs', async () => {
+    const refusal = new PrerequisiteError('/x is not inside a git work tree');
+    requireGitWorkTreeMock.mockImplementationOnce(() => {
+      throw refusal;
+    });
+    const action = vi.fn();
+    const program = freshProgram();
+    program.command('probe-target').action(action);
+    vol.fromJSON({ '.prospec.yaml': 'version: 1\n' }, process.cwd());
+    await expect(program.parseAsync(['node', 'prospec', 'probe-target'])).rejects.toBe(refusal);
+    expect(action).not.toHaveBeenCalled();
   });
 });
 

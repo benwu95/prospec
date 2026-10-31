@@ -87,6 +87,7 @@ prospec-learn                     # （定期）把反覆出現的教訓晉升�
 
 ```bash
 mkdir my-project && cd my-project
+git init                               # prospec 需在 git work tree 內執行
 prospec quickstart --name my-project   # init + agent sync（互動式選擇 assistant 與語言）
 # 接著在你的 AI Agent 中：
 prospec-quickstart                     # 在地化 triggers · 重新同步 · 生成 AI Knowledge
@@ -118,7 +119,7 @@ prospec agent sync               # → 各 agent config + Skills（Claude Code �
 空專案上，`prospec-knowledge-generate` 會產出一份最小的 Knowledge base，隨著你持續出貨變更逐步補完。接著就照上面步驟 3 跑你的第一個變更。
 
 ### Brownfield（既有專案）
-同樣兩個指令；`prospec-quickstart` 會把你既有的程式碼讀進 AI Knowledge
+同樣兩個指令；`prospec-quickstart` 會把你既有的程式碼讀進 AI Knowledge。raw scan 只列出 git 追蹤的檔案，所以還沒進 git 的專案要先 `git init`，並 commit 既有的檔案：
 
 ```bash
 cd existing-project

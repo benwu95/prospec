@@ -6,6 +6,7 @@ import * as os from 'node:os';
 import { parse as parseYamlRaw } from 'yaml';
 import { recordCliEvidence } from './helpers/evidence.js';
 import { runCliInProcess } from './helpers/run-cli.js';
+import { gitIn } from '../helpers/git-fixture.js';
 
 // In-process runs still shell out to git via the drift/status/check services;
 // keep the generous file-level timeout the git-bound e2e files use (PB-010).
@@ -22,6 +23,7 @@ async function authorPremise(name: string): Promise<void> {
 
 beforeEach(async () => {
   tmpDir = await fs.promises.mkdtemp(path.join(os.tmpdir(), 'prospec-e2e-'));
+  gitIn(tmpDir, 'init', '-q');
 });
 
 afterEach(async () => {

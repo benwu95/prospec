@@ -41,6 +41,14 @@ prospec-upgrade                 # 步驟 2：AI Agent 依盤點報告遷移格�
 
 ## 升級至下一個版本（尚未發布）
 
+**Breaking：** `prospec` CLI 現在需要 git。除了 `--version`、`--help`、`help`、`print-template` 與 `config`，每個指令執行前都會確認專案目錄（有指定 `--cwd` 時為該目錄）位於 git work tree 內，repository 的子目錄也可以。不符合時以結束碼 1 結束、不寫任何檔案，訊息會指出原因：
+
+- *git was not found on PATH*：安裝 git。
+- *… is not inside a git work tree*：在專案根目錄執行 `git init`，並 commit 既有的專案檔案（raw scan 只列出 git 追蹤的檔案）；或修正 git 回報的錯誤（例如 `safe.directory` 拒絕）。
+- *git cannot run*：修復 git 安裝，直到 `git --version` 可以成功執行。
+
+沒有 `.prospec.yaml` 的目錄仍會先回報缺少設定檔。
+
 `module-map.yaml` 的模組路徑現在以同一套規則交給 git。不含 `*` 的 path 是字面路徑；解析為專案根（`.`、`./`、`src/..`）時涵蓋整個專案，因此涵蓋整個專案的模組可以用 `prospec knowledge verify` 蓋章。含 `*` 的 path 是 git 以 `:(glob)` 比對的 glob：`*` 只匹配單一目錄層，`**/` 也匹配頂層。
 
 **Breaking：** 涵蓋範圍改變的 glob 會判為 stale 一次。包括下方有更深層檔案的單獨 `*`——`dir/*.ts`，以及專案根的 `*` 或 `*.ts`，現在只涵蓋頂層檔案（要涵蓋整個專案請寫 `.` 或 `**`）——和以 `**/` 開頭且頂層有同名目錄的 glob（`**/name/**`）。確認 README 後，以 `prospec knowledge verify` 重新蓋章。在 glob 中 `[` 開始一個字元類別：字面的方括號請寫 `[[]`。不含 `*` 的 path 是字面路徑，所以 `app/[id]` 指的就是該目錄，`src/?.ts` 也不是萬用字元。

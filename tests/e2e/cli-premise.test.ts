@@ -4,11 +4,13 @@ import * as path from 'node:path';
 import * as os from 'node:os';
 import { runCliInProcess } from './helpers/run-cli.js';
 import { premiseProposal, verifiedPremise } from '../helpers/premise.js';
+import { gitIn } from '../helpers/git-fixture.js';
 vi.setConfig({ testTimeout: 90_000, hookTimeout: 90_000 });
 let cwd: string;
 const cli = (args: string[]) => runCliInProcess(args, { cwd });
 beforeEach(async () => {
   cwd = await fs.mkdtemp(path.join(os.tmpdir(), 'prospec-premise-'));
+  gitIn(cwd, 'init', '-q');
   await fs.writeFile(path.join(cwd, '.prospec.yaml'), 'project:\n  name: test\nagents: [codex]\n');
 });
 afterEach(async () => { await fs.rm(cwd, { recursive: true, force: true }); });

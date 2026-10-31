@@ -3,6 +3,7 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 import * as os from 'node:os';
 import { runCliInProcess } from './helpers/run-cli.js';
+import { gitIn } from '../helpers/git-fixture.js';
 
 vi.setConfig({ testTimeout: 90_000, hookTimeout: 90_000 });
 
@@ -46,6 +47,7 @@ describe('status CLI e2e — escalation loops and output formatting (T19, REQ-CL
 
   beforeEach(async () => {
     tmpDir = await fs.promises.mkdtemp(path.join(os.tmpdir(), 'prospec-escalation-e2e-'));
+    gitIn(tmpDir, 'init', '-q');
     await fs.promises.writeFile(path.join(tmpDir, 'package.json'), JSON.stringify({ name: 'test-e2e' }));
     await runCli(['init', '--name', 'test-e2e', '--agents', 'claude']);
   });

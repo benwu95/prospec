@@ -154,3 +154,75 @@ describe('public docs links', () => {
     expect(urls.map((m) => m[1]!).filter((rel) => !existsExactCase(rel))).toEqual([]);
   });
 });
+
+/** The lines of `rel` from the heading matching `heading` up to the next heading of the same or higher level. */
+function sectionOf(rel: string, heading: RegExp): string {
+  const lines = read(rel).split('\n');
+  const start = lines.findIndex((l) => heading.test(l));
+  expect(start, `${rel}: no heading matching ${heading}`).toBeGreaterThanOrEqual(0);
+  const level = /^(#+)/.exec(lines[start]!)![1]!.length;
+  const end = lines.findIndex((l, i) => i > start && new RegExp(`^#{1,${level}}\\s`).test(l));
+  const body = lines.slice(start + 1, end === -1 ? undefined : end).join('\n');
+  expect(body.trim(), `${rel}: empty section ${heading}`).not.toBe('');
+  return body;
+}
+
+// REQ-SETUP-026: every public entry point states the git requirement, in both languages.
+describe('public docs git prerequisite', () => {
+  it.each([
+    ['README.md', /^### Prerequisites$/, ['installed', 'git work tree', 'subdirectory']],
+    ['README.zh-TW.md', /^### 前置需求$/, ['已安裝', 'git work tree', '子目錄']],
+  ])('%s lists git with both conditions among the prerequisites', (readme, heading, conditions) => {
+    const bullets = sectionOf(readme, heading).split('\n').filter((l) => l.startsWith('- '));
+    const git = bullets.filter((l) => l.startsWith('- **git**'));
+    expect(git, `${readme} git bullet`).toHaveLength(1);
+    for (const condition of conditions) expect(git[0], `${readme}: ${condition}`).toContain(condition);
+  });
+
+  it.each(['docs/getting-started.md', 'docs/getting-started.zh-TW.md'])(
+    '%s runs git init before prospec quickstart in the greenfield walkthrough',
+    (page) => {
+      const lines = read(page).split('\n');
+      const mkdir = lines.indexOf('mkdir my-project && cd my-project');
+      expect(mkdir, `${page} greenfield block`).toBeGreaterThanOrEqual(0);
+      expect(lines[mkdir + 1]).toMatch(/^git init\s/);
+      expect(lines[mkdir + 2]).toMatch(/^prospec quickstart\s/);
+    },
+  );
+
+  it.each([
+    ['docs/guides/upgrading.md', /^## Upgrade to the next release/],
+    ['docs/guides/upgrading.zh-TW.md', /^## 升級至下一個版本/],
+  ])('%s names the refusal and the remedy for each cause', (page, heading) => {
+    const section = sectionOf(page, heading);
+    for (const cause of ['git was not found on PATH', 'is not inside a git work tree', 'git cannot run']) {
+      expect(section, `${page}: ${cause}`).toContain(cause);
+    }
+    const remedy = section.split('\n').filter((l) => l.startsWith('- *… is not inside a git work tree*'));
+    expect(remedy, `${page} not-work-tree remedy`).toHaveLength(1);
+    expect(remedy[0]).toContain('`git init`');
+    expect(remedy[0]).toMatch(/commit/);
+    expect(section).toContain('`git --version`');
+  });
+
+  it.each([
+    ['docs/reference/cli-reference.md', /^## CLI Commands$/],
+    ['docs/reference/cli-reference.zh-TW.md', /^## CLI 命令$/],
+  ])('%s states the requirement before the command list and on quickstart', (page, heading) => {
+    const intro = sectionOf(page, heading).split(/^### /m)[0]!;
+    expect(intro, `${page} intro`).toContain('git work tree');
+    const quickstart = sectionOf(page, /^### (Infrastructure Commands|基礎設施命令)/)
+      .split('\n\n')
+      .find((block) => block.startsWith('- **`prospec quickstart [options]`**'));
+    expect(quickstart, `${page} quickstart breakdown`).toMatch(/git repository/);
+  });
+
+  it('the project site says to bootstrap inside a git repository in both languages', () => {
+    const html = read('docs/index.html');
+    const i18n = read('docs/i18n.js');
+    const en = /data-i18n="quickstart\.s2\.p">([^<]*(?:<[^/][^>]*>[^<]*<\/[^>]+>[^<]*)*)<\/p>/.exec(html)?.[1];
+    const zh = /'quickstart\.s2\.p': '([^']*)'/.exec(i18n)?.[1];
+    expect(en).toContain('git repository');
+    expect(zh).toContain('git repository');
+  });
+});

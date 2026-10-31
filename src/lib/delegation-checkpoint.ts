@@ -25,9 +25,9 @@ import {
 import { DelegationRefusedError } from '../types/errors.js';
 import { gitProjectPrefix, nonDirectoryAncestor, workTreePaths, type AncestorKind } from './drift-sources.js';
 import { atomicWrite } from './fs-utils.js';
-import { SNAPSHOT_PREFIX, gitRead, gitReadRecords, gitSnapshot, snapshotRoot, withFixedGitEnv } from './git-read.js';
+import { SNAPSHOT_PREFIX, failureLine, gitRead, gitReadRecords, gitSnapshot, snapshotRoot, withFixedGitEnv } from './git-read.js';
 import { isContainedPath } from './knowledge-reader.js';
-import { contentDigest, failureLine, isUnreadable, reportPaths, sha256 } from './repo-state.js';
+import { contentDigest, isUnreadable, reportPaths, sha256 } from './repo-state.js';
 
 export { SNAPSHOT_PREFIX, snapshotRoot };
 

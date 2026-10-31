@@ -4,7 +4,7 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg?style=flat-square)](LICENSE)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.9-blue?style=flat-square&logo=typescript)](https://www.typescriptlang.org/)
-[![Tests](https://img.shields.io/badge/tests-8860%20total-success?style=flat-square)](./CONTRIBUTING.md#testing)
+[![Tests](https://img.shields.io/badge/tests-8902%20total-success?style=flat-square)](./CONTRIBUTING.md#testing)
 [![Node](https://img.shields.io/badge/node-%3E%3D22.13-brightgreen?style=flat-square&logo=node.js)](https://nodejs.org/)
 [![pnpm](https://img.shields.io/badge/pnpm-%3E%3D11-orange?style=flat-square&logo=pnpm)](https://pnpm.io/)
 
@@ -76,6 +76,7 @@ From zero to your first AI-driven change in about five minutes.
 
 - An **AI CLI** (one or more): [Claude Code](https://docs.anthropic.com/claude/docs/claude-code) (recommended), [Codex CLI](https://developers.openai.com/codex/cli), [GitHub Copilot CLI](https://docs.github.com/copilot/github-copilot-in-the-cli), or [Antigravity CLI](https://antigravity.google/)
 - **Node.js** >= 22.13.0 — only for the npm/npx or source-development paths; the standalone binary below needs none.
+- **git**, installed, with your project inside a git work tree (a repository subdirectory works) — the `prospec` CLI refuses other directories; `--version`, `--help`, `help`, `print-template` and `config` run anywhere.
 
 ### 1. Install
 
@@ -97,7 +98,7 @@ Version pinning, manual binary downloads, and the devDependency / `npx` options 
 One command does the deterministic setup — it chains `init` + `agent sync`, skipping any step already done:
 
 ```bash
-cd my-project                 # a new or existing project
+cd my-project                 # a git repository; existing code not yet in git: `git init` and commit it first
 
 prospec quickstart            # → select AI assistants, choose doc language; creates .prospec.yaml + per-agent config + Skills
 ```

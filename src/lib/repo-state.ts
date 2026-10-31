@@ -28,7 +28,7 @@ import {
 } from '../types/delegation.js';
 import { DRIFT_REPORT_FILENAME } from '../types/drift-report.js';
 import { computeChangeState, gitProjectPrefix } from './drift-sources.js';
-import { gitRead, gitReadOptional, gitReadRecords, parseIndexRecord, withFixedGitEnv } from './git-read.js';
+import { failureLine, gitRead, gitReadOptional, gitReadRecords, parseIndexRecord, withFixedGitEnv } from './git-read.js';
 
 /** The project-root reports `computeChangeState` excludes; the content facet covers them itself. */
 export const DELEGATION_REPORT_FILES = [DRIFT_REPORT_FILENAME] as const;
@@ -96,16 +96,6 @@ export function reportPaths(cwd: string): { changed: string[]; deleted: Set<stri
     }
     return { changed, deleted };
   });
-}
-
-/**
- * The one line of a failure worth naming: git's own `fatal:`/`error:` line when the
- * message carries one (a spawned git's message is `Command failed: …` followed by
- * its stderr), else the first line.
- */
-export function failureLine(message: string): string {
-  const lines = message.split('\n').map((line) => line.trim()).filter((line) => line !== '');
-  return lines.find((line) => /^(?:fatal|error):/.test(line)) ?? lines[0] ?? 'unreadable';
 }
 
 function reason(error: unknown): string {

@@ -29,6 +29,7 @@ async function authorPremise(name: string): Promise<void> {
 
 beforeEach(async () => {
   tmpDir = await fs.promises.mkdtemp(path.join(os.tmpdir(), 'prospec-e2e-'));
+  gitIn(tmpDir, 'init', '-q');
 });
 
 afterEach(async () => {
@@ -527,6 +528,12 @@ quality_log:
 
     it('verify record refuses absent current review even without a saved report', async () => {
       await initChange();
+      // review-provenance audits implemented changes; an input edit after the recorded
+      // review leaves the change without a current review baseline.
+      await recordCliEvidence(tmpDir, 'my-change');
+      expect((await runCli(['change', 'status', 'implemented'])).exitCode).toBe(0);
+      await fs.promises.writeFile(path.join(tmpDir, 'suite.cjs'), 'process.exitCode = 0; // edited\n');
+      await fs.promises.rm(path.join(tmpDir, 'prospec-report.json'), { force: true });
       const { exitCode, stderr } = await runCli([
         'verify', 'record',
         '--dimension', 'delta-spec-compliance=PASS',
@@ -1178,7 +1185,7 @@ describe('fresh-test gates through the CLI (REQ-SERVICES-103, REQ-CLI-028, REQ-C
     fs.writeFileSync(configPath, command === null ? text : text.replace(/^tech_stack:\n/m, `tech_stack:\n  test_command: ${command}\n`));
   };
 
-  it('no test command (non-Git): both entrances pass with a deduplicated tests: not-adjudicated WARN under prospec-test-gate', async () => {
+  it('no test command: both entrances pass with a deduplicated tests: not-adjudicated WARN under prospec-test-gate', async () => {
     await initTasksDone('nocmd');
     const status = await runCli(['change', 'status', 'implemented']);
     expect(status.exitCode).toBe(0);

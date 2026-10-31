@@ -6,6 +6,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { atomicWrite } from '../../../src/lib/fs-utils.js';
 import { execute as status } from '../../../src/services/status.service.js';
 import { OracleSchema, ScenarioSchema } from '../../../scripts/workflow-eval/protocol.js';
+import { gitIn } from '../../helpers/git-fixture.js';
 
 // Spawns the frozen CLI through tsx: a FILE-level bound, since a later file default outranks a per-test one (PB-010).
 vi.setConfig({ testTimeout: 90_000 });
@@ -28,6 +29,8 @@ describe('versioned workflow fixtures', () => {
     expect(oracle.forbidden_files.length).toBeGreaterThan(0);
     expect(Object.keys(scenario.files).some((p) => p.includes('private') || p.includes('oracle'))).toBe(false);
     const cwd = await mkdtemp(join(tmpdir(), 'workflow-fixture-'));
+    // The CLI refuses outside a git work tree (REQ-SETUP-025).
+    gitIn(cwd, 'init', '-q');
     try {
       for (const [file, content] of Object.entries(scenario.files)) await atomicWrite(join(cwd, file), content);
       const actual = await status({ cwd });
