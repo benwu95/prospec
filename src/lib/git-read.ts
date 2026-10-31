@@ -13,6 +13,10 @@
  * `drift-sources` read that does come here is a gitlink's input listing (`ls-files`
  * inside the submodule): its cwd is another repository, so it needs exactly this
  * fixed environment and bound.
+ *
+ * `GIT_READ_TIMEOUT_MS` and `failureLine` are shared beyond the delegation path; the
+ * CLI entry's work-tree probe uses them, and this module imports only Node built-ins
+ * so that probe stays out of the drift engine's load graph.
  */
 import { execFileSync } from 'node:child_process';
 import { realpathSync } from 'node:fs';
@@ -111,8 +115,18 @@ export function gitRead(cwd: string, sub: GitReadSubcommand, args: readonly stri
   return gitReadBuffer(cwd, sub, args).toString('utf8');
 }
 
-/** Upper bound on one git read; the source digest's work-tree recording shares it. */
+/** Upper bound on one git read; the source digest's work-tree recording and the CLI entry's work-tree probe share it. */
 export const GIT_READ_TIMEOUT_MS = 30_000;
+
+/**
+ * The one line of a failure worth naming: git's own `fatal:`/`error:` line when the
+ * message carries one (a spawned git's message is `Command failed: …` followed by
+ * its stderr), else the first line.
+ */
+export function failureLine(message: string): string {
+  const lines = message.split('\n').map((line) => line.trim()).filter((line) => line !== '');
+  return lines.find((line) => /^(?:fatal|error):/.test(line)) ?? lines[0] ?? 'unreadable';
+}
 
 /** Preserve raw patch bytes; reads are bounded and never return a partial capture. */
 export function gitReadBuffer(cwd: string, sub: GitReadSubcommand, args: readonly string[] = []): Buffer {

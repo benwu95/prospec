@@ -79,7 +79,7 @@ The 5+1 dimensions are not one kind of thing, so they are not decided by one aut
 ### When a machine check skips
 
 The CLI is required (the probe STOPs before verify when it is missing), so "engine unavailable" is
-not a gradable state. An individual check can still honestly `skip` (e.g. a non-git checkout) — that
+not a gradable state. An individual check can still honestly `skip` — that
 dimension is **`not-adjudicated`**, a distinct state from both PASS and `not-applicable`:
 
 - `prospec verify record` sources it from the report and records it as a **WARN** (with the check's
@@ -443,7 +443,7 @@ Verify the output against the Constitution. When rules carry RFC-2119 severity, 
 | `prospec verify record` refuses (unprovable inputs / wrong judgment set) | Settle inputs, run current review/tests as needed, then retry; pass exactly the three judgment dimensions — machine dimensions are self-sourced, never relayed |
 | `--record-tests` skips because the latest attempt or resolved command is unavailable | Adopt the engine's honest skip as `not-adjudicated`, with its actual command/reason and a remedy for `tech_stack.test_command` or executable availability; a known non-zero failure still FAILs |
 | `--record-tests` leaves a running, timeout, failed or unprovable attempt | Adopt the engine's FAIL and actual command/reason/signal, settle the cause and re-run; never reuse an older PASS |
-| `--record-tests` encounters required inputs that are unprovable (including a non-Git checkout) | Report the capture reason; `verify record` must refuse before writing until required inputs can be proven |
+| `--record-tests` encounters required inputs that are unprovable | Report the capture reason; `verify record` must refuse before writing until required inputs can be proven |
 | Implementation severely mismatches spec | Pause verification, suggest updating spec or fixing implementation |
 
 ## Next-Step Handoff

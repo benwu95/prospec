@@ -63,6 +63,20 @@ describe('startup module graph (REQ-CLI-045)', () => {
     },
   );
 
+  it.each(STARTUP_PATHS.filter((p) => p.forbiddenLazy !== undefined).map((p) => [p.label, p] as const))(
+    '%s leaves its on-demand project modules unloaded',
+    (_label, p) => {
+      const { lazy } = measureStartupModules(p.args, undefined, p.scenario);
+      for (const mod of p.forbiddenLazy!) {
+        expect(lazy).not.toContain(mod);
+      }
+    },
+  );
+
+  it('the git entry check loads git-prerequisite on a non-exempt path, so its absence on --version is meaningful', () => {
+    expect(measureStartupModules(['status', '--json'], undefined, 'no-report').lazy).toContain('git-prerequisite');
+  });
+
   it.each(STARTUP_PATHS.filter((p) => p.maxNodeModules !== undefined).map((p) => [p.label, p] as const))(
     '%s stays under its node_modules ceiling',
     (_label, p) => {

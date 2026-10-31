@@ -41,6 +41,14 @@ prospec-upgrade                 # Step 2: AI agent migrates drifted doc formats,
 
 ## Upgrade to the next release (unreleased)
 
+**Breaking:** The `prospec` CLI now requires git. Every command except `--version`, `--help`, `help`, `print-template` and `config` checks, before it runs, that the project directory (the `--cwd` target when one is given) is inside a git work tree; a repository subdirectory counts. Otherwise it exits 1 without writing anything, and the message names the cause:
+
+- *git was not found on PATH* — install git.
+- *… is not inside a git work tree* — run `git init` in the project root and commit the existing project files (the raw scan lists only the files git tracks), or fix the error git reported (for example a `safe.directory` refusal).
+- *git cannot run* — repair the git installation until `git --version` succeeds.
+
+A directory without `.prospec.yaml` still reports the missing config first.
+
 Module paths in `module-map.yaml` now reach git through one rule. A path without `*` is a literal path; one that resolves to the project root (`.`, `./`, `src/..`) covers the whole project, so a whole-project module can be stamped with `prospec knowledge verify`. A path with `*` is a glob git matches with `:(glob)`: `*` stays within one directory and `**/` also matches at the top level.
 
 **Breaking:** A glob whose coverage changes reads stale once. That is a single `*` above deeper files — `dir/*.ts`, or a root `*` or `*.ts`, which now covers top-level files only (write `.` or `**` for the whole project) — and a leading `**/` with a same-named top-level directory (`**/name/**`). Confirm the README, then re-stamp with `prospec knowledge verify`. In a glob, `[` opens a character class: write `[[]` for a literal bracket. A path without `*` is literal, so `app/[id]` names that directory and `src/?.ts` is not a wildcard.

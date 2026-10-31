@@ -74,6 +74,8 @@ your-project/
 
 ## CLI 命令
 
+除了 `--version`、`--help`、`help`、`print-template` 與 `config`，每個指令都需要 git，且專案目錄（有指定 `--cwd` 時為該目錄）必須位於 git work tree 內；否則會在執行前以結束碼 1 結束並指出補救方式（見[升級指南](../guides/upgrading.zh-TW.md)）。
+
 ### 基礎設施命令
 
 | 命令 | 說明 |
@@ -93,7 +95,7 @@ your-project/
 
 - **`prospec quickstart [options]`**
   - **核心用途**：新專案快速引導，串接 `init` 與 `agent sync`。
-  - **執行行為**：自動執行前置步驟並跳過已完成項目；完成後提示在 AI Agent 內執行 `prospec-quickstart` 進行觸發詞在地化與知識庫生成。
+  - **執行行為**：需在 git repository 內執行（新專案先 `git init`；既有程式碼先 commit，因為 raw scan 只列出 git 追蹤的檔案）。自動執行前置步驟並跳過已完成項目；完成後提示在 AI Agent 內執行 `prospec-quickstart` 進行觸發詞在地化與知識庫生成。
   - **選項**：支援與 `init` 相同的 `--name`、`--agents`、`--language`、`--trust-zone-language` 選項。
 
 - **`prospec upgrade [--cwd <dir>]`**
@@ -126,7 +128,7 @@ your-project/
 
 - **`prospec knowledge verify <module>...`**
   - **核心用途**：為指定模組在 `module-map.yaml` 戳上 `last_verified` 時間戳記與 `source_digest`。
-  - **執行行為**：記錄模組知識與原始碼確認一致的時間點，以及確認時原始碼的 digest；`prospec check` 以該 digest 比對目前原始碼判斷 staleness。戳記已晚於 `HEAD` 中的值、且原始碼 digest 未變的模組會略過，輸出為 `skipped`；指名的模組全部略過時不改寫 `module-map.yaml`。在 git work tree 內，任一模組的 digest 無法計算時整體拒寫；不在 work tree 內時只寫 `last_verified`。
+  - **執行行為**：記錄模組知識與原始碼確認一致的時間點，以及確認時原始碼的 digest；`prospec check` 以該 digest 比對目前原始碼判斷 staleness。戳記已晚於 `HEAD` 中的值、且原始碼 digest 未變的模組會略過，輸出為 `skipped`；指名的模組全部略過時不改寫 `module-map.yaml`。任一模組的 digest 無法計算時整體拒寫。
 
 - **`prospec agent sync [--cli <name>]`**
   - **核心用途**：同步各 AI Agent 設定檔並生成對應的 Skills。
@@ -330,7 +332,7 @@ Review 維持 artifact→metadata，verify 維持 metadata→evidence 的寫入�
 
 - **`prospec history import --from <project-root> [--dry-run] [--json]`**
   - **核心用途**：匯入同一 Git common-dir、相同 `projectPrefix`、已註冊 worktree 的 legacy 本地歷史。先用 `--dry-run` 檢查；正式執行只複製、保留來源與原始 identity／metadata／retry digest。相同完整副本去重，衝突或 incomplete 資料拒絕；新版 marked bundle 不支援 noncanonical relocation。JSON 提供各 entry outcome，部分失敗以非零退出。
-  - **保存邊界**：不還原工作、不自動搶占 writer claim。失敗時檢查回報的 source、staging、final 與 operation 路徑；儲存於 main worktree 不等於 main repository 或 Git objects 的備份。非 Git 專案只允許自身 no-op import。
+  - **保存邊界**：不還原工作、不自動搶占 writer claim。失敗時檢查回報的 source、staging、final 與 operation 路徑；儲存於 main worktree 不等於 main repository 或 Git objects 的備份。
 
 - **`prospec change scale <quick|standard|full|backfill> [--change <name>]`**
   - **核心用途**：設定變更的複雜度 scale，就地更新 `metadata.yaml` 並保留原有註解。

@@ -4,6 +4,7 @@ import * as path from 'node:path';
 import * as os from 'node:os';
 import { parse as parseYamlRaw } from 'yaml';
 import { runCliInProcess } from './helpers/run-cli.js';
+import { gitIn } from '../helpers/git-fixture.js';
 
 // In-process runs still shell out to git via the drift/status/check services;
 // keep the generous file-level timeout the git-bound e2e files use (PB-010).
@@ -15,6 +16,7 @@ const runCli = (args: string[], options: { cwd?: string } = {}) =>
 
 beforeEach(async () => {
   tmpDir = await fs.promises.mkdtemp(path.join(os.tmpdir(), 'prospec-e2e-'));
+  gitIn(tmpDir, 'init', '-q');
 });
 
 afterEach(async () => {

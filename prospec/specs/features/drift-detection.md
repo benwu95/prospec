@@ -1,7 +1,7 @@
 ---
 feature: drift-detection
 status: active
-last_updated: 2026-10-29
+last_updated: 2026-10-31
 story_count: 22
 req_count: 91
 ---
@@ -64,6 +64,7 @@ _(None)_
 
 | Date | Change | Impact | Stories/REQs |
 |------|--------|--------|--------------|
+| 2026-10-31 | require-git-at-cli-entry | MODIFIED REQ-LIB-070 | REQ-LIB-070 |
 | 2026-10-29 | resolve-module-paths-via-git | ADDED REQ-LIB-107; MODIFIED REQ-LIB-014; MODIFIED REQ-LIB-015; MODIFIED REQ-LIB-039; MODIFIED REQ-LIB-070 | REQ-LIB-107, REQ-LIB-014, REQ-LIB-015, REQ-LIB-039, REQ-LIB-070 |
 | 2026-10-26 | compute-digest-via-temp-index | MODIFIED REQ-LIB-015; MODIFIED REQ-LIB-070; MODIFIED REQ-TYPES-082 | REQ-LIB-015, REQ-LIB-070, REQ-TYPES-082 |
 | 2026-10-25 | judge-freshness-by-content-digest | MODIFIED REQ-LIB-015; MODIFIED REQ-LIB-039; MODIFIED REQ-LIB-070; MODIFIED REQ-TYPES-073; MODIFIED REQ-TESTS-112; MODIFIED REQ-TESTS-067 | REQ-LIB-015, REQ-LIB-039, REQ-LIB-070, REQ-TYPES-073, REQ-TESTS-112, REQ-TESTS-067 |

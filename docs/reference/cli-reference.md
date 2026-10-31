@@ -75,6 +75,8 @@ your-project/
 
 ## CLI Commands
 
+Every command except `--version`, `--help`, `help`, `print-template` and `config` requires git and a project directory (the `--cwd` target when given) inside a git work tree; elsewhere it exits 1 before acting and names the remedy (see [Upgrading](../guides/upgrading.md)).
+
 ### Infrastructure Commands
 
 | Command | Description |
@@ -94,7 +96,7 @@ your-project/
 
 - **`prospec quickstart [options]`**
   - **Purpose**: Fast, streamlined onboarding by chaining `init` and `agent sync`.
-  - **Behavior**: Automatically runs initialization steps (skipping completed ones), then prompts to trigger `prospec-quickstart` in the AI agent for trigger localization and Knowledge generation.
+  - **Behavior**: Run it inside a git repository (`git init` a new project; commit existing code first, since the raw scan lists only the files git tracks). Automatically runs initialization steps (skipping completed ones), then prompts to trigger `prospec-quickstart` in the AI agent for trigger localization and Knowledge generation.
   - **Options**: Accepts the same `--name`, `--agents`, `--language`, and `--trust-zone-language` options as `init`.
 
 - **`prospec upgrade [--cwd <dir>]`**
@@ -127,7 +129,7 @@ your-project/
 
 - **`prospec knowledge verify <module>...`**
   - **Purpose**: Stamp the `last_verified` timestamp and the `source_digest` of each named module in `module-map.yaml`.
-  - **Behavior**: Records when module knowledge was confirmed current and the digest of the source it was confirmed against; `prospec check` compares that digest with the current source to detect stale documentation. A module whose stamp is already later than its value at `HEAD` and whose source digest is unchanged is skipped and printed as `skipped`; when every named module is skipped, `module-map.yaml` is not rewritten. Inside a git work tree, a module whose digest cannot be computed refuses the whole write; outside one, only `last_verified` is stamped.
+  - **Behavior**: Records when module knowledge was confirmed current and the digest of the source it was confirmed against; `prospec check` compares that digest with the current source to detect stale documentation. A module whose stamp is already later than its value at `HEAD` and whose source digest is unchanged is skipped and printed as `skipped`; when every named module is skipped, `module-map.yaml` is not rewritten. A module whose digest cannot be computed refuses the whole write.
 
 - **`prospec agent sync [--cli <name>]`**
   - **Purpose**: Synchronize AI agent configurations and generate Skills.
@@ -333,7 +335,7 @@ Review preserves artifact→metadata ordering; verify preserves metadata→evide
 
 - **`prospec history import --from <project-root> [--dry-run] [--json]`**
   - **Purpose**: Import legacy local history from a registered worktree sharing the Git common-dir and `projectPrefix`. Preview with `--dry-run`; execution copies only, retaining sources and original identities/metadata/retry digests. Identical complete copies deduplicate; conflicts and incomplete data refuse. Marked modern bundles do not support noncanonical relocation. JSON reports each entry outcome; partial failure exits nonzero.
-  - **Retention boundary**: Does not restore work or automatically reclaim a writer claim. Inspect reported source, staging, final and operation paths after failure. Storage in the main worktree is not backup of the main repository or Git objects. Non-Git projects allow only their own no-op import.
+  - **Retention boundary**: Does not restore work or automatically reclaim a writer claim. Inspect reported source, staging, final and operation paths after failure. Storage in the main worktree is not backup of the main repository or Git objects.
 
 - **`prospec change scale <quick|standard|full|backfill> [--change <name>]`**
   - **Purpose**: Write user-confirmed complexity scale to `metadata.yaml` (in-place edit preserving comments).

@@ -5,6 +5,7 @@ import * as os from 'node:os';
 import { parse as parseYamlRaw } from 'yaml';
 import { execFileSync } from 'node:child_process';
 import { runCliInProcess } from './helpers/run-cli.js';
+import { gitIn } from '../helpers/git-fixture.js';
 
 // In-process runs still shell out to git via the drift/status/check services;
 // keep the generous file-level timeout the git-bound e2e files use (PB-010).
@@ -16,6 +17,7 @@ const runCli = (args: string[], options: { cwd?: string } = {}) =>
 
 beforeEach(async () => {
   tmpDir = await fs.promises.mkdtemp(path.join(os.tmpdir(), 'prospec-e2e-'));
+  gitIn(tmpDir, 'init', '-q');
 });
 
 afterEach(async () => {
@@ -244,6 +246,8 @@ describe('CLI E2E — knowledge, agent & measure', () => {
       const newDir = path.join(srcDir, 'newmodule');
       await fs.promises.mkdir(newDir, { recursive: true });
       await fs.promises.writeFile(path.join(newDir, 'thing.ts'), 'export const t = 1;\n');
+      // Inside a git work tree the raw scan lists tracked files only.
+      gitIn(tmpDir, 'add', '-A');
 
       const { exitCode, stdout } = await runCli(['knowledge', 'init', '--raw-scan-only']);
       expect(exitCode).toBe(0);

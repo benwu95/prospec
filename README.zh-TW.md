@@ -4,7 +4,7 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg?style=flat-square)](LICENSE)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.9-blue?style=flat-square&logo=typescript)](https://www.typescriptlang.org/)
-[![測試](https://img.shields.io/badge/測試-8860%20總計-success?style=flat-square)](./CONTRIBUTING.md#testing)
+[![測試](https://img.shields.io/badge/測試-8902%20總計-success?style=flat-square)](./CONTRIBUTING.md#testing)
 [![Node](https://img.shields.io/badge/node-%3E%3D22.13-brightgreen?style=flat-square&logo=node.js)](https://nodejs.org/)
 [![pnpm](https://img.shields.io/badge/pnpm-%3E%3D11-orange?style=flat-square&logo=pnpm)](https://pnpm.io/)
 
@@ -76,6 +76,7 @@ Review 共用八個 lenses：correctness、security 與 spec-architecture 每輪
 
 - **AI CLI**（至少一個）：[Claude Code](https://docs.anthropic.com/claude/docs/claude-code)（推薦）、[Codex CLI](https://developers.openai.com/codex/cli)、[GitHub Copilot CLI](https://docs.github.com/copilot/github-copilot-in-the-cli) 或 [Antigravity CLI (agy)](https://antigravity.google/)
 - **Node.js** >= 22.13.0 —— 只有 npm/npx 或參與本專案開發時需要；下方的獨立執行檔不需要。
+- **git**：需已安裝，且專案位於 git work tree 內（repository 的子目錄也可以）——`prospec` CLI 會拒絕在其他目錄執行；`--version`、`--help`、`help`、`print-template` 與 `config` 不受限制。
 
 ### 1. 安裝
 
@@ -97,7 +98,7 @@ powershell -c "irm https://raw.githubusercontent.com/benwu95/prospec/main/instal
 一個指令完成 deterministic 的設定 —— 它會串接 `init` + `agent sync`，已完成的步驟自動跳過：
 
 ```bash
-cd my-project                 # 新專案或既有專案
+cd my-project                 # git repository；既有程式碼還沒進 git 的話，先 `git init` 並 commit
 
 prospec quickstart            # → 選擇 AI Assistant、選擇文件語言；建立 .prospec.yaml + 各 agent config + Skills
 ```

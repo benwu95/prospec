@@ -64,7 +64,7 @@ subject_skips? }`, adopted **verbatim**.
 | `delta-spec-landing-fidelity` | `fail` | Flags MODIFIED `**Spec:**` blocks that drop undeclared `WHEN/THEN` bullets or are empty. | ADDED entries, no `**Spec:**` block, no changes dir. |
 | `req-id-uniqueness` | `fail` | Flags duplicate REQ ID definitions across Feature Specs (slices grouped with parent). | Specs absent or unparseable. |
 | `language-policy-drift` | `warn` | Flags a Constitution whose Language Policy Description no longer matches the one generated for the resolved language scope, or still carries the old seed (the old English seed in an English-only project passes — nothing to migrate). | Constitution unreadable, no Language Policy principle, or no `**Description**:` field. |
-| `task-completion` | `warn`/`fail` | Tracks code-task completion in `tasks.md` (`[M]`/`[V]` excluded). | No tasks.md or not in git repo. |
+| `task-completion` | `warn`/`fail` | Tracks code-task completion in `tasks.md` (`[M]`/`[V]` excluded). | No tasks.md. |
 | `constitution-severity` | `warn` | Checks Constitution principles for RFC-2119 severity tags (`MUST`/`SHOULD`/`MAY`). | Constitution missing or empty. |
 | `knowledge-health` | `warn`/`fail` | Reports freshness and coverage; see `structural.knowledge_health` below. | Module map unavailable. |
 | `test-provenance` | `fail` | Validates test execution record, freshness, and exit code. | No test command configured (skips honestly). |
