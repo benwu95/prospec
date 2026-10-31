@@ -1,9 +1,9 @@
 ---
 feature: project-setup
 status: active
-last_updated: 2026-10-20
+last_updated: 2026-10-31
 story_count: 20
-req_count: 53
+req_count: 55
 ---
 
 # Project Setup
@@ -67,6 +67,7 @@ req_count: 53
 
 | Date | Change | Impact | Stories/REQs |
 |------|--------|--------|-------------|
+| 2026-10-31 | require-git-at-cli-entry | ADDED REQ-SETUP-025; ADDED REQ-SETUP-026 | REQ-SETUP-025, REQ-SETUP-026 |
 | 2026-10-20 | configure-test-timeout | ADDED REQ-TYPES-116 | REQ-TYPES-116 |
 | 2026-10-18 | add-static-gitignore-block | ADDED REQ-LIB-106; ADDED REQ-SERVICES-130; ADDED REQ-CLI-063; MODIFIED REQ-SETUP-004; MODIFIED REQ-SETUP-013; MODIFIED REQ-SETUP-018; MODIFIED REQ-SERVICES-028; MODIFIED REQ-SETUP-019 | REQ-LIB-106, REQ-SERVICES-130, REQ-CLI-063, REQ-SETUP-004, REQ-SETUP-013, REQ-SETUP-018, REQ-SERVICES-028, REQ-SETUP-019 |
 | 2026-10-09 | slim-readme-into-docs | MODIFIED REQ-CLI-021 | REQ-CLI-021 |
