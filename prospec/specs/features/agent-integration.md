@@ -1,7 +1,7 @@
 ---
 feature: agent-integration
 status: active
-last_updated: 2026-10-14
+last_updated: 2026-11-01
 story_count: 26
 req_count: 116
 ---
@@ -182,6 +182,7 @@ The repository's English and Traditional Chinese root READMEs are an equivalent 
 
 | Date | Change | Impact | Stories/REQs |
 |------|--------|--------|-------------|
+| 2026-11-01 | add-req-language-gate-rules | MODIFIED REQ-SKILL-012 | REQ-SKILL-012 |
 | 2026-10-14 | extract-config-reference | MODIFIED REQ-TEMPLATES-230 | REQ-TEMPLATES-230 |
 | 2026-10-11 | unify-review-lenses | MODIFIED REQ-TEMPLATES-084; MODIFIED REQ-TEMPLATES-232 | REQ-TEMPLATES-084, REQ-TEMPLATES-232 |
 | 2026-10-10 | remove-stale-skill-count-claims | MODIFIED REQ-TESTS-029; MODIFIED REQ-TEMPLATES-143 | REQ-TESTS-029, REQ-TEMPLATES-143 |
