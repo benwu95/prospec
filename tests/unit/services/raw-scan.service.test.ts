@@ -28,37 +28,20 @@ vi.mock('../../../src/lib/template.js', () => ({
   registerHelper: vi.fn(),
 }));
 
-// Mock fast-glob to walk the in-memory filesystem
-vi.mock('fast-glob', () => ({
-  default: {
-    glob: vi.fn().mockImplementation(
-      async (_patterns: string | string[], options: { cwd?: string }) => {
-        const cwd = options?.cwd ?? '/';
-        try {
-          const allFiles: string[] = [];
-          const walkDir = (dir: string, prefix: string) => {
-            const entries = fs.readdirSync(dir, { withFileTypes: true });
-            for (const entry of entries) {
-              const fullPath = `${dir}/${entry.name}`;
-              const relativePath = prefix ? `${prefix}/${entry.name}` : entry.name;
-              if (entry.isDirectory()) {
-                if (!['node_modules', '.git', 'dist'].includes(entry.name)) {
-                  walkDir(fullPath, relativePath);
-                }
-              } else {
-                allFiles.push(relativePath);
-              }
-            }
-          };
-          walkDir(cwd, '');
-          return allFiles.sort();
-        } catch {
-          return [];
-        }
-      },
-    ),
-    globSync: vi.fn().mockReturnValue([]),
-  },
+// This suite supplies file membership; real git selection is covered separately.
+vi.mock('../../../src/lib/project-files-adapters.js', () => ({
+  listProjectFiles: vi.fn().mockImplementation((cwd: string) => {
+    const files: string[] = [];
+    const walk = (dir: string, prefix: string) => {
+      for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+        const relative = prefix ? `${prefix}/${entry.name}` : entry.name;
+        if (entry.isDirectory()) walk(`${dir}/${entry.name}`, relative);
+        else files.push(relative);
+      }
+    };
+    walk(cwd, '');
+    return { available: true, files: files.sort(), coverage: files.length ? 'members' : 'no-members' };
+  }),
 }));
 
 const RAW_SCAN_PATH = '/project/prospec/ai-knowledge/raw-scan.md';
@@ -146,7 +129,7 @@ describe('raw-scan.service / generateRawScan', () => {
 
   it('caps the directory tree at the requested depth', async () => {
     // buildDirectoryTree(files, depth) is the only branch-distinguishing
-    // consumer of `depth` observable in this mocked setup (fast-glob is mocked
+    // consumer of `depth` observable in this mocked setup (project-file membership is mocked
     // and ignores `deep`). The rendered context's directory_tree must include
     // dirs up to depth 2 (src/, src/a/) but omit anything deeper (src/a/b/...).
     vi.mocked(renderTemplate).mockClear();
@@ -653,7 +636,7 @@ describe('raw-scan.service / non-source directory disclosure (REQ-KNOW-038)', ()
     expect(ctx.dependencies.find((d) => d.name === 'ev`il')?.name_display).toBe('``ev`il``');
   });
 
-  it('neutralizes a newline-bearing manifest value — a path cannot carry one, JSON can', async () => {
+  it('neutralizes newline-bearing manifest values', async () => {
     // `toInlineCodeSpan` widening alone does not close this: a code span's content
     // lives in one paragraph, so a blank line inside a `package.json` value would
     // end it and let a forged heading render for real.

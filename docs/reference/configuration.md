@@ -10,9 +10,11 @@ Configure Prospec through `.prospec.yaml` in the project root. The tables below 
 | `version` | string | Unset | Version last written by `prospec init` or `prospec upgrade`. Legacy `"1.0"` is treated as stale, not as the current version. |
 | `project.name` | string | Required | Project name. |
 | `paths.base_dir` | string | `prospec` | Artifact root for the Constitution, index, specs and the Knowledge directory (`{paths.base_dir}/ai-knowledge`). Must be a single directory name beside `.prospec.yaml` — not empty, `.` or `..`, and without `/`, `\`, NUL or a drive prefix such as `C:`. It, `{paths.base_dir}/specs` and `{paths.base_dir}/ai-knowledge` must be ordinary directories, not symlinks, when they exist. |
-| `exclude` | string[] | `[]` | Additional glob patterns excluded from AI Knowledge scanning. Built-in dependency, build and sensitive-file exclusions still apply. |
+| `exclude` | string[] | `[]` | Additional project-file exclusions for raw scans, new-module README skeletons and import scanning, interpreted with module-path rules. Built-in sensitive-file exclusions still apply. |
 
-The scanner always excludes common directories such as `node_modules`, `.git`, `dist`, `build` and `coverage`, along with sensitive patterns such as environment files, credentials, secrets, keys and certificates. An empty `exclude` list does not disable those exclusions.
+Project-file listing starts from git index members; add new files with `git add` before scanning. Untracked and ignored files outside the index are absent, but tracked dependency/build files, dot-directory files and deep files can appear. Symlinks are not followed and submodule gitlinks are not expanded. Sensitive patterns such as environment files, credentials, secrets, keys and certificates are always excluded; an empty `exclude` does not disable them. There is no automatic dependency/build-directory exclusion for tracked project files.
+
+Each `exclude` entry follows the module-path rule: without `*`, it is literal (including `?`, `[]`, braces, leading `!` and extglob syntax); a trailing `/` excludes a subtree and `.` excludes everything. With `*`, it is passed unchanged to git `:(glob)`: `*` stays within a directory, and `**/` matches any number of directories. Leading `!` and extglob syntax have no fast-glob meaning. Rewrite `**/name` as `**/name/**` for a directory subtree. Globs with braces, `..` segments or absolute roots are refused; `unsupported-module-path` reports them, and they exclude nothing. Module and exclusion globs are listed separately and the excluded matches are subtracted.
 
 ## Tech stack and test command
 

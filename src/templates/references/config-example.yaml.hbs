@@ -48,7 +48,15 @@ paths:
   # symlinks, when they exist.
   base_dir: prospec
 
-# Glob patterns excluded from AI-knowledge scanning.
+# Project-file exclusions, read like module paths: without `*`, a literal path
+# (a trailing `/` excludes its subtree, `.` excludes everything); with `*`, a git
+# `:(glob)` pattern. `?`, `[]`, braces, leading `!` and extglob syntax have no
+# fast-glob meaning: entries without `*` are literal; those with `*` go to git
+# unchanged. Globs containing braces, `..` or an absolute root are refused and
+# reported by unsupported-module-path. Rewrite `**/name` as `**/name/**` for a subtree.
+# Sensitive-file exclusions still apply; tracked build/dependency files are not
+# excluded automatically. Module and exclusion globs are listed separately, then
+# excluded matches are subtracted.
 exclude:
   - "*.env*"
   - "*credential*"

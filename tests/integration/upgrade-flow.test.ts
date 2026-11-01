@@ -24,6 +24,10 @@ vi.mock('node:fs', async () => {
 vi.mock('node:child_process', async (importOriginal) =>
   (await import('../helpers/no-child-process.js')).withoutSpawns(await importOriginal<typeof import('node:child_process')>()));
 
+vi.mock('../../src/lib/project-files-adapters.js', () => ({
+  listProjectFiles: vi.fn().mockReturnValue({ available: true, files: ['package.json'], coverage: 'members' }),
+}));
+
 vi.mock('node:os', () => ({
   homedir: () => '/home/testuser',
   default: { homedir: () => '/home/testuser' },

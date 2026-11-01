@@ -201,7 +201,8 @@ describe('public docs git prerequisite', () => {
     const remedy = section.split('\n').filter((l) => l.startsWith('- *… is not inside a git work tree*'));
     expect(remedy, `${page} not-work-tree remedy`).toHaveLength(1);
     expect(remedy[0]).toContain('`git init`');
-    expect(remedy[0]).toMatch(/commit/);
+    expect(section).toContain('`git add`');
+    expect(section).toContain('git index');
     expect(section).toContain('`git --version`');
   });
 

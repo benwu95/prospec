@@ -9,12 +9,12 @@
 
 | File | Purpose |
 |------|---------|
-{{#each key_files}}| `{{this.path}}` | {{this.description}} |
+{{#each key_files}}| {{this.path_display}} | {{this.description}} |
 {{/each}}
 
 ## Public API
 
-{{#each key_exports}}- `{{this.name}}` — {{this.description}}
+{{#each key_exports}}- {{this.name_display}} — {{this.description}}
 {{/each}}
 {{#unless key_exports}}_(Run `prospec-knowledge-generate` to populate)_
 {{/unless}}

@@ -700,3 +700,22 @@ export function sweepModuleReadme(content: string): { swept: string; savings: nu
 
   return { swept, savings: Math.max(0, beforeTokens - afterTokens) };
 }
+
+/** git default pathspec over a literal project-relative path: a file matches its exact self or
+ *  anything beneath it as a directory prefix; the project root (`''`) covers every file. */
+export function pathspecCovers(spec: string, file: string): boolean {
+  return spec === '' || file === spec || file.startsWith(`${spec}/`);
+}
+
+/** A module path or generated-artifact pattern as git reads it (REQ-LIB-015): a literal path by
+ *  its project-relative form, a glob exactly as written; a refused spec reaches git as nothing. */
+export function gitPathspec(spec: ModulePathSpec, exclude = false): string | null {
+  const magic = exclude ? 'exclude,' : '';
+  if (spec.kind === 'literal') return `:(${magic}literal)${spec.rel === '' ? '.' : spec.rel}`;
+  if (spec.kind === 'glob') return `:(${magic}glob)${spec.raw}`;
+  return null;
+}
+
+export function gitPathspecs(cwd: string, raw: readonly string[], exclude = false): string[] {
+  return raw.flatMap((p) => gitPathspec(classifyModulePathSpec(p, cwd), exclude) ?? []);
+}

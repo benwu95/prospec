@@ -1090,10 +1090,18 @@ describe('collectMarkdownLinks', () => {
 });
 
 describe('collectImportEdges', () => {
+  beforeEach(() => {
+    execFileSync('git', ['init', '-q'], { cwd: tmpDir, stdio: 'pipe' });
+  });
+  const collectIndexedEdges = (cwd: string, map: ModuleMap) => {
+    execFileSync('git', ['add', '.'], { cwd: tmpDir, stdio: 'pipe' });
+    return collectImportEdges(cwd, map);
+  };
+
   it('collects cross-module edges including multi-line and side-effect imports', () => {
     write('src/services/a.ts', "import type { X } from '../types/x.js';\n");
     write('src/cli/b.ts', "import {\n  helper,\n} from '../services/a.js';\nimport '../types/side-effect.js';\n");
-    const { available, edges } = collectImportEdges(tmpDir, MODULE_MAP);
+    const { available, edges } = collectIndexedEdges(tmpDir, MODULE_MAP);
     expect(available).toBe(true);
     const asPairs = edges.map((e) => `${e.from_module}->${e.to_module}`).sort();
     expect(asPairs).toEqual(['cli->services', 'cli->types', 'services->types']);
@@ -1104,14 +1112,16 @@ describe('collectImportEdges', () => {
   it('ignores package imports, same-module imports and string constants', () => {
     write('src/types/x.ts', "import { z } from 'zod';\nimport { y } from './y.js';\nexport const P = './services/fake.js';\n");
     write('src/types/y.ts', '');
-    const { edges } = collectImportEdges(tmpDir, MODULE_MAP);
+    const { available, edges } = collectIndexedEdges(tmpDir, MODULE_MAP);
+    expect(available).toBe(true);
     expect(edges).toEqual([]);
   });
 
   it('skips files outside any module-map path', () => {
     write('scripts/tool.ts', "import { x } from '../src/services/a.js';\n");
     write('src/services/a.ts', '');
-    const { edges } = collectImportEdges(tmpDir, MODULE_MAP);
+    const { available, edges } = collectIndexedEdges(tmpDir, MODULE_MAP);
+    expect(available).toBe(true);
     expect(edges).toEqual([]);
   });
 
@@ -1119,9 +1129,9 @@ describe('collectImportEdges', () => {
     write('src/a.ts', "import { b } from './b.js';\n");
     write('src/b.ts', '');
     for (const root of ['.', './', 'src/..']) {
-      const r = collectImportEdges(tmpDir, { modules: [{ name: 'whole', paths: [root], keywords: [] }] });
+      const r = collectIndexedEdges(tmpDir, { modules: [{ name: 'whole', paths: [root], keywords: [] }] });
       expect(r.available, root).toBe(false);
-      expect(r.reason, root).toContain('source unavailable');
+      expect(r.reason, root).toContain('no JavaScript/TypeScript source');
     }
   });
 
@@ -1134,14 +1144,15 @@ describe('collectImportEdges', () => {
       project,
     );
     expect(clamped.modules[0]?.paths).toEqual([]);
-    const r = collectImportEdges(project, clamped);
+    const r = collectIndexedEdges(project, clamped);
+    expect(r.available).toBe(true);
     expect(r.edges.some((e) => e.from_path.startsWith('..'))).toBe(false);
   });
 
   it('reports unavailable when none of the module paths exist on disk (FR-007)', () => {
-    const r = collectImportEdges(tmpDir, MODULE_MAP);
+    const r = collectIndexedEdges(tmpDir, MODULE_MAP);
     expect(r.available).toBe(false);
-    expect(r.reason).toContain('source unavailable');
+    expect(r.reason).toContain('no JavaScript/TypeScript source');
   });
 
   it('reports skipped (not a vacuous PASS) for a non-JS/TS project whose module paths exist but hold no JS/TS source', () => {
@@ -1150,7 +1161,7 @@ describe('collectImportEdges', () => {
     // (which would falsely claim the dependency direction was verified).
     write('src/services/main.py', 'from ..cli.app import x\n');
     write('src/cli/app.py', 'pass\n');
-    const r = collectImportEdges(tmpDir, MODULE_MAP);
+    const r = collectIndexedEdges(tmpDir, MODULE_MAP);
     expect(r.available).toBe(false);
     expect(r.reason).toContain('JavaScript/TypeScript');
     expect(r.edges).toEqual([]);
@@ -1163,7 +1174,8 @@ describe('collectImportEdges', () => {
     );
     write('src/types/y.ts', '');
     write('src/services/a.ts', '');
-    const { edges } = collectImportEdges(tmpDir, MODULE_MAP);
+    const { available, edges } = collectIndexedEdges(tmpDir, MODULE_MAP);
+    expect(available).toBe(true);
     expect(edges).toEqual([]);
   });
 
@@ -1174,7 +1186,8 @@ describe('collectImportEdges', () => {
     );
     write('src/types/x.ts', '');
     write('src/types/y.ts', '');
-    const { edges } = collectImportEdges(tmpDir, MODULE_MAP);
+    const { available, edges } = collectIndexedEdges(tmpDir, MODULE_MAP);
+    expect(available).toBe(true);
     // the real import edges to types; the template-literal 'import' is blanked
     expect(edges.some((e) => e.specifier === '../types/y.js')).toBe(true);
     expect(edges.some((e) => e.specifier === '../types/x.js')).toBe(false);
@@ -1189,11 +1202,33 @@ describe('collectImportEdges', () => {
     };
     write('src/features/auth/login.ts', "import { rate } from '../billing/rate.js';\n");
     write('src/features/billing/rate.ts', '');
-    const { available, edges } = collectImportEdges(tmpDir, DOMAIN_MAP);
+    const { available, edges } = collectIndexedEdges(tmpDir, DOMAIN_MAP);
     // before the fix existsSync('<cwd>/**/auth/**') was always false → source
     // reported unavailable and the whole import-direction check was skipped
     expect(available).toBe(true);
     expect(edges.map((e) => `${e.from_module}->${e.to_module}`)).toContain('auth->billing');
+  });
+
+  it('emits the edges of a file another module lists but a `**/seg` module owns', () => {
+    const SEGMENT_MAP: ModuleMap = {
+      modules: [
+        { name: 'src', paths: ['**/src/**'], keywords: [], relationships: { depends_on: [] } },
+        { name: 'auth', paths: ['**/auth'], keywords: [], relationships: { depends_on: [] } },
+        { name: 'db', paths: ['lib/db'], keywords: [], relationships: { depends_on: [] } },
+      ],
+    };
+    write('src/auth/login.ts', "import { x } from '../../lib/db/x.js';\n");
+    write('lib/db/x.ts', '');
+    const { available, edges } = collectIndexedEdges(tmpDir, SEGMENT_MAP);
+    expect(available).toBe(true);
+    expect(edges.map((e) => `${e.from_path}:${e.from_module}->${e.to_module}`)).toEqual(['src/auth/login.ts:auth->db']);
+  });
+
+  it('reports the capture failure it is handed instead of capturing the inventory again', () => {
+    write('src/cli/b.ts', "import '../types/x.js';\n");
+    execFileSync('git', ['add', '.'], { cwd: tmpDir, stdio: 'pipe' });
+    const r = collectImportEdges(tmpDir, MODULE_MAP, { inventory: new Error('Unprovable sparse or unmerged input'), inWorkTree: true });
+    expect(r).toEqual({ available: false, reason: 'source inventory unavailable: Unprovable sparse or unmerged input', edges: [] });
   });
 
   it('scans a single-file module path entry (file entries no longer expand to <file>/**)', () => {
@@ -1205,7 +1240,7 @@ describe('collectImportEdges', () => {
     };
     write('src/lib/entry.ts', "import { X } from '../types/x.js';\n");
     write('src/types/x.ts', '');
-    const { available, edges } = collectImportEdges(tmpDir, FILE_MAP);
+    const { available, edges } = collectIndexedEdges(tmpDir, FILE_MAP);
     // Before the fix importScanPattern turned 'src/lib/entry.ts' into
     // 'src/lib/entry.ts/**/*.ext' → 0 files → this edge was silently missed and
     // a file-only module reported unavailable (skipped).
@@ -1226,7 +1261,8 @@ describe('collectImportEdges', () => {
     // ```ts fence is already blanked by the template-literal stripper.)
     write('src/alpha/notes.md', "Usage example:\nimport { x } from '../beta/x.js';\n");
     write('src/beta/x.ts', '');
-    const { edges } = collectImportEdges(tmpDir, DOC_MAP);
+    const { available, edges } = collectIndexedEdges(tmpDir, DOC_MAP);
+    expect(available).toBe(true);
     expect(edges.map((e) => `${e.from_module}->${e.to_module}`)).not.toContain('alpha->beta');
   });
 
@@ -1235,7 +1271,7 @@ describe('collectImportEdges', () => {
     // three blank lines, then `import {` (l4), `helper,` (l5), `} from …` (l6).
     write('src/cli/b.ts', "\n\n\nimport {\n  helper,\n} from '../services/a.js';\n");
     write('src/services/a.ts', '');
-    const edge = collectImportEdges(tmpDir, MODULE_MAP).edges.find(
+    const edge = collectIndexedEdges(tmpDir, MODULE_MAP).edges.find(
       (e) => e.specifier === '../services/a.js',
     );
     expect(edge?.line).toBe(6);
@@ -1248,7 +1284,7 @@ describe('collectImportEdges', () => {
     const decls = Array.from({ length: 200 }, (_, i) => `export const V${i} = ${i};`).join('\n');
     write('src/services/big.ts', `${decls}\nimport { X } from '../types/x.js';\n`);
     write('src/types/x.ts', '');
-    const edge = collectImportEdges(tmpDir, MODULE_MAP).edges.find(
+    const edge = collectIndexedEdges(tmpDir, MODULE_MAP).edges.find(
       (e) => e.specifier === '../types/x.js',
     );
     expect(edge).toBeDefined();
@@ -1265,7 +1301,7 @@ describe('collectImportEdges', () => {
     };
     write('src/services/a.ts', "import { X } from '../types/x.js';\n");
     write('src/types/x.ts', '');
-    const { available, edges } = collectImportEdges(tmpDir, GLOB_MAP);
+    const { available, edges } = collectIndexedEdges(tmpDir, GLOB_MAP);
     expect(available).toBe(true);
     expect(edges.map((e) => `${e.from_module}->${e.to_module}`)).toContain('services->types');
   });
@@ -3667,17 +3703,17 @@ describe('collectUnsupportedModulePaths (REQ-LIB-107)', () => {
     rmSync(cwd, { recursive: true, force: true });
   });
 
-  it('skips when module-map.yaml is absent', () => {
+  it('has no unsupported entries when module-map.yaml and config are absent', () => {
     const r = collectUnsupportedModulePaths(cwd, kp());
-    expect(r.available).toBe(false);
-    expect(r.reason).toMatch(/module-map\.yaml/);
+    expect(r).toEqual({ available: true, paths: [] });
   });
 
-  it('skips, and never throws, when module-map.yaml cannot be parsed', () => {
+  it('still classifies config exclusions when module-map.yaml cannot be parsed', () => {
     writeMap(['modules: [', '  - name: x']);
+    writeFileSync(path.join(cwd, '.prospec.yaml'), 'exclude:\n  - ":bad"\n  - src\n');
     const r = collectUnsupportedModulePaths(cwd, kp());
-    expect(r.available).toBe(false);
-    expect(r.reason).toMatch(/module-map\.yaml/);
+    expect(r.available).toBe(true);
+    expect(entries(r)).toEqual([{ owner: 'exclude', path: ':bad', reason: 'magic', source_path: '.prospec.yaml' }]);
   });
 
   it('reads the map as written, before the clamp, and names each refused path with its owner, reason and hint', () => {

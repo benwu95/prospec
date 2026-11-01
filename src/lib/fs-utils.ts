@@ -94,3 +94,28 @@ export function fileExists(filePath: string): boolean {
     return false;
   }
 }
+
+export type AncestorKind = 'directory' | 'absent' | 'other';
+
+/** The first ancestor of `file` (relative to `root`, the leaf excluded) that exists but is
+ *  not a real directory, or null. A path beneath it is not what `lstat` reaches through it:
+ *  a symlink would hand back the target's bytes, a regular file nothing. `cache` lives for
+ *  one capture, so every directory is judged once against one observation. */
+export function nonDirectoryAncestor(root: string, file: string, cache: Map<string, AncestorKind> = new Map()): string | null {
+  let dir = '';
+  for (const part of file.split('/').slice(0, -1)) {
+    dir = dir === '' ? part : `${dir}/${part}`;
+    let kind = cache.get(dir);
+    if (kind === undefined) {
+      try { kind = fs.lstatSync(path.join(root, dir)).isDirectory() ? 'directory' : 'other'; } catch (error) {
+        const code = (error as NodeJS.ErrnoException).code;
+        if (code !== 'ENOENT' && code !== 'ENOTDIR') throw error;
+        kind = 'absent';
+      }
+      cache.set(dir, kind);
+    }
+    if (kind === 'absent') return null;
+    if (kind === 'other') return dir;
+  }
+  return null;
+}

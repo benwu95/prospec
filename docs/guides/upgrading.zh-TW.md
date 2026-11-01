@@ -41,10 +41,16 @@ prospec-upgrade                 # 步驟 2：AI Agent 依盤點報告遷移格�
 
 ## 升級至下一個版本（尚未發布）
 
+Raw scan 與新模組 README 骨架現在列出 git index 成員。掃描或建立骨架前，先對新檔執行 `git add`；不在 index 內的 untracked 與 ignored 檔案不會被掃描。受追蹤的 `build/`、`dist/`、相依套件目錄、點開頭目錄及深度超過 10 層的檔案現在可被列出，仍受敏感檔案與設定的排除規則限制。不跟隨 symlink，也不展開 submodule gitlink。`knowledge init --depth` 只限制 Directory Tree 顯示，不限制檔案清單或模組偵測。骨架回報沒有 index 成員時，先加入檔案、刪除骨架，再重新執行；列檔失敗時，骨架保留空白 Key Files 並發出 warning，raw-scan 產生則失敗且不寫入輸出。
+
+**Breaking：** 頂層 `exclude` 現在依 module path 規則讀取，不再使用 fast-glob 規則。不含 `*` 的 entry 是字面路徑，包括 brace、開頭 `!`、extglob 寫法、`?` 與 `[]`；結尾 `/` 排除子樹，`.` 排除全部。含 `*` 的 entry 原樣交給 git `:(glob)` 比對，開頭 `!` 與 extglob 寫法沒有 fast-glob 特殊意義。含 brace、`..` segment 或絕對路徑根的 glob 會被拒收，不排除任何檔案。要排除任意深度同名目錄的內容，把 `**/name` 改為 `**/name/**`；brace alternatives 則展開為多筆 entry。模組與排除 glob 分別正向列出，再扣除排除集合。`unsupported-module-path` 現在也回報被拒收的 `exclude` entry，module map 缺席或無法讀取時仍檢查 config entries。
+
+`import-direction` 現在從 drift inventory 以相同列檔規則選取來源。不再掃描 index 外的 untracked 或 ignored 檔案，會掃描受追蹤的點開頭目錄與深度超過 10 層的檔案，並首次套用頂層 `exclude`。Module glob 也依 git `:(glob)` 判讀：把 `**/seg` 改為 `**/seg/**`，絕對路徑 glob 會被拒收。模組歸屬與 import specifier 解析保留既有規則；來源集合改變仍可能改變回報的 edges。Inventory 的既有限制仍適用：skip-worktree／sparse checkout、unmerged entries，或無法以 UTF-8 無損解碼的檔名，都會使 import 來源 unavailable，check 回報 skipped。Raw scan 與骨架的直接 index 列檔則略過無法解碼的檔名、對 unmerged 路徑去重，仍只接受工作樹中的一般檔案。
+
 **Breaking：** `prospec` CLI 現在需要 git。除了 `--version`、`--help`、`help`、`print-template` 與 `config`，每個指令執行前都會確認專案目錄（有指定 `--cwd` 時為該目錄）位於 git work tree 內，repository 的子目錄也可以。不符合時以結束碼 1 結束、不寫任何檔案，訊息會指出原因：
 
 - *git was not found on PATH*：安裝 git。
-- *… is not inside a git work tree*：在專案根目錄執行 `git init`，並 commit 既有的專案檔案（raw scan 只列出 git 追蹤的檔案）；或修正 git 回報的錯誤（例如 `safe.directory` 拒絕）。
+- *… is not inside a git work tree*：在專案根目錄執行 `git init`，或修正 git 回報的錯誤（例如 `safe.directory` 拒絕）。
 - *git cannot run*：修復 git 安裝，直到 `git --version` 可以成功執行。
 
 沒有 `.prospec.yaml` 的目錄仍會先回報缺少設定檔。

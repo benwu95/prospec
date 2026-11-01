@@ -19,7 +19,7 @@ export function registerKnowledgeInitCommand(
     .command('init')
     .description('Scan the project and generate raw-scan.md and empty skeletons')
     .option('--dry-run', 'Preview only, do not write files')
-    .option('--depth <n>', 'Directory scan depth', parseDepth, 10)
+    .option('--depth <n>', 'Directory Tree depth', parseDepth, 10)
     .option(
       '--raw-scan-only',
       'Regenerate only raw-scan.md; leave curated files (module-map.yaml, <base_dir>/index.md, _conventions.md) untouched',

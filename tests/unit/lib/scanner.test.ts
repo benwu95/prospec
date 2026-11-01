@@ -1,15 +1,13 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import fg from 'fast-glob';
-import { scanDir, scanDirSync, listGitTrackedFiles, filterConventions, classifyModulePath, moduleScanPatterns } from '../../../src/lib/scanner.js';
+import { scanDir, scanDirSync, filterConventions } from '../../../src/lib/scanner.js';
 import { CORE_CONVENTIONS } from '../../../src/types/conventions.js';
-import { clampModulePaths } from '../../../src/lib/knowledge-reader.js';
 import { ScanError } from '../../../src/types/errors.js';
 
 // scanner uses fast-glob directly, so we test with real filesystem using temp dirs
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import * as os from 'node:os';
-import { execFileSync } from 'node:child_process';
 
 vi.setConfig({ testTimeout: 30_000 });
 
@@ -46,15 +44,13 @@ describe('scanDir', () => {
     expect(result.files).toContain('README.md');
   });
 
-  it('should exclude node_modules by default', async () => {
+  it('walks artifact folders without project build-directory exclusions', async () => {
     createFiles({
       'src/index.ts': '',
       'node_modules/pkg/index.js': '',
     });
     const result = await scanDir('**', { cwd: tmpDir });
-    // Positive control: node_modules dropped while the real sibling survives.
-    // A degenerate empty result would fail this toEqual.
-    expect(result.files).toEqual(['src/index.ts']);
+    expect(result.files).toEqual(['node_modules/pkg/index.js', 'src/index.ts']);
   });
 
   it('should exclude sensitive files by default', async () => {
@@ -145,14 +141,14 @@ describe('scanDirSync', () => {
     expect(result.files).toContain('src/index.ts');
   });
 
-  it('should exclude default patterns', () => {
+  it('retains dotfile safety without excluding build-directory names', () => {
     createFiles({
       'src/app.ts': '',
       'node_modules/dep/index.js': '',
       '.git/config': '',
     });
     const result = scanDirSync('**', { cwd: tmpDir });
-    expect(result.files).toEqual(['src/app.ts']);
+    expect(result.files).toEqual(['node_modules/dep/index.js', 'src/app.ts']);
   });
 });
 
@@ -218,56 +214,6 @@ describe('scanDirSync error handling', () => {
   });
 });
 
-// `git ls-files` reads the INDEX, so `git init` + `git add` is enough to mark a
-// file tracked — no `config`/`commit`/`clone` needed. Keeping these git ops minimal
-// matters: heavier per-test git work contends with the suite's other git tests.
-describe('scanDir gitTrackedOnly', () => {
-  it('restricts the scan to git-tracked files (excludes untracked)', async () => {
-    createFiles({
-      'src/index.ts': '',
-      'tracked.md': '',
-      'untracked.md': '', // created but never `git add`ed
-      'extra/local.js': '', // also untracked
-    });
-    execFileSync('git', ['-C', tmpDir, 'init', '-q'], { stdio: 'ignore' });
-    execFileSync('git', ['-C', tmpDir, 'add', 'src/index.ts', 'tracked.md'], { stdio: 'ignore' });
-
-    const result = await scanDir('**', { cwd: tmpDir, gitTrackedOnly: true });
-
-    expect(result.files).toContain('src/index.ts');
-    expect(result.files).toContain('tracked.md');
-    expect(result.files).not.toContain('untracked.md'); // not in the git index
-    expect(result.files).not.toContain('extra/local.js');
-  });
-
-  it('falls back to the full glob result when there is no git work tree', async () => {
-    createFiles({ 'src/index.ts': '', 'untracked.md': '' });
-    // no `git init` → listGitTrackedFiles returns null → original behavior
-
-    const result = await scanDir('**', { cwd: tmpDir, gitTrackedOnly: true });
-
-    expect(result.files).toContain('src/index.ts');
-    expect(result.files).toContain('untracked.md');
-  });
-});
-
-describe('listGitTrackedFiles', () => {
-  it('returns null when cwd is not a git work tree', async () => {
-    createFiles({ 'a.txt': '' });
-    expect(await listGitTrackedFiles(tmpDir)).toBeNull();
-  });
-
-  it('returns the set of tracked (staged) files, excluding untracked', async () => {
-    createFiles({ 'a.txt': '', 'b.txt': '' });
-    execFileSync('git', ['-C', tmpDir, 'init', '-q'], { stdio: 'ignore' });
-    execFileSync('git', ['-C', tmpDir, 'add', 'a.txt'], { stdio: 'ignore' });
-
-    const tracked = await listGitTrackedFiles(tmpDir);
-    expect(tracked?.has('a.txt')).toBe(true);
-    expect(tracked?.has('b.txt')).toBe(false); // untracked
-  });
-});
-
 describe('filterConventions (core/demand split, REQ-KNOW-035)', () => {
   it('splits files into core and demand per the CORE_CONVENTIONS registry', () => {
     const { core, demand } = filterConventions([
@@ -310,97 +256,5 @@ describe('filterConventions (core/demand split, REQ-KNOW-035)', () => {
     const { core, demand } = filterConventions(['_conventions.md', '_team-style.md'], ['_team-style.md']);
     expect(core).toEqual(['_conventions.md', '_team-style.md']);
     expect(demand).toEqual([]);
-  });
-});
-
-describe('classifyModulePath', () => {
-  it('classifies a glob entry (contains *) as glob without touching disk', () => {
-    // Purely syntactic — no files created.
-    expect(classifyModulePath('**/auth/**', tmpDir)).toBe('glob');
-    expect(classifyModulePath('packages/*/src', tmpDir)).toBe('glob');
-    expect(classifyModulePath('src/lib/**', tmpDir)).toBe('glob');
-  });
-
-  it('classifies an existing directory as dir', () => {
-    createFiles({ 'src/lib/config.ts': '' });
-    expect(classifyModulePath('src/lib', tmpDir)).toBe('dir');
-    expect(classifyModulePath('src', tmpDir)).toBe('dir');
-  });
-
-  it('classifies an existing file as file', () => {
-    createFiles({ 'src/lib/config.ts': '' });
-    expect(classifyModulePath('src/lib/config.ts', tmpDir)).toBe('file');
-  });
-
-  it('classifies a non-existent path as missing', () => {
-    expect(classifyModulePath('src/does-not-exist', tmpDir)).toBe('missing');
-    expect(classifyModulePath('src/gone.ts', tmpDir)).toBe('missing');
-  });
-
-  it('classifies a repo-escaping path as missing even when the target exists (containment, not existence)', () => {
-    const outsideName = `escape-${path.basename(tmpDir)}.ts`;
-    const outsideAbs = path.join(tmpDir, '..', outsideName);
-    fs.writeFileSync(outsideAbs, '');
-    try {
-      // A real file exists just outside cwd; both the relative and absolute
-      // spelling must be rejected by the same lexical guard as clampModulePaths.
-      expect(classifyModulePath(`../${outsideName}`, tmpDir)).toBe('missing');
-      expect(classifyModulePath(outsideAbs, tmpDir)).toBe('missing');
-    } finally {
-      fs.rmSync(outsideAbs, { force: true });
-    }
-  });
-
-  it('keeps a directory whose name starts with two dots inside the project, as the clamp does', () => {
-    createFiles({ '..cache/x/a.ts': '' });
-    expect(classifyModulePath('..cache/x', tmpDir)).toBe('dir');
-    const kept = clampModulePaths({ modules: [{ name: 'm', paths: ['..cache/x'], keywords: [] }] }, tmpDir);
-    expect(kept.modules[0]?.paths).toEqual(['..cache/x']);
-  });
-
-  it('classifies the project root as missing, whatever its spelling, though the clamp keeps it', () => {
-    for (const spelling of ['.', './', 'src/..']) expect(classifyModulePath(spelling, tmpDir), spelling).toBe('missing');
-  });
-});
-
-describe('moduleScanPatterns', () => {
-  it('expands a directory entry to its subtree', () => {
-    createFiles({ 'src/lib/a.ts': '' });
-    expect(moduleScanPatterns(['src/lib'], tmpDir)).toEqual(['src/lib/**']);
-  });
-
-  it('strips a trailing slash before expanding a directory', () => {
-    createFiles({ 'src/lib/a.ts': '' });
-    expect(moduleScanPatterns(['src/lib/'], tmpDir)).toEqual(['src/lib/**']);
-  });
-
-  it('keeps a file entry verbatim (scans just that file)', () => {
-    createFiles({ 'src/lib/config.ts': '' });
-    expect(moduleScanPatterns(['src/lib/config.ts'], tmpDir)).toEqual(['src/lib/config.ts']);
-  });
-
-  it('passes glob and missing entries through verbatim', () => {
-    expect(moduleScanPatterns(['**/auth/**', 'src/gone'], tmpDir)).toEqual([
-      '**/auth/**',
-      'src/gone',
-    ]);
-  });
-
-  it('handles a mixed file + dir + glob array', () => {
-    createFiles({ 'src/lib/config.ts': '', 'src/services/x.ts': '' });
-    expect(moduleScanPatterns(['src/lib/config.ts', 'src/services', 'pkg/**'], tmpDir)).toEqual([
-      'src/lib/config.ts',
-      'src/services/**',
-      'pkg/**',
-    ]);
-  });
-
-  it('the expanded dir pattern actually reaches the subtree via scanDir (fixes bare-dir 0 files)', async () => {
-    createFiles({ 'src/lib/a.ts': '', 'src/lib/nested/b.ts': '' });
-    // Positive control: a bare 'src/lib' entry scans 0 files (the bug this fixes).
-    const { files: bare } = await scanDir(['src/lib'], { cwd: tmpDir });
-    expect(bare).toEqual([]);
-    const { files } = await scanDir(moduleScanPatterns(['src/lib'], tmpDir), { cwd: tmpDir });
-    expect(files).toEqual(['src/lib/a.ts', 'src/lib/nested/b.ts']);
   });
 });
