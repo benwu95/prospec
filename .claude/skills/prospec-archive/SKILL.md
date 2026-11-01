@@ -15,7 +15,7 @@ When triggered, briefly describe:
 
 ## Language Policy
 
-Write each generated document in the language the Constitution's Language Policy rule assigns to **its path** — change artifacts and their archived summaries in the project's artifact language, the trust zone (Knowledge base, Feature Specs, index) in English. One skill run may write both. Keep code, identifiers, technical terms, and git commit messages in English.
+Write each generated document in the language the Constitution's Language Policy rule assigns to **its path** — change artifacts and their archived summaries in the project's artifact language, the trust zone (Knowledge base, Feature Specs, index) in English. One skill run may write both. Free text you pass the CLI that lands in a change artifact follows the artifact language too, leaving its paths, commands, enum values and the fixed prefixes the CLI matches untranslated. Keep code, identifiers, technical terms, and git commit messages in English.
 ## CLI Prerequisite (required)
 
 > The prospec CLI is a required file for this skill — its deterministic steps call `prospec`

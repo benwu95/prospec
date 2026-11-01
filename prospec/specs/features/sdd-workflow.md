@@ -2,8 +2,8 @@
 feature: sdd-workflow
 status: active
 last_updated: 2026-11-01
-story_count: 56
-req_count: 387
+story_count: 57
+req_count: 391
 ---
 
 # SDD Workflow
@@ -27,6 +27,7 @@ req_count: 387
 - [US-54: Review Applies the Criteria of Installed Review Skills](./sdd-workflow/us-54.md)
 - [US-55: Direction Choices Are Grounded in Bounded External Research](./sdd-workflow/us-55.md)
 - [US-56: Adversarial Loops Converge Because Each Decision Point Carries Its Discipline](./sdd-workflow/us-56.md)
+- [US-57: Stations Cite Graduated Requirements, Hand the CLI Artifact-Language Text and Read Whole Gate Output](./sdd-workflow/us-57.md)
 
 - [US-49: Preserve an Abandoned Attempt and Explain a Retry](./sdd-workflow/us-49.md)
 
@@ -110,6 +111,7 @@ req_count: 387
 
 | Date | Change | Impact | Stories/REQs |
 |------|--------|--------|--------------|
+| 2026-11-01 | add-req-language-gate-rules | ADDED REQ-TEMPLATES-267; ADDED REQ-TEMPLATES-268; ADDED REQ-TEMPLATES-269; ADDED REQ-TESTS-145 | US-57, REQ-TEMPLATES-267, REQ-TEMPLATES-268, REQ-TEMPLATES-269, REQ-TESTS-145 |
 | 2026-11-01 | encode-non-convergence-discipline | ADDED REQ-TEMPLATES-260; ADDED REQ-TEMPLATES-261; ADDED REQ-TEMPLATES-262; ADDED REQ-TEMPLATES-263; ADDED REQ-TEMPLATES-264; ADDED REQ-TEMPLATES-265; ADDED REQ-TEMPLATES-266; ADDED REQ-TESTS-144; MODIFIED REQ-TEMPLATES-259 | US-56, REQ-TEMPLATES-260, REQ-TEMPLATES-261, REQ-TEMPLATES-262, REQ-TEMPLATES-263, REQ-TEMPLATES-264, REQ-TEMPLATES-265, REQ-TEMPLATES-266, REQ-TESTS-144, REQ-TEMPLATES-259 |
 | 2026-10-30 | ground-decisions-in-research | ADDED REQ-TEMPLATES-256; ADDED REQ-TEMPLATES-257; ADDED REQ-TEMPLATES-258; ADDED REQ-TEMPLATES-259; ADDED REQ-TESTS-143 | US-55, REQ-TEMPLATES-256, REQ-TEMPLATES-257, REQ-TEMPLATES-258, REQ-TEMPLATES-259, REQ-TESTS-143 |
 | 2026-10-25 | judge-freshness-by-content-digest | MODIFIED REQ-LIB-097; MODIFIED REQ-TESTS-142 | REQ-LIB-097, REQ-TESTS-142 |

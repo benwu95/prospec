@@ -110,11 +110,13 @@ Emit this round's findings as a `ReviewFindingsInputSchema` JSON array — whose
 
 > **Review artifact generation**: Follow `prospec review merge` for artifact generation. The CLI records this round's counts at merge time; `change log` only closes the round and audits self-reported counts.
 
+Read each gate command's whole output before the next step — circuit-breaker, escalation and refusal messages can appear mid-output, even when the command succeeds — and judge whether a state-changing step succeeded by its own exit code, not by a command chained after it; run each such step as its own command.
+
 ### Review Provenance (machine gate)
 
 Review must leave a machine-queryable record so `prospec-verify`'s Entry Gate can prove it ran and is still current:
 
-1. **Every round** — including a **review-clean** round (0 critical / 0 major) and **circuit-breaker tripped rounds** — close the round via `prospec change log --skill prospec-review --result PASS|WARN [--warning "circuit breaker tripped: <type>"|"<unresolved item>"]` (Bash; result `PASS` when clean, `WARN` when unresolved majors/FAIL or circuit-breaker trips carry forward). The CLI records this round's counts at merge time; `change log` only closes the round and audits self-reported counts. A clean review that records nothing is indistinguishable from a review that never ran.
+1. **Every round** — including a **review-clean** round (0 critical / 0 major) and **circuit-breaker tripped rounds** — close the round via `prospec change log --skill prospec-review --result PASS|WARN [--warning "circuit breaker tripped: <type>"|"<unresolved item, in the artifact language>"]` (Bash; result `PASS` when clean, `WARN` when unresolved majors/FAIL or circuit-breaker trips carry forward). The CLI records this round's counts at merge time; `change log` only closes the round and audits self-reported counts. A clean review that records nothing is indistinguishable from a review that never ran.
 2. **At loop convergence** (review-clean or escalation), run `prospec check --record-review --graded-by <fresh-subagent|in-session>` — it code-computes the reviewed change's digest and writes `review_provenance` (with the declared grading context) to `metadata.yaml`. This is the baseline the `review-provenance` drift check compares against.
 
 Because the digest is code-computed, editing the change's code after this point flips `review-provenance` to stale — `prospec-verify` will then require a fresh review round before it runs.

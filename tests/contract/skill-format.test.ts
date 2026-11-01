@@ -4670,8 +4670,11 @@ describe('Startup Loading cache-stable prefix ordering (REQ-TEMPLATES-080/081)',
   // plan shrinks after deleting NEVER items that restated body rules). Reference anchor 51_885 → 52_315 and
   // cumulative 90_141 → 90_402, raised, not earned; the basis is the developer's decision recorded in the
   // change proposal's Edge Cases before review.
+  // add-req-language-gate-rules: the language-policy partial (twelve includers), knowledge-update, review and verify gain
+  // their station rules; plan and tasks delete three NEVER items that restated body rules. Cumulative 90_402 → 91_150,
+  // raised, not earned; the basis is the developer's decision recorded in the change proposal's Edge Cases before review.
   const REFERENCE_CEILING_ANCHOR = 52_315;
-  const CUMULATIVE_CEILING_ANCHOR = 90_402;
+  const CUMULATIVE_CEILING_ANCHOR = 91_150;
 
   const renderSkill = (name: string) => {
     const skill = SKILL_DEFINITIONS.find((s) => s.name === name)!;
@@ -4841,8 +4844,11 @@ describe('Startup Loading cache-stable prefix ordering (REQ-TEMPLATES-080/081)',
     expect(baseline.reference_ceiling_tokens).toBeLessThanOrEqual(REFERENCE_CEILING_ANCHOR);
   });
 
+  // add-req-language-gate-rules: 8_142 → 8_215 for the whole-gate-output rule and the artifact-language warning placeholder;
+  // the only review-side compression candidates are pinned by REQs or contracts. Raised, not earned; the basis is the
+  // developer's decision recorded in the change proposal's Edge Cases before review.
   it('keeps review mandatory context within its independent pre-change ceiling', () => {
-    expect(mandatoryContextTokens('prospec-review')).toBeLessThanOrEqual(8142);
+    expect(mandatoryContextTokens('prospec-review')).toBeLessThanOrEqual(8_215);
   });
 
   it('per-skill mandatory context matches the recorded baseline and the cumulative ceiling never rises (REQ-TESTS-116)', () => {
@@ -11714,4 +11720,166 @@ describe('non-convergence discipline (REQ-TEMPLATES-259..266, REQ-TESTS-144)', (
   function phase6(): string {
     return oneLine(sectionOf(render(PLAN), PHASE6));
   }
+});
+
+describe('station rules for graduated references, CLI free text and gate output (REQ-TEMPLATES-267..269, REQ-SKILL-012, REQ-TESTS-145)', () => {
+  const oneLine = (text: string) => text.replace(/\s+/g, ' ');
+  const render = (tpl: string) => renderTemplate(tpl, TEMPLATE_CONTEXT);
+  const REVIEW = 'skills/prospec-review.hbs';
+  const VERIFY = 'skills/prospec-verify.hbs';
+  const POLICY_INCLUDERS = Object.keys(BUNDLED_TEMPLATES)
+    .filter((key) => /^skills\/prospec-[\w-]+\.hbs$/.test(key) && BUNDLED_TEMPLATES[key]!.includes('{{> language-policy}}'))
+    .sort();
+
+  // Each rule: the templates that define it (the first key appears in no other bundled template), the
+  // fragments that carry its meaning, the clause a mutation deletes from each source, and every rendered
+  // section it must reach. Fragments, not whole sentences, are pinned so an equivalent compression keeps
+  // the test green. A partial's rule is asserted inside each includer's section; its mutation inlines the
+  // partial without the clause into the includers, because a partial is registered once per process.
+  type Site = { template: string; heading: string };
+  // `clauseKeys` names what the deleted clause carries when it is only part of a key (a placeholder annotation).
+  type Rule = { name: string; sources: string[]; keys: string[]; cut: RegExp; sites: Site[]; partial?: string; clauseKeys?: string[] };
+  const GATE_KEYS = [
+    "Read each gate command's whole output before the next step",
+    'can appear mid-output, even when the command succeeds',
+    'judge whether a state-changing step succeeded by its own exit code, not by a command chained after it',
+    'run each such step as its own command',
+  ];
+  const GATE_CUT = /Read each gate command's whole output[^\n]*\n\n/;
+  const RULES: Rule[] = [
+    {
+      name: 'free text handed to the CLI follows the artifact language',
+      sources: ['skills/_language-policy.hbs'],
+      partial: 'language-policy',
+      keys: ['Free text you pass the CLI that lands in a change artifact', 'follows the artifact language too', 'paths, commands, enum values and the fixed prefixes the CLI matches untranslated'],
+      cut: / Free text you pass the CLI[^.]*\./,
+      sites: POLICY_INCLUDERS.map((template) => ({ template, heading: '## Language Policy' })),
+    },
+    {
+      name: 'knowledge-update cites only graduated requirements and checks references before stamping',
+      sources: ['skills/prospec-knowledge-update.hbs'],
+      keys: [
+        'Cite a REQ ID in what you write only when a Feature Spec already defines it',
+        'a requirement this change adds or modifies lands there at archive',
+        'existing citations need not be removed',
+        'confirm `req-references` reports no dangling reference before stamping',
+      ],
+      cut: /Cite a REQ ID in what you write[^\n]*\n\n/,
+      sites: [{ template: 'skills/prospec-knowledge-update.hbs', heading: '#### 3a: Module README.md (created skeletons + readme-pending) — Recipe-First Format' }],
+    },
+    {
+      name: 'review and verify read whole gate output and decide by the command’s own exit code',
+      sources: [REVIEW, VERIFY],
+      keys: GATE_KEYS,
+      cut: GATE_CUT,
+      sites: [{ template: REVIEW, heading: '### Persistence' }, { template: VERIFY, heading: '## Core Workflow' }],
+    },
+    {
+      name: "review's unresolved-item warning follows the artifact language",
+      sources: [REVIEW],
+      keys: ['<unresolved item, in the artifact language>'],
+      clauseKeys: [', in the artifact language'],
+      cut: /, in the artifact language(?=>")/,
+      sites: [{ template: REVIEW, heading: '### Review Provenance (machine gate)' }],
+    },
+    {
+      name: "verify's recorded warning detail follows the artifact language",
+      sources: [VERIFY],
+      keys: ['--warning "<detail, in the artifact language>"'],
+      clauseKeys: [', in the artifact language'],
+      cut: /, in the artifact language(?=>")/,
+      sites: [{ template: VERIFY, heading: '## Record & Status Update (CLI-executed)' }],
+    },
+  ];
+  // A section runs from its heading to the next heading of the same or a higher level, so a
+  // `####` site stays inside its own subsection. The mutation reads it this way because the shared
+  // `sectionOf` refuses an empty body; the positive test asserts the same slice and, for `##`/`###`
+  // sites, the shared one too, so neither can pass vacuously by cutting short.
+  const sliceSection = (site: Site): string => {
+    const lines = render(site.template).split('\n');
+    const start = lines.findIndex((line) => line.startsWith(site.heading));
+    expect(start, `${site.template}: ${site.heading}`).toBeGreaterThanOrEqual(0);
+    const level = /^#+/.exec(site.heading)![0].length;
+    const boundary = new RegExp(`^#{1,${level}} `);
+    let end = start + 1;
+    while (end < lines.length && !boundary.test(lines[end]!)) end++;
+    return oneLine(lines.slice(start + 1, end).join('\n'));
+  };
+  const sectionText = (site: Site) =>
+    /^#{2,3} /.test(site.heading) ? oneLine(sectionOf(render(site.template), site.heading)) : sliceSection(site);
+  const clauseOf = (rule: Rule, source: string): string => {
+    const hit = rule.cut.exec(BUNDLED_TEMPLATES[source]!);
+    expect(hit, `${rule.name}: clause not found in ${source}`).not.toBeNull();
+    return hit![0];
+  };
+
+  it('the language-policy partial still reaches the twelve skills that include it', () => {
+    expect(POLICY_INCLUDERS).toHaveLength(12);
+  });
+
+  it.each(RULES.map((r) => [r.name, r] as const))('%s: defined only in its sources and rendered inside each section', (_name, rule) => {
+    const definers = Object.keys(BUNDLED_TEMPLATES).filter((k) => BUNDLED_TEMPLATES[k]!.includes(rule.keys[0]!)).sort();
+    expect(definers).toEqual([...rule.sources].sort());
+    for (const source of rule.sources) {
+      const clause = oneLine(clauseOf(rule, source));
+      for (const key of rule.clauseKeys ?? rule.keys) expect(clause, `${rule.name}: the deleted clause carries "${key}"`).toContain(key);
+    }
+    for (const site of rule.sites) {
+      for (const key of rule.keys) {
+        expect(sectionText(site), `${site.template} ${site.heading}: ${key}`).toContain(key);
+        expect(sliceSection(site), `${site.template} ${site.heading}: ${key}`).toContain(key);
+      }
+    }
+  });
+
+  it.each(RULES.map((r) => [r.name, r] as const))('%s: deleting the clause turns its assertion red (mutation)', (_name, rule) => {
+    const mutated = Object.fromEntries(rule.sources.map((source) => {
+      const next = BUNDLED_TEMPLATES[source]!.replace(rule.cut, '');
+      expect(next, `mutation applied to ${source}`).not.toBe(BUNDLED_TEMPLATES[source]);
+      return [source, next];
+    }));
+    const targets = rule.partial ? [...new Set(rule.sites.map((s) => s.template))] : rule.sources;
+    const originals = Object.fromEntries(targets.map((key) => [key, BUNDLED_TEMPLATES[key]!]));
+    try {
+      for (const key of targets) {
+        BUNDLED_TEMPLATES[key] = rule.partial
+          ? originals[key]!.replace(`{{> ${rule.partial}}}`, mutated[rule.sources[0]!]!)
+          : mutated[key]!;
+        expect(BUNDLED_TEMPLATES[key], `mutation applied to ${key}`).not.toBe(originals[key]);
+      }
+      for (const site of rule.sites) for (const key of rule.keys) expect(sliceSection(site), `${site.template} ${site.heading}: ${key}`).not.toContain(key);
+    } finally {
+      for (const key of targets) BUNDLED_TEMPLATES[key] = originals[key]!;
+    }
+  });
+
+  it('the rule text names no model, vendor, harness tool, agent type, skill path or issue number', () => {
+    for (const rule of RULES) {
+      for (const source of rule.sources) {
+        const lower = clauseOf(rule, source).toLowerCase();
+        for (const name of [...FORBIDDEN_MODEL_NAMES, 'claude', ...HARNESS_TOOLS, ...PLUGIN_AGENTS, '.claude/', '.agents/', 'skills/', 'references/']) {
+          expect(lower, `${rule.name} must not name "${name}"`).not.toContain(name);
+        }
+        expect(lower, rule.name).not.toMatch(/#\d/);
+      }
+    }
+  });
+
+  it("review's circuit-breaker warning keeps the CLI's exact form", () => {
+    expect(sectionText({ template: REVIEW, heading: '### Review Provenance (machine gate)' })).toContain('"circuit breaker tripped: <type>"');
+  });
+
+  // The NEVER items deleted to make room each restated a rule the skill body still carries.
+  it('plan and tasks keep every rule their deleted NEVER items restated, in the body', () => {
+    const plan = render('skills/prospec-plan.hbs');
+    expect(oneLine(sectionOf(plan, '### Phase 2: Context Mode Detection + Load Knowledge'))).toContain('Context Mode is determined');
+    for (const [template, phase6] of [
+      ['skills/prospec-plan.hbs', '### Phase 6: Architecture Verification'],
+      ['skills/prospec-tasks.hbs', '### Phase 6: Task Contract & Verifier Audit'],
+    ] as const) {
+      const section = oneLine(sectionOf(render(template), phase6));
+      expect(section, template).toContain('with result PASS/WARN (a Break-Glass grant alone does not satisfy this gate)');
+      expect(section, template).toContain('a grant permits one attempt, not verifier PASS or advancement');
+    }
+  });
 });

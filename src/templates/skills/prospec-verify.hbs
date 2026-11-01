@@ -93,6 +93,8 @@ Every other **SDD-pipeline** skill (new-story → plan → tasks → implement �
 
 ## Core Workflow
 
+Read each gate command's whole output before the next step — circuit-breaker, escalation and refusal messages can appear mid-output, even when the command succeeds — and judge whether a state-changing step succeeded by its own exit code, not by a command chained after it; run each such step as its own command.
+
 ### Step 0: Record the test run (before reading the report)
 
 Choose exactly one path **after the Entry Gate** and final Knowledge/count/generated-asset sync:
@@ -318,7 +320,7 @@ one `--dimension <name>=<result>` each with a run-level `--graded-by <fresh-suba
 (and optional `--executor`) when there is no prose to record; the two are **alternatives**,
 supplying both is refused. Either way cover exactly `delta-spec-compliance`, `constitution`, `design`
 (one that does not apply is reported `not-applicable` — `=not-applicable`, never omitted), and declare
-each judgment verdict's `graded_by` (refused when absent), plus one `--warning "<detail>"` per
+each judgment verdict's `graded_by` (refused when absent), plus one `--warning "<detail, in the artifact language>"` per
 budget-counted WARN. The CLI:
 
 - **self-sources the machine dimensions** (1/5 `task-completion`, 4/5 `knowledge`, 5/5 `tests`) from

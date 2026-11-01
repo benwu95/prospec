@@ -593,13 +593,13 @@
   },
   "mandatory_policies": {
     "ceilings": {
-      "quick": 16516,
+      "quick": 16575,
       "standard-ui": 15380,
-      "proven-backfill": 23694,
+      "proven-backfill": 23826,
       "equivalent-commit": 12794,
       "reverify-c": 15678,
       "missing-receipt": 6807,
-      "stale-delta": 13156,
+      "stale-delta": 13232,
       "multi-change": 12794
     },
     "policies": {
