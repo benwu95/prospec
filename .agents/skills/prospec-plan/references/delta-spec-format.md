@@ -190,6 +190,8 @@ a project whose two zones differ still lands spec bodies in the Feature Specs' l
 - Write rules as general positive statements; use a general negative only when one line replaces several positive ones.
 - Point tests at behavior and structure; a negative string assertion guards only the phrasing it names.
 
+Leave an external tool's end result across its input sources out of the Spec: state the component's own output, flow and warnings, pin that end result with a scenario-matrix test against the real tool, and delete the claim class once a second counterexample of it appears.
+
 **Write the resulting requirement, not the delta.** A MODIFIED `**Spec:**` block replaces the WHOLE body of the active REQ. Restore omitted behavior or declare its bullets under `**Dropped:**`. The archive CLI reports omitted bullets on the MODIFIED path only; ADDED replacing an existing body is reported by neither worklist.
 
 With only a struck definition, archive preserves it byte-identical and inserts a new active section: no active body to compare or drops to declare. `req-id-uniqueness` reports the duplicate for human resolution.

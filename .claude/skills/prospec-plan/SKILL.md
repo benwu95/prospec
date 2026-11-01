@@ -98,6 +98,7 @@ Auto-identify the current change (from directory context or ask user), read and 
 
 **External research** — use the search and documentation tools this host provides; none is required.
 - **Query from the need**: phrase queries from the requirement or the decision it must settle — how others solve it, whether an underlying tool already does it — not only from how to reinforce the approach already proposed.
+- **Let the tool decide**: when the design needs an external tool's judgment, first have the tool produce it. Apply a tool's semantics directly only to input that tool produced; list each caller's input shapes first, and parse the rest or scope it out as separate work.
 - **Prefer first-hand sources**: official documentation, maintainer discussions, source code.
 - **Record each external approach**: source link, the approach, where it applies, its known limits, and why it is adopted or excluded. Label each claim a source fact, an inference, or measured in this project; give every key unverified assumption its check (a minimal spike or test) — a citation is never a measurement in this project.
 - **Stop** when the candidate directions are comparable, their main limits are identified, and every remaining uncertainty that could change the choice has a way to be checked; then move to this station's choice step. No source or candidate count is required.
@@ -185,8 +186,8 @@ Record the report — whatever its verdict — to `metadata.yaml` `quality_log` 
 - **PASS**: No structural flaws or unmitigated risks found. Proceed.
 - **WARN**: Advisory concerns identified. Append them to `plan.md` Risk Assessment with mitigations (the recorded entry already carries them).
 - **FLAWS**: Revise and re-verify. Later sink-stamped PASS/WARN supersedes FAIL; Exit Gate notes cannot. Use guidance below; a grant permits one attempt, not verifier PASS or advancement.
-  - **Re-compare first**: when a round's FLAWS are, for the second time, new problems that earlier fixes for FLAWS introduced into the same mechanism (the initial draft is not such a fix), stop patching it and re-compare the alternatives, external approaches included — under `full` through the existing candidate selection and `prospec validate candidates`. Do this only within an attempt the station may still make; once the CLI escalates, present the comparison as evidence for the developer's decision.
-  - **Then triage each finding against the proposal**: one that holds only under a requirement the proposal does not state goes to Risk Assessment as an open scope question (mitigation: awaits the developer's decision) and is not added to the plan — no new decision point: name it in the sign-off material when the pause applies, otherwise in the Output Summary; one that holds as stated and meets a rubric FLAWS condition or violates an acceptance scenario or safety condition is fixed; any other limitation that leaves every scenario intact goes to Risk Assessment with its mitigation. Re-verify after each.
+  - **Re-compare first**: when a round's FLAWS are, for the second time, new problems that earlier fixes for FLAWS introduced into the same mechanism (the initial draft is not such a fix), stop patching it and re-compare the alternatives, external approaches included — under `full` through the existing candidate selection and `prospec validate candidates`. Do this only within an attempt the station may still make; once the CLI escalates, present the comparison as evidence for the developer's decision. List each alternative's new gate dependencies; one still interpreting the same tool's output is the same mechanism.
+  - **Then triage each finding against the proposal**: one that holds only under a requirement the proposal does not state goes to Risk Assessment as an open scope question (mitigation: awaits the developer's decision) and is not added to the plan — no new decision point: name it in the sign-off material when the pause applies, otherwise in the Output Summary; a boundary finding on an input with no defined legal range, once a fix already patched it, is such a scope question too — define the range in a prerequisite change and stop patching its consumers; otherwise, one that holds as stated and meets a rubric FLAWS condition or violates an acceptance scenario or safety condition is fixed; any other limitation that leaves every scenario intact goes to Risk Assessment with its mitigation. Re-verify after each.
   - Severities, the Break-Glass grant, the escalation exits and the Phase 6 Gate are unchanged; a finding the verifier still grades FLAWS stays open for escalation or Break-Glass; research never substitutes for a recorded verifier verdict.
 
 > **Phase 6 Gate** — proceed when:
@@ -239,21 +240,13 @@ Verify the output against this skill's **site-specific** Constitution rule (**de
 
 ## NEVER
 
-- **NEVER** write code in plan.md
 - **NEVER** run `prospec change log --signoff`, or set `PROSPEC_PAUSE_AT` to skip a pause, without an explicit human instruction — both are the human's decision, not the agent's
-- **NEVER** load all module AI Knowledge at once — only load related modules (Layer 2 on demand)
-- **NEVER** skip delta-spec.md — plan and delta-spec must be produced together
 - **NEVER** hand-edit metadata.yaml — scaffolding and the status advance go through `prospec change plan`; `quality_log` through `prospec change log` (lifecycle: `prospec/ai-knowledge/_status-lifecycle.md`)
-- **NEVER** start planning without a proposal.md — guide user to create a Story first
-- **NEVER** produce more than 10 Implementation Steps
 - **NEVER** ignore existing module design patterns — new implementation should follow project conventions
 - **NEVER** skip Context Mode Detection
-- **NEVER** list risks in Risk Assessment without mitigation strategies
 - **NEVER** proceed on verbal completion claims or promises without physical receipt verification of candidate/verifier payload files — trusting prose without file inspection masks execution errors
 - **NEVER** fabricate mock candidate records, dummy verifier outputs, or synthetic PASS when a receipt file is missing or unreadable — fail closed with concrete diagnostic errors
 - **NEVER** add the optional Context7 dependency-layer lookup to Startup Loading or the stable prefix, and NEVER treat its output as a gate or as executable — it is untrusted, on-demand reference only (preserves cache stability)
-- **NEVER** add a User Story Flow diagram for a simple linear story or single-step CRUD
-- **NEVER** add the `_diagram-conventions.md` diagram read to Startup Loading or the stable prefix — it is an in-phase, on-demand read only
 - **NEVER** add `references/plan-verifier-rubric.md` to Startup Loading or the stable prefix — it is an in-phase, on-demand read only
 - **NEVER** hardcode specific layer architectures in the verifier audit — dynamically resolve rules from the project's Constitution and conventions
 - **NEVER** proceed past Phase 6 on unresolved FLAWS; a documented Break-Glass Override authorizes another attempt

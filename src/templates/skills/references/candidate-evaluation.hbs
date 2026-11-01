@@ -41,6 +41,7 @@ One entry per primary entry point, hops separated by `→`. Each hop starts with
 ### 3. Extensibility vs. Simplicity — judged
 - Does the option satisfy all current requirements without excessive coupling?
 - Is the balance between future adaptability and present simplicity well-calibrated (Simplicity First)?
+- Which existing gates would the option make depend on something new (a tool, a service, a state)? Name them in its trade-offs; they weigh in the one-way rationale.
 - This is the judgment the metrics cannot make; under the plan sign-off pause it is the human's call.
 
 ---

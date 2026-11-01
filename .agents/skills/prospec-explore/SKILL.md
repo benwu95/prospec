@@ -51,6 +51,7 @@ Expand each space sequentially:
 
 **External research** — use the search and documentation tools this host provides; none is required.
 - **Query from the need**: phrase queries from the requirement or the decision it must settle — how others solve it, whether an underlying tool already does it — not only from how to reinforce the approach already proposed.
+- **Let the tool decide**: when the design needs an external tool's judgment, first have the tool produce it. Apply a tool's semantics directly only to input that tool produced; list each caller's input shapes first, and parse the rest or scope it out as separate work.
 - **Prefer first-hand sources**: official documentation, maintainer discussions, source code.
 - **Record each external approach**: source link, the approach, where it applies, its known limits, and why it is adopted or excluded. Label each claim a source fact, an inference, or measured in this project; give every key unverified assumption its check (a minimal spike or test) — a citation is never a measurement in this project.
 - **Stop** when the candidate directions are comparable, their main limits are identified, and every remaining uncertainty that could change the choice has a way to be checked; then move to this station's choice step. No source or candidate count is required.
@@ -61,6 +62,8 @@ Expand each space sequentially:
 - Based on `prospec/index.md`, which modules are affected?
 - Does it require API or data structure changes?
 - Backward compatibility considerations?
+- Does the design rest on an input with no defined legal range? Define that range in a prerequisite change rather than guard each consumer.
+- Would this change keep behavior only so a later change in the series can remove it? Then both belong in one change.
 
 ## Premise Check Handoff
 

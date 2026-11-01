@@ -48,6 +48,7 @@ Default to **Draft-First**:
 - **Draft-First mode (default)**: Match the prompt to index keywords and relevant Feature Specs. Draft Role, Feature and Constraints. Ground Background/Value in traceable input or actual code investigation; clear intent alone is insufficient. Record original source/evidence; verification preserves `source: ai-proposed`. If a key boundary is severely ambiguous, ask **one question at a time**.
 - Reproduction evidence (steps, expected/actual behavior, conclusion) can skip deep interviewing, not the Premise structure. Missing evidence stays pending → `prospec-explore`.
 - **Interactive mode (`--interactive`)**: Guide the user through 3-4 focused questions to collect Background, Role, Feature, Value, and Constraints.
+- Scope a series so no change keeps behavior only for a later one to remove: that behavior and its removal are one change, which Draft-First records in Stated Assumptions.
 
 > **Phase 1 Gate** — proceed when:
 > - [ ] Background, Role, Feature, and Value are captured with evidence or explicitly pending hypotheses
