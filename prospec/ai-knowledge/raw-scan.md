@@ -46,6 +46,8 @@
 
 ## Config Files
 
+- `.gitignore`
+- `.prospec.yaml`
 - `eslint.config.mjs`
 - `package.json`
 - `tsconfig.json`
@@ -55,6 +57,76 @@
 ## Directory Tree
 
 ```
+.agents/
+  skills/
+    prospec-archive/
+      references/
+    prospec-backfill-spec/
+      references/
+    prospec-design/
+      references/
+    prospec-explore/
+    prospec-ff/
+      references/
+    prospec-implement/
+      references/
+    prospec-knowledge-generate/
+    prospec-knowledge-update/
+    prospec-learn/
+      references/
+    prospec-new-story/
+      references/
+    prospec-plan/
+      references/
+    prospec-promote-backfill/
+      references/
+    prospec-quickstart/
+    prospec-review/
+      references/
+    prospec-tasks/
+      references/
+    prospec-upgrade/
+    prospec-verify/
+      references/
+    release/
+    submit-issue/
+    submit-pr/
+.claude/
+  skills/
+    prospec-archive/
+      references/
+    prospec-backfill-spec/
+      references/
+    prospec-design/
+      references/
+    prospec-explore/
+    prospec-ff/
+      references/
+    prospec-implement/
+      references/
+    prospec-knowledge-generate/
+    prospec-knowledge-update/
+    prospec-learn/
+      references/
+    prospec-new-story/
+      references/
+    prospec-plan/
+      references/
+    prospec-promote-backfill/
+      references/
+    prospec-quickstart/
+    prospec-review/
+      references/
+    prospec-tasks/
+      references/
+    prospec-upgrade/
+    prospec-verify/
+      references/
+    release/
+    submit-issue/
+    submit-pr/
+.github/
+  workflows/
 docs/
   concepts/
   guides/
@@ -229,15 +301,18 @@ tests/
 > alphabetically first.
 
 - `tests/fixtures/` — 635 files: `.md`, `.yaml`, `.json`, `.txt`
-- `prospec/` — 376 files: `.md`, `.yaml`
+- `prospec/` — 380 files: `.md`, `(no extension)`, `.yaml`
+- `.agents/` — 74 files: `.md`
+- `.claude/` — 74 files: `.md`
 - `planning/` — 10 files: `.md`
 - `docs/guides/` — 6 files: `.md`
 - `docs/concepts/` — 4 files: `.md`
 - `docs/reference/` — 4 files: `.md`
+- `.github/` — 3 files: `.yml`
 
 ## File Stats
 
 | Metric | Value |
 |--------|-------|
-| Total files | 1751 |
-| Scan depth | 10 |
+| Total files | 1917 |
+| Directory Tree depth | 10 |
