@@ -106,7 +106,7 @@ describe('content reads (null = not found)', () => {
   });
 
   it('resolves the index from the base dir, not the knowledge path (non-sibling layouts)', () => {
-    // knowledge.base_path: docs/kb with paths.base_dir: proj — the writers put
+    // readIndex takes the base dir, not a knowledge path: the writers put
     // index.md at <base_dir>/index.md, so the reader must look there too.
     write('proj/index.md', '# Root Index\n');
     write('docs/kb/module-map.yaml', 'modules: []\n');

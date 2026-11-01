@@ -5,7 +5,7 @@ import { execute, detectMissingTriggers, detectNudges, buildDocsInventory, detec
 import { INIT_DOC_REGISTRY } from '../../../src/types/conventions.js';
 import { readConfig } from '../../../src/lib/config.js';
 import { PROSPEC_VERSION } from '../../../src/types/version.js';
-import { ConfigNotFound } from '../../../src/types/errors.js';
+import { ConfigInvalid, ConfigNotFound, KnowledgePathMigrationRequired } from '../../../src/types/errors.js';
 import type { ProspecConfig } from '../../../src/types/config.js';
 
 vi.mock('node:fs', async () => {
@@ -314,6 +314,56 @@ describe('upgrade.service', () => {
 
     await expect(execute({ cwd: '/project' })).rejects.toThrow(ConfigNotFound);
   });
+
+  it.each([
+    ['an out-of-range base_dir', (config: string) => `${config}paths:\n  base_dir: docs/prospec\n`, () => {}],
+    ['a symlinked base_dir', (config: string) => config, () => {
+      vol.renameSync('/project/prospec', '/project/real');
+      vol.symlinkSync('/project/real', '/project/prospec');
+    }],
+  ])('refuses %s with ConfigInvalid before writing anything', async (_label, rewrite, arrange) => {
+    seedProject({ version: '0.0.1' });
+    vol.writeFileSync('/project/.prospec.yaml', rewrite(String(vol.readFileSync('/project/.prospec.yaml', 'utf-8'))));
+    arrange();
+    vi.mocked(agentSyncExecute).mockClear();
+    const before = vol.toJSON();
+
+    await expect(execute({ cwd: '/project' })).rejects.toThrow(ConfigInvalid);
+
+    expect(vol.toJSON()).toEqual(before);
+    expect(vi.mocked(agentSyncExecute)).not.toHaveBeenCalled();
+  });
+
+  it('stops before any write with the migration steps when knowledge.base_path names another directory', async () => {
+    seedProject({ version: '0.0.1' });
+    vol.writeFileSync('/project/.prospec.yaml', `${String(vol.readFileSync('/project/.prospec.yaml', 'utf-8'))}knowledge:\n  base_path: docs/kb\n`);
+    vi.mocked(agentSyncExecute).mockClear();
+    const before = vol.toJSON();
+
+    const error = await execute({ cwd: '/project' }).catch((e: unknown) => e);
+
+    expect(error).toBeInstanceOf(KnowledgePathMigrationRequired);
+    expect((error as Error).message).toContain('docs/kb');
+    expect((error as Error).message).toContain('prospec/ai-knowledge');
+    expect(vol.toJSON()).toEqual(before);
+    expect(vi.mocked(agentSyncExecute)).not.toHaveBeenCalled();
+  });
+
+  it('upgrades a knowledge.base_path equal to the fixed directory, flagging it for deletion and keeping the line', async () => {
+    seedProject({ version: '0.0.1' });
+    vol.writeFileSync('/project/.prospec.yaml', `${String(vol.readFileSync('/project/.prospec.yaml', 'utf-8'))}knowledge:\n  base_path: prospec/ai-knowledge\n`);
+
+    const { report } = await execute({ cwd: '/project' });
+
+    expect(report.deprecatedKnowledgeBasePath).toBe('prospec/ai-knowledge');
+    expect(String(vol.readFileSync('/project/.prospec.yaml', 'utf-8'))).toMatch(/base_path: prospec\/ai-knowledge/);
+  });
+
+  it('flags nothing when knowledge.base_path is absent', async () => {
+    seedProject({ version: '0.0.1' });
+    const { report } = await execute({ cwd: '/project' });
+    expect(report.deprecatedKnowledgeBasePath).toBeUndefined();
+  });
 });
 
 describe('detectMissingTriggers', () => {
@@ -573,35 +623,31 @@ describe('upgrade.service docs inventory (issue #48)', () => {
     expect(fs.existsSync(`${KB}/_glossary.md`)).toBe(false); // probing created nothing
   });
 
-  it('honors a knowledge.base_path override — docs at the configured path are present, not MISSING', () => {
-    // A user may hand-edit .prospec.yaml to relocate the knowledge base; every
-    // knowledge consumer (knowledge-init, agent-sync, knowledge-reader) honors
-    // it, so the inventory must too — else all five ai-knowledge docs misreport
-    // as MISSING and the skill would create duplicates at the wrong location.
+  it('honors a relocated paths.base_dir — docs at the configured location are present, not MISSING', () => {
+    // Every knowledge consumer (knowledge-init, agent-sync, knowledge-reader)
+    // resolves the Knowledge directory under the configured base_dir, so the
+    // inventory must too — else all five ai-knowledge docs misreport as MISSING
+    // and the skill would create duplicates at the wrong location.
     vol.fromJSON({
-      '/p/prospec/README.md': '# r\n',
-      '/p/prospec/CONSTITUTION.md': '# c\n',
-      '/p/prospec/index.md': '# i\n',
-      '/p/docs/kb/_conventions.md': '# conv\n',
-      '/p/docs/kb/_diagram-conventions.md': '# diag\n',
-      '/p/docs/kb/_glossary.md': '# glos\n',
-      '/p/docs/kb/_status-lifecycle.md': '# lc\n',
-      '/p/docs/kb/_module-readme-conventions.md': '# mrc\n',
+      '/p/docs/README.md': '# r\n',
+      '/p/docs/CONSTITUTION.md': '# c\n',
+      '/p/docs/index.md': '# i\n',
+      '/p/docs/ai-knowledge/_conventions.md': '# conv\n',
+      '/p/docs/ai-knowledge/_diagram-conventions.md': '# diag\n',
+      '/p/docs/ai-knowledge/_glossary.md': '# glos\n',
+      '/p/docs/ai-knowledge/_status-lifecycle.md': '# lc\n',
+      '/p/docs/ai-knowledge/_module-readme-conventions.md': '# mrc\n',
     });
-    const config = {
-      project: { name: 'demo' },
-      paths: { base_dir: 'prospec' },
-      knowledge: { base_path: 'docs/kb' },
-    } as ProspecConfig;
+    const config = { project: { name: 'demo' }, paths: { base_dir: 'docs' } } as ProspecConfig;
 
     const docs = buildDocsInventory(config, '/p');
 
     expect(docs.every((d) => d.present)).toBe(true);
     // the reported paths point at the ACTUAL location the skill must diff/create
     const paths = docs.map((d) => d.path);
-    expect(paths).toContain('docs/kb/_glossary.md');
-    expect(paths).toContain('prospec/CONSTITUTION.md');
-    expect(paths.some((p) => p.includes('prospec/ai-knowledge'))).toBe(false);
+    expect(paths).toContain('docs/ai-knowledge/_glossary.md');
+    expect(paths).toContain('docs/CONSTITUTION.md');
+    expect(paths.some((p) => p.includes('prospec/'))).toBe(false);
   });
 
   it('buildDocsInventory respects a custom paths.base_dir', () => {

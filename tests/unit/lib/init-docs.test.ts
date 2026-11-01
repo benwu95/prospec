@@ -3,7 +3,7 @@
  * `upgrade.service` both render curated docs from, so greenfield init and
  * upgrade back-fill cannot drift apart. Covers context construction (baseline
  * index, language-policy-first rules, agent/language defaults) and location
- * resolution (base vs knowledge root, relocated knowledge.base_path).
+ * resolution (base vs knowledge root, relocated paths.base_dir).
  */
 import { describe, it, expect, vi } from 'vitest';
 import {
@@ -79,14 +79,14 @@ describe('resolveInitDocLocation', () => {
     expect(loc.label).toBe('prospec/ai-knowledge/_glossary.md');
   });
 
-  it('honors a relocated knowledge.base_path (checked/created at the ACTUAL location)', () => {
+  it('honors a relocated paths.base_dir (checked/created at the ACTUAL location)', () => {
     const loc = resolveInitDocLocation(
       kbDoc,
-      baseConfig({ knowledge: { base_path: 'docs/kb' } }),
+      baseConfig({ paths: { base_dir: 'docs' }, knowledge: undefined }),
       '/p',
     );
-    expect(loc.absPath).toBe('/p/docs/kb/_glossary.md');
-    expect(loc.label).toBe('docs/kb/_glossary.md');
+    expect(loc.absPath).toBe('/p/docs/ai-knowledge/_glossary.md');
+    expect(loc.label).toBe('docs/ai-knowledge/_glossary.md');
   });
 });
 

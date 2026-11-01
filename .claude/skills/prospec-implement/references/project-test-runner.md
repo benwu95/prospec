@@ -7,7 +7,7 @@ change-and-restore, external services or ignored dependencies.
 
 ## Test Evidence Policy
 
-`test_evidence.exclude_knowledge: true` declares Knowledge is not a test input; absent/false keeps full scope. The CLI resolves `knowledge.base_path` or `{paths.base_dir}/ai-knowledge`; unsafe paths fail closed. Both records carry `test-inputs-v1` / `repository-inputs-without-knowledge-v1` and `test_policy`. Policy, config bytes, command and retained inputs must match; unknown/missing identity requires a real run.
+`test_evidence.exclude_knowledge: true` declares Knowledge is not a test input; absent/false keeps full scope. The CLI excludes `{paths.base_dir}/ai-knowledge`; unsafe paths fail closed. Both records carry `test-inputs-v1` / `repository-inputs-without-knowledge-v1` and `test_policy`. Policy, config bytes, command and retained inputs must match; unknown/missing identity requires a real run.
 
 Certified reuse preserves original run facts; newer nonpassing attempts cannot revive old PASS. Explicit `check --record-tests` always executes. Review/context, Knowledge checks and pre-merge CI retain their scope.
 

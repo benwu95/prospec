@@ -49,6 +49,21 @@ prospec-upgrade                 # Step 2: AI agent migrates drifted doc formats,
 
 A directory without `.prospec.yaml` still reports the missing config first.
 
+**Breaking:** `paths.base_dir` is now confined to the project-local artifact directory, and `knowledge.base_path` is no longer configurable: the Knowledge directory is always `{paths.base_dir}/ai-knowledge`. Commands that read `.prospec.yaml` stop with a `Config validation failed` error naming the field when:
+
+- `paths.base_dir` is not a single directory name beside `.prospec.yaml` — for example `.`, `..`, `../shared`, `docs/prospec`, `prospec/` or an absolute path;
+- `knowledge.base_path` is set to anything other than `{paths.base_dir}/ai-knowledge` — for example `prospec/kb` or `docs/kb`;
+- `paths.base_dir`, `{paths.base_dir}/specs` or `{paths.base_dir}/ai-knowledge` is a symlink or a regular file.
+
+`prospec status` is the exception: it still lists the changes and their next step, without the configured paths. `prospec upgrade` handles `knowledge.base_path` itself, as step 3 describes. `prospec upgrade` refuses before writing anything, so fix the configuration first:
+
+1. Move the artifact directory to one top-level folder beside `.prospec.yaml` (for example `git mv docs/prospec prospec`) and set `paths.base_dir` to its name.
+2. Replace a symlinked directory with the real directory it points to.
+3. Run `prospec upgrade`. When `knowledge.base_path` names another directory, it stops before writing anything and prints the steps: move the Knowledge files into `{paths.base_dir}/ai-knowledge` (merge when it already exists; skip when the two are the same directory or the old path no longer exists) and delete `knowledge.base_path`. A value equal to `{paths.base_dir}/ai-knowledge` is still accepted, so configs written by earlier `prospec init` keep working, and the upgrade report suggests deleting it.
+4. Run `prospec upgrade` again after those steps; its agent sync rewrites the generated entry files with the new paths.
+
+`prospec init` re-asks for the artifacts directory until the answer is a single directory name, and no longer writes `knowledge.base_path`.
+
 Module paths in `module-map.yaml` now reach git through one rule. A path without `*` is a literal path; one that resolves to the project root (`.`, `./`, `src/..`) covers the whole project, so a whole-project module can be stamped with `prospec knowledge verify`. A path with `*` is a glob git matches with `:(glob)`: `*` stays within one directory and `**/` also matches at the top level.
 
 **Breaking:** A glob whose coverage changes reads stale once. That is a single `*` above deeper files — `dir/*.ts`, or a root `*` or `*.ts`, which now covers top-level files only (write `.` or `**` for the whole project) — and a leading `**/` with a same-named top-level directory (`**/name/**`). Confirm the README, then re-stamp with `prospec knowledge verify`. In a glob, `[` opens a character class: write `[[]` for a literal bracket. A path without `*` is literal, so `app/[id]` names that directory and `src/?.ts` is not a wildcard.

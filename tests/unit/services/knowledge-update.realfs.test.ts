@@ -14,7 +14,7 @@ import {
 import os from 'node:os';
 import path from 'node:path';
 import { execute } from '../../../src/services/knowledge-update.service.js';
-import { PrerequisiteError } from '../../../src/types/errors.js';
+import { ConfigInvalid, PrerequisiteError } from '../../../src/types/errors.js';
 
 // Real fs on purpose: memfs does not model a directory's search permission, so a
 // target hidden behind one would read as present there (REQ-SERVICES-023).
@@ -171,5 +171,17 @@ describe('knowledge update refuses a write target it cannot look up', () => {
       expect(error.suggestion).toContain(`fix ${index} so index.md resolves`);
       expect(snapshot()).toEqual(before);
     });
+  });
+});
+
+describe('knowledge update behind the config path rules', () => {
+  it.skipIf(process.platform === 'win32').each(MODES)('%s refuses a dangling-symlink knowledge root through readConfig before any write', async (_mode, options) => {
+    rmSync(kp(), { recursive: true });
+    symlinkSync(path.join(tmpDir, 'gone'), kp());
+    const before = snapshot();
+    const error = await execute(options()).catch((e: unknown) => e);
+    expect(error).toBeInstanceOf(ConfigInvalid);
+    expect((error as Error).message).toMatch(/paths\.base_dir: "prospec\/ai-knowledge" is a symlink/);
+    expect(snapshot()).toEqual(before);
   });
 });

@@ -1,6 +1,7 @@
 import { createHash } from 'node:crypto';
 import { z } from 'zod';
 import { RetryLinkSchema, ABANDON_MANIFEST } from './abandon.js';
+import { isNormalizedProjectPath } from './config.js';
 
 /**
  * ChangeMetadata schema — validates metadata.yaml in change directories
@@ -441,10 +442,7 @@ export const TEST_EVIDENCE_SCOPE = 'repository-inputs-without-knowledge-v1';
 
 export const TestPolicySchema = z.strictObject({
   version: z.literal(1),
-  excluded_path: z.string().min(1).refine((value) =>
-    !value.includes('\\') && !value.includes('\0') && !/^[A-Za-z]:/.test(value)
-    && value.split('/').every((segment) => segment !== '' && segment !== '.' && segment !== '..'),
-  'must be a normalized project-relative directory'),
+  excluded_path: z.string().min(1).refine(isNormalizedProjectPath, 'must be a normalized project-relative directory'),
 });
 export type TestPolicy = z.infer<typeof TestPolicySchema>;
 

@@ -83,8 +83,8 @@ interface Attribution {
 /**
  * Attribute a finding to a subject, using the project's CONFIGURED roots.
  *
- * Path shapes are never guessed by literal regex: `knowledge.base_path` and
- * `paths.base_dir` are both configurable, and module ownership is already
+ * Path shapes are never guessed by literal regex: `paths.base_dir` is
+ * configurable, and module ownership is already
  * declared in module-map.yaml. A finding that matches nothing is `general` —
  * never the file basename, which manufactured module names like `README` for
  * every module at once and merged their findings into a single change.
@@ -100,8 +100,8 @@ function attributeFinding(
 ): Attribution {
   const normPath = finding.source_path.replace(/\\/g, '/');
 
-  // path.posix.join, never concatenation: `knowledge.base_path: "."` relativises
-  // to '' and `${''}/modules/` is the root-anchored '/modules/', which no
+  // path.posix.join, never concatenation: a knowledge root that relativises to ''
+  // would make `${''}/modules/` the root-anchored '/modules/', which no
   // repo-relative source_path can start with. The generator side already joins.
   const modulesRoot = `${path.posix.join(roots.knowledgeRel, 'modules')}/`;
   if (normPath.startsWith(modulesRoot)) {

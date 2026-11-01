@@ -2899,6 +2899,8 @@ describe('collectArtifactLanguage (REQ-LIB-037)', () => {
       const escaping = path.join(path.relative(tmpDir, outside), 'specs/_archived-history/**');
       const src = collectArtifactLanguage(tmpDir, scope([escaping]));
       expect(src.files).toHaveLength(0);
+      expect(src.available).toBe(false);
+      expect(src.reason).toContain(`${escaping} (outside the repository)`);
     } finally {
       rmSync(outside, { recursive: true, force: true });
     }

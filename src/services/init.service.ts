@@ -2,8 +2,8 @@ import * as path from 'node:path';
 import { checkbox, input, Separator } from '@inquirer/prompts';
 import { AlreadyExistsError, ConfigInvalid } from '../types/errors.js';
 import type { ProspecConfig } from '../types/config.js';
-import { DEFAULT_BASE_DIR, DEFAULT_ARTIFACT_LANGUAGE, VALID_AGENTS } from '../types/config.js';
-import { writeConfig } from '../lib/config.js';
+import { baseDirIssue, DEFAULT_BASE_DIR, DEFAULT_ARTIFACT_LANGUAGE, VALID_AGENTS } from '../types/config.js';
+import { checkConfigPathTopology, writeConfig } from '../lib/config.js';
 import { fileExists, ensureDir, atomicWrite, readFileIfExists } from '../lib/fs-utils.js';
 import { mergeManagedDoc } from '../lib/content-merger.js';
 import { PROSPEC_VERSION } from '../types/version.js';
@@ -104,8 +104,12 @@ export async function execute(options: InitOptions): Promise<InitResult> {
     baseDir = await input({
       message: 'Prospec artifacts directory:',
       default: DEFAULT_BASE_DIR,
+      validate: (value) => baseDirIssue(value) ?? true,
     });
   }
+  // Before any write: an existing symlink or file at the artifact paths would make
+  // every later command refuse the config this run is about to write.
+  checkConfigPathTopology({ project: { name: projectName }, paths: { base_dir: baseDir } }, cwd);
 
   // 6b. Resolve artifact language (documents written by AI; code stays English)
   let artifactLanguage: string;
@@ -158,9 +162,6 @@ export async function execute(options: InitOptions): Promise<InitResult> {
     trust_zone_language: trustZoneLanguage,
     exclude: ['*.env*', '*credential*', '*secret*', 'node_modules', '.git'],
     agents: selectedAgents.length > 0 ? selectedAgents as ProspecConfig['agents'] : undefined,
-    knowledge: {
-      base_path: `${baseDir}/ai-knowledge`,
-    },
   };
 
   // 8. Resolve paths

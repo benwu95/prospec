@@ -7,9 +7,13 @@ import {
   KNOWLEDGE_SIZE_RULES,
   ProspecConfigSchema,
   SHIPPED_BUDGET_FIELDS,
+  baseDirIssue,
+  isNormalizedProjectPath,
   isShippedBudgetField,
+  knowledgeBasePathIssue,
   type KnowledgeSizeRule,
 } from '../../../src/types/config.js';
+import { TestPolicySchema } from '../../../src/types/change.js';
 
 describe('DEFAULT_KNOWLEDGE_TOKEN_BUDGET', () => {
   it('is the single source for the knowledge-size thresholds', () => {
@@ -210,5 +214,101 @@ describe('test evidence policy configuration', () => {
 
   it.each(['true', 1, null, [], {}])('rejects nonboolean exclusion %j', (exclude_knowledge) => {
     expect(ProspecConfigSchema.safeParse({ ...config, test_evidence: { exclude_knowledge } }).success).toBe(false);
+  });
+});
+
+describe('project-local artifact path rules', () => {
+  const parse = (extra: Record<string, unknown>) =>
+    ProspecConfigSchema.safeParse({ project: { name: 'p' }, ...extra });
+  const issuePaths = (extra: Record<string, unknown>): string[] => {
+    const result = parse(extra);
+    return result.success ? [] : result.error.issues.map((issue) => issue.path.join('.'));
+  };
+
+  describe('isNormalizedProjectPath', () => {
+    it.each(['prospec', 'prospec/ai-knowledge', 'a/b/c', '.hidden', 'my spec'])('accepts %j', (value) => {
+      expect(isNormalizedProjectPath(value)).toBe(true);
+    });
+    it.each(['', '.', '..', './prospec', 'prospec/', 'prospec//kb', 'a/../b', '/abs', 'C:', 'C:foo', 'C:/x', 'a\\b', '\\\\server\\share', 'a\0b'])(
+      'rejects %j', (value) => {
+        expect(isNormalizedProjectPath(value)).toBe(false);
+      });
+  });
+
+  describe('baseDirIssue', () => {
+    it.each(['prospec', 'my-spec'])('accepts %j', (value) => {
+      expect(baseDirIssue(value)).toBeNull();
+    });
+    it.each(['.', './', '', '..', '../outside', 'docs/prospec', 'prospec/', '/abs/prospec', 'C:\\x', 'C:/x', 'C:', '\\\\server\\share'])(
+      'rejects %j with a fix hint', (value) => {
+        expect(baseDirIssue(value)).toMatch(/single directory name/);
+      });
+  });
+
+  describe('knowledgeBasePathIssue', () => {
+    it('quotes both paths in the refusal', () => {
+      expect(knowledgeBasePathIssue('docs/kb', 'prospec')).toContain('always "prospec/ai-knowledge", got "docs/kb"; move its Knowledge files into "prospec/ai-knowledge"');
+    });
+    it('accepts only the fixed Knowledge directory', () => {
+      expect(knowledgeBasePathIssue('prospec/ai-knowledge', 'prospec')).toBeNull();
+      expect(knowledgeBasePathIssue('docs/ai-knowledge', 'docs')).toBeNull();
+    });
+    it.each(['prospec/kb', 'ai-knowledge', 'docs/kb', './prospec/ai-knowledge', 'prospec/ai-knowledge/', 'Prospec/ai-knowledge', 'prospec/a/b', '/abs/prospec/ai-knowledge'])(
+      'rejects %j and says to delete the field', (value) => {
+        expect(knowledgeBasePathIssue(value, 'prospec')).toMatch(/no longer configurable.*prospec\/ai-knowledge.*delete the field/);
+      });
+  });
+
+  it('accepts the defaults and the deprecated knowledge.base_path equal to the default', () => {
+    expect(parse({}).success).toBe(true);
+    expect(parse({ paths: { base_dir: 'my-spec' } }).success).toBe(true);
+    expect(parse({ knowledge: { base_path: 'prospec/ai-knowledge' } }).success).toBe(true);
+    expect(parse({ paths: { base_dir: 'my-spec' }, knowledge: { base_path: 'my-spec/ai-knowledge' } }).success).toBe(true);
+  });
+
+  it.each(['.', './', '', '..', '../outside', 'docs/prospec', 'prospec/', '/abs', 'C:\\x'])(
+    'names paths.base_dir for %j', (base_dir) => {
+      expect(issuePaths({ paths: { base_dir } })).toEqual(['paths.base_dir']);
+    });
+
+  it.each(['prospec/kb', 'ai-knowledge', 'docs/kb', 'prospec/../kb', '/abs/kb'])('names knowledge.base_path for %j', (base_path) => {
+    expect(issuePaths({ knowledge: { base_path } })).toEqual(['knowledge.base_path']);
+  });
+
+  it('judges knowledge.base_path against the configured base_dir', () => {
+    expect(issuePaths({ paths: { base_dir: 'docs' }, knowledge: { base_path: 'prospec/ai-knowledge' } })).toEqual(['knowledge.base_path']);
+    expect(issuePaths({ paths: { base_dir: 'docs' }, knowledge: { base_path: 'docs/ai-knowledge' } })).toEqual([]);
+    expect(issuePaths({ paths: { base_dir: 'docs' }, knowledge: { base_path: 'docs/kb' } })).toEqual(['knowledge.base_path']);
+  });
+
+  it('does not judge knowledge.base_path against an out-of-range base_dir', () => {
+    expect(issuePaths({ paths: { base_dir: 'docs/prospec' }, knowledge: { base_path: 'docs/prospec/ai-knowledge' } })).toEqual(['paths.base_dir']);
+  });
+
+  it('reports path rule violations alongside unrelated schema errors', () => {
+    const result = ProspecConfigSchema.safeParse({ project: {}, paths: { base_dir: '.' }, knowledge: { base_path: 'prospec/kb' } });
+    expect(result.success).toBe(false);
+    expect(result.error?.issues.map((issue) => issue.path.join('.')).sort()).toEqual(['paths.base_dir', 'project.name']);
+    const knowledge = ProspecConfigSchema.safeParse({ project: {}, knowledge: { base_path: 'docs/kb' } });
+    expect(knowledge.error?.issues.map((issue) => issue.path.join('.')).sort()).toEqual(['knowledge.base_path', 'project.name']);
+  });
+
+  it('does not judge knowledge.base_path when paths itself is malformed', () => {
+    expect(issuePaths({ paths: 'docs', knowledge: { base_path: 'docs/kb' } })).toEqual(['paths']);
+  });
+
+  it('reports only the type error when a path is not a string', () => {
+    expect(issuePaths({ paths: { base_dir: 1 } })).toEqual(['paths.base_dir']);
+  });
+
+  it('keeps the test-evidence exclusion path on the same predicate and message', () => {
+    expect(TestPolicySchema.safeParse({ version: 1, excluded_path: 'prospec/ai-knowledge' }).success).toBe(true);
+    const refused = TestPolicySchema.safeParse({ version: 1, excluded_path: 'C:/x' });
+    expect(refused.success).toBe(false);
+    expect(refused.error?.issues[0]?.message).toBe('must be a normalized project-relative directory');
+  });
+
+  it('keeps .shape reachable for the config-example contract', () => {
+    expect(Object.keys(ProspecConfigSchema.shape)).toContain('paths');
   });
 });

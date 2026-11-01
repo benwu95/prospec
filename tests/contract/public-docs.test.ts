@@ -226,3 +226,75 @@ describe('public docs git prerequisite', () => {
     expect(zh).toContain('git repository');
   });
 });
+
+describe('public docs artifact path range', () => {
+  it.each([
+    ['docs/reference/cli-reference.md', /^- \*\*`prospec upgrade \[--cwd <dir>\]`\*\*/, 'reported for deletion'],
+    ['docs/reference/cli-reference.zh-TW.md', /^- \*\*`prospec upgrade \[--cwd <dir>\]`\*\*/, '提示刪除'],
+  ])('%s states the knowledge.base_path stop and the deletion hint in prospec upgrade', (page, heading, hint) => {
+    const lines = read(page).split('\n');
+    const start = lines.findIndex((l) => heading.test(l));
+    expect(start, `${page} prospec upgrade entry`).toBeGreaterThanOrEqual(0);
+    const end = lines.findIndex((l, i) => i > start && /^- \*\*`prospec /.test(l));
+    const entry = lines.slice(start, end).join('\n');
+    const stop = entry.split('\n').filter((l) => l.includes('`knowledge.base_path`'));
+    expect(stop, `${page} knowledge.base_path behavior line`).toHaveLength(1);
+    expect(stop[0]).toContain('`{paths.base_dir}/ai-knowledge`');
+    expect(stop[0]).toContain('`prospec upgrade`');
+    expect(stop[0]).toContain(hint);
+  });
+
+  const rowOf = (page: string, field: string) =>
+    read(page).split('\n').filter((line) => line.startsWith(`| \`${field}\` |`));
+
+  it.each([
+    ['docs/reference/configuration.md', 'single directory name beside `.prospec.yaml`', 'no longer configurable'],
+    ['docs/reference/configuration.zh-TW.md', '`.prospec.yaml` 旁的單層目錄名稱', '不可再設定'],
+  ])('%s states the base_dir range, the symlink rule and that knowledge.base_path is fixed', (page, baseRange, fixed) => {
+    const base = rowOf(page, 'paths.base_dir');
+    const knowledge = rowOf(page, 'knowledge.base_path');
+    expect(base, `${page} paths.base_dir row`).toHaveLength(1);
+    expect(knowledge, `${page} knowledge.base_path row`).toHaveLength(1);
+    expect(base[0]).toContain(baseRange);
+    for (const dir of ['`{paths.base_dir}/specs`', '`{paths.base_dir}/ai-knowledge`']) expect(base[0]).toContain(dir);
+    expect(base[0]).toMatch(/symlink/);
+    expect(knowledge[0]).toContain(fixed);
+    expect(knowledge[0]).toContain('`{paths.base_dir}/ai-knowledge`');
+  });
+
+  it.each([
+    ['docs/reference/cli-reference.md', '**Grouping**'],
+    ['docs/reference/cli-reference.zh-TW.md', '**分組**'],
+  ])('%s attributes auto-draft targets through paths.base_dir only', (page, label) => {
+    const line = read(page).split('\n').filter((l) => l.includes(label));
+    expect(line, `${page} auto-draft grouping line`).toHaveLength(1);
+    expect(line[0]).toContain('`paths.base_dir`');
+    expect(line[0]).not.toContain('knowledge.base_path');
+  });
+
+  it.each([
+    ['docs/guides/upgrading.md', /^## Upgrade to the next release/],
+    ['docs/guides/upgrading.zh-TW.md', /^## 升級至下一個版本/],
+  ])('%s names the breaking change and how to move an out-of-range directory', (page, heading) => {
+    const lines = sectionOf(page, heading).split('\n');
+    const start = lines.findIndex((l) => /^\*\*Breaking(:|：)\*\* `paths\.base_dir` (is now confined|現在限定)/.test(l));
+    expect(start, `${page} breaking paragraph`).toBeGreaterThanOrEqual(0);
+    const end = lines.findIndex((l, i) => i > start && /^`prospec init`/.test(l));
+    expect(end, `${page} end of the path-range block`).toBeGreaterThan(start);
+    const block = lines.slice(start, end + 1);
+    expect(block[0]).toContain('Config validation failed');
+    expect(block[0]).toContain('`{paths.base_dir}/ai-knowledge`');
+    const causes = block.filter((l) => l.startsWith('- '));
+    expect(causes.map((l) => /`paths\.base_dir`|`knowledge\.base_path`/.exec(l)?.[0])).toEqual(['`paths.base_dir`', '`knowledge.base_path`', '`paths.base_dir`']);
+    expect(causes[2]).toMatch(/symlink/);
+    for (const dir of ['`{paths.base_dir}/specs`', '`{paths.base_dir}/ai-knowledge`']) expect(causes[2]).toContain(dir);
+    const steps = block.filter((l) => /^\d+\. /.test(l));
+    expect(steps).toHaveLength(4);
+    expect(steps[0]).toContain('`paths.base_dir`');
+    expect(steps[1]).toMatch(/symlink/);
+    expect(steps[2]).toContain('`knowledge.base_path`');
+    expect(steps[2]).toContain('`{paths.base_dir}/ai-knowledge`');
+    expect(steps[2]).toContain('`prospec upgrade`');
+    expect(steps[3]).toContain('`prospec upgrade`');
+  });
+});

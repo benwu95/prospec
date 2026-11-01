@@ -76,7 +76,7 @@ describe('abandon admission', () => {
     put('preservation/file', 'original'); await expect(prepareAbandon(opts())).rejects.toThrow(/reserved/i);
   });
   it('publishes separately from a same-named successful archive with relocated trust zone', async () => {
-    fs.writeFileSync(path.join(root, '.prospec.yaml'), 'project:\n  name: downstream\npaths:\n  base_dir: docs/spec\n');
+    fs.writeFileSync(path.join(root, '.prospec.yaml'), 'project:\n  name: downstream\npaths:\n  base_dir: docs\n');
     const successful = path.join(root, '.prospec/archive', `${new Date().toISOString().slice(0, 10)}-x`);
     fs.mkdirSync(successful, { recursive: true });
     fs.writeFileSync(path.join(successful, 'metadata.yaml'), 'status: archived\n');

@@ -8,6 +8,7 @@ import { assessCurrentDrift, assessCurrentTestEvidence } from '../../../src/lib/
 import { validateConfig, resolveTestCommand } from '../../../src/lib/config.js';
 import { assessVerificationContext } from '../../../src/lib/verification-context.js';
 import { DRIFT_CHECK_IDS } from '../../../src/types/drift-report.js';
+import { ConfigInvalid } from '../../../src/types/errors.js';
 const gitCalls = vi.hoisted(() => ({ count: 0, logOne: 0, recording: 0, updateIndex: 0, adds: 0, failConfig: false, addAfterListing: false, observedAddition: false, addOnStatus: 0, statusCount: 0, spawns: 0 }));
 const configRace = vi.hoisted(() => ({ onFirstConfigRead: null as (() => void) | null }));
 vi.mock('node:fs', async (original) => {
@@ -397,7 +398,7 @@ describe('Knowledge-excluded assessment scope', () => {
     expect((await assessCurrentTestEvidence(root, 'x')).decision.verdict).toBe('refuse');
   });
 
-  it('rechecks config bytes and refuses unsafe Knowledge policy without fabricating a no-command exemption', async () => {
+  it('rechecks config bytes and refuses an out-of-range Knowledge path at config validation', async () => {
     baseline();
     const narrow = await assessCurrentTestEvidence(root, 'x');
     const context = assessVerificationContext(root, 'x');
@@ -405,11 +406,26 @@ describe('Knowledge-excluded assessment scope', () => {
     write('.prospec.yaml', readFileSync(configPath, 'utf8') + 'knowledge:\n  base_path: ../outside\n');
     expect(narrow.recheck()).toBe(false);
     expect(context.recheck()).toBe(false);
-    const invalid = await assessCurrentTestEvidence(root, 'x');
-    expect(invalid.facts.currentDigest).toBeNull();
-    expect(invalid.facts.commandUnavailableReason).toBeNull();
-    expect(invalid.decision.verdict).toBe('refuse');
-    expect(assessVerificationContext(root, 'x').context.test_attempt.status).toBe('stale');
+    await expect(assessCurrentTestEvidence(root, 'x')).rejects.toThrow(ConfigInvalid);
+    expect(() => assessVerificationContext(root, 'x')).toThrow(ConfigInvalid);
+  });
+
+  // A search-only Knowledge ancestor passes config validation (each segment is an
+  // ordinary directory) but fails the policy's readability check, so the unsafe
+  // policy path stays reachable through a valid config.
+  it.skipIf(process.platform === 'win32' || process.getuid?.() === 0)('refuses unsafe Knowledge policy without fabricating a no-command exemption', async () => {
+    baseline();
+    const ancestor = path.join(root, 'prospec');
+    chmodSync(ancestor, 0o100);
+    try {
+      const invalid = await assessCurrentTestEvidence(root, 'x');
+      expect(invalid.facts.currentDigest).toBeNull();
+      expect(invalid.facts.commandUnavailableReason).toBeNull();
+      expect(invalid.decision.verdict).toBe('refuse');
+      expect(assessVerificationContext(root, 'x').context.test_attempt.status).toBe('stale');
+    } finally {
+      chmodSync(ancestor, 0o755);
+    }
   });
 
   it('shares one Git inventory for opt-in full assessment', async () => {

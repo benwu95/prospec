@@ -9,7 +9,7 @@ Configure Prospec through `.prospec.yaml` in the project root. The tables below 
 | --- | --- | --- | --- |
 | `version` | string | Unset | Version last written by `prospec init` or `prospec upgrade`. Legacy `"1.0"` is treated as stale, not as the current version. |
 | `project.name` | string | Required | Project name. |
-| `paths.base_dir` | string | `prospec` | Artifact root for the Constitution, index, specs and default Knowledge directory. Relative paths resolve from the project root. |
+| `paths.base_dir` | string | `prospec` | Artifact root for the Constitution, index, specs and the Knowledge directory (`{paths.base_dir}/ai-knowledge`). Must be a single directory name beside `.prospec.yaml` — not empty, `.` or `..`, and without `/`, `\`, NUL or a drive prefix such as `C:`. It, `{paths.base_dir}/specs` and `{paths.base_dir}/ai-knowledge` must be ordinary directories, not symlinks, when they exist. |
 | `exclude` | string[] | `[]` | Additional glob patterns excluded from AI Knowledge scanning. Built-in dependency, build and sensitive-file exclusions still apply. |
 
 The scanner always excludes common directories such as `node_modules`, `.git`, `dist`, `build` and `coverage`, along with sensitive patterns such as environment files, credentials, secrets, keys and certificates. An empty `exclude` list does not disable those exclusions.
@@ -44,7 +44,7 @@ Interactive `prospec init` asks for the trust-zone language only when the artifa
 
 | Field | Type | Default / required | Description |
 | --- | --- | --- | --- |
-| `knowledge.base_path` | string | `{paths.base_dir}/ai-knowledge` | Knowledge directory; relative paths resolve from the project root. |
+| `knowledge.base_path` | string | Unset | Deprecated and no longer configurable: the Knowledge directory is always `{paths.base_dir}/ai-knowledge`. Omit it; a value equal to `{paths.base_dir}/ai-knowledge` is still accepted, any other value is refused. |
 | `knowledge.strategy` | string | `auto` | Module partitioning: `auto`, `architecture`, `domain` or `package`. |
 | `knowledge.additional_core_conventions` | string[] | `[]` | Additional convention files to preload as L1 Core Conventions, relative to the Knowledge directory. |
 | `knowledge.generated_artifacts` | string[] | `[]` | Project-relative generated artifact patterns excluded from Knowledge staleness (the module source digest and `last_src_commit`). |
@@ -74,7 +74,7 @@ Skill and reference budgets ship with Prospec: **12,500 tokens per skill** and *
 | --- | --- | --- | --- |
 | `test_evidence.exclude_knowledge` | boolean | `false` | Allows certified test evidence reuse across Knowledge-only changes. Enable only when the project's tests do not read Knowledge. |
 
-Absent or `false` preserves the full input scope. With `true`, the excluded directory resolves from `knowledge.base_path`, falling back to `{paths.base_dir}/ai-knowledge`. It must be a strict descendant of the project root, must not cover `.prospec.yaml`, and existing directory ancestors must be readable ordinary directories, not symlinks. Unsafe or unprovable paths are refused.
+Absent or `false` preserves the full input scope. With `true`, the excluded directory is `{paths.base_dir}/ai-knowledge`; its existing directory ancestors must be readable ordinary directories, not symlinks. Unsafe or unprovable paths are refused.
 
 The opt-in identity is `test-inputs-v1` / `repository-inputs-without-knowledge-v1`, with `test_policy: {version: 1, excluded_path: <project-relative path>}` on both attempt and provenance. Changing the policy, config bytes, resolved command or any retained input invalidates the evidence; missing or unknown identities require a real run.
 

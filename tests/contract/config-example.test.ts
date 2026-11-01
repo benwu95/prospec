@@ -17,6 +17,24 @@ describe('config example completeness contract', () => {
     expect(obj.learn?.lens_thresholds).toEqual({ consecutive_zero_threshold: 5, min_invocations: 3, min_yield: 0.1 });
   });
 
+  it('states the base_dir range and symlink rule, and marks knowledge.base_path as fixed', async () => {
+    const lines = (await execute()).content.split('\n');
+    const commentAbove = (field: RegExp) => {
+      const at = lines.findIndex((l) => field.test(l));
+      expect(at, String(field)).toBeGreaterThan(0);
+      const block: string[] = [];
+      for (let i = at - 1; i >= 0 && /^\s*#/.test(lines[i]!); i--) block.unshift(lines[i]!.replace(/^\s*#\s?/, ''));
+      return block.join(' ');
+    };
+    const base = commentAbove(/^ {2}base_dir: /);
+    const knowledge = commentAbove(/^ {2}base_path: /);
+    expect(base).toContain('single directory name beside .prospec.yaml');
+    expect(base).toContain('`{base_dir}/specs` and `{base_dir}/ai-knowledge` must be ordinary directories');
+    expect(base).toMatch(/not symlinks/);
+    expect(knowledge).toContain('no longer configurable');
+    expect(knowledge).toContain('always `{base_dir}/ai-knowledge`');
+  });
+
   it('documents every top-level schema field (drift guard: a new field un-added turns this red)', async () => {
     const { content } = await execute();
     const obj = parse(content) as Record<string, unknown>;

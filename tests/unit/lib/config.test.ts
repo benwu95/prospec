@@ -136,7 +136,7 @@ describe('resolveBasePaths', () => {
     expect(result.specsPath).toBe('/project/my-docs/specs');
   });
 
-  it('should respect knowledge.base_path override', () => {
+  it('derives the Knowledge directory from base_dir, ignoring a knowledge.base_path value', () => {
     const config = {
       project: { name: 'test' },
       paths: { base_dir: 'prospec' },
@@ -144,7 +144,7 @@ describe('resolveBasePaths', () => {
     };
     const result = resolveBasePaths(config, '/project');
     expect(result.baseDir).toBe('/project/prospec');
-    expect(result.knowledgePath).toBe('/project/custom/knowledge');
+    expect(result.knowledgePath).toBe('/project/prospec/ai-knowledge');
     expect(result.constitutionPath).toBe('/project/prospec/CONSTITUTION.md');
   });
 });
@@ -418,7 +418,7 @@ describe('US-3 schema cleanup: dead fields removed, top-level loose preserved', 
         '  name: test',
         '  version: "9.9"',
         'knowledge:',
-        '  base_path: prospec/ai-knowledge',
+        '  base_path: docs/ai-knowledge',
         '  files:',
         '    - readme',
         'paths:',
@@ -433,7 +433,7 @@ describe('US-3 schema cleanup: dead fields removed, top-level loose preserved', 
     expect((config.paths as Record<string, unknown> | undefined)?.['extra_path']).toBeUndefined();
     // a live nested field alongside the stripped ones still resolves
     expect(config.paths?.base_dir).toBe('docs');
-    expect(config.knowledge?.base_path).toBe('prospec/ai-knowledge');
+    expect(config.knowledge?.base_path).toBe('docs/ai-knowledge');
   });
 
   it('keeps preserving unknown TOP-LEVEL keys via .loose() (a tested extensibility point, not dead)', () => {

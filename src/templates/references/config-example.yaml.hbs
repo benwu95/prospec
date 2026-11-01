@@ -42,7 +42,10 @@ test_evidence:
 
 paths:
   # Root of the prospec artifact tree (Constitution, index.md, specs, knowledge).
-  # Defaults to `prospec`.
+  # Defaults to `prospec`. Must be a single directory name beside .prospec.yaml: not
+  # empty, `.` or `..`, and without `/`, `\`, NUL or a drive prefix such as `C:`. It,
+  # `{base_dir}/specs` and `{base_dir}/ai-knowledge` must be ordinary directories, not
+  # symlinks, when they exist.
   base_dir: prospec
 
 # Glob patterns excluded from AI-knowledge scanning.
@@ -58,7 +61,9 @@ agents:
   - claude
 
 knowledge:
-  # Knowledge base location. Defaults to `{base_dir}/ai-knowledge`.
+  # Deprecated and no longer configurable: the Knowledge directory is always
+  # `{base_dir}/ai-knowledge`. Omit it; a value equal to `{base_dir}/ai-knowledge` is still
+  # accepted (configs written by older `prospec init`), any other value is refused.
   base_path: prospec/ai-knowledge
   # List of project-root-relative, posix-formatted paths to generated artifacts.
   # These files are exempt from knowledge staleness: they are left out of each module's

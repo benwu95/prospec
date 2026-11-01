@@ -1769,6 +1769,12 @@ describe('Skill Format Contract', () => {
       expect(relocated).toContain('docs/CONSTITUTION.md');
     });
 
+    it('project-test-runner names the fixed Knowledge exclusion, not the deprecated knowledge.base_path', () => {
+      const rendered = renderTemplate('skills/references/project-test-runner.hbs', TEMPLATE_CONTEXT);
+      expect(rendered).toContain('The CLI excludes `{paths.base_dir}/ai-knowledge`');
+      expect(rendered).not.toContain('knowledge.base_path');
+    });
+
     // issue #226 / REQ-TEMPLATES-212: implementation-guide reflects the CLI-owned
     // implement workflow — CLI task completion, unconditional TDD deferring severity
     // to the Constitution, and verification resolved via the project-test-runner

@@ -49,6 +49,21 @@ prospec-upgrade                 # 步驟 2：AI Agent 依盤點報告遷移格�
 
 沒有 `.prospec.yaml` 的目錄仍會先回報缺少設定檔。
 
+**Breaking：** `paths.base_dir` 現在限定在專案本地的 artifact 目錄內，`knowledge.base_path` 也不再能設定：Knowledge 目錄固定為 `{paths.base_dir}/ai-knowledge`。符合下列任一情況時，讀取 `.prospec.yaml` 的指令會以 `Config validation failed` 錯誤停止，並指出欄位：
+
+- `paths.base_dir` 不是 `.prospec.yaml` 旁的單層目錄名稱，例如 `.`、`..`、`../shared`、`docs/prospec`、`prospec/` 或絕對路徑；
+- `knowledge.base_path` 設為 `{paths.base_dir}/ai-knowledge` 以外的值，例如 `prospec/kb` 或 `docs/kb`；
+- `paths.base_dir`、`{paths.base_dir}/specs` 或 `{paths.base_dir}/ai-knowledge` 是 symlink 或一般檔案。
+
+`prospec status` 是例外：它仍會列出各個 change 與下一步，但不使用設定的路徑。`prospec upgrade` 會自行處理 `knowledge.base_path`，見步驟 3。`prospec upgrade` 會在寫入任何檔案前拒絕，因此請先修正設定：
+
+1. 把 artifact 目錄移到 `.prospec.yaml` 旁的單層資料夾（例如 `git mv docs/prospec prospec`），並把 `paths.base_dir` 設為該名稱。
+2. 把 symlink 目錄換成它指向的實際目錄。
+3. 執行 `prospec upgrade`。`knowledge.base_path` 指向其他目錄時，它會在寫入任何檔案前停止並印出步驟：把 Knowledge 檔案移到 `{paths.base_dir}/ai-knowledge`（已存在時合併；兩者是同一目錄或舊路徑已不存在時略過），並刪除 `knowledge.base_path`。值恰為 `{paths.base_dir}/ai-knowledge` 時仍接受，因此先前 `prospec init` 寫出的設定可以照常使用，upgrade 報告會提示刪除。
+4. 完成上述步驟後再次執行 `prospec upgrade`；其中的 agent sync 會以新路徑重寫產生的 entry 檔案。
+
+`prospec init` 會持續詢問 artifacts 目錄，直到輸入的是單層目錄名稱，且不再寫出 `knowledge.base_path`。
+
 `module-map.yaml` 的模組路徑現在以同一套規則交給 git。不含 `*` 的 path 是字面路徑；解析為專案根（`.`、`./`、`src/..`）時涵蓋整個專案，因此涵蓋整個專案的模組可以用 `prospec knowledge verify` 蓋章。含 `*` 的 path 是 git 以 `:(glob)` 比對的 glob：`*` 只匹配單一目錄層，`**/` 也匹配頂層。
 
 **Breaking：** 涵蓋範圍改變的 glob 會判為 stale 一次。包括下方有更深層檔案的單獨 `*`——`dir/*.ts`，以及專案根的 `*` 或 `*.ts`，現在只涵蓋頂層檔案（要涵蓋整個專案請寫 `.` 或 `**`）——和以 `**/` 開頭且頂層有同名目錄的 glob（`**/name/**`）。確認 README 後，以 `prospec knowledge verify` 重新蓋章。在 glob 中 `[` 開始一個字元類別：字面的方括號請寫 `[[]`。不含 `*` 的 path 是字面路徑，所以 `app/[id]` 指的就是該目錄，`src/?.ts` 也不是萬用字元。

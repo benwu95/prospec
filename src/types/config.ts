@@ -248,6 +248,34 @@ export const DEFAULT_ALWAYS_ESCALATE: readonly AlwaysEscalateCategory[] = ALWAYS
 
 export const DEFAULT_BASE_DIR = 'prospec';
 
+/** The fixed directory names under `paths.base_dir`. */
+export const SPECS_DIR = 'specs';
+export const KNOWLEDGE_DIR = 'ai-knowledge';
+
+/** A normalized project-relative path: `/`-separated segments, none empty, `.` or `..`; no `\`, NUL or drive prefix. */
+export function isNormalizedProjectPath(value: string): boolean {
+  return !value.includes('\\') && !value.includes('\0') && !/^[A-Za-z]:/.test(value)
+    && value.split('/').every((segment) => segment !== '' && segment !== '.' && segment !== '..');
+}
+
+/** Why a `paths.base_dir` value is out of range, or null when it is a single directory name beside `.prospec.yaml`. */
+export function baseDirIssue(value: string): string | null {
+  if (isNormalizedProjectPath(value) && !value.includes('/')) return null;
+  return `must be a single directory name beside .prospec.yaml (e.g. ${DEFAULT_BASE_DIR}), got ${JSON.stringify(value)} — move the artifact directory to one top-level folder and set its name here`;
+}
+
+/**
+ * Why a `knowledge.base_path` value is refused, or null for the one value accepted.
+ * The Knowledge directory is fixed at `{base_dir}/ai-knowledge`; the field stays
+ * readable only because `init` used to write exactly that value into every config.
+ */
+export function knowledgeBasePathIssue(value: string, baseDir: string): string | null {
+  const fixed = `${baseDir}/${KNOWLEDGE_DIR}`;
+  if (value === fixed) return null;
+  const quoted = JSON.stringify(fixed);
+  return `is no longer configurable — the Knowledge directory is always ${quoted}, got ${JSON.stringify(value)}; move its Knowledge files into ${quoted}, delete the field, and run prospec upgrade for the steps`;
+}
+
 /** Artifact language assumed when `.prospec.yaml` has no `artifact_language`. */
 export const DEFAULT_ARTIFACT_LANGUAGE = 'English';
 
@@ -265,6 +293,35 @@ export const VALID_AGENTS = ['claude', 'codex', 'copilot', 'antigravity'] as con
 
 /** The canonical supported-agent vocabulary. */
 export type ValidAgent = (typeof VALID_AGENTS)[number];
+
+export const isRecord = (value: unknown): value is Record<string, unknown> =>
+  typeof value === 'object' && value !== null && !Array.isArray(value);
+
+function baseDirRuleIssue(config: unknown): string | null {
+  const baseDir = isRecord(config) && isRecord(config.paths) ? config.paths.base_dir : undefined;
+  return typeof baseDir === 'string' ? baseDirIssue(baseDir) : null;
+}
+
+/**
+ * The base_dir the other path rules are judged against — the configured one, or the
+ * default when absent — or undefined while it is itself unusable (malformed `paths`,
+ * a non-string or out-of-range value). Accepts unvalidated input.
+ */
+export function usableBaseDir(config: unknown): string | undefined {
+  if (!isRecord(config)) return undefined;
+  if (config.paths === undefined) return DEFAULT_BASE_DIR;
+  if (!isRecord(config.paths)) return undefined;
+  const baseDir = config.paths.base_dir;
+  if (baseDir === undefined) return DEFAULT_BASE_DIR;
+  return typeof baseDir === 'string' && baseDirIssue(baseDir) === null ? baseDir : undefined;
+}
+
+function knowledgeRuleIssue(config: unknown): string | null {
+  if (!isRecord(config) || !isRecord(config.knowledge)) return null;
+  const basePath = config.knowledge.base_path;
+  const baseDir = usableBaseDir(config);
+  return typeof basePath === 'string' && baseDir !== undefined ? knowledgeBasePathIssue(basePath, baseDir) : null;
+}
 
 export const ProspecConfigSchema = z
   .object({
@@ -293,7 +350,15 @@ export const ProspecConfigSchema = z
     // the same shape; absent means the description's English boundary stands alone.
     skill_exclusions: z.record(z.string(), z.array(z.string())).optional(),
   })
-  .loose();
+  .loose()
+  // `when` keeps these running while unrelated fields fail, so every path
+  // violation surfaces in one pass.
+  .refine((config) => baseDirRuleIssue(config) === null, {
+    path: ['paths', 'base_dir'], when: () => true, error: (issue) => baseDirRuleIssue(issue.input),
+  })
+  .refine((config) => knowledgeRuleIssue(config) === null, {
+    path: ['knowledge', 'base_path'], when: () => true, error: (issue) => knowledgeRuleIssue(issue.input),
+  });
 
 export type ProspecConfig = z.infer<typeof ProspecConfigSchema>;
 export type TechStack = z.infer<typeof TechStackSchema>;

@@ -153,6 +153,15 @@ describe('formatUpgradeOutput', () => {
     expect(hidden.stdout()).not.toContain('raw-scan refreshed');
   });
 
+  it('prints the deprecated knowledge.base_path hint only when the report flags it', () => {
+    const flagged = captureStreams();
+    formatUpgradeOutput(baseResult({ deprecatedKnowledgeBasePath: 'prospec/ai-knowledge' }), 'normal');
+    expect(flagged.stdout()).toMatch(/knowledge\.base_path is no longer configurable — the Knowledge directory is always "prospec\/ai-knowledge"; delete the field from \.prospec\.yaml/);
+    const plain = captureStreams();
+    formatUpgradeOutput(baseResult(), 'normal');
+    expect(plain.stdout()).not.toMatch(/knowledge\.base_path/);
+  });
+
   it('prints a config-field nudge (no artifact_language) instead of a misleading "up to date"', () => {
     const { stdout } = captureStreams();
     formatUpgradeOutput(baseResult({ nudges: [AL_NUDGE] }), 'normal');
