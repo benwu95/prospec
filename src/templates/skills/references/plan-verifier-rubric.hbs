@@ -59,6 +59,8 @@ The Verifier audits the planning artifacts across five orthogonal dimensions:
 {{!-- Single Source of Truth: The two-condition single-source bypass critical definition is owned by review-format.hbs §Severity Criteria. Referenced semantically here without pointing to review-format.md. --}}
 > The Reuse & Single-Source trigger above is self-contained: any unargued bypass is FLAWS here, whatever path the new surface sits on — a plan page is cheap to widen. Its review-stage counterpart, the single-source bypass criterion during adversarial code review, is deliberately narrower and is only named here, not restated.
 
+**Wording-only rounds**: when the plan is to be revised again and, once FLAWS are triaged, the remaining findings are wording only, stop revising round by round. Classify every clause of the affected text once as holding, imprecise or false; fix only the false clauses and the imprecise ones this change rewrote, deleting by default; then re-verify. The loop has converged when that round reports no FLAWS and no warning names a false clause.
+
 ---
 
 ## Architecture Verifier Payload Schema

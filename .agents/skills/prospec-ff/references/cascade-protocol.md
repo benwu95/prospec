@@ -83,7 +83,7 @@ When the pipeline completes final Verification with Grade S/A, reaching this bou
    - **Approve**: Run the git commit command and advance to `prospec-archive`.
    - **Steer / Adjust**: Request additional changes, refinements, or re-verification.
 
-**Presenting a human decision**: for each viable option, state its concrete reversal cost — what is redone if it proves wrong now, and after implementation. Cite the rule or evidence behind the recommendation, and give the strongest non-recommended option the condition under which it would be right. Draw on the gate's existing material rather than restating whole reports. A decision the human already stated is not asked again, and nothing here adds a question where the station decides autonomously.
+**Presenting a human decision**: for each viable option, state its concrete reversal cost — what is redone if it proves wrong now, and after implementation. Cite the rule or evidence behind the recommendation, and give the strongest non-recommended option the condition under which it would be right. Draw on the gate's existing material rather than restating whole reports. A decision the human already stated is not asked again, and nothing here adds a question where the station decides autonomously. A stop condition already stated to the human, once reached, makes its action the first recommendation; recommending anything else first names the premise that was overturned. After repeated non-convergence, quantify what leaving the work undone actually costs — real usage, safeguards already in place — before recommending more attempts.
 
 ---
 

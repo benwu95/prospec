@@ -41,6 +41,8 @@ Expand each space sequentially:
 - Based on `{{base_dir}}/index.md`, which modules are affected?
 - Does it require API or data structure changes?
 - Backward compatibility considerations?
+- Does the design rest on an input with no defined legal range? Define that range in a prerequisite change rather than guard each consumer.
+- Would this change keep behavior only so a later change in the series can remove it? Then both belong in one change.
 
 ## Premise Check Handoff
 
