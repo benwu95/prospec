@@ -82,9 +82,14 @@ function declaredMandatory(skillPath: string, instructions: Record<string, strin
 // 5_887 → 6_786; ceiling raised, not earned: 5_891 → 6_786; other routes retain their bounds.
 // PR #422 follow-up: the triage line that a FLAWS-graded finding stays open adds +21
 // (6_786 → 6_807), at the developer's request; other routes retain their bounds.
+// Station rules for graduated references, CLI free text and gate output (add-req-language-gate-rules): the
+// language-policy partial reaches ff and tasks, review and verify gain the gate-output rule and warning
+// placeholders; plan and tasks delete three NEVER items that restated body rules (missing-receipt stays
+// within its bound). Measured quick 16_510 → 16_575, proven-backfill 23_610 → 23_826, stale-delta
+// 13_101 → 13_232; ceilings raised, not earned: 16_516 → 16_575, 23_694 → 23_826, 13_156 → 13_232.
 const CEILING_ANCHORS: Record<string, number> = {
-  quick: 16_516, 'standard-ui': 15_380, 'proven-backfill': 23_694, 'equivalent-commit': 12_794,
-  'reverify-c': 15_678, 'missing-receipt': 6_807, 'stale-delta': 13_156, 'multi-change': 12_794,
+  quick: 16_575, 'standard-ui': 15_380, 'proven-backfill': 23_826, 'equivalent-commit': 12_794,
+  'reverify-c': 15_678, 'missing-receipt': 6_807, 'stale-delta': 13_232, 'multi-change': 12_794,
 };
 
 describe('scenario mandatory context closure (REQ-TEMPLATES-081, REQ-TESTS-116)', () => {

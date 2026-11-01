@@ -16,7 +16,7 @@ When triggered, briefly describe:
 
 ## Language Policy
 
-Write each generated document in the language the Constitution's Language Policy rule assigns to **its path** — change artifacts and their archived summaries in the project's artifact language, the trust zone (Knowledge base, Feature Specs, index) in English. One skill run may write both. Keep code, identifiers, technical terms, and git commit messages in English.
+Write each generated document in the language the Constitution's Language Policy rule assigns to **its path** — change artifacts and their archived summaries in the project's artifact language, the trust zone (Knowledge base, Feature Specs, index) in English. One skill run may write both. Free text you pass the CLI that lands in a change artifact follows the artifact language too, leaving its paths, commands, enum values and the fixed prefixes the CLI matches untranslated. Keep code, identifiers, technical terms, and git commit messages in English.
 ## CLI Prerequisite (required)
 
 > The prospec CLI is a required file for this skill — its deterministic steps call `prospec`
@@ -121,6 +121,8 @@ user block. The registry defines only marked sections; an unmarked user heading 
 #### 3a: Module README.md (created skeletons + readme-pending) — Recipe-First Format
 
 README.md is the module knowledge entry point; link and maintain its affected sub-module and supplementary docs, including flow diagrams.
+
+Cite a REQ ID in what you write only when a Feature Spec already defines it — a requirement this change adds or modifies lands there at archive, so describe its behavior instead; existing citations need not be removed. After writing, run `prospec check` and confirm `req-references` reports no dangling reference before stamping in 3e.
 
 For CREATED modules (skeleton scaffolded by the CLI in Phase 1):
 - Fill `prospec/ai-knowledge/modules/{module}/README.md` with real content in the **canonical

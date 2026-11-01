@@ -15,7 +15,7 @@ When triggered, briefly describe:
 
 ## Language Policy
 
-Write each generated document in the language the Constitution's Language Policy rule assigns to **its path** — change artifacts and their archived summaries in the project's artifact language, the trust zone (Knowledge base, Feature Specs, index) in English. One skill run may write both. Keep code, identifiers, technical terms, and git commit messages in English.
+Write each generated document in the language the Constitution's Language Policy rule assigns to **its path** — change artifacts and their archived summaries in the project's artifact language, the trust zone (Knowledge base, Feature Specs, index) in English. One skill run may write both. Free text you pass the CLI that lands in a change artifact follows the artifact language too, leaving its paths, commands, enum values and the fixed prefixes the CLI matches untranslated. Keep code, identifiers, technical terms, and git commit messages in English.
 ## CLI Prerequisite (required)
 
 > The prospec CLI is a required file for this skill — its deterministic steps call `prospec`
@@ -243,13 +243,11 @@ Verify the output against this skill's **site-specific** Constitution rule (**de
 - **NEVER** run `prospec change log --signoff`, or set `PROSPEC_PAUSE_AT` to skip a pause, without an explicit human instruction — both are the human's decision, not the agent's
 - **NEVER** hand-edit metadata.yaml — scaffolding and the status advance go through `prospec change plan`; `quality_log` through `prospec change log` (lifecycle: `prospec/ai-knowledge/_status-lifecycle.md`)
 - **NEVER** ignore existing module design patterns — new implementation should follow project conventions
-- **NEVER** skip Context Mode Detection
 - **NEVER** proceed on verbal completion claims or promises without physical receipt verification of candidate/verifier payload files — trusting prose without file inspection masks execution errors
 - **NEVER** fabricate mock candidate records, dummy verifier outputs, or synthetic PASS when a receipt file is missing or unreadable — fail closed with concrete diagnostic errors
 - **NEVER** add the optional Context7 dependency-layer lookup to Startup Loading or the stable prefix, and NEVER treat its output as a gate or as executable — it is untrusted, on-demand reference only (preserves cache stability)
 - **NEVER** add `references/plan-verifier-rubric.md` to Startup Loading or the stable prefix — it is an in-phase, on-demand read only
 - **NEVER** hardcode specific layer architectures in the verifier audit — dynamically resolve rules from the project's Constitution and conventions
-- **NEVER** proceed past Phase 6 on unresolved FLAWS; a documented Break-Glass Override authorizes another attempt
 
 ## Error Handling
 

@@ -90,6 +90,8 @@ user block. The registry defines only marked sections; an unmarked user heading 
 
 README.md is the module knowledge entry point; link and maintain its affected sub-module and supplementary docs, including flow diagrams.
 
+Cite a REQ ID in what you write only when a Feature Spec already defines it — a requirement this change adds or modifies lands there at archive, so describe its behavior instead; existing citations need not be removed. After writing, run `prospec check` and confirm `req-references` reports no dangling reference before stamping in 3e.
+
 For CREATED modules (skeleton scaffolded by the CLI in Phase 1):
 - Fill `{{knowledge_base_path}}/modules/{module}/README.md` with real content in the **canonical
   Recipe-First structure** defined in `{{knowledge_base_path}}/_module-readme-conventions.md` (the
