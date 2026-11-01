@@ -75,13 +75,30 @@ export class ConfigNotFound extends ProspecError {
 }
 
 export class ConfigInvalid extends ProspecError {
-  constructor(details: string) {
+  constructor(details: string, suggestion = 'Check that the format of .prospec.yaml is correct') {
     super(
       `Config validation failed: ${details}`,
       'CONFIG_INVALID',
-      'Check that the format of .prospec.yaml is correct',
+      suggestion,
     );
     this.name = 'ConfigInvalid';
+  }
+}
+
+/**
+ * `prospec upgrade` met a `knowledge.base_path` naming a directory other than the
+ * fixed `{base_dir}/ai-knowledge`. The steps are fixed text: the CLI does not
+ * inspect the filesystem to tailor them, and never moves or deletes anything.
+ */
+export class KnowledgePathMigrationRequired extends ProspecError {
+  constructor(configured: string, fixedDir: string) {
+    const fixed = JSON.stringify(fixedDir);
+    super(
+      `knowledge.base_path is no longer configurable: the Knowledge directory is always ${fixed}, but .prospec.yaml names ${JSON.stringify(configured)}`,
+      'KNOWLEDGE_PATH_MIGRATION',
+      `Move the Knowledge files from ${JSON.stringify(configured)} into ${fixed} (merge when ${fixed} already exists; skip when the two are the same directory or the old path no longer exists), delete knowledge.base_path from .prospec.yaml, then run prospec upgrade again`,
+    );
+    this.name = 'KnowledgePathMigrationRequired';
   }
 }
 

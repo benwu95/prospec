@@ -1055,9 +1055,7 @@ describe('check.service artifact-language wiring (REQ-SERVICES-074)', () => {
     }
   });
 
-  it('reports UNCHECKED for a scope that escapes the repo, not clean', async () => {
-    // Containment refusal is a design exclusion, but refusing is not the same
-    // as finding it clean — this path used to `continue` and report `pass`.
+  it('refuses a base_dir that escapes the project at config validation', async () => {
     write(
       '.prospec.yaml',
       [
@@ -1069,18 +1067,14 @@ describe('check.service artifact-language wiring (REQ-SERVICES-074)', () => {
         'artifact_language: Traditional Chinese (Taiwan)',
       ].join('\n'),
     );
-    const result = await execute({ cwd: tmpDir });
-    if (result.kind !== 'report') throw new Error('expected report');
-    const check = result.report.structural.checks.find((c) => c.id === 'artifact-language');
-    expect(check?.status).toBe('skipped');
-    expect(check?.reason).toContain('outside the repository');
+    await expect(execute({ cwd: tmpDir })).rejects.toThrow(/paths\.base_dir: must be a single directory name/);
   });
 
   // chmod(0o000) does not remove read access on Windows, so this fixture cannot
   // be constructed there — the file stays readable, the scan succeeds, and the
   // check honestly reports `warn` for the English-only prose it did read. The
   // collector's other three unread paths (escaping root, symlink out of tree,
-  // scanner throw) are exercised cross-platform by the siblings above; only the
+  // scanner throw) are exercised cross-platform elsewhere; only the
   // unreadable-file condition is POSIX-only to set up.
   it.skipIf(process.platform === 'win32')('reports UNCHECKED when an in-scope file cannot be read', async () => {
     write(

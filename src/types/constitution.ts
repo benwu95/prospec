@@ -18,7 +18,7 @@ export type ConstitutionSeverity = 'MUST' | 'SHOULD' | 'MAY';
  * Constitution rule and the agent entry config (CLAUDE.md/AGENTS.md): both are
  * generated from one `LanguageScope`, so the two documents cannot declare
  * contradictory scopes. Paths are repo-relative POSIX globs resolved from
- * `paths.base_dir` and `knowledge.base_path` — never hardcoded defaults — and
+ * `paths.base_dir` (the Knowledge directory under it) — never hardcoded defaults — and
  * neither language is hardcoded either: each is a string the resolver fills.
  */
 export interface LanguageScope {

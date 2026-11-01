@@ -40,9 +40,9 @@ const report = async () => {
 const judgment: QualityDimension[] = ['delta-spec-compliance', 'constitution', 'design'].map((name) => ({
   name, result: name === 'design' ? 'not-applicable' : 'PASS', graded_by: 'fresh-subagent',
 }));
-function seed(enabled = true, base = 'prospec', knowledge?: string, status = 'implemented'): string {
-  const knowledgeRoot = knowledge ?? `${base}/ai-knowledge`;
-  write('.prospec.yaml', `version: "1.0"\nproject:\n  name: fixture\ntech_stack:\n  test_command: ${JSON.stringify(`${process.execPath} suite.cjs`)}\npaths:\n  base_dir: ${base}\n${knowledge ? `knowledge:\n  base_path: ${knowledge}\n` : ''}${enabled ? 'test_evidence:\n  exclude_knowledge: true\n' : ''}`);
+function seed(enabled = true, base = 'prospec', status = 'implemented'): string {
+  const knowledgeRoot = `${base}/ai-knowledge`;
+  write('.prospec.yaml', `version: "1.0"\nproject:\n  name: fixture\ntech_stack:\n  test_command: ${JSON.stringify(`${process.execPath} suite.cjs`)}\npaths:\n  base_dir: ${base}\n${enabled ? 'test_evidence:\n  exclude_knowledge: true\n' : ''}`);
   write('suite.cjs', "const fs=require('node:fs');const p='.prospec/invocations';fs.writeFileSync(p,String(Number(fs.existsSync(p)?fs.readFileSync(p,'utf8'):0)+1));\n");
   write(`${base}/CONSTITUTION.md`, '# Constitution\n\n## Principles\n\n### [MUST] Tests\n\n**Description**: Test behavior.\n\n**Verify**: Tests pass.\n');
   write(`${knowledgeRoot}/modules/example/README.md`, '# Example\n\nExisting Knowledge.\n');
@@ -63,10 +63,8 @@ beforeEach(() => {
 afterEach(() => rmSync(root, { recursive: true, force: true }));
 
 describe('real recorded Knowledge evidence', () => {
-  it.each([
-    ['prospec', undefined], ['custom-docs', undefined], ['custom-docs', 'independent-knowledge'],
-  ])('reuses Knowledge edits across Git states with base %s and knowledge %s', async (base, knowledge) => {
-    const knowledgeRoot = seed(true, base, knowledge);
+  it.each(['prospec', 'custom-docs'])('reuses Knowledge edits across Git states with base %s', async (base) => {
+    const knowledgeRoot = seed(true, base);
     await check({ cwd: root, change, recordReview: true });
     expect(await run()).toMatchObject({ recorded: true, exitCode: 0 });
     const original = records();
@@ -130,7 +128,7 @@ describe('real recorded Knowledge evidence', () => {
   });
 
   it.each([false, true])('preserves one original run through all gates with unavailable sibling: %s', async (withSibling) => {
-    const knowledgeRoot = seed(true, 'prospec', undefined, 'tasks');
+    const knowledgeRoot = seed(true, 'prospec', 'tasks');
     await run();
     const original = records();
     write(`${knowledgeRoot}/modules/example/README.md`, '# Changed Knowledge\n');

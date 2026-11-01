@@ -64,9 +64,8 @@ export function stripCellEmphasis(cell: string): string {
 
 /**
  * Read the root index at `<baseDir>/index.md`. Takes the resolved base dir
- * (resolveBasePaths().baseDir) — NOT the knowledge path — so the read side can
- * never disagree with the services that write the index when `knowledge.base_path`
- * is not a direct child of `paths.base_dir`.
+ * (resolveBasePaths().baseDir) — NOT the knowledge path — the same root the
+ * services that write the index use.
  */
 export function readIndex(baseDir: string): string | null {
   return readContainedText(path.join(baseDir, 'index.md'), baseDir);

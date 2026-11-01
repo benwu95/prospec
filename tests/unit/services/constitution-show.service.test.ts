@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { vol } from 'memfs';
 import { execute } from '../../../src/services/constitution-show.service.js';
 import { estimateTokens } from '../../../src/lib/token-accounting.js';
-import { PrerequisiteError } from '../../../src/types/errors.js';
+import { ConfigInvalid, PrerequisiteError } from '../../../src/types/errors.js';
 
 vi.mock('node:fs', async () => {
   const memfs = await import('memfs');
@@ -87,11 +87,22 @@ describe('constitution show service', () => {
     await expect(execute({ cwd, station: 'plan' })).rejects.toThrow(/prospec\/CONSTITUTION\.md/);
   });
 
-  it('refuses a Constitution resolved outside the repository', async () => {
+  it('refuses a base_dir outside the repository at config validation', async () => {
     vol.writeFileSync('/repo/.prospec.yaml', 'version: 1.0.0\nproject:\n  name: demo\npaths:\n  base_dir: ../outside\n');
     vol.mkdirSync('/outside', { recursive: true });
     vol.writeFileSync('/outside/CONSTITUTION.md', CONSTITUTION);
+    await expect(execute({ cwd, station: 'plan' })).rejects.toThrow(ConfigInvalid);
+  });
+
+  // readConfig confines base_dir, but a Constitution FILE linked out of the
+  // repository still reaches the contained read, which must refuse it.
+  it('refuses a Constitution file linked outside the repository', async () => {
+    vol.mkdirSync('/outside', { recursive: true });
+    vol.writeFileSync('/outside/CONSTITUTION.md', CONSTITUTION);
+    vol.unlinkSync('/repo/prospec/CONSTITUTION.md');
+    vol.symlinkSync('/outside/CONSTITUTION.md', '/repo/prospec/CONSTITUTION.md');
     await expect(execute({ cwd, station: 'plan' })).rejects.toThrow(PrerequisiteError);
+    await expect(execute({ cwd, station: 'plan' })).rejects.toThrow(/not readable inside the repository/);
   });
 
   it('refuses an unknown station, listing the valid ones', async () => {

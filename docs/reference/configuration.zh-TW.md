@@ -9,7 +9,7 @@
 | --- | --- | --- | --- |
 | `version` | string | 未設定 | `prospec init` 或 `prospec upgrade` 最後寫入的版本。舊值 `"1.0"` 視為過期版本，不代表目前版本。 |
 | `project.name` | string | 必填 | 專案名稱。 |
-| `paths.base_dir` | string | `prospec` | Constitution、index、specs 與預設 Knowledge 目錄的 artifact root。相對路徑從專案根目錄解析。 |
+| `paths.base_dir` | string | `prospec` | Constitution、index、specs 與 Knowledge 目錄（`{paths.base_dir}/ai-knowledge`）的 artifact root。必須是 `.prospec.yaml` 旁的單層目錄名稱：不能是空字串、`.` 或 `..`，也不能含 `/`、`\`、NUL 或磁碟機字首（例如 `C:`）。它與 `{paths.base_dir}/specs`、`{paths.base_dir}/ai-knowledge` 存在時都必須是一般目錄，不能是 symlink。 |
 | `exclude` | string[] | `[]` | AI Knowledge 掃描額外排除的 glob patterns；內建相依套件、建置輸出與敏感檔案排除規則仍適用。 |
 
 Scanner 一律排除 `node_modules`、`.git`、`dist`、`build`、`coverage` 等常見目錄，以及環境變數檔、credentials、secrets、keys、certificates 等敏感 patterns。將 `exclude` 設為空陣列不會停用這些排除規則。
@@ -44,7 +44,7 @@ Scanner 一律排除 `node_modules`、`.git`、`dist`、`build`、`coverage` 等
 
 | 欄位 | 型別 | 預設／必填 | 說明 |
 | --- | --- | --- | --- |
-| `knowledge.base_path` | string | `{paths.base_dir}/ai-knowledge` | Knowledge 目錄；相對路徑從專案根目錄解析。 |
+| `knowledge.base_path` | string | 未設定 | 已棄用、不可再設定：Knowledge 目錄固定為 `{paths.base_dir}/ai-knowledge`。請省略此欄位；值恰為 `{paths.base_dir}/ai-knowledge` 時仍接受，其他值一律拒絕。 |
 | `knowledge.strategy` | string | `auto` | 模組拆分策略：`auto`、`architecture`、`domain` 或 `package`。 |
 | `knowledge.additional_core_conventions` | string[] | `[]` | 額外預載為 L1 Core Conventions 的慣例檔案，路徑相對 Knowledge 目錄。 |
 | `knowledge.generated_artifacts` | string[] | `[]` | 以專案根目錄為基準的 generated artifact patterns，排除於 Knowledge staleness（模組原始碼 digest 與 `last_src_commit`）。 |
@@ -74,7 +74,7 @@ Skill 與 reference 預算隨 Prospec 版本提供：**每個 skill 為 12,500 t
 | --- | --- | --- | --- |
 | `test_evidence.exclude_knowledge` | boolean | `false` | 允許僅修改 Knowledge 時重用通過認證的測試證據。只有專案測試不讀取 Knowledge 時才啟用。 |
 
-未設定或 `false` 保留完整輸入範圍。設為 `true` 時，排除目錄依 `knowledge.base_path` 解析，未設定則使用 `{paths.base_dir}/ai-knowledge`。此目錄必須嚴格位於專案根目錄之下，不能涵蓋 `.prospec.yaml`，既存上層目錄須為可讀取的一般目錄，不能是 symlinks。不安全或無法證明的路徑會遭拒絕。
+未設定或 `false` 保留完整輸入範圍。設為 `true` 時，排除目錄為 `{paths.base_dir}/ai-knowledge`；其既存上層目錄須為可讀取的一般目錄，不能是 symlinks。不安全或無法證明的路徑會遭拒絕。
 
 Opt-in 身分為 `test-inputs-v1`／`repository-inputs-without-knowledge-v1`，attempt 與 provenance 都包含 `test_policy: {version: 1, excluded_path: <專案相對路徑>}`。Policy、config bytes、解析後命令或任何保留輸入改變，證據即失效；缺少或未知身分必須真正重跑。
 

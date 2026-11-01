@@ -7,6 +7,11 @@ import {
   ProspecConfigSchema,
   DEFAULT_ARTIFACT_LANGUAGE,
   DEFAULT_BASE_DIR,
+  isRecord,
+  KNOWLEDGE_DIR,
+  knowledgeBasePathIssue,
+  SPECS_DIR,
+  usableBaseDir,
   DEFAULT_KNOWLEDGE_TOKEN_BUDGET,
   DEFAULT_MAX_STATION_RETRIES,
   MAX_TEST_TIMEOUT_MS,
@@ -19,7 +24,7 @@ import {
   isDefaultArtifactLanguage,
 } from '../types/config.js';
 import type { AlwaysEscalateCategory, ProspecConfig, KnowledgeSizeBudget, PauseStation, TokenBudget } from '../types/config.js';
-import { AlwaysEscalateInvalid, ConfigNotFound, ConfigInvalid, PauseAtInvalid, TestTimeoutInvalid } from '../types/errors.js';
+import { AlwaysEscalateInvalid, ConfigNotFound, ConfigInvalid, KnowledgePathMigrationRequired, PauseAtInvalid, TestTimeoutInvalid } from '../types/errors.js';
 import { atomicWrite } from './fs-utils.js';
 import { parseYaml, parseYamlDocument, stringifyYamlDocument, mergeIntoDocument } from './yaml-utils.js';
 import { resolveProjectTestCommand } from './project-runner.js';
@@ -40,13 +45,14 @@ export interface BasePaths {
  * Resolution: paths.base_dir → DEFAULT_BASE_DIR. The fallback is the canonical
  * default that `init` always writes, so a config missing `base_dir` resolves the
  * artifact tree to the same root init created — not a divergent legacy location.
+ * The Knowledge directory is always `{base_dir}/ai-knowledge`.
  * Returns absolute paths when cwd is provided.
  */
 export function resolveBasePaths(config: ProspecConfig, cwd: string): BasePaths {
   const baseDir = config.paths?.base_dir ?? DEFAULT_BASE_DIR;
-  const knowledgePath = config.knowledge?.base_path ?? path.join(baseDir, 'ai-knowledge');
+  const knowledgePath = path.join(baseDir, KNOWLEDGE_DIR);
   const constitutionPath = path.join(baseDir, 'CONSTITUTION.md');
-  const specsPath = path.join(baseDir, 'specs');
+  const specsPath = path.join(baseDir, SPECS_DIR);
 
   return {
     baseDir: path.resolve(cwd, baseDir),
@@ -54,6 +60,61 @@ export function resolveBasePaths(config: ProspecConfig, cwd: string): BasePaths 
     constitutionPath: path.resolve(cwd, constitutionPath),
     specsPath: path.resolve(cwd, specsPath),
   };
+}
+
+type DirectoryChain =
+  | { ok: true; existing: string[] }
+  | { ok: false; index: number; at: string; reason: 'symlink' | 'not-directory' | 'uninspectable'; error?: NodeJS.ErrnoException };
+
+/**
+ * lstat `segments` below `root` one at a time: each existing segment must be an
+ * ordinary directory (not a symlink); the walk stops at the first missing one.
+ */
+function ordinaryDirectoryChain(root: string, segments: string[]): DirectoryChain {
+  const existing: string[] = [];
+  let at = root;
+  for (const [index, segment] of segments.entries()) {
+    at = path.join(at, segment);
+    let stat;
+    try { stat = fs.lstatSync(at); }
+    catch (error) {
+      if ((error as NodeJS.ErrnoException).code === 'ENOENT') break;
+      return { ok: false, index, at, reason: 'uninspectable', error: error as NodeJS.ErrnoException };
+    }
+    if (stat.isSymbolicLink()) return { ok: false, index, at, reason: 'symlink' };
+    if (!stat.isDirectory()) return { ok: false, index, at, reason: 'not-directory' };
+    existing.push(at);
+  }
+  return { ok: true, existing };
+}
+
+/** The artifact directories below `{base_dir}` that must be ordinary directories when they exist. */
+const CONFINED_ARTIFACT_DIRS = [SPECS_DIR, KNOWLEDGE_DIR] as const;
+
+/**
+ * Refuse a configuration whose `{base_dir}`, `{base_dir}/specs` or
+ * `{base_dir}/ai-knowledge` exists below `projectDir` as a symlink or a
+ * non-directory, or cannot be inspected. Missing directories are accepted.
+ */
+export function checkConfigPathTopology(config: ProspecConfig, projectDir: string): void {
+  const issue = configPathTopologyIssue(config.paths?.base_dir ?? DEFAULT_BASE_DIR, projectDir);
+  if (issue !== null) throw new ConfigInvalid(issue, 'Fix the directory named above, then run the command again');
+}
+
+function configPathTopologyIssue(baseDir: string, projectDir: string): string | null {
+  for (const dir of CONFINED_ARTIFACT_DIRS) {
+    const segments = [baseDir, dir];
+    const chain = ordinaryDirectoryChain(projectDir, segments);
+    if (chain.ok) continue;
+    const at = JSON.stringify(segments.slice(0, chain.index + 1).join('/'));
+    const detail = chain.reason === 'symlink'
+      ? `${at} is a symlink — replace it with an ordinary directory`
+      : chain.reason === 'not-directory'
+        ? `${at} is not a directory — replace it with an ordinary directory, or remove it so prospec can create it`
+        : `${at} cannot be inspected (${chain.error?.code ?? 'error'}) — make the directory and its parents readable`;
+    return `paths.base_dir: ${detail}`;
+  }
+  return null;
 }
 
 export function resolveTestEvidencePolicy(config: ProspecConfig, cwd: string): TestPolicy | undefined {
@@ -68,26 +129,17 @@ export function resolveTestEvidencePolicy(config: ProspecConfig, cwd: string): T
   if (policy.excluded_path === CONFIG_FILENAME) {
     throw new Error('Knowledge exclusion must not cover .prospec.yaml');
   }
-  let ancestor = root;
   const segments = relative.split(path.sep);
-  for (const [index, segment] of segments.entries()) {
-    ancestor = path.join(ancestor, segment);
-    let stat;
-    try { stat = fs.lstatSync(ancestor); }
-    catch (error) {
-      if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
-        ancestor = path.join(ancestor, ...segments.slice(index + 1));
-        break;
-      }
-      throw error;
-    }
-    if (!stat.isDirectory() || stat.isSymbolicLink()) {
-      throw new Error(`Knowledge exclusion requires ordinary directory ancestors: ${ancestor}`);
-    }
-    fs.accessSync(ancestor, fs.constants.R_OK | fs.constants.X_OK);
-    ancestor = fs.realpathSync.native(ancestor);
+  const chain = ordinaryDirectoryChain(root, segments);
+  if (!chain.ok) {
+    if (chain.error) throw chain.error;
+    throw new Error(`Knowledge exclusion requires ordinary directory ancestors: ${chain.at}`);
   }
-  return TestPolicySchema.parse({ ...policy, excluded_path: path.relative(root, ancestor).split(path.sep).join('/') });
+  for (const ancestor of chain.existing) fs.accessSync(ancestor, fs.constants.R_OK | fs.constants.X_OK);
+  const last = chain.existing.at(-1);
+  const deepest = last === undefined ? root : fs.realpathSync.native(last);
+  const resolved = path.join(deepest, ...segments.slice(chain.existing.length));
+  return TestPolicySchema.parse({ ...policy, excluded_path: path.relative(root, resolved).split(path.sep).join('/') });
 }
 
 /**
@@ -329,10 +381,22 @@ export function resolveConfigPath(cwd?: string): string {
  * Read and validate .prospec.yaml.
  *
  * - Throws ConfigNotFound if file doesn't exist
- * - Throws ConfigInvalid if schema validation fails (missing project.name)
+ * - Throws ConfigInvalid if schema validation fails (missing project.name, an
+ *   out-of-range paths.base_dir, a knowledge.base_path other than the fixed
+ *   Knowledge directory) or an artifact directory beside
+ *   the file is a symlink or not a directory
  * - Warns on unknown fields but does not block (passthrough schema)
  */
-export async function readConfig(cwd?: string): Promise<ProspecConfig> {
+export interface ReadConfigOptions {
+  /**
+   * `prospec upgrade` only: set a `knowledge.base_path` other than the fixed
+   * Knowledge directory aside, validate everything else, then throw
+   * `KnowledgePathMigrationRequired` instead of `ConfigInvalid` for it.
+   */
+  deferKnowledgeBasePath?: boolean;
+}
+
+export async function readConfig(cwd?: string, options: ReadConfigOptions = {}): Promise<ProspecConfig> {
   const configPath = resolveConfigPath(cwd);
 
   let raw: string;
@@ -342,32 +406,60 @@ export async function readConfig(cwd?: string): Promise<ProspecConfig> {
     throw new ConfigNotFound(configPath);
   }
 
-  return validateConfig(raw, configPath);
+  return validateConfig(raw, configPath, options);
 }
 
 /**
  * Validate a raw YAML string as ProspecConfig.
  *
- * Returns the validated config or throws ConfigInvalid.
+ * Returns the validated config or throws ConfigInvalid. Given `sourcePath`, it
+ * also checks the path topology (`checkConfigPathTopology`) against the
+ * directory holding that file; without it only the schema is checked.
  */
 export function validateConfig(
   rawYaml: string,
   sourcePath?: string,
+  options: ReadConfigOptions = {},
 ): ProspecConfig {
-  const data = parseYaml(rawYaml, sourcePath);
+  const parsed = parseYaml(rawYaml, sourcePath);
+  const deferred = options.deferKnowledgeBasePath === true ? deferredKnowledgeBasePath(parsed) : undefined;
+  const data = deferred === undefined ? parsed : withoutKnowledgeBasePath(parsed);
   const result = ProspecConfigSchema.safeParse(data);
 
   if (!result.success) {
-    const issues = result.error.issues
-      .map((issue: z.core.$ZodIssue) => {
-        const path = issue.path.join('.');
-        return path ? `${path}: ${issue.message}` : issue.message;
-      })
-      .join('; ');
-    throw new ConfigInvalid(issues);
+    const issues = result.error.issues.map((issue: z.core.$ZodIssue) => {
+      const path = issue.path.join('.');
+      return path ? `${path}: ${issue.message}` : issue.message;
+    });
+    // Reported in the same error, so a directory violation does not wait for the
+    // unrelated fields to be fixed first.
+    const baseDir = usableBaseDir(data);
+    const topology = sourcePath !== undefined && baseDir !== undefined
+      ? configPathTopologyIssue(baseDir, path.dirname(sourcePath))
+      : null;
+    if (topology !== null) issues.push(topology);
+    throw new ConfigInvalid(issues.join('; '));
   }
 
+  if (sourcePath !== undefined) checkConfigPathTopology(result.data, path.dirname(sourcePath));
+  if (deferred !== undefined) throw new KnowledgePathMigrationRequired(deferred.configured, deferred.fixed);
   return result.data;
+}
+
+/** A string `knowledge.base_path` naming another directory than the fixed one under a usable base_dir. */
+function deferredKnowledgeBasePath(data: unknown): { configured: string; fixed: string } | undefined {
+  const baseDir = usableBaseDir(data);
+  if (baseDir === undefined || !isRecord(data) || !isRecord(data.knowledge)) return undefined;
+  const configured = data.knowledge.base_path;
+  if (typeof configured !== 'string' || knowledgeBasePathIssue(configured, baseDir) === null) return undefined;
+  return { configured, fixed: `${baseDir}/${KNOWLEDGE_DIR}` };
+}
+
+function withoutKnowledgeBasePath(data: unknown): unknown {
+  if (!isRecord(data) || !isRecord(data.knowledge)) return data;
+  const knowledge = { ...data.knowledge };
+  delete knowledge.base_path;
+  return { ...data, knowledge };
 }
 
 /**

@@ -334,7 +334,8 @@ export async function execute(options: VerifyRecordOptions): Promise<VerifyRecor
     ...(options.dimensionsPath ? { dimensions: options.dimensionsPath } : {}),
   });
   const configBytes = inputSnapshot.values.config;
-  const retryBound = resolveMaxStationRetries(configBytes == null ? null : validateConfig(configBytes, configPath));
+  const parsedConfig = configBytes == null ? null : validateConfig(configBytes, configPath);
+  const retryBound = resolveMaxStationRetries(parsedConfig);
   const delegationInputs = () => canonicalDigest(delegationAttemptInputs(readTickets(changeDir, 'settle'), 'verify'));
   const delegationDigest = delegationInputs();
   const inputsStable = () => inputSnapshot.recheck() && delegationInputs() === delegationDigest;
@@ -837,7 +838,7 @@ export async function execute(options: VerifyRecordOptions): Promise<VerifyRecor
     tasks: inputSnapshot.values.tasks ?? null,
     assessment: canonicalDigest({ grade, excludedFromGrade, notApplicableMachine, constitutionAudit, reqAssessment,
       review: adjudicateChangeCheck(report, 'review-provenance', changeName), delegation: delegationDigest,
-      config: configBytes == null ? null : validateConfig(configBytes, configPath) }),
+      config: parsedConfig }),
     testEvidence: canonicalDigest({ attempt: metadata.test_attempt, provenance: metadata.test_provenance }),
     codeSnapshot: canonicalDigest(assessment.snapshot.digest), contextId: deltaInput?.context_id ?? null,
     evidence: canonicalDigest(blocks), maxStationRetries: retryBound,

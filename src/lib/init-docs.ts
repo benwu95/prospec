@@ -30,9 +30,8 @@ export interface InitDocContexts {
 /**
  * A resolved init-doc location: the absolute path to read/write and the
  * project-relative label to display. Knowledge-rooted docs resolve through
- * `resolveBasePaths().knowledgePath`, so a project that relocated
- * `knowledge.base_path` away from `<base_dir>/ai-knowledge` is handled at its
- * ACTUAL location — never the default path.
+ * `resolveBasePaths().knowledgePath`, so a relocated `paths.base_dir` is handled
+ * at its ACTUAL location — never the default path.
  */
 export interface InitDocLocation {
   absPath: string;
@@ -108,7 +107,7 @@ export function renderInitDoc(doc: InitDoc, contexts: InitDocContexts): string {
 /**
  * Resolve a registry doc's absolute path and project-relative label at its
  * ACTUAL location (base docs under `paths.base_dir`, knowledge docs under the
- * resolved `knowledge.base_path`). The single source the docs inventory,
+ * resolved Knowledge directory). The single source the docs inventory,
  * init's writes, and upgrade's backfill all share, so a doc is never checked
  * at one path and written at another.
  */

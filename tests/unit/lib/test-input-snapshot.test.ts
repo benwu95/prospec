@@ -15,15 +15,22 @@ const put = (file: string, bytes: string) => {
   fs.mkdirSync(path.dirname(path.join(root, file)), { recursive: true });
   fs.writeFileSync(path.join(root, file), bytes);
 };
-const context = (knowledge = 'knowledge', enabled = true): TestInputContext => ({
-  config: ProspecConfigSchema.parse({ project: { name: 'fixture' }, knowledge: { base_path: knowledge }, test_evidence: { exclude_knowledge: enabled } }),
+// base_dir is set after parsing: config validation refuses most of these values
+// before any caller builds a test input context. Knowledge is always {base_dir}/ai-knowledge.
+const configWith = (baseDir: string, enabled: boolean) => {
+  const config = ProspecConfigSchema.parse({ project: { name: 'fixture' }, test_evidence: { exclude_knowledge: enabled } });
+  config.paths = { base_dir: baseDir };
+  return config;
+};
+const context = (baseDir = 'kb', enabled = true): TestInputContext => ({
+  config: configWith(baseDir, enabled),
   configBytes: fs.readFileSync(path.join(root, '.prospec.yaml')),
   command: 'node suite.js',
 });
 beforeEach(() => {
   root = fs.mkdtempSync(path.join(os.tmpdir(), 'test-inputs-'));
   git('init', '-q'); git('config', 'user.name', 'test'); git('config', 'user.email', 'test@example.com');
-  put('source.ts', 'source'); put('knowledge/README.md', 'first'); put('.prospec.yaml', 'project: {name: fixture}\n');
+  put('source.ts', 'source'); put('kb/ai-knowledge/README.md', 'first'); put('.prospec.yaml', 'project: {name: fixture}\n');
   git('add', '.'); git('commit', '-qm', 'base');
 });
 afterEach(() => { vi.restoreAllMocks(); fs.rmSync(root, { recursive: true, force: true }); });
@@ -31,7 +38,7 @@ afterEach(() => { vi.restoreAllMocks(); fs.rmSync(root, { recursive: true, force
 describe('test input projection', () => {
   it('retains the full snapshot and default identity byte-for-byte', () => {
     const original = computeChangeState(root);
-    for (const ctx of [undefined, context('knowledge', false)]) {
+    for (const ctx of [undefined, context('kb', false)]) {
       const captured = computeEvidenceStates(root, ctx);
       expect(captured.repository).toEqual(original);
       expect(captured.test).toEqual({ ...original, identity: { fingerprintVersion: 'snapshot-v2', scope: 'repository-inputs-v2' } });
@@ -41,40 +48,40 @@ describe('test input projection', () => {
   it('excludes Knowledge through edit, deletion, commit and ordinary recreation', () => {
     const before = computeEvidenceStates(root, context());
     expect(before.test.digest).toBeTruthy();
-    expect(before.test.identity).toEqual({ fingerprintVersion: 'test-inputs-v1', scope: 'repository-inputs-without-knowledge-v1', testPolicy: { version: 1, excluded_path: 'knowledge' } });
-    put('knowledge/README.md', 'second');
+    expect(before.test.identity).toEqual({ fingerprintVersion: 'test-inputs-v1', scope: 'repository-inputs-without-knowledge-v1', testPolicy: { version: 1, excluded_path: 'kb/ai-knowledge' } });
+    put('kb/ai-knowledge/README.md', 'second');
     expect(computeTestState(root, context()).digest).toBe(before.test.digest);
     expect(computeChangeState(root).digest).not.toBe(before.repository.digest);
-    fs.rmSync(path.join(root, 'knowledge'), { recursive: true });
+    fs.rmSync(path.join(root, 'kb/ai-knowledge'), { recursive: true });
     expect(computeTestState(root, context()).digest).toBe(before.test.digest);
     git('add', '-u'); git('commit', '-qm', 'delete knowledge');
     expect(computeTestState(root, context()).digest).toBe(before.test.digest);
-    put('knowledge/new.md', 'new');
+    put('kb/ai-knowledge/new.md', 'new');
     expect(computeTestState(root, context()).digest).toBe(before.test.digest);
-    put('knowledge-copy/README.md', 'included');
+    put('kb/ai-knowledge-copy/README.md', 'included');
     expect(computeTestState(root, context()).digest).not.toBe(before.test.digest);
   });
 
   it('excludes aliases of the same Knowledge directory without folding distinct filesystem paths', () => {
-    const aliases = fs.existsSync(path.join(root, 'KNOWLEDGE'));
-    const ctx = context('KNOWLEDGE');
+    const aliases = fs.existsSync(path.join(root, 'KB'));
+    const ctx = context('KB');
     const before = computeEvidenceStates(root, ctx);
     expect(before.test.digest).toBeTruthy();
-    put('knowledge/README.md', 'Knowledge bytes changed');
+    put('kb/ai-knowledge/README.md', 'Knowledge bytes changed');
     const after = computeEvidenceStates(root, ctx);
     expect(after.repository.digest).not.toBe(before.repository.digest);
     if (aliases) expect(after.test.digest).toBe(before.test.digest);
     else expect(after.test.digest).not.toBe(before.test.digest);
-    expect(before.test.identity.testPolicy).toEqual({ version: 1, excluded_path: aliases ? 'knowledge' : 'KNOWLEDGE' });
+    expect(before.test.identity.testPolicy).toEqual({ version: 1, excluded_path: aliases ? 'kb/ai-knowledge' : 'KB/ai-knowledge' });
   });
 
   it('compares filesystem identities when index and directory spelling differ', () => {
-    fs.renameSync(path.join(root, 'knowledge'), path.join(root, 'temporary-knowledge'));
-    fs.renameSync(path.join(root, 'temporary-knowledge'), path.join(root, 'KNOWLEDGE'));
-    const ctx = context('KNOWLEDGE');
+    fs.renameSync(path.join(root, 'kb'), path.join(root, 'temporary-kb'));
+    fs.renameSync(path.join(root, 'temporary-kb'), path.join(root, 'KB'));
+    const ctx = context('KB');
     const before = computeEvidenceStates(root, ctx);
     expect(before.test.digest).toBeTruthy();
-    put('KNOWLEDGE/README.md', 'Changed under the canonical directory spelling');
+    put('KB/ai-knowledge/README.md', 'Changed under the canonical directory spelling');
     const after = computeEvidenceStates(root, ctx);
     expect(after.repository.digest).not.toBe(before.repository.digest);
     expect(after.test.digest).toBe(before.test.digest);
@@ -138,7 +145,7 @@ describe('test input projection', () => {
   });
 
   it.skipIf(process.platform === 'win32')('refuses a retained symlink into excluded Knowledge', () => {
-    fs.symlinkSync('knowledge/README.md', path.join(root, 'alias'));
+    fs.symlinkSync('kb/ai-knowledge/README.md', path.join(root, 'alias'));
     const captured = computeEvidenceStates(root, context());
     expect(captured.repository.digest).toBeTruthy();
     expect(captured.test.digest).toBeNull();
@@ -146,13 +153,13 @@ describe('test input projection', () => {
   });
 
   it.skipIf(process.platform === 'win32')('refuses a retained directory symlink onto excluded Knowledge or an ancestor of it', () => {
-    put('docs/knowledge/README.md', 'notes'); put('docs/guide.md', 'guide'); git('add', '.'); git('commit', '-qm', 'docs');
+    put('docs/ai-knowledge/README.md', 'notes'); put('docs/guide.md', 'guide'); git('add', '.'); git('commit', '-qm', 'docs');
     fs.symlinkSync('docs', path.join(root, 'ancestor'));
-    const crossing = computeEvidenceStates(root, context('docs/knowledge'));
+    const crossing = computeEvidenceStates(root, context('docs'));
     expect(crossing.repository.digest).toBeTruthy();
     expect(crossing.test).toMatchObject({ digest: null, reason: 'Symlink crosses Knowledge exclusion: ancestor' });
-    fs.unlinkSync(path.join(root, 'ancestor')); fs.symlinkSync('docs/knowledge', path.join(root, 'inside'));
-    expect(computeEvidenceStates(root, context('docs/knowledge')).test).toMatchObject({ digest: null, reason: 'Symlink crosses Knowledge exclusion: inside' });
+    fs.unlinkSync(path.join(root, 'ancestor')); fs.symlinkSync('docs/ai-knowledge', path.join(root, 'inside'));
+    expect(computeEvidenceStates(root, context('docs')).test).toMatchObject({ digest: null, reason: 'Symlink crosses Knowledge exclusion: inside' });
   });
 
   // R1-2: deletions beneath a replaced directory share one confirming status read, so capture stays linear.
@@ -175,39 +182,40 @@ describe('test input projection', () => {
   });
 
   it.skipIf(process.platform === 'win32')('refuses symlinks within the exclusion, including ignored topology', () => {
-    put('.gitignore', 'knowledge/alias\n');
-    fs.symlinkSync('../source.ts', path.join(root, 'knowledge/alias'));
+    put('.gitignore', 'kb/ai-knowledge/alias\n');
+    fs.symlinkSync('../../source.ts', path.join(root, 'kb/ai-knowledge/alias'));
     const captured = computeEvidenceStates(root, context());
     expect(captured.repository.digest).toBeTruthy();
     expect(captured.test.digest).toBeNull();
   });
 
   it('never conceals full capture failure inside the excluded tree', () => {
-    fs.unlinkSync(path.join(root, 'knowledge/README.md'));
-    fs.mkdirSync(path.join(root, 'knowledge/README.md'));
+    fs.unlinkSync(path.join(root, 'kb/ai-knowledge/README.md'));
+    fs.mkdirSync(path.join(root, 'kb/ai-knowledge/README.md'));
     const captured = computeEvidenceStates(root, context());
     expect(captured.repository.digest).toBeNull();
     expect(captured.test.digest).toBeNull();
   });
 
-  it.each(['knowledge', 'knowledge/module', 'knowledge/module/docs'])('refuses an exclusion intersecting a gitlink: %s', (knowledge) => {
-    fs.mkdirSync(path.join(root, 'knowledge/module'));
+  // vendor/ai-knowledge is the exclusion: an ancestor of, equal to, and inside each gitlink in turn.
+  it.each(['vendor/ai-knowledge/module', 'vendor/ai-knowledge', 'vendor'])('refuses an exclusion intersecting a gitlink at %s', (gitlink) => {
+    fs.mkdirSync(path.join(root, gitlink), { recursive: true });
     const head = git('rev-parse', 'HEAD').toString().trim();
-    git('update-index', '--add', '--cacheinfo', `160000,${head},knowledge/module`);
-    const captured = computeEvidenceStates(root, context(knowledge));
+    git('update-index', '--add', '--cacheinfo', `160000,${head},${gitlink}`);
+    const captured = computeEvidenceStates(root, context('vendor'));
     expect(captured.repository.digest).toBeTruthy();
     expect(captured.test.digest).toBeNull();
     expect(captured.test.reason).toMatch(/submodule/i);
   });
 
   it('judges aliased gitlink ancestors by filesystem identity', () => {
-    fs.mkdirSync(path.join(root, 'knowledge/module'));
-    const aliases = fs.existsSync(path.join(root, 'knowledge/MODULE'));
+    fs.mkdirSync(path.join(root, 'kb/module'));
+    const aliases = fs.existsSync(path.join(root, 'kb/MODULE'));
     const head = git('rev-parse', 'HEAD').toString().trim();
-    git('update-index', '--add', '--cacheinfo', `160000,${head},knowledge/module`);
-    fs.renameSync(path.join(root, 'knowledge/module'), path.join(root, 'knowledge/temporary'));
-    fs.renameSync(path.join(root, 'knowledge/temporary'), path.join(root, 'knowledge/MODULE'));
-    const captured = computeEvidenceStates(root, context('knowledge/MODULE/docs'));
+    git('update-index', '--add', '--cacheinfo', `160000,${head},kb/module`);
+    fs.renameSync(path.join(root, 'kb/module'), path.join(root, 'kb/temporary'));
+    fs.renameSync(path.join(root, 'kb/temporary'), path.join(root, 'kb/MODULE'));
+    const captured = computeEvidenceStates(root, context('kb/MODULE'));
     expect(captured.repository.digest).toBeTruthy();
     if (aliases) {
       expect(captured.test.digest).toBeNull();
@@ -232,7 +240,7 @@ describe('test input projection', () => {
   it('preserves unreadable excluded-input failures', () => {
     const read = fs.readFileSync;
     vi.spyOn(fs, 'readFileSync').mockImplementation((...args: Parameters<typeof fs.readFileSync>) => {
-      if (String(args[0]).endsWith('knowledge/README.md')) throw new Error('EACCES excluded input');
+      if (String(args[0]).endsWith('kb/ai-knowledge/README.md')) throw new Error('EACCES excluded input');
       return read(...args);
     });
     const captured = computeEvidenceStates(root, context());
@@ -261,8 +269,8 @@ describe('test input projection', () => {
     vi.spyOn(fs, 'readFileSync').mockImplementation((...args: Parameters<typeof fs.readFileSync>) => {
       const bytes = read(...args);
       if (String(args[0]).endsWith('source.ts')) {
-        fs.renameSync(path.join(root, 'knowledge'), path.join(root, 'moved'));
-        fs.symlinkSync('moved', path.join(root, 'knowledge'));
+        fs.renameSync(path.join(root, 'kb/ai-knowledge'), path.join(root, 'kb/moved'));
+        fs.symlinkSync('moved', path.join(root, 'kb/ai-knowledge'));
       }
       return bytes;
     });

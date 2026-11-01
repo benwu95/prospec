@@ -70,9 +70,8 @@ export interface InitDoc {
   template: string;
   /**
    * Directory the doc lives under: `base` = the base dir (`paths.base_dir`),
-   * `knowledge` = the knowledge base (`knowledge.base_path`, which a user may
-   * relocate away from `<base_dir>/ai-knowledge` — consumers must resolve it
-   * via `resolveBasePaths`, never by joining `base_dir + 'ai-knowledge'`).
+   * `knowledge` = the knowledge base (`<base_dir>/ai-knowledge` — consumers
+   * resolve it via `resolveBasePaths`, the one place that derives it).
    */
   root: 'base' | 'knowledge';
   /** Output path relative to the root directory. */

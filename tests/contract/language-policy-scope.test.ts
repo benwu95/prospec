@@ -140,15 +140,11 @@ describe('Language Policy scope agreement (Constitution ⇄ entry config)', () =
     expect(entry).toMatch(/Constitution's Language Policy rule/);
   });
 
-  it('renders a relocated base_dir and knowledge.base_path in both documents', async () => {
-    const { rule, entry, scope } = await scaffold('Japanese', (yaml) =>
-      yaml
-        .replace('base_dir: prospec', 'base_dir: docs/spec')
-        .replace('base_path: prospec/ai-knowledge', 'base_path: docs/kb'),
-    );
+  it('renders a relocated base_dir in both documents', async () => {
+    const { rule, entry, scope } = await scaffold('Japanese', (yaml) => yaml.replace('base_dir: prospec', 'base_dir: docs'));
 
-    expect(scope.trustZonePaths).toContain('docs/kb/**');
-    for (const p of ['docs/kb/**', 'docs/spec/CONSTITUTION.md', 'docs/spec/specs/features/**']) {
+    expect(scope.trustZonePaths).toContain('docs/ai-knowledge/**');
+    for (const p of ['docs/ai-knowledge/**', 'docs/CONSTITUTION.md', 'docs/specs/features/**']) {
       expect(rule).toContain(p);
       expect(entry).toContain(p);
     }
@@ -210,7 +206,6 @@ describe('resolveLanguageScope is the single source both documents read', () => 
     const config = {
       project: { name: 'demo' },
       paths: { base_dir: 'x' },
-      knowledge: { base_path: 'y' },
       artifact_language: 'Japanese',
     } as ProspecConfig;
 
@@ -230,7 +225,7 @@ describe('resolveLanguageScope is the single source both documents read', () => 
       'x/index.md',
       'x/specs/product.md',
       'x/specs/features/**',
-      'y/**',
+      'x/ai-knowledge/**',
     ]);
   });
 });

@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import * as fs from 'node:fs';
 import { vol } from 'memfs';
 import { execute } from '../../../src/services/init.service.js';
-import { AlreadyExistsError } from '../../../src/types/errors.js';
+import { AlreadyExistsError, ConfigInvalid } from '../../../src/types/errors.js';
 import { renderTemplate } from '../../../src/lib/template.js';
 import { input } from '@inquirer/prompts';
 import type { ConstitutionRule } from '../../../src/types/constitution.js';
@@ -160,9 +160,17 @@ describe('init.service', () => {
 
     const configContent = fs.readFileSync('/project/.prospec.yaml', 'utf-8');
     // Pin the key/value pairing on one line: proves paths.base_dir resolved to
-    // 'prospec' specifically. A bare toContain('prospec') would still pass via
-    // knowledge.base_path: prospec/ai-knowledge even if base_dir were dropped.
+    // 'prospec' specifically, not merely that the word appears somewhere.
     expect(configContent).toMatch(/base_dir:\s*prospec/);
+  });
+
+  it('does not write knowledge.base_path — the Knowledge directory is fixed under base_dir', async () => {
+    vol.fromJSON({}, '/');
+    vol.mkdirSync('/project', { recursive: true });
+
+    await execute({ name: 'test', agents: ['claude'], cwd: '/project' });
+
+    expect(fs.readFileSync('/project/.prospec.yaml', 'utf-8')).not.toMatch(/base_path/);
   });
 
   it('passes stack-appropriate example_rules to the Constitution template', async () => {
@@ -654,5 +662,52 @@ describe('init provisional AGENTS.md capability (REQ-TEMPLATES-233)', () => {
   it('claims nothing when no agent is selected at all', async () => {
     const context = await entryContext([]);
     expect(context.skill_lifecycle).toBe('unknown');
+  });
+});
+
+describe('init.service base directory range', () => {
+  beforeEach(() => {
+    vi.mocked(input).mockClear();
+  });
+
+  // Plays the prompt the way @inquirer does: each answer goes through `validate`,
+  // a rejected one is re-asked, the first accepted one is returned.
+  const answerBaseDir = (answers: string[], rejected: Array<[string, unknown]>) =>
+    vi.mocked(input).mockImplementationOnce(async (config) => {
+      const { validate } = config as { validate?: (value: string) => boolean | string | Promise<boolean | string> };
+      for (const answer of answers) {
+        const verdict = validate ? await validate(answer) : true;
+        if (verdict === true) return answer;
+        rejected.push([answer, verdict]);
+      }
+      throw new Error('no accepted answer');
+    });
+
+  it('re-asks for an out-of-range directory and writes the accepted name', async () => {
+    vol.fromJSON({ '/project/package.json': '{}' });
+    const rejected: Array<[string, unknown]> = [];
+    answerBaseDir(['.', 'docs/prospec', '..', 'my-spec'], rejected);
+
+    await execute({ name: 'test', cwd: '/project' });
+
+    expect(rejected.map(([answer]) => answer)).toEqual(['.', 'docs/prospec', '..']);
+    for (const [, message] of rejected) expect(message).toMatch(/single directory name/);
+    expect(fs.readFileSync('/project/.prospec.yaml', 'utf-8')).toMatch(/base_dir:\s*my-spec/);
+  });
+
+  it.each([
+    ['interactive', undefined, 'prospec'],
+    ['--agents', ['claude'], 'prospec'],
+    ['interactive', undefined, 'prospec/ai-knowledge'],
+  ])('refuses before writing when %s mode meets a symlinked %s', async (_mode, agents, link) => {
+    vol.fromJSON({ '/project/package.json': '{}', '/project/real/.keep': '' });
+    if (link !== 'prospec') vol.mkdirSync('/project/prospec', { recursive: true });
+    vol.symlinkSync('/project/real', `/project/${link}`);
+    const before = vol.toJSON();
+
+    await expect(execute({ name: 'test', cwd: '/project', ...(agents ? { agents } : {}) })).rejects.toThrow(ConfigInvalid);
+
+    expect(fs.existsSync('/project/.prospec.yaml')).toBe(false);
+    expect(vol.toJSON()).toEqual(before);
   });
 });

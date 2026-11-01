@@ -420,8 +420,8 @@ function detectByStrategy(
 /**
  * Step 1: Load existing module-map.yaml if it exists.
  *
- * Resolves under the configured knowledge base path (relative to cwd or
- * absolute) instead of a hardcoded location, so it honors `paths.base_dir`.
+ * Resolves under the knowledge base path `resolveBasePaths` derives from
+ * `paths.base_dir` instead of a hardcoded location.
  */
 function loadExistingModuleMap(
   cwd: string,

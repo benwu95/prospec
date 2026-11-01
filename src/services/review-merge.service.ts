@@ -160,7 +160,8 @@ export async function execute(options: ReviewMergeOptions): Promise<ReviewMergeR
     proposal: path.join(changeDir, 'proposal.md'), deltaSpec: path.join(changeDir, 'delta-spec.md'),
   });
   const configBytes = inputSnapshot.values.config;
-  const retryBound = resolveMaxStationRetries(configBytes == null ? null : validateConfig(configBytes, configPath));
+  const parsedConfig = configBytes == null ? null : validateConfig(configBytes, configPath);
+  const retryBound = resolveMaxStationRetries(parsedConfig);
   // Consuming a ticket changes its lifecycle fields, not the delegated input.
   const delegationInputs = () => canonicalDigest(delegationAttemptInputs(readTickets(changeDir, 'settle'), 'review'));
   const delegationDigest = delegationInputs();
@@ -377,7 +378,7 @@ export async function execute(options: ReviewMergeOptions): Promise<ReviewMergeR
     station: 'prospec-review', round: finalRoundNumber, baseRound,
     findings: canonicalDigest({ findings, lenses: options.lenses ?? null }),
     specs: { proposal: inputSnapshot.values.proposal ?? null, deltaSpec: inputSnapshot.values.deltaSpec ?? null, acceptance: metadata?.acceptance ?? null },
-    breakerConfig: canonicalDigest({ config: configBytes == null ? null : validateConfig(configBytes, configPath), maxRounds: options.maxRounds ?? null, maxFlips: options.maxFlips ?? null, maxFixInducedRatio: options.maxFixInducedRatio ?? null, retryBound }),
+    breakerConfig: canonicalDigest({ config: parsedConfig, maxRounds: options.maxRounds ?? null, maxFlips: options.maxFlips ?? null, maxFixInducedRatio: options.maxFixInducedRatio ?? null, retryBound }),
     testEvidence: canonicalDigest(assessment.facts), delegation: delegationDigest, priorState: '',
   };
   const requestId = canonicalDigest(causalInputs);

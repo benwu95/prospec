@@ -132,17 +132,14 @@ describe('resolveLanguageScope', () => {
     expect(joined).toContain('prospec/specs/features/**');
   });
 
-  it('resolves a relocated base_dir and knowledge.base_path, not the defaults', () => {
-    const scope = resolveLanguageScope(
-      config({ paths: { base_dir: 'docs/spec' }, knowledge: { base_path: 'docs/kb' } }),
-      '/p',
-    );
+  it('resolves a relocated base_dir, not the defaults', () => {
+    const scope = resolveLanguageScope(config({ paths: { base_dir: 'docs' }, knowledge: undefined }), '/p');
 
-    expect(scope.nativePaths).toContain('docs/spec/specs/_archived-history/**');
-    expect(scope.trustZonePaths).toContain('docs/spec/CONSTITUTION.md');
-    expect(scope.trustZonePaths).toContain('docs/kb/**');
+    expect(scope.nativePaths).toContain('docs/specs/_archived-history/**');
+    expect(scope.trustZonePaths).toContain('docs/CONSTITUTION.md');
+    expect(scope.trustZonePaths).toContain('docs/ai-knowledge/**');
     expect(scope.trustZonePaths).not.toContain('prospec/ai-knowledge/**');
-    expect(scope.namedExceptions.join('\n')).toContain('docs/kb/_lessons-ledger.md');
+    expect(scope.namedExceptions.join('\n')).toContain('docs/ai-knowledge/_lessons-ledger.md');
   });
 
   it('keeps paths repo-relative when base_dir resolves to the repo root', () => {

@@ -115,6 +115,12 @@ export interface UpgradeReport {
    * the wording single-sourced in code instead of restating it in the skill.
    */
   currentLanguagePolicy?: ConstitutionRule;
+  /**
+   * The deprecated `knowledge.base_path` value when the config still carries it.
+   * It always equals the fixed `{base_dir}/ai-knowledge` here (any other value
+   * stops upgrade first); the field is left in place for the user to delete.
+   */
+  deprecatedKnowledgeBasePath?: string;
 }
 
 /** A nudge the user resolved interactively this run (field set to a value). */
@@ -171,7 +177,7 @@ export async function execute(options: UpgradeOptions): Promise<UpgradeResult> {
 
   // 1. Read config — throws ConfigNotFound on an uninitialized project, the same
   //    guard every post-init command relies on (upgrade is not in INIT_COMMANDS).
-  const config = await readConfig(cwd);
+  const config = await readConfig(cwd, { deferKnowledgeBasePath: true });
 
   // 2. Record the running prospec version.
   const versionFrom = config.version ?? 'unknown';
@@ -236,6 +242,7 @@ export async function execute(options: UpgradeOptions): Promise<UpgradeResult> {
     ...(staleLanguagePolicy
       ? { currentLanguagePolicy: languagePolicyRule(resolveLanguageScope(config, cwd)) }
       : {}),
+    ...(config.knowledge?.base_path !== undefined ? { deprecatedKnowledgeBasePath: config.knowledge.base_path } : {}),
   };
 
   return {
@@ -250,8 +257,8 @@ export async function execute(options: UpgradeOptions): Promise<UpgradeResult> {
 /**
  * Existence status of every init-created curated doc, derived from
  * `INIT_DOC_REGISTRY` via the shared `resolveInitDocLocation` (base docs under
- * `paths.base_dir`, knowledge docs under the resolved `knowledge.base_path`, so
- * a project that relocated its knowledge base is checked at its ACTUAL doc
+ * `paths.base_dir`, knowledge docs under the resolved Knowledge directory, so
+ * a project that relocated its base directory is checked at its ACTUAL doc
  * locations, never misreported as missing at the default path). A pure existence
  * probe: `createMissingDocs` calls it before creation (to find what to write)
  * and the report is built from it after (so it reflects the post-creation state).

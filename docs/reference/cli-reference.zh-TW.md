@@ -101,6 +101,7 @@ your-project/
 - **`prospec upgrade [--cwd <dir>]`**
   - **核心用途**：升級 Prospec 版本後進行確定性環境更新與檔案補齊。
   - **執行行為**：
+    - `knowledge.base_path` 指向 `{paths.base_dir}/ai-knowledge` 以外的目錄時，在寫入任何檔案前停止並印出遷移步驟：把 Knowledge 檔案移到 `{paths.base_dir}/ai-knowledge`（已存在時合併；兩者是同一目錄或舊路徑已不存在時略過），刪除此欄位，再重新執行 `prospec upgrade`。值恰為 `{paths.base_dir}/ai-knowledge` 時照常升級，並在報告中提示刪除。
     - 在 `.prospec.yaml` 中記錄新版本號（就地合併，保留既有註解與格式）。
     - 重新執行 `agent sync` 確保各 Agent 配置與 Skills 範本對齊最新版。
     - 自動補建缺少的初始文件（以範本渲染，採 skip-if-exists 策略，絕不覆寫或重排既有檔案）。
@@ -527,7 +528,7 @@ claude mcp add -s user prospec-b -- prospec mcp serve --cwd /path/to/B
 
 - **`prospec change auto-draft [--from-report [file]] [--target <name>] [--reason <text>] [--check <id>] [--scale <scale>] [--issue <ref>] [--dry-run]`**
   - **用途**：把漂移 findings 轉成變更骨架，讓 agent 不必轉抄報告即可著手修復。亦可透過 `prospec check --auto-draft` 直接就當次報告起草。
-  - **分組**：每個 `<target>:<check>` 組合產生一個變更，命名為 `fix-<target>-<check>`——當 target 無法原樣通過 slug 化時附加一段穩定字尾，使兩個不同的 target 絕不會落到同一個目錄。target 來自 `module-map.yaml` 歸屬與專案設定的 `knowledge.base_path` / `paths.base_dir`，絕不猜測路徑形狀；位於 feature spec 底下的 finding 歸入該 feature 名稱，兩者都歸不到的才落入 `general`。只有 `module-map.yaml` 宣告過的名稱會寫進 `related_modules`——feature 名稱與 `general` 是主體，不是模組。
+  - **分組**：每個 `<target>:<check>` 組合產生一個變更，命名為 `fix-<target>-<check>`——當 target 無法原樣通過 slug 化時附加一段穩定字尾，使兩個不同的 target 絕不會落到同一個目錄。target 來自 `module-map.yaml` 歸屬與專案設定的 `paths.base_dir`，絕不猜測路徑形狀；位於 feature spec 底下的 finding 歸入該 feature 名稱，兩者都歸不到的才落入 `general`。只有 `module-map.yaml` 宣告過的名稱會寫進 `related_modules`——feature 名稱與 `general` 是主體，不是模組。
   - **範圍**：兩類 finding 不起草——`headroom`（壓力）層級的 `knowledge-size`（回報預算壓力而非違規），以及 `source_path` 位於 `.prospec/` 者（那是針對某個變更的 SDD 流程閘門，起草它等於建立一個「修別的變更的文書」的變更）。除此之外不丟棄任何 finding。
   - **無歸屬群組**：沒有 module attribution 的群組回報 `failed`、不產生骨架，並提供判斷 scope 後明確建立的修復方式。已知群組繼續以明確模組清單建立；原始 report 與 check verdict 保留。
   - **安全性**：建立骨架走的是與 `prospec change story` 相同的服務，因此既有變更目錄只會被跳過、絕不覆寫，重複執行具冪等性。`--dry-run` 只回報將建立什麼、完全不寫入任何檔案（在 `check` 上旗標名為 `--auto-draft-dry-run`，因為 `check` 的其他寫入不受它影響）。

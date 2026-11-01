@@ -68,6 +68,11 @@ export function formatUpgradeOutput(
   for (const nudge of report.nudges) {
     lines.push(`${pc.yellow('•')} ${sanitizeTerminal(nudge.message)}`);
   }
+  if (report.deprecatedKnowledgeBasePath !== undefined) {
+    lines.push(
+      `${pc.yellow('•')} knowledge.base_path is no longer configurable — the Knowledge directory is always ${sanitizeTerminal(JSON.stringify(report.deprecatedKnowledgeBasePath))}; delete the field from .prospec.yaml`,
+    );
+  }
   if (report.missingTriggers.length > 0) {
     lines.push(
       `${pc.yellow('•')} skills missing triggers: ${report.missingTriggers.map(sanitizeTerminal).join(', ')}`,

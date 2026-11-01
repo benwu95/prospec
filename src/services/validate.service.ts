@@ -118,7 +118,7 @@ export async function execute(options: ValidateOptions): Promise<ValidateResult>
         ok: false,
         findings: [{
           level: 'FAIL',
-          message: `${missing.join(' and ')} not found inside the configured knowledge root`,
+          message: `${missing.join(' and ')} not found inside the knowledge root`,
         }],
       };
     }

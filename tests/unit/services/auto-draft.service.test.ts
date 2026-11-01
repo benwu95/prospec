@@ -176,11 +176,11 @@ describe('auto-draft.service', () => {
     vol.fromJSON(
       {
         ...PROJECT,
-        '.prospec.yaml': CONFIG.replace(
+        '.prospec.yaml': CONFIG.replace('  base_dir: prospec', '  base_dir: docs').replace(
           '  base_path: prospec/ai-knowledge',
-          '  base_path: docs/kb',
+          '  base_path: docs/ai-knowledge',
         ),
-        'docs/kb/module-map.yaml': MODULE_MAP,
+        'docs/ai-knowledge/module-map.yaml': MODULE_MAP,
       },
       cwd,
     );
@@ -191,7 +191,7 @@ describe('auto-draft.service', () => {
         {
           check: 'knowledge-size',
           severity: 'warn',
-          source_path: 'docs/kb/modules/services/README.md',
+          source_path: 'docs/ai-knowledge/modules/services/README.md',
           detail: 'Over budget',
         },
       ],

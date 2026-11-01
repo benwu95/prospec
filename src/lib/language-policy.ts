@@ -48,8 +48,8 @@ const relative = (cwd: string, absolute: string): string =>
 
 /**
  * Resolve which paths are written in the artifact language and which in the
- * trust-zone language, from the project's actual `paths.base_dir` /
- * `knowledge.base_path`. Both languages come from config too: `artifact_language`
+ * trust-zone language, from the project's actual `paths.base_dir` and the
+ * Knowledge directory under it. Both languages come from config too: `artifact_language`
  * and `trust_zone_language`, each defaulting to English.
  */
 export function resolveLanguageScope(config: ProspecConfig, cwd: string): LanguageScope {
