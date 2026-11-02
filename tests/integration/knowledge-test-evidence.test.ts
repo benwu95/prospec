@@ -155,7 +155,7 @@ describe('real recorded Knowledge evidence', () => {
 const retainedInputs = ['src/example.ts', 'tests/example.test.ts', 'package.json', 'pnpm-lock.yaml', '.prospec.yaml'];
 const representations = ['unstaged', 'staged', 'committed', 'untracked'];
 describe('retained-input invalidation across Git representations', () => {
-  it.each(retainedInputs.flatMap((file) => representations.map((state) => ({ file, state }))))('$file changed while $state refuses the original run', async ({ file, state }) => {
+  it.each(retainedInputs.flatMap((file) => representations.map((state) => ({ file, state }))))('$file changed while $state follows index membership and config observation', async ({ file, state }) => {
     seed();
     if (state === 'untracked') {
       git('rm', '--cached', file); git('commit', '-qm', 'untrack input');
@@ -167,13 +167,20 @@ describe('retained-input invalidation across Git representations', () => {
     if (state === 'staged' || state === 'committed') git('add', file);
     if (state === 'committed') git('commit', '-qm', 'changed input');
     if (state === 'untracked') expect(git('ls-files', '--others', '--exclude-standard')).toContain(file);
+    const retained = state !== 'untracked' || file === '.prospec.yaml';
     const assessment = await assessCurrentTestEvidence(root, change);
-    expect(assessment.decision.verdict).toBe('refuse');
+    expect(assessment.decision.verdict).toBe(retained ? 'refuse' : 'pass');
     expect(assessment.recheck()).toBe(true);
     const checked = await report();
-    expect(checked.test_evidence?.[change]).toBeUndefined();
-    expect(checked.structural.findings.some((finding) => finding.check === 'test-provenance')).toBe(true);
+    if (retained) expect(checked.test_evidence?.[change]).toBeUndefined();
+    else expect(checked.test_evidence?.[change]?.attempt_id).toBe(original.attempt!.id);
+    expect(checked.structural.findings.some((finding) => finding.check === 'test-provenance')).toBe(retained);
     expect(records()).toEqual(original);
     expect(count()).toBe(1);
+    if (!retained) {
+      git('add', file);
+      expect((await assessCurrentTestEvidence(root, change)).decision.verdict).toBe('refuse');
+      expect(count()).toBe(1);
+    }
   });
 });

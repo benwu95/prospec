@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { evaluateArchiveEntryGate } from '../../../src/lib/archive-gate.js';
-import { UNTRACKED_INPUTS_HINT } from '../../../src/lib/drift-checker.js';
+import { INDEX_INPUTS_HINT } from '../../../src/lib/drift-checker.js';
 import { formatWorkflowReason, WORKFLOW_REASON_CODES } from '../../../src/types/status.js';
 import type { KnowledgeSyncGaps } from '../../../src/lib/knowledge-sync.js';
 import {
@@ -97,13 +97,13 @@ describe('evaluateArchiveEntryGate', () => {
     expect(v.reasons[0]!.message).not.toContain(`${id} fails for sibling`);
   });
 
-  it('states the untracked-input hint once when review and test evidence are both stale', () => {
+  it('states the index-input hint once when review and test evidence are both stale', () => {
     const r = report({ 'review-provenance': [TARGET], 'test-provenance': [TARGET] });
-    for (const f of r.structural.findings) f.detail = `stale ${f.check}; ${UNTRACKED_INPUTS_HINT} — re-run`;
+    for (const f of r.structural.findings) f.detail = `stale ${f.check}; ${INDEX_INPUTS_HINT} — re-run`;
     const v = evaluateArchiveEntryGate(r, inputs());
     const all = v.reasons.map(formatWorkflowReason).join('; ');
-    expect(all.split(UNTRACKED_INPUTS_HINT)).toHaveLength(2);
-    expect(v.reasons[0]!.message).toContain(UNTRACKED_INPUTS_HINT);
+    expect(all.split(INDEX_INPUTS_HINT)).toHaveLength(2);
+    expect(v.reasons[0]!.message).toContain(INDEX_INPUTS_HINT);
     expect(v.reasons[1]!.message).toContain('stale test-provenance — re-run');
   });
 

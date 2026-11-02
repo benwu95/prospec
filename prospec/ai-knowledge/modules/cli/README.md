@@ -50,6 +50,8 @@
 
 ## Pitfalls
 
+- Evidence diagnostics follow index membership: intended new inputs need staging before stamps/records; edits of indexed working-tree inputs do not. The shared lib hint owns this wording, while delegation/preservation retain untracked protection.
+
 - Story creation requires repeatable `--related-module` or `--no-related-modules`; freeze/amend reject creation options. Related-modules correction accepts a complete registered list or explicit empty, with missing/conflicting declarations refused.
 
 - `formatTestEvidenceReuse` renders the original attempt/date/command/exit/policy from certified service facts on check, review, change-status and verify. Sanitize each field to one terminal line; formatters never infer reuse from missing findings.

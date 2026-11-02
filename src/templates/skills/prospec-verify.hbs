@@ -16,7 +16,7 @@ When triggered, briefly describe:
 
 {{> cli-probe}}
 
-Review/default tests use `snapshot-v2` / `repository-inputs-v2`, independent of staging or equivalent commits. Revalidate legacy records once.
+Review/default tests use `snapshot-v2` / `repository-inputs-v2`: working-tree content of git index members. Unchanged members and effective content preserve evidence across staging or equivalent commits. Revalidate legacy records once.
 
 ## Startup Loading
 
@@ -96,6 +96,8 @@ Every other **SDD-pipeline** skill (new-story → plan → tasks → implement �
 Read each gate command's whole output before the next step — circuit-breaker, escalation and refusal messages can appear mid-output, even when the command succeeds — and judge whether a state-changing step succeeded by its own exit code, not by a command chained after it; run each such step as its own command.
 
 ### Step 0: Record the test run (before reading the report)
+
+Stage intended new files with `git add`; tracked edits need no staging.
 
 Choose exactly one path **after the Entry Gate** and final Knowledge/count/generated-asset sync:
 

@@ -309,6 +309,8 @@ Phase 4 of `/prospec-plan` performs multi-candidate architecture selection with 
 Contract tests assert that both `prospec-knowledge-update` and `prospec-implement` contain explicit instructions to run `prospec knowledge verify`.
 - `tests/contract/skill-format.test.ts` asserts `skills/prospec-knowledge-update.hbs` instructs running `prospec knowledge verify <modules...>` after README content review/update.
 - `tests/contract/skill-format.test.ts` asserts `skills/prospec-implement.hbs` instructs running `prospec knowledge verify <modules...>` before its final `prospec check --record-tests`.
+- WHEN implement, knowledge-update, review or verify guidance prepares freshness stamps or evidence records, THEN section-scoped structural contracts require git add for newly created intended files before those operations, and four applied-deletion mutations each turn the corresponding contract red
+- WHEN template changes are delivered, THEN regenerate the bundled templates and deployed skills through their existing owners and retain the quantitative skill/reference budgets
 
 ---
 

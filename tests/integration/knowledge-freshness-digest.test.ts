@@ -191,7 +191,7 @@ describe('US-2: checkouts of one commit agree', () => {
     expect(isStale(clone(dir, 'symlinks-off', '-c', 'core.symlinks=false'))).toBe(false);
   });
 
-  it('agrees for a project in a repository subdirectory, hashing its untracked files from the right root', () => {
+  it('stays fresh for an untracked subdirectory-project file, then requires a stamp after staging', () => {
     const top = tempDir('subdir');
     git(top, 'init', '-q', '-b', 'main');
     const dir = path.join(top, 'proj');
@@ -201,13 +201,17 @@ describe('US-2: checkouts of one commit agree', () => {
     git(top, 'commit', '-qm', 'base');
     put(dir, 'src/lib/new.ts', 'untracked at stamp time\n');
     stamp(dir);
+    expect(isStale(dir)).toBe(false);
+    git(dir, 'add', 'src/lib/new.ts');
+    expect(isStale(dir)).toBe(true);
+    stamp(dir);
     git(top, 'add', '.');
     git(top, 'commit', '-qm', 'stamp');
     expect(isStale(dir)).toBe(false);
     expect(isStale(path.join(clone(top, 'subdir-clone'), 'proj'))).toBe(false);
   });
 
-  it('hashes untracked files whose names hold quotes, a newline or non-ASCII characters', () => {
+  it('hashes indexed files whose names hold quotes, a newline or non-ASCII characters', () => {
     const dir = repo('names');
     put(dir, 'src/lib/中文.ts', 'x\n');
     // `--stdin-paths` reads one path per line and unquotes a line starting with `"`:
@@ -216,6 +220,7 @@ describe('US-2: checkouts of one commit agree', () => {
       put(dir, 'src/lib/"quoted".ts', 'q\n');
       put(dir, 'src/lib/line\nbreak.ts', 'n\n');
     }
+    git(dir, 'add', 'src/lib');
     stamp(dir);
     git(dir, 'add', '.');
     git(dir, 'commit', '-qm', 'stamp');
@@ -265,6 +270,8 @@ describe('US-3: the working tree and unprovable content', () => {
   });
 
   it.skipIf(process.platform === 'win32' || process.getuid?.() === 0)('cannot compute a module holding an unreadable changed file', () => {
+    put(dir, 'src/lib/secret.ts', 'before\n');
+    git(dir, 'add', 'src/lib/secret.ts');
     put(dir, 'src/lib/secret.ts', 's\n');
     chmodSync(path.join(dir, 'src/lib/secret.ts'), 0o000);
     try {
@@ -309,12 +316,14 @@ describe('submodules under a module path', () => {
     expect(isStale(dir)).toBe(true);
   });
 
-  it('cannot compute while the checkout holds uncommitted edits or untracked files the user hides', () => {
+  it('refuses tracked submodule edits and ignores hidden untracked files until staged', () => {
     put(path.join(dir, 'src/lib/vendor'), 'x.c', 'dirty\n');
     expect(freshness(dir).freshness).toMatchObject({ basis: 'unavailable' });
     inSub('checkout', '--', 'x.c');
     put(path.join(dir, 'src/lib/vendor'), 'extra.c', 'e\n');
     inSub('config', 'status.showUntrackedFiles', 'no');
+    expect(isStale(dir)).toBe(false);
+    inSub('add', 'extra.c');
     expect(freshness(dir).freshness).toMatchObject({ basis: 'unavailable' });
   });
 });

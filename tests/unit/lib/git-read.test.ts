@@ -11,7 +11,7 @@ vi.mock('node:child_process', async (importOriginal) => {
   return { ...actual, execFileSync: vi.fn(actual.execFileSync) };
 });
 
-const { GIT_READ_SUBCOMMANDS, GIT_SNAPSHOT_SUBCOMMANDS, SNAPSHOT_PREFIX, gitRead, gitReadOptional, gitReadRecords, gitSnapshot, hiddenIndexShape, parseIndexRecord, snapshotRoot } = await import(
+const { GIT_READ_SUBCOMMANDS, GIT_SNAPSHOT_SUBCOMMANDS, SNAPSHOT_PREFIX, gitRead, gitReadOptional, gitReadRecords, readIndexEntries, gitSnapshot, hiddenIndexShape, parseIndexRecord, snapshotRoot } = await import(
   '../../../src/lib/git-read.js'
 );
 
@@ -40,6 +40,34 @@ function makeRepo(name: string): string {
 
 let repo: string;
 const savedGitDir = process.env.GIT_DIR;
+
+describe('shared index entries', () => {
+  it('uses cached members until a new path is staged, with explicit preservation listing', () => {
+    writeFileSync(path.join(repo, 'local.txt'), 'local');
+    const cached = readIndexEntries(repo, { decoding: 'strict' });
+    expect(cached.map(parseIndexRecord).map((entry) => entry.file)).toEqual(['main.txt']);
+    expect(readIndexEntries(repo, { decoding: 'strict', includeUntracked: true })).toContain('? local.txt');
+    childProcess.execFileSync('git', ['add', 'local.txt'], { cwd: repo });
+    expect(readIndexEntries(repo, { decoding: 'strict' }).map(parseIndexRecord).map((entry) => entry.file)).toEqual(['local.txt', 'main.txt']);
+    expect(readIndexEntries(repo, { decoding: 'strict', pathspecs: [':(literal)local.txt'] }).map(parseIndexRecord).map((entry) => entry.file)).toEqual(['local.txt']);
+    execFileSync.mockClear();
+    expect(readIndexEntries(repo, { decoding: 'strict', pathspecs: [] })).toEqual([]);
+    expect(execFileSync).not.toHaveBeenCalled();
+  });
+
+  it('keeps the decoding policy explicit and rejects truncated framing in either policy', () => {
+    const valid = `H 100644 ${'a'.repeat(40)} 0\tvalid.txt\0`;
+    const lossy = Buffer.concat([Buffer.from(`H 100644 ${'a'.repeat(40)} 0\t`), Buffer.from([255, 0])]);
+    execFileSync.mockReturnValueOnce(Buffer.concat([Buffer.from(valid), lossy]));
+    expect(() => readIndexEntries(repo, { decoding: 'strict' })).toThrow(/lossless/);
+    execFileSync.mockReturnValueOnce(Buffer.concat([Buffer.from(valid), lossy]));
+    expect(readIndexEntries(repo, { decoding: 'skip' })).toEqual([valid.slice(0, -1)]);
+    for (const decoding of ['strict', 'skip'] as const) {
+      execFileSync.mockReturnValueOnce(Buffer.from(valid.slice(0, -1)));
+      expect(() => readIndexEntries(repo, { decoding })).toThrow(/Incomplete NUL/);
+    }
+  });
+});
 
 beforeEach(() => {
   repo = makeRepo('main');

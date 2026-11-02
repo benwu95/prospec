@@ -24,19 +24,21 @@ beforeEach(() => {
 afterEach(() => rmSync(root, { recursive: true, force: true }));
 
 describe('source inventory (REQ-LIB-070)', () => {
-  it('lists tracked inputs with their index identity and untracked ones without', () => {
+  it('lists only index members and adds a new member after staging', () => {
     put('src/new.ts', 'n\n');
     const inventory = captureSourceInventory(root);
     expect(inventory.entries.get('src/a.ts')).toEqual({ mode: '100644', oid: gitIn(root, 'rev-parse', ':src/a.ts') });
-    expect(inventory.entries.get('src/new.ts')).toEqual({ mode: null, oid: null });
+    expect(inventory.entries.has('src/new.ts')).toBe(false);
+    gitIn(root, 'add', 'src/new.ts');
+    expect(captureSourceInventory(root).entries.get('src/new.ts')).toEqual({ mode: '100644', oid: gitIn(root, 'rev-parse', ':src/new.ts') });
   });
 
-  it('marks modified, untracked and deleted inputs as changed and leaves clean ones out', () => {
+  it('marks indexed edits and deletions as changed without including untracked paths', () => {
     put('src/a.ts', 'edited\n');
     put('src/new.ts', 'n\n');
     rmSync(path.join(root, 'src/b.ts'));
     const { changed } = captureSourceInventory(root);
-    expect([...changed].sort()).toEqual(['src/a.ts', 'src/b.ts', 'src/new.ts']);
+    expect([...changed].sort()).toEqual(['src/a.ts', 'src/b.ts']);
   });
 
   it('hands the same inventory over from the evidence snapshot', () => {
@@ -47,6 +49,7 @@ describe('source inventory (REQ-LIB-070)', () => {
 
   it('keeps the inventory when a later step of the snapshot fails', () => {
     symlinkSync('/etc/hosts', path.join(root, 'outside-link'));
+    gitIn(root, 'add', 'outside-link');
     const states = computeEvidenceStates(root);
     expect(states.repository.digest).toBeNull();
     expect(states.inventory?.entries.has('outside-link')).toBe(true);

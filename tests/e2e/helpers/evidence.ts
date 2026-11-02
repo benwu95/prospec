@@ -26,6 +26,7 @@ export async function recordCliEvidence(cwd: string, change: string): Promise<vo
   // module carries the source digest the freshness rule compares against.
   const modules = (parseDocument(fs.readFileSync(path.join(knowledge, 'module-map.yaml'), 'utf8')).toJS() as
     { modules?: Array<{ name: string }> }).modules ?? [];
+  git('add', '.');
   if (modules.length > 0) {
     const stamped = await runCliInProcess(['knowledge', 'verify', ...modules.map((m) => m.name)], { cwd });
     if (stamped.exitCode !== 0) throw new Error(`knowledge verify: ${stamped.stderr}\n${stamped.stdout}`);

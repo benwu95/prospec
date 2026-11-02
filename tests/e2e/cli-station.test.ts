@@ -938,6 +938,7 @@ it('reports source mutation during tests and refuses archive through normal comm
   await runCli(['change', 'status', 'implemented']);
   fs.writeFileSync(path.join(tmpDir, 'suite.cjs'), "const fs=require('fs');require('assert').strictEqual(fs.readFileSync('input.txt','utf8'),'old');fs.writeFileSync('input.txt','new');");
   fs.writeFileSync(path.join(tmpDir, 'input.txt'), 'old');
+  gitIn(tmpDir, 'add', 'suite.cjs', 'input.txt');
   await runCli(['check', '--record-review']);
   const result = await runCli(['check', '--record-tests']);
   expect(result.stdout + result.stderr).toContain('passing evidence is not certified');

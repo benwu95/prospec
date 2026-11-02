@@ -41,6 +41,14 @@ prospec-upgrade                 # 步驟 2：AI Agent 依盤點報告遷移格�
 
 ## 升級至下一個版本（尚未發布）
 
+**Breaking：** Knowledge freshness digest 與 review／test evidence 現在依 git index 決定成員，與 raw scan、README 骨架及 import 掃描一致。內容仍讀工作樹：indexed 檔案的修改與刪除不必 stage 就會影響 freshness／evidence；一般 untracked 檔案則在 `git add` 後才參與。Repository 子目錄專案同樣適用；submodule evidence 使用該 submodule 自己的 index 與工作樹內容。Delegation 與 work preservation 繼續保護未被 ignore 的 untracked 檔案。
+
+執行 `prospec knowledge verify`、`prospec check --record-review` 或 `prospec check --record-tests` 前，先 stage 要交付的新檔，包含最後同步產生的新檔。不要為了記錄 evidence 而 stage 本機暫存檔。Index 成員與有效內容不變時，staging、commit 與 amend 保留 evidence；stage 新成員會改變 identity。
+
+`source-v1` 與 `snapshot-v2` 版號維持不變。升級前曾計入未 ignore 的 untracked 檔案的模組 stamp 或 evidence，升級後可能過期一次；確認 Knowledge 後重新蓋章，或完成對應的實際 review／test 驗證並重新記錄即可恢復。記錄時沒有這類檔案、其餘條件相同的紀錄仍有效。
+
+測試仍在工作樹執行。尚未 stage 的新檔可能影響測試結果，卻不在 evidence identity 內；若最後未加入 index，evidence 仍可能維持有效。Pre-merge CI 負責最終 committed-tree 驗證。Implement、knowledge-update、review 與 verify 的 stage 提示可減少此缺口，但不取代 CI。
+
 Raw scan 與新模組 README 骨架現在列出 git index 成員。掃描或建立骨架前，先對新檔執行 `git add`；不在 index 內的 untracked 與 ignored 檔案不會被掃描。受追蹤的 `build/`、`dist/`、相依套件目錄、點開頭目錄及深度超過 10 層的檔案現在可被列出，仍受敏感檔案與設定的排除規則限制。不跟隨 symlink，也不展開 submodule gitlink。`knowledge init --depth` 只限制 Directory Tree 顯示，不限制檔案清單或模組偵測。骨架回報沒有 index 成員時，先加入檔案、刪除骨架，再重新執行；列檔失敗時，骨架保留空白 Key Files 並發出 warning，raw-scan 產生則失敗且不寫入輸出。
 
 **Breaking：** 頂層 `exclude` 現在依 module path 規則讀取，不再使用 fast-glob 規則。不含 `*` 的 entry 是字面路徑，包括 brace、開頭 `!`、extglob 寫法、`?` 與 `[]`；結尾 `/` 排除子樹，`.` 排除全部。含 `*` 的 entry 原樣交給 git `:(glob)` 比對，開頭 `!` 與 extglob 寫法沒有 fast-glob 特殊意義。含 brace、`..` segment 或絕對路徑根的 glob 會被拒收，不排除任何檔案。要排除任意深度同名目錄的內容，把 `**/name` 改為 `**/name/**`；brace alternatives 則展開為多筆 entry。模組與排除 glob 分別正向列出，再扣除排除集合。`unsupported-module-path` 現在也回報被拒收的 `exclude` entry，module map 缺席或無法讀取時仍檢查 config entries。

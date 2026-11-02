@@ -121,7 +121,7 @@ prospec agent sync               # â†’ per-agent config + Skills (Claude Code â†
 On a fresh repo, `prospec-knowledge-generate` produces a minimal Knowledge base that fills in as you ship changes. Then run your first change exactly as in step 3 above.
 
 ### Brownfield (existing projects)
-The same two commands apply; `prospec-quickstart` reads your existing code into AI Knowledge. The raw scan lists git index members, including staged files, subject to sensitive-file and configured exclusions. If the project is not yet in git, run `git init`, then use `git add` to stage the source files to scan before running the AI finisher:
+The same two commands apply; `prospec-quickstart` reads your existing code into AI Knowledge. The raw scan lists git index members, including staged files, subject to sensitive-file and configured exclusions. Also stage intended new files before Knowledge freshness stamps and review/test evidence; existing tracked edits are read from the working tree without staging. If the project is not yet in git, run `git init`, then use `git add` to stage the source files to scan before running the AI finisher:
 
 ```bash
 cd existing-project

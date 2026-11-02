@@ -123,6 +123,7 @@ describe('prospec knowledge verify against a real repository (REQ-SERVICES-090, 
     expect(readFileSync(mapFile, 'utf-8')).toBe(stamped);
 
     writeFileSync(path.join(dir, 'src', 'lib', 'b.ts'), 'added after the stamp\n');
+    gitIn(dir, 'add', 'src/lib/b.ts');
     const edited = await knowledgeVerify({ modules: ['lib'], cwd: dir, now: '2026-10-25T06:00:00.000Z' });
     expect(edited.verified).toEqual(['lib']);
     expect(readFileSync(mapFile, 'utf-8')).not.toBe(stamped);

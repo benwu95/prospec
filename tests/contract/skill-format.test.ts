@@ -4679,6 +4679,9 @@ describe('Startup Loading cache-stable prefix ordering (REQ-TEMPLATES-080/081)',
   // add-req-language-gate-rules: the language-policy partial (twelve includers), knowledge-update, review and verify gain
   // their station rules; plan and tasks delete three NEVER items that restated body rules. Cumulative 90_402 → 91_150,
   // raised, not earned; the basis is the developer's decision recorded in the change proposal's Edge Cases before review.
+  // count-index-evidence: staging prompts and scoped evidence semantics, offset by equivalent prose compaction.
+  // Mandatory context 91_150 → 91_143 after deployed-sync compaction; cascade-protocol 2_728 → 2_727.
+  // Restored review provenance rationale plus equivalent tier-routing compression: review 8_147 → 8_125, cumulative 91_121. Anchors unchanged.
   const REFERENCE_CEILING_ANCHOR = 52_315;
   const CUMULATIVE_CEILING_ANCHOR = 91_150;
 
@@ -10962,18 +10965,33 @@ describe('guidance owner handoffs', () => {
 
   it('review retains the counts/close/baseline operations with CLI owners', () => {
     const provenance = sectionOf(render('prospec-review'), '### Review Provenance (machine gate)');
+    const introduction = "Review must leave a machine-queryable record so `prospec-verify`'s Entry Gate can prove it ran and is still current:";
+    const baselineComparison = 'This is the baseline the `review-provenance` drift check compares against.';
     const assertOperations = (text: string) => {
-      expect(text).toContain('Every round');
+      expect(text.trim()).not.toBe('');
+      const stage = text.indexOf('Stage intended new files');
+      const intro = text.indexOf(introduction);
+      const everyRound = text.indexOf('1. **Every round**');
+      const baseline = text.indexOf('2. **At loop convergence**');
+      expect(stage).toBeGreaterThanOrEqual(0);
+      expect(intro).toBeGreaterThan(stage);
+      expect(everyRound).toBeGreaterThan(intro);
+      expect(baseline).toBeGreaterThan(everyRound);
+      expect(text.slice(baseline)).toContain(baselineComparison);
       expect(text).toContain('prospec change log --skill prospec-review');
       expect(text).toContain('prospec check --record-review');
       expect(text).toMatch(/CLI[^\n]*counts/);
     };
     assertOperations(provenance);
-    for (const operation of ['prospec change log --skill prospec-review', 'prospec check --record-review']) {
+    for (const operation of ['prospec change log --skill prospec-review', 'prospec check --record-review', introduction, baselineComparison]) {
       const mutated = provenance.replaceAll(operation, 'missing-operation');
       expect(mutated).not.toBe(provenance);
       expect(() => assertOperations(mutated)).toThrow();
     }
+    const prompt = provenance.split('\n').find((line) => line.startsWith('Stage intended new files'))!;
+    const moved = provenance.replace(`${prompt}\n`, '').replace(introduction, `${introduction}\n${prompt}`);
+    expect(moved).not.toBe(provenance);
+    expect(() => assertOperations(moved)).toThrow();
   });
 });
 

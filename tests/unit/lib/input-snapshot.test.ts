@@ -3,7 +3,7 @@ import { execFileSync } from 'node:child_process';
 import { chmodSync, existsSync, mkdtempSync, mkdirSync, readFileSync, realpathSync, renameSync, rmSync, symlinkSync, unlinkSync, writeFileSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { changedPathsFromWorkTree, collectGitTimestamps, computeChangeState, gitlinkCheckoutState, linkSteps } from '../../../src/lib/drift-sources.js';
+import { changedPathsFromWorkTree, collectGitTimestamps, collectModuleDigests, computeChangeState, gitlinkCheckoutState, linkSteps } from '../../../src/lib/drift-sources.js';
 
 import type { ModuleMap } from '../../../src/types/module-map.js';
 import { evaluateKnowledgeHealth } from '../../../src/lib/drift-checker.js';
@@ -27,14 +27,14 @@ afterEach(() => rmSync(root, { recursive: true, force: true }));
 describe('effective repository inputs', () => {
   it.each(process.platform === 'win32' ? ['中文.txt', ' space .txt'] : ['中文.txt', ' space .txt', 'tab\t.txt', 'line\n.txt', 'back\\slash.txt'])(
     'preserves exact paths and detects content: %j', (file) => {
-      put(file, 'one'); const before = digest();
+      put(file, 'one'); git('add', '--', file); const before = digest();
       expect(before).toBeTruthy();
       expect(changedPathsFromWorkTree(root)).toContain(file);
       put(file, 'two'); expect(digest()).not.toBe(before);
     },
   );
   it.each(['pnpm-lock.yaml', 'package-lock.json', 'yarn.lock', 'package.json', 'README.md'])(
-    'includes %s', (file) => { put(file, 'one'); const before = digest(); put(file, 'two'); expect(digest()).not.toBe(before); },
+    'includes %s', (file) => { put(file, 'one'); git('add', '--', file); const before = digest(); put(file, 'two'); expect(digest()).not.toBe(before); },
   );
   // Pinned from the pre-#352 implementation (main 4309e665): admitting gitlinks must
   // leave every gitlink-free repository's identity byte-identical.
@@ -56,8 +56,10 @@ describe('effective repository inputs', () => {
   it('excludes owned bookkeeping and ignored untracked outputs, includes tracked generated inputs', () => {
     put('.gitignore', 'out/\n'); git('add', '.'); git('commit', '-qm', 'ignore');
     const before = digest(); mkdirSync(path.join(root, '.prospec')); put('.prospec/report.json', 'a');
+    git('add', '-f', '.prospec/report.json');
     mkdirSync(path.join(root, 'out')); put('out/result.txt', 'a'); expect(digest()).toBe(before);
-    mkdirSync(path.join(root, '.agents')); put('.agents/generated.md', 'a'); expect(digest()).not.toBe(before);
+    mkdirSync(path.join(root, '.agents')); put('.agents/generated.md', 'a'); expect(digest()).toBe(before);
+    git('add', '.agents/generated.md'); expect(digest()).not.toBe(before);
     git('add', '-f', 'out/result.txt'); const tracked = digest(); put('out/result.txt', 'b'); expect(digest()).not.toBe(tracked);
   });
   it.skipIf(process.platform === 'win32')('hashes binary bytes and executable mode', () => {
@@ -65,7 +67,7 @@ describe('effective repository inputs', () => {
     chmodSync(path.join(root, 'input.txt'), 0o755); expect(digest()).not.toBe(binary);
   });
   it.skipIf(process.platform === 'win32')('certifies a represented symlink target and refuses external/dangling targets', () => {
-    symlinkSync('input.txt', path.join(root, 'link')); expect(digest()).toBeTruthy();
+    symlinkSync('input.txt', path.join(root, 'link')); git('add', 'link'); expect(digest()).toBeTruthy();
     unlinkSync(path.join(root, 'link')); symlinkSync('../outside', path.join(root, 'link')); expect(digest()).toBeNull();
   });
   it('supports unborn HEAD but refuses non-Git input', () => {
@@ -89,6 +91,7 @@ describe('unprovable inputs', () => {
     if (process.platform !== 'darwin') {
       const rawPath = Buffer.concat([Buffer.from(`${root}/`), Buffer.from([255])]);
       writeFileSync(rawPath, 'input');
+      git('add', '-A');
       expect(computeChangeState(root)).toMatchObject({ digest: null, reason: expect.stringContaining('losslessly') });
       unlinkSync(rawPath);
     }
@@ -109,6 +112,7 @@ describe.skipIf(process.platform === 'win32')('directory symlink inputs', () => 
   const shareSkills = () => {
     dir('.agents/skills/demo'); put('.agents/skills/demo/SKILL.md', 'skill');
     dir('.claude'); link('../.agents/skills', '.claude/skills');
+    git('add', '-A');
   };
   const reason = () => computeChangeState(root).reason;
 
@@ -126,14 +130,14 @@ describe.skipIf(process.platform === 'win32')('directory symlink inputs', () => 
     unlinkSync(path.join(root, '.claude/skills')); link('../.agents/copy', '.claude/skills'); expect(digest()).not.toBe(copied);
   });
   it('accepts an empty target and a nested link back to an ancestor of its own directory', () => {
-    dir('empty'); link('empty', 'alias'); expect(digest()).toBeTruthy();
-    dir('tree/a'); put('tree/a/f', 'x'); link('..', 'tree/a/loop'); expect(digest()).toBeTruthy();
+    dir('empty'); link('empty', 'alias'); git('add', 'alias'); expect(digest()).toBeTruthy();
+    dir('tree/a'); put('tree/a/f', 'x'); link('..', 'tree/a/loop'); git('add', 'tree'); expect(digest()).toBeTruthy();
   });
   it('refuses a target outside the project, even an empty one', () => {
     // Real path: a system symlink on the way (macOS /var) would be refused by the route rule first.
     const outside = realpathSync(mkdtempSync(path.join(os.tmpdir(), 'snapshot-outside-')));
     try {
-      link(outside, 'ext');
+      link(outside, 'ext'); git('add', 'ext');
       expect(computeChangeState(root)).toMatchObject({ digest: null, reason: 'Symlink target is outside represented inputs: ext' });
     } finally { rmSync(outside, { recursive: true, force: true }); }
   });
@@ -152,13 +156,13 @@ describe.skipIf(process.platform === 'win32')('directory symlink inputs', () => 
     } finally { chmodSync(path.join(root, '.agents/skills/locked'), 0o755); }
   });
   it('refuses a target holding the repository metadata', () => {
-    dir('.claude'); link('..', '.claude/up');
+    dir('.claude'); link('..', '.claude/up'); git('add', '.claude/up');
     expect(computeChangeState(root).digest).toBeNull();
     expect(reason()).toMatch(/\.claude\/up.*\.git\//);
   });
   // Pinned from the pre-#400 implementation (main 9658787d): file symlinks keep their identity.
   it('keeps a file-symlink identity byte-identical to the pre-directory snapshot', () => {
-    link('input.txt', 'link');
+    link('input.txt', 'link'); git('add', 'link');
     expect(computeChangeState(root)).toEqual({ digest: '4a6ca0ca098019e9d4ea707a60d2b15f13a70e36479af9f0b8b98dd39aa25038', clean: false });
   });
 
@@ -176,21 +180,21 @@ describe.skipIf(process.platform === 'win32')('directory symlink inputs', () => 
       return [unstaged, staged, committed];
     };
 
-    it('keeps one identity while a tracked directory becomes a directory symlink', () => {
+    it('includes a replacing directory symlink only once staged', () => {
       commitTrackedSkills(); replaceWithLink();
       const [unstaged, staged, committed] = threeStates();
-      expect(unstaged).toBeTruthy(); expect(staged).toBe(unstaged); expect(committed).toBe(unstaged);
+      expect(unstaged).toBeTruthy(); expect(staged).not.toBe(unstaged); expect(committed).toBe(staged);
     });
     it('keeps one identity when the replacing symlink is ignored', () => {
       commitTrackedSkills(); put('.gitignore', '/.claude/skills\n'); git('add', '.gitignore'); git('commit', '-qm', 'ignore'); replaceWithLink();
       const [unstaged, staged, committed] = threeStates();
       expect(unstaged).toBeTruthy(); expect(staged).toBe(unstaged); expect(committed).toBe(unstaged);
     });
-    it('keeps one identity while a tracked directory becomes a regular file', () => {
+    it('includes a replacing regular file only once staged', () => {
       dir('p'); put('p/a', 'a'); git('add', '-A'); git('commit', '-qm', 'dir');
       rmSync(path.join(root, 'p'), { recursive: true }); put('p', 'file');
       const [unstaged, staged, committed] = threeStates();
-      expect(unstaged).toBeTruthy(); expect(staged).toBe(unstaged); expect(committed).toBe(unstaged);
+      expect(unstaged).toBeTruthy(); expect(staged).not.toBe(unstaged); expect(committed).toBe(staged);
     });
     it('refuses a path the status does not report deleted, naming it and the ancestor', () => {
       commitTrackedSkills(); git('update-index', '--assume-unchanged', '.claude/skills/demo/SKILL.md'); replaceWithLink();
@@ -225,16 +229,16 @@ describe.skipIf(process.platform === 'win32')('symlink resolution routes', () =>
   });
 
   it('refuses a file or directory link that resolves through an ignored symlink', () => {
-    put('.gitignore', '/vendor\n'); link('real', 'vendor'); link('vendor/x.md', 'f');
+    put('.gitignore', '/vendor\n'); link('real', 'vendor'); link('vendor/x.md', 'f'); git('add', 'f');
     expect(capture()).toMatchObject({ digest: null, reason: 'Symlink resolves through vendor, which is not a represented input: f' });
-    unlinkSync(path.join(root, 'f')); link('vendor', 'alias');
+    unlinkSync(path.join(root, 'f')); link('vendor', 'alias'); git('add', 'alias');
     expect(capture()).toMatchObject({ digest: null, reason: 'Symlink resolves through vendor, which is not a represented input: alias' });
   });
   it('refuses a link that resolves through a symlink outside the project', () => {
     const outside = realpathSync(mkdtempSync(path.join(os.tmpdir(), 'snapshot-route-')));
     try {
       symlinkSync(path.join(realpathSync(root), 'real'), path.join(outside, 'r'));
-      link(path.join(outside, 'r/x.md'), 'abs');
+      link(path.join(outside, 'r/x.md'), 'abs'); git('add', 'abs');
       const passed = path.relative(realpathSync(root), path.join(outside, 'r')).split(path.sep).join('/');
       expect(capture()).toMatchObject({ digest: null, reason: `Symlink resolves through ${passed}, which is not a represented input: abs` });
     } finally { rmSync(outside, { recursive: true, force: true }); }
@@ -246,15 +250,15 @@ describe.skipIf(process.platform === 'win32')('symlink resolution routes', () =>
   });
   it('resolves `..` after a symlink from the symlink target, as the platform does', () => {
     dir('deep/sub'); put('deep/sub/k', 'k'); put('y', 'top'); put('.gitignore', '/deep/y\n'); put('deep/y', 'hidden');
-    link('deep/sub', 's'); link('s/../y', 'x');
+    link('deep/sub', 's'); link('s/../y', 'x'); git('add', '-A');
     expect(capture()).toMatchObject({ digest: null, reason: 'Symlink target is outside represented inputs: x' });
   });
   it('refuses a symlink loop by its project path', () => {
-    link('b', 'a'); link('a', 'b');
+    link('b', 'a'); link('a', 'b'); git('add', 'a', 'b');
     expect(capture()).toMatchObject({ digest: null, reason: 'Symlink resolution loops at b: a' });
   });
   it('names the missing component of a dangling route', () => {
-    link('missing/x.md', 'd');
+    link('missing/x.md', 'd'); git('add', 'd');
     expect(capture()).toMatchObject({ digest: null, reason: 'Symlink resolution stops at missing (ENOENT): d' });
   });
   // R2-1: a route symlink is judged by its path; an ignored hard link of a tracked symlink is still ignored.
@@ -266,13 +270,14 @@ describe.skipIf(process.platform === 'win32')('symlink resolution routes', () =>
   // Route paths compare by spelling, never by inode.
   it.skipIf(!existsSync(os.tmpdir().toUpperCase()))('refuses a route link spelled in another case', () => {
     link('real', 'tracked'); git('add', '-A'); git('commit', '-qm', 'tracked link');
-    link('TRACKED/x.md', 'g');
+    link('TRACKED/x.md', 'g'); git('add', 'g');
     expect(capture()).toMatchObject({ digest: null, reason: 'Symlink resolves through TRACKED, which is not a represented input: g' });
   });
   // macOS stops at 32 links, below the loop guard: the native comparison refuses what the platform cannot read.
   it.skipIf(process.platform !== 'darwin')('refuses a chain the platform cannot resolve', () => {
     link('real/x.md', 'l0');
     for (let i = 1; i <= 35; i++) link(`l${i - 1}`, `l${i}`);
+    git('add', '-A');
     expect(capture()).toMatchObject({ digest: null, reason: 'Symlink resolves to real/x.md, which the platform cannot confirm (ELOOP): l33' });
   });
 });
@@ -315,12 +320,29 @@ describe('gitlink (submodule) inputs', () => {
     git('add', 'module'); expect(digest()).toBe(moved);
     commitRoot('move pin'); expect(digest()).toBe(moved);
   });
-  it('hashes uncommitted and untracked work inside the submodule like superproject work', () => {
+  it('hashes indexed submodule work and admits untracked work only after staging', () => {
     const clean = digest();
     writeFileSync(path.join(root, 'module/shared.md'), 'local edit'); const edited = digest();
     expect(edited).toBeTruthy(); expect(edited).not.toBe(clean);
     writeFileSync(path.join(root, 'module/new.md'), 'untracked');
-    expect(digest()).toBeTruthy(); expect(digest()).not.toBe(edited);
+    expect(digest()).toBe(edited);
+    sub('add', 'new.md'); expect(digest()).not.toBe(edited);
+  });
+  it('uses each nested submodule index while preservation continues to include local files', () => {
+    nest();
+    const before = digest();
+    const source = () => collectModuleDigests(root, { modules: [{ name: 'module', paths: ['module'], keywords: [] }] }, {
+      knowledgePath: path.join(root, 'prospec/ai-knowledge'), specsPath: path.join(root, 'prospec/specs'), generatedArtifacts: [],
+    }).get('module')!;
+    const cleanSource = source().digest;
+    expect(cleanSource).toMatch(/^source-v1:/);
+    writeFileSync(path.join(root, 'module/inner/local.md'), 'local');
+    expect(digest()).toBe(before);
+    expect(source().digest).toBe(cleanSource);
+    expect(computeChangeState(root, 'preservation').digest).not.toBe(before);
+    inner('add', 'local.md');
+    expect(digest()).not.toBe(before);
+    expect(source().digest).toBeNull();
   });
   it('separates an uninitialized checkout from the initialized one (R1-2)', () => {
     const initialized = digest();
@@ -390,6 +412,7 @@ describe('gitlink (submodule) inputs', () => {
     const clean = digest();
     mkdirSync(path.join(root, 'module/.prospec'));
     writeFileSync(path.join(root, 'module/.prospec/notes.md'), 'theirs');
+    sub('add', '.prospec/notes.md');
     expect(digest()).toBeTruthy(); expect(digest()).not.toBe(clean);
   });
   it('classifies a gitlink path once for fingerprint and preservation alike', () => {
@@ -426,12 +449,12 @@ describe('gitlink (submodule) inputs', () => {
     expect(computeChangeState(root)).toMatchObject({ digest: null, reason: expect.stringContaining('module') });
   });
   it.skipIf(process.platform === 'win32')('certifies a superproject symlink into a submodule file', () => {
-    symlinkSync('module/shared.md', path.join(root, 'link'));
+    symlinkSync('module/shared.md', path.join(root, 'link')); git('add', 'link');
     expect(computeChangeState(root)).toMatchObject({ digest: expect.any(String) });
   });
   // #400: a directory symlink's target is judged by the inputs beneath it, the checkout's own metadata included.
   it.skipIf(process.platform === 'win32')('refuses a directory symlink into an initialized checkout and accepts one into an uninitialized gitlink', () => {
-    symlinkSync('module', path.join(root, 'alias'));
+    symlinkSync('module', path.join(root, 'alias')); git('add', 'alias');
     expect(computeChangeState(root)).toMatchObject({ digest: null, reason: expect.stringMatching(/alias.*module\/\.git/) });
     git('submodule', 'deinit', '-q', '-f', 'module');
     expect(computeChangeState(root)).toMatchObject({ digest: expect.any(String) });

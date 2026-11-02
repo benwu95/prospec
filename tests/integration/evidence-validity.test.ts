@@ -1,5 +1,5 @@
 import { beforeEach, afterEach, describe, it, expect, vi } from 'vitest';
-import { appendFileSync, mkdtempSync, mkdirSync, readFileSync, writeFileSync, rmSync, readdirSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, readFileSync, writeFileSync, rmSync, readdirSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
 import path from 'node:path';
 import os from 'node:os';
@@ -10,7 +10,7 @@ import { execute as archive } from '../../src/services/archive.service.js';
 import { execute as changeStatus } from '../../src/services/change-status.service.js';
 import { execute as reviewMerge } from '../../src/services/review-merge.service.js';
 import { TestGateError } from '../../src/types/errors.js';
-import { UNTRACKED_INPUTS_HINT } from '../../src/lib/drift-checker.js';
+import { INDEX_INPUTS_HINT } from '../../src/lib/drift-checker.js';
 import type { QualityDimension } from '../../src/types/change.js';
 vi.setConfig({ testTimeout: 30_000 });
 let root: string;
@@ -37,17 +37,24 @@ describe('live evidence consumers', () => {
   it('records from live inputs without a saved report', async () => {
     expect((await record()).grade).toBe('A');
   });
-  it('names the untracked-input rule for a local file and recovers once it is excluded', async () => {
+  it('keeps local files outside evidence until staged, then requires real revalidation', async () => {
     expect((await record()).grade).toBe('A');
     write('noise.log', 'local only\n');
+    const unchanged = await check({ cwd: root });
+    if (unchanged.kind !== 'report') throw new Error('expected a report');
+    for (const id of ['review-provenance', 'test-provenance']) {
+      expect(unchanged.report.structural.checks.find((c) => c.id === id)?.status).toBe('pass');
+    }
+    git('add', 'noise.log');
     const stale = await check({ cwd: root });
     if (stale.kind !== 'report') throw new Error('expected a report');
     for (const id of ['review-provenance', 'test-provenance']) {
-      expect(stale.report.structural.findings.find((f) => f.check === id)?.detail).toContain(UNTRACKED_INPUTS_HINT);
+      expect(stale.report.structural.findings.find((f) => f.check === id)?.detail).toContain(INDEX_INPUTS_HINT);
     }
     const refusal = await archive({ cwd: root, names: ['x'], dryRun: true });
-    expect(refusal.refused[0]!.reason.split(UNTRACKED_INPUTS_HINT)).toHaveLength(2);
-    appendFileSync(path.join(root, '.git/info/exclude'), 'noise.log\n');
+    expect(refusal.refused[0]!.reason.split(INDEX_INPUTS_HINT)).toHaveLength(2);
+    await check({ cwd: root, change: 'x', recordReview: true });
+    await check({ cwd: root, change: 'x', recordTests: true });
     const current = await check({ cwd: root });
     if (current.kind !== 'report') throw new Error('expected a report');
     for (const id of ['review-provenance', 'test-provenance']) {
@@ -140,9 +147,10 @@ describe('fresh-test lifecycle gates over real Git evidence (REQ-LIB-080, REQ-LI
   it('a code change stales the evidence for both entrances and leaves metadata byte-identical', async () => {
     backToTasks();
     write('src/feature.ts', 'export const later = true;\n');
+    git('add', 'src/feature.ts');
     const before = readFileSync(metadataPath());
     await expect(changeStatus({ cwd: root, change: 'x', quiet: true, to: 'implemented' })).rejects.toThrow(/stale test run/);
-    await expect(changeStatus({ cwd: root, change: 'x', quiet: true, to: 'implemented' })).rejects.toThrow(UNTRACKED_INPUTS_HINT);
+    await expect(changeStatus({ cwd: root, change: 'x', quiet: true, to: 'implemented' })).rejects.toThrow(INDEX_INPUTS_HINT);
     await expect(merge()).rejects.toBeInstanceOf(TestGateError);
     expect(readFileSync(metadataPath())).toEqual(before);
     expect(readFileSync(metadataPath(), 'utf8')).toContain('status: tasks');

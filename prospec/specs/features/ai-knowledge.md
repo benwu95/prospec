@@ -1,7 +1,7 @@
 ---
 feature: ai-knowledge
 status: active
-last_updated: 2026-11-01
+last_updated: 2026-11-02
 story_count: 15
 req_count: 72
 ---
@@ -130,6 +130,7 @@ The test suite proves the Module README format contract at every boundary using 
 
 | Date | Change | Impact | Stories/REQs |
 |------|--------|--------|-------------|
+| 2026-11-02 | count-index-evidence | MODIFIED REQ-TEMPLATES-162 | REQ-TEMPLATES-162 |
 | 2026-11-01 | list-index-project-files | MODIFIED REQ-KNOW-002; MODIFIED REQ-KNOW-007; MODIFIED REQ-KNOW-004; MODIFIED REQ-KNOW-022; MODIFIED REQ-KNOW-038; MODIFIED REQ-LIB-038; MODIFIED REQ-TESTS-050; REMOVED REQ-LIB-029 | REQ-KNOW-002, REQ-KNOW-007, REQ-KNOW-004, REQ-KNOW-022, REQ-KNOW-038, REQ-LIB-038, REQ-TESTS-050, REQ-LIB-029 |
 | 2026-11-01 | confine-base-paths | MODIFIED REQ-SERVICES-023; MODIFIED REQ-SERVICES-025 | REQ-SERVICES-023, REQ-SERVICES-025 |
 | 2026-10-29 | resolve-module-paths-via-git | MODIFIED REQ-LIB-029 | REQ-LIB-029 |

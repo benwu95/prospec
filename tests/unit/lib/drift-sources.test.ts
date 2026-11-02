@@ -1904,10 +1904,12 @@ describe('computeChangeDigest', () => {
     expect(computeChangeDigest(tmpDir)).not.toBe(d0);
   });
 
-  it('folds in untracked code files', () => {
+  it('includes a new code file only after it enters the index', () => {
     initRepo();
     const d0 = computeChangeDigest(tmpDir);
     write('src/lib/new.ts', 'export const b = 3;\n');
+    expect(computeChangeDigest(tmpDir)).toBe(d0);
+    git('add', 'src/lib/new.ts');
     expect(computeChangeDigest(tmpDir)).not.toBe(d0);
   });
 
@@ -1915,10 +1917,13 @@ describe('computeChangeDigest', () => {
     initRepo();
     const d0 = computeChangeDigest(tmpDir);
     write('.prospec/changes/c1/metadata.yaml', 'status: implemented\n');
+    git('add', '-f', '.prospec/changes/c1/metadata.yaml');
     expect(computeChangeDigest(tmpDir)).toBe(d0);
     write('.claude/skills/prospec-x/SKILL.md', 'generated\n');
     write('.agents/skills/prospec-x/SKILL.md', 'generated\n');
     write('pnpm-lock.yaml', 'lockfile\n');
+    expect(computeChangeDigest(tmpDir)).toBe(d0);
+    git('add', '.claude', '.agents', 'pnpm-lock.yaml');
     expect(computeChangeDigest(tmpDir)).not.toBe(d0);
   });
 
@@ -1931,14 +1936,17 @@ describe('computeChangeDigest', () => {
       initRepo();
       const d0 = computeChangeDigest(tmpDir);
       write(reportFile, '{"generated_at":"now"}\n');
+      git('add', '-f', reportFile);
       expect(computeChangeDigest(tmpDir)).toBe(d0);
     },
   );
 
-  it('treats a leftover escaped-defect-report.json as an ordinary input — writing it changes the digest (REQ-LIB-090)', () => {
+  it('treats an indexed escaped-defect-report.json as an ordinary input (REQ-LIB-024)', () => {
     initRepo();
     const d0 = computeChangeDigest(tmpDir);
     write('escaped-defect-report.json', '{"generated_at":"now"}\n');
+    expect(computeChangeDigest(tmpDir)).toBe(d0);
+    git('add', 'escaped-defect-report.json');
     expect(computeChangeDigest(tmpDir)).not.toBe(d0);
   });
 
@@ -1968,14 +1976,14 @@ describe('computeChangeDigest', () => {
     }
   });
 
-  // The test above never reaches the capture-failure branch — a dir outside any
-  // repo exits at the isGitWorkTree guard, so reverting the fail-closed fix back
-  // to `?? ''` kept the whole suite green (issue #103). An unborn-HEAD repo IS a
-  // work tree, but `git diff HEAD` fails on real git — this is that branch.
   it('captures effective content in an unborn-HEAD repo', () => {
     git('init', '-q');
     write('src/lib/x.ts', 'export const a = 1;\n');
-    expect(computeChangeDigest(tmpDir)).toBeTruthy();
+    git('add', 'src/lib/x.ts');
+    const before = computeChangeDigest(tmpDir);
+    expect(before).toBeTruthy();
+    write('src/lib/x.ts', 'export const a = 2;\n');
+    expect(computeChangeDigest(tmpDir)).not.toBe(before);
   });
 
   it('flips when first-party code OUTSIDE src/tests changes (e.g. scripts/) — no fail-open', () => {
@@ -2024,9 +2032,11 @@ describe('computeWorkingTreeClean', () => {
     expect(computeWorkingTreeClean(tmpDir)).toBe(false);
   });
 
-  it('is false when an untracked code file exists in scope', () => {
+  it('stays clean for an untracked code file until it is staged', () => {
     initRepo();
     write('src/lib/new.ts', 'export const b = 3;\n');
+    expect(computeWorkingTreeClean(tmpDir)).toBe(true);
+    git('add', 'src/lib/new.ts');
     expect(computeWorkingTreeClean(tmpDir)).toBe(false);
   });
 
@@ -2036,6 +2046,8 @@ describe('computeWorkingTreeClean', () => {
     write(DRIFT_REPORT_FILENAME, '{"generated_at":"now"}\n');
     expect(computeWorkingTreeClean(tmpDir)).toBe(true);
     write('dist/x.js', 'x\n');
+    expect(computeWorkingTreeClean(tmpDir)).toBe(true);
+    git('add', 'dist/x.js');
     expect(computeWorkingTreeClean(tmpDir)).toBe(false);
   });
 
@@ -2045,9 +2057,11 @@ describe('computeWorkingTreeClean', () => {
 
   // Same fail-closed branch computeChangeDigest has: an unborn-HEAD repo IS a work
   // tree, but `git diff HEAD` fails, so the signal degrades to null, not to a clean.
-  it('reports untracked input as dirty on an unborn HEAD', () => {
+  it('reports indexed input as dirty on an unborn HEAD', () => {
     git('init', '-q');
     write('src/lib/x.ts', 'export const a = 1;\n');
+    expect(computeWorkingTreeClean(tmpDir)).toBe(true);
+    git('add', 'src/lib/x.ts');
     expect(computeWorkingTreeClean(tmpDir)).toBe(false);
   });
 });
@@ -2084,6 +2098,8 @@ describe('computeChangeState (REQ-LIB-070)', () => {
     expect(computeChangeState(tmpDir)).toMatchObject({ digest: null, clean: null });
     git('init', '-q'); // unborn HEAD — a work tree, but `git rev-parse HEAD` fails
     write('src/lib/x.ts', 'export const a = 1;\n');
+    expect(computeChangeState(tmpDir)).toMatchObject({ digest: expect.any(String), clean: true });
+    git('add', 'src/lib/x.ts');
     expect(computeChangeState(tmpDir)).toMatchObject({ digest: expect.any(String), clean: false });
   });
 });
