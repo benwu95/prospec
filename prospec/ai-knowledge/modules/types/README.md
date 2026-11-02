@@ -51,7 +51,7 @@ Also: `auto-draft.ts` (drift-drafting options/result, incl. the `created | skipp
 1. **Add a schema field** — use `.optional()`/`.default()` so existing YAML still validates.
 2. **Add an error class** — extend `ProspecError` with `code` (UPPER_SNAKE) + `suggestion`.
 3. **Add or extend a registry** (skill, agent, invocation mode, drift check id, scale, verify dimension, audit scope) — add each agent's invocation profile and update the shared guidance reducer, then see [Frozen Registries](./frozen-registries.md).
-4. **Add an index column** — one edit to `INDEX_TABLE_COLUMNS`; header, separator and `INDEX_COLUMN` indices follow.
+4. **Add an index column** — update `INDEX_TABLE_COLUMNS` and the literal `INDEX_COLUMN` indices together; header and separator derive from the column list, while the contract test checks index alignment. Update parser and renderer mappings for the new column.
 
 ## Ripple Effects
 

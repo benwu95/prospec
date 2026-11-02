@@ -63,7 +63,7 @@ modules:
       - MCP 契約
       - 模組分類
     rationale: Leaf module with zero internal deps — all others import from here
-    last_verified: 2026-11-02T02:47:32.598Z
+    last_verified: 2026-11-02T18:11:37.704Z
     source_digest: source-v1:e423c6aaae21b919e8c5c81b87ec06ea93f3508dbe0580eb1b64200800d4602e
   - name: lib
     description: Shared stateless utilities — config, file I/O, Handlebars
@@ -141,7 +141,7 @@ modules:
       - 漂移檢查
       - 知識讀取
     rationale: Foundational infrastructure shared across services and benchmark scripts
-    last_verified: 2026-11-02T09:28:20.698Z
+    last_verified: 2026-11-02T18:11:37.704Z
     source_digest: source-v1:29bc9d7c70a2d6adb84ec5d09cbfa4db89c435a616b02a63db2bf0d8448293fb
   - name: services
     description: Business logic — one `execute()` service per command — including
@@ -207,7 +207,7 @@ modules:
       - 漂移檢查
       - 真相層
     rationale: Isolates business logic from I/O layer, enables testability
-    last_verified: 2026-11-02T02:47:32.598Z
+    last_verified: 2026-11-02T18:11:37.704Z
     source_digest: source-v1:160ae2da51ea6ff90c9563f4d24c5925c3db5bfeb93b048f8609f3a62c94676b
   - name: cli
     description: Thin CLI entry — 20 top-level Commander commands + shared
@@ -254,7 +254,7 @@ modules:
       - 終端
       - entry point
     rationale: "Thin I/O layer: no business logic, delegates to services"
-    last_verified: 2026-11-02T02:47:32.598Z
+    last_verified: 2026-11-02T18:11:37.704Z
     source_digest: source-v1:c6d165db47b6e3ad04d2be7c5249fa36b6b25d5f5916ec720871365307a97256
   - name: templates
     description: Handlebars template library — 17 skills + host-labelled invocation
@@ -311,7 +311,7 @@ modules:
       - 複雜度適配
       - CI 閘門
     rationale: Pure resources — no logic, consumed by lib/template.ts
-    last_verified: 2026-11-02T05:02:57.210Z
+    last_verified: 2026-11-02T18:11:37.704Z
     source_digest: source-v1:5ec3482e8f3aee4f8db3edec19b88e83dbe96da944e47b197d6d3e3a1f44a07a
   - name: tests
     description: 4-layer test suite — 341 files, 9,177 tests (unit 6592 + contract
@@ -362,5 +362,5 @@ modules:
       - 驗證
       - vitest
     rationale: Quality gate — validates all layers with pyramid coverage
-    last_verified: 2026-11-02T09:28:20.698Z
+    last_verified: 2026-11-02T18:11:37.704Z
     source_digest: source-v1:d14a9ee6abf746d469e7f8f74de7702bca0c4f8b14d3312cbbe35c1d18305616
