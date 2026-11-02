@@ -1,6 +1,6 @@
 # Verification Suite
 
-> 4-layer Vitest suite (fast-glob/git bypass memfs — 341 test files, 9,148 tests (unit 6563, contract 2088, integration 252, e2e 245)).
+> 4-layer Vitest suite (fast-glob/git bypass memfs — 341 test files, 9,177 tests (unit 6592, contract 2088, integration 252, e2e 245)).
 <!-- prospec:module-readme-format 2026-09-01 -->
 
 <!-- prospec:auto-start -->
@@ -51,6 +51,7 @@ Lens changes require independent eight-lens expectations, alias/custom and thres
 ## Pitfalls
 
 - Index-evidence fixtures stage intended inputs and pair ordinary untracked additions with staged counterparts. Shared-reader policies, root/subdirectory migration, recursive submodules and preservation mutations have real-Git pins; four-stage guidance has section/order and delete/move mutation coverage.
+- Directory-replacement fixtures pair deletion with empty/untracked-child directories in root, nested-project and recursive submodule layouts; retain nested-checkout, FIFO and preservation refusals. Assume-unchanged file/symlink deletions in direct/nested submodules, symlink target ordering, full/opt-in integrity, repeat-deletion races, the unreported-directory reason and shared submodule observation counts have regression pins; compare previously recordable captures against the original implementation when identity must remain unchanged.
 
 - Scope regressions distinguish omitted, empty and non-empty declarations, legacy replacement/no-op, independent blockers and partial auto-draft failure. Workflow fixtures declare their actual module scope before recording evidence.
 

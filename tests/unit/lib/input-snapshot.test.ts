@@ -53,6 +53,46 @@ describe('effective repository inputs', () => {
     expect(deleted).toBeTruthy(); expect(deleted).not.toBe(before);
     git('add', '-u'); expect(digest()).toBe(deleted); git('commit', '-qm', 'delete'); expect(digest()).toBe(deleted);
   });
+  it.each(['', 'pkg'])('treats an indexed file replaced by an ordinary directory as deletion in %j', (prefix) => {
+    const project = path.join(root, prefix);
+    mkdirSync(path.join(project, 'src'), { recursive: true });
+    writeFileSync(path.join(project, 'src/a.ts'), 'export const a = 1;\n');
+    const member = path.join(project, 'src/member');
+    writeFileSync(member, 'before'); git('add', '.'); git('commit', '-qm', 'source');
+    const map = { modules: [{ name: 'fixture', paths: ['src'], keywords: ['fixture'] }] } as ModuleMap;
+    const source = () => collectModuleDigests(project, map, { knowledgePath: 'prospec/ai-knowledge', specsPath: 'prospec/specs', generatedArtifacts: [] }).get('fixture')!;
+    const clean = computeChangeState(project).digest;
+    unlinkSync(member);
+    const deleted = computeChangeState(project).digest;
+    const deletedSource = source().digest;
+    expect(deleted).toBeTruthy(); expect(deleted).not.toBe(clean); expect(deletedSource).toBeTruthy();
+    mkdirSync(member);
+    expect(computeChangeState(project).digest).toBe(deleted);
+    expect(source().digest).toBe(deletedSource);
+    writeFileSync(path.join(member, 'child'), 'untracked');
+    expect(computeChangeState(project).digest).toBe(deleted);
+    expect(source().digest).toBe(deletedSource);
+    expect(computeChangeState(project, 'preservation')).toMatchObject({ digest: null, reason: 'Unsupported input kind: src/member' });
+  });
+  it.each(['', 'pkg'])('refuses a replacement nested checkout in %j', (prefix) => {
+    const project = path.join(root, prefix);
+    mkdirSync(path.join(project, 'src'), { recursive: true });
+    const member = path.join(project, 'src/member');
+    writeFileSync(member, 'before'); git('add', '.'); git('commit', '-qm', 'member');
+    unlinkSync(member); mkdirSync(member);
+    git('init', '-q', member);
+    expect(computeChangeState(project)).toMatchObject({ digest: null, reason: expect.stringContaining('src/member') });
+    const source = collectModuleDigests(project, { modules: [{ name: 'fixture', paths: ['src'], keywords: ['fixture'] }] } as ModuleMap, { knowledgePath: 'prospec/ai-knowledge', specsPath: 'prospec/specs', generatedArtifacts: [] }).get('fixture');
+    expect(source).toMatchObject({ digest: null, reason: expect.stringContaining('nested repository') });
+  });
+  it('names a directory replacement Git does not report deleted', () => {
+    mkdirSync(path.join(root, 'src'), { recursive: true });
+    const member = path.join(root, 'src/member');
+    writeFileSync(member, 'before'); git('add', '.'); git('commit', '-qm', 'member');
+    git('update-index', '--assume-unchanged', 'src/member');
+    unlinkSync(member); mkdirSync(member);
+    expect(computeChangeState(root)).toMatchObject({ digest: null, reason: 'indexed path holds a directory Git does not report deleted: src/member' });
+  });
   it('excludes owned bookkeeping and ignored untracked outputs, includes tracked generated inputs', () => {
     put('.gitignore', 'out/\n'); git('add', '.'); git('commit', '-qm', 'ignore');
     const before = digest(); mkdirSync(path.join(root, '.prospec')); put('.prospec/report.json', 'a');
@@ -407,6 +447,78 @@ describe('gitlink (submodule) inputs', () => {
     execFileSync('git', [...GIT_ID, 'commit', '-qm', 'drop'], { cwd: path.join(root, 'module'), stdio: 'pipe' });
     expect(digest()).toBe(deleted);
     git('add', 'module'); commitRoot('pin drop'); expect(digest()).toBe(deleted);
+  });
+  it.each(['shared.md', '.prospec/member'])('treats a submodule directory replacement as deletion: %s', (file) => {
+    const member = path.join(root, 'module', file);
+    if (file.startsWith('.prospec/')) {
+      mkdirSync(path.dirname(member), { recursive: true });
+      commitIn(path.join(root, 'module'), file, 'bookkeeping');
+    }
+    unlinkSync(member); const deleted = digest(); expect(deleted).toBeTruthy();
+    mkdirSync(member); expect(digest()).toBe(deleted);
+    writeFileSync(path.join(member, 'child'), 'untracked'); expect(digest()).toBe(deleted);
+    expect(computeChangeState(root, 'preservation').digest).toBeNull();
+  });
+  it('treats a nested submodule directory replacement as deletion', () => {
+    nest();
+    const member = path.join(root, 'module/inner/deep.md');
+    unlinkSync(member); const deleted = digest(); expect(deleted).toBeTruthy();
+    mkdirSync(member); writeFileSync(path.join(member, 'child'), 'untracked');
+    expect(digest()).toBe(deleted);
+  });
+  it.each([false, true])('preserves assume-unchanged deletion of a regular file with nested=%s', (nested) => {
+    if (nested) nest();
+    const repository = path.join(root, nested ? 'module/inner' : 'module');
+    const file = nested ? 'deep.md' : 'shared.md';
+    const member = path.join(repository, file);
+    const bytes = readFileSync(member);
+    unlinkSync(member); const deleted = digest(); expect(deleted).toBeTruthy();
+    writeFileSync(member, bytes);
+    execFileSync('git', ['update-index', '--assume-unchanged', file], { cwd: repository, stdio: 'pipe' });
+    unlinkSync(member);
+    expect(digest()).toBe(deleted);
+    expect(computeChangeState(root, 'preservation').digest).toBe(deleted);
+    for (const name of ['a-directory', 'z-directory']) {
+      const directory = path.join(repository, name);
+      writeFileSync(directory, 'before');
+      execFileSync('git', ['add', name], { cwd: repository, stdio: 'pipe' });
+      unlinkSync(directory); const mixedDeletion = digest(); expect(mixedDeletion).toBeTruthy();
+      mkdirSync(directory);
+      expect(digest()).toBe(mixedDeletion);
+    }
+  });
+  it('names a submodule directory replacement Git does not report deleted', () => {
+    sub('update-index', '--assume-unchanged', 'shared.md');
+    const member = path.join(root, 'module/shared.md');
+    unlinkSync(member); mkdirSync(member);
+    expect(computeChangeState(root)).toMatchObject({ digest: null, reason: 'indexed path holds a directory Git does not report deleted: module/shared.md' });
+  });
+  it.skipIf(process.platform === 'win32').each([false, true])('preserves assume-unchanged deletion of a symlink with nested=%s', (nested) => {
+    if (nested) nest();
+    const repository = path.join(root, nested ? 'module/inner' : 'module');
+    const member = path.join(repository, 'link');
+    symlinkSync(nested ? 'deep.md' : 'shared.md', member);
+    execFileSync('git', ['add', 'link'], { cwd: repository, stdio: 'pipe' });
+    execFileSync('git', [...GIT_ID, 'commit', '-qm', 'link'], { cwd: repository, stdio: 'pipe' });
+    unlinkSync(member); const deleted = digest(); expect(deleted).toBeTruthy();
+    symlinkSync(nested ? 'deep.md' : 'shared.md', member);
+    execFileSync('git', ['update-index', '--assume-unchanged', 'link'], { cwd: repository, stdio: 'pipe' });
+    unlinkSync(member);
+    expect(digest()).toBe(deleted);
+    expect(computeChangeState(root, 'preservation').digest).toBe(deleted);
+  });
+  it.each(['unborn', 'committed', 'git-file'])('refuses a submodule member replaced by a %s checkout', (kind) => {
+    const member = path.join(root, 'module/shared.md');
+    unlinkSync(member); mkdirSync(member);
+    const args = kind === 'git-file' ? ['--separate-git-dir', path.join(root, '.git/replacement-store')] : [];
+    git('init', '-q', ...args, member);
+    if (kind === 'committed') commitIn(member, 'child', 'nested');
+    expect(computeChangeState(root)).toMatchObject({ digest: null, reason: expect.stringContaining('module/shared.md') });
+  });
+  it.skipIf(process.platform === 'win32')('still refuses an indexed member replaced by a FIFO', () => {
+    const member = path.join(root, 'module/shared.md');
+    unlinkSync(member); execFileSync('mkfifo', [member]);
+    expect(computeChangeState(root)).toMatchObject({ digest: null, reason: 'Unsupported input kind: module/shared.md' });
   });
   it('counts the submodule own .prospec files, which are not this project bookkeeping', () => {
     const clean = digest();

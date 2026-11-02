@@ -1805,8 +1805,8 @@ function inEvidenceScope(file: string): boolean {
     !DIGEST_EXCLUDED_REPORTS.some((report) => report === file);
 }
 
-function gitPaths(cwd: string, args: string[], env?: NodeJS.ProcessEnv): string[] {
-  const bytes = execFileSync('git', args, { cwd, stdio: 'pipe', maxBuffer: GIT_CAPTURE_MAX_BUFFER, ...(env === undefined ? {} : { env }) });
+function gitPaths(cwd: string, args: string[], env?: NodeJS.ProcessEnv, timeout?: number): string[] {
+  const bytes = execFileSync('git', args, { cwd, stdio: 'pipe', maxBuffer: GIT_CAPTURE_MAX_BUFFER, ...(env === undefined ? {} : { env }), ...(timeout === undefined ? {} : { timeout }) });
   const decoded = bytes.toString('utf8');
   if (!Buffer.from(decoded).equals(bytes)) throw new Error('Git path cannot be decoded losslessly');
   if (decoded !== '' && !decoded.endsWith('\0')) throw new Error('Incomplete NUL Git capture');
@@ -1937,9 +1937,14 @@ function sameDirectory(a: string, b: string): boolean {
   return left.dev === right.dev && left.ino === right.ino;
 }
 
+type DeletedInputKind = 'missing' | 'directory';
+
 /** Tracked files a repository's work tree no longer holds, from its own index. */
-function deletedInRepository(repository: string): Set<string> {
-  return new Set(gitReadRecords(repository, 'ls-files', ['-z', '--deleted']).map((file) => path.join(repository, file)));
+function deletedInRepository(repository: string, kind: DeletedInputKind): Set<string> {
+  const files = kind === 'missing'
+    ? gitReadRecords(repository, 'ls-files', ['-z', '--deleted'])
+    : gitPaths(repository, ['--no-optional-locks', 'diff', '--name-only', '--diff-filter=D', '--no-renames', '--no-ext-diff', '--no-textconv', '--ignore-submodules=none', '-z', '--relative', '--'], fixedGitEnv(), GIT_READ_TIMEOUT_MS);
+  return new Set(files.map((file) => path.join(repository, file)));
 }
 
 export { nonDirectoryAncestor, type AncestorKind } from './fs-utils.js';
@@ -2315,12 +2320,6 @@ export function computeEvidenceStates(cwd: string, context?: TestInputContext, m
     }
     entries.sort((a, b) => Buffer.compare(Buffer.from(a.key), Buffer.from(b.key)));
     const represented = new Set(entries.filter((entry) => entry.gitlink === undefined).map((entry) => entry.absolute));
-    const submoduleDeleted = new Map<string, Set<string>>();
-    const deletedIn = (repository: string): Set<string> => {
-      let deleted = submoduleDeleted.get(repository);
-      if (!deleted) submoduleDeleted.set(repository, deleted = deletedInRepository(repository));
-      return deleted;
-    };
     const hash = createHash('sha256');
     let retain = false;
     const update = (target: ReturnType<typeof createHash>, data: string | Buffer) => {
@@ -2339,15 +2338,32 @@ export function computeEvidenceStates(cwd: string, context?: TestInputContext, m
       update(testHash, JSON.stringify(context.command));
     }
     // Confirm deletion against a second observation, not an index-dependent tombstone.
-    // One observation per capture, taken at the first deletion, serves every later one: a path
-    // it reports deleted and lstat still finds absent was absent at both reads.
+    // One pair of observations per repository (and, in a submodule, per omission kind), taken
+    // by its first omission, serves every later one: a path both report deleted and lstat
+    // still finds absent or a directory was so at both reads.
     const ancestors = new Map<string, AncestorKind>();
     let confirmed: ReturnType<typeof workTreePaths> | undefined;
     const confirmDeleted = (file: string): void => {
       if (confirmed === undefined) { confirmed = workTreePaths(cwd, membership); validateMembership(confirmed); }
       if (!confirmed.deleted.has(file)) throw new Error(`Input disappeared during capture: ${file}`);
     };
+    const submoduleObservations = { missing: new Map<string, [Set<string>, Set<string>]>(), directory: new Map<string, [Set<string>, Set<string>]>() };
+    const observedIn = (repository: string, kind: DeletedInputKind): [Set<string>, Set<string>] => {
+      const cache = submoduleObservations[kind];
+      let observed = cache.get(repository);
+      if (!observed) cache.set(repository, observed = [deletedInRepository(repository, kind), deletedInRepository(repository, kind)]);
+      return observed;
+    };
     const relative = (absolute: string): string => path.relative(cwd, absolute).split(path.sep).join('/');
+    const confirmOmitted = (file: string, absolute: string, kind: DeletedInputKind, repository?: string): void => {
+      const reported = repository === undefined ? state.deleted.has(file) : observedIn(repository, kind)[0].has(absolute);
+      // An assume-unchanged entry hides a stable directory replacement from Git; that is no race.
+      if (!reported) {
+        throw new Error(kind === 'directory' ? `indexed path holds a directory Git does not report deleted: ${file}` : `Input disappeared during capture: ${file}`);
+      }
+      if (repository === undefined) confirmDeleted(file);
+      else if (!observedIn(repository, kind)[1].has(absolute)) throw new Error(`Input disappeared during capture: ${file}`);
+    };
     for (const { key: file, absolute, gitlink, deletedIn: repository } of entries) {
       retain = enabled && !excluded(file);
       if (gitlink !== undefined) { frame(file); frame('gitlink'); frame(gitlink); continue; }
@@ -2363,15 +2379,16 @@ export function computeEvidenceStates(cwd: string, context?: TestInputContext, m
       try { stat = lstatSync(absolute); }
       catch (error) {
         if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error;
-        if (repository !== undefined) {
-          // Confirm against a second read of the submodule's own index.
-          if (!deletedIn(repository).has(absolute) || !deletedInRepository(repository).has(absolute)) {
-            throw new Error(`Input disappeared during capture: ${file}`);
-          }
-          continue;
+        if (repository === undefined && !state.deleted.has(file)) throw error;
+        confirmOmitted(file, absolute, 'missing', repository);
+        continue;
+      }
+      if (membership === 'index' && stat.isDirectory()) {
+        const owner = repository ?? cwd;
+        if (gitlinkCheckoutState(owner, path.relative(owner, absolute).split(path.sep).join('/')) === 'checkout') {
+          throw new Error(`indexed path holds a nested repository: ${file}`);
         }
-        if (!state.deleted.has(file)) throw error;
-        confirmDeleted(file);
+        confirmOmitted(file, absolute, 'directory', repository);
         continue;
       }
       if (!stat.isFile() && !stat.isSymbolicLink()) throw new Error(`Unsupported input kind: ${file}`);
@@ -2388,7 +2405,7 @@ export function computeEvidenceStates(cwd: string, context?: TestInputContext, m
         if (unhashed !== undefined) {
           throw new Error(`Symlink resolves through ${relative(unhashed)}, which is not a represented input: ${file}`);
         }
-        const directory = !represented.has(target) && lstatSync(target).isDirectory();
+        const directory = lstatSync(target).isDirectory();
         if (!represented.has(target) && !(directory && isContainedPath(target, cwd))) {
           throw new Error(`Symlink target is outside represented inputs: ${file}`);
         }
