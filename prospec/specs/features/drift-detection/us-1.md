@@ -266,6 +266,7 @@ Within one drift run, git facts are gathered once and reused. The git work-tree 
 - WHEN a superproject or temporary index is read, THEN preserve the caller-selected repository/index environment; a submodule read retains the fixed repository environment and disabled optional locks of its existing owner
 - WHEN an indexed ordinary path has become a replacement nested checkout, THEN REQ-LIB-015's existing checkout-state owner may add its topology-dependent probe outside the ordinary six-plus-five bound; fixtures cover this exception independently from this repository's ordinary full-check bound
 - WHEN preservation requests cached plus non-ignored untracked membership, THEN the same reader supports that explicit mode; it does not change the cached-only membership of the five primary consumers above
+- WHEN evidence capture classifies an indexed non-gitlink member replaced by a directory, THEN reuse gitlinkCheckoutState, adding its checkout probe only when that directory has its own .git to classify; ordinary file hashing adds no per-file Git subprocess
 
 ---
 
