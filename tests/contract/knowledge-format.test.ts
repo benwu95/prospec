@@ -6,7 +6,7 @@
  * - Module README contains required sections (Modification Guide, Ripple Effects, Pitfalls)
  * - index.md contains Rationale column and Loading Rules section
  */
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { renderTemplate } from '../../src/lib/template.js';
@@ -20,6 +20,8 @@ import {
   INDEX_TABLE_HEADER,
   INDEX_TABLE_COLUMNS,
 } from '../../src/types/knowledge.js';
+
+vi.mock('../../src/lib/bundled-templates.js', () => ({ BUNDLED_TEMPLATES: {} }));
 
 describe('Knowledge Format Contract', () => {
   describe('Module README (Recipe-First format)', () => {
@@ -36,12 +38,12 @@ describe('Knowledge Format Contract', () => {
         { path: 'src/services/auth.service.ts', description: 'Authentication service' },
         { path: 'src/services/user.service.ts', description: 'User management service' },
         { path: 'src/services/knowledge-update.service.ts', description: 'Incremental knowledge update service' },
-      ],
+      ].map((file) => ({ ...file, path_display: toInlineCodeSpan(file.path) })),
       key_exports: [
         { name: 'auth.execute()', description: 'Authentication service' },
         { name: 'user.execute()', description: 'User management service' },
         { name: 'knowledgeUpdate.execute()', description: 'Incremental knowledge update service' },
-      ],
+      ].map((entry) => ({ ...entry, name_display: toInlineCodeSpan(entry.name) })),
     };
 
     it('should render without errors', () => {
@@ -66,10 +68,12 @@ describe('Knowledge Format Contract', () => {
         },
         key_files: Array.from({ length: N }, (_, i) => ({
           path: `src/services/file${i}.service.ts`,
+          path_display: toInlineCodeSpan(`src/services/file${i}.service.ts`),
           description: `Service ${i}`,
         })),
         key_exports: Array.from({ length: N }, (_, i) => ({
           name: `service${i}.execute()`,
+          name_display: toInlineCodeSpan(`service${i}.execute()`),
           description: `Service ${i}`,
         })),
       };

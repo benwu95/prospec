@@ -44,20 +44,22 @@ vi.mock('../../../src/lib/config.js', () => ({
   resolveKnowledgeTokenBudget: vi.fn().mockReturnValue(DEFAULT_KNOWLEDGE_TOKEN_BUDGET),
 }));
 
-// Partial mock: keep the REAL moduleScanPatterns/classifyModulePath (so the
-// path→scan-pattern wiring is exercised for real against memfs) and stub only
-// the fast-glob-backed scanDir + filterConventions.
-vi.mock('../../../src/lib/scanner.js', async () => {
-  const actual = await vi.importActual<typeof import('../../../src/lib/scanner.js')>(
-    '../../../src/lib/scanner.js',
-  );
+vi.mock('../../../src/lib/scanner.js', async () => ({
+  ...(await vi.importActual<typeof import('../../../src/lib/scanner.js')>('../../../src/lib/scanner.js')),
+  scanDir: vi.fn().mockResolvedValue({ files: [], count: 0 }),
+  filterConventions: vi.fn().mockReturnValue({ core: [], demand: [] }),
+}));
+vi.mock('../../../src/lib/project-files-adapters.js', () => {
+  const listProjectFiles = vi.fn().mockReturnValue({
+    available: true,
+    files: ['src/services/foo.service.ts', 'src/services/bar.ts'],
+    coverage: 'members',
+  });
   return {
-    ...actual,
-    scanDir: vi.fn().mockResolvedValue({
-      files: ['src/services/foo.service.ts', 'src/services/bar.ts'],
-      count: 2,
-    }),
-    filterConventions: vi.fn().mockReturnValue({ core: [], demand: [] }),
+    listProjectFiles,
+    projectFileSelector: vi.fn((cwd: string, exclude?: readonly string[]) => ({
+      select: (options = {}) => listProjectFiles(cwd, { ...options, exclude }),
+    })),
   };
 });
 
@@ -198,14 +200,14 @@ describe('updateModuleReadme', () => {
 
   it('should filter test files from key_exports', async () => {
     const { renderTemplate: mockRender } = await import('../../../src/lib/template.js');
-    const { scanDir } = await import('../../../src/lib/scanner.js');
-    vi.mocked(scanDir).mockResolvedValueOnce({
+    const { listProjectFiles } = await import('../../../src/lib/project-files-adapters.js');
+    vi.mocked(listProjectFiles).mockReturnValueOnce({
       files: [
         'src/services/auth.service.ts',
         'src/services/auth.service.test.ts',
         'src/services/user.ts',
       ],
-      count: 3,
+      available: true, coverage: 'members',
     });
 
     vol.fromJSON({});
@@ -227,8 +229,8 @@ describe('updateModuleReadme', () => {
 
   it('falls back to a glob from moduleName and a path of moduleName when modulePaths is empty (L136/L151)', async () => {
     const { renderTemplate: mockRender } = await import('../../../src/lib/template.js');
-    const { scanDir } = await import('../../../src/lib/scanner.js');
-    vi.mocked(scanDir).mockResolvedValueOnce({ files: [], count: 0 });
+    const { listProjectFiles } = await import('../../../src/lib/project-files-adapters.js');
+    vi.mocked(listProjectFiles).mockReturnValueOnce({ files: [], available: true, coverage: 'no-members' });
 
     vol.fromJSON({});
     vol.mkdirSync('/project/prospec/ai-knowledge/modules', { recursive: true });
@@ -238,9 +240,9 @@ describe('updateModuleReadme', () => {
       knowledgeBasePath: 'prospec/ai-knowledge',
     });
 
-    // empty modulePaths -> scanDir is driven by the `${moduleName}/**` glob
-    const scanArgs = vi.mocked(scanDir).mock.calls.at(-1)!;
-    expect(scanArgs[0]).toEqual(['auth/**']);
+    // Empty paths retain the module-name glob fallback.
+    const scanArgs = vi.mocked(listProjectFiles).mock.calls.at(-1)!;
+    expect(scanArgs[1]?.modulePaths).toEqual(['auth/**']);
 
     // empty modulePaths -> templateContext.path falls back to moduleName
     const renderCall = vi
@@ -251,8 +253,8 @@ describe('updateModuleReadme', () => {
     expect(context.path).toBe('auth');
   });
 
-  it('routes a directory module path through moduleScanPatterns (scans dir/** not the bare dir)', async () => {
-    const { scanDir } = await import('../../../src/lib/scanner.js');
+  it('passes a directory module path unchanged to the index selector', async () => {
+    const { listProjectFiles } = await import('../../../src/lib/project-files-adapters.js');
     vol.fromJSON({ '/project/src/realmod/index.ts': 'export const x = 1;\n' });
     vol.mkdirSync('/project/prospec/ai-knowledge/modules', { recursive: true });
 
@@ -261,11 +263,8 @@ describe('updateModuleReadme', () => {
       knowledgeBasePath: 'prospec/ai-knowledge',
     });
 
-    // A bare 'src/realmod' entry scans 0 files under fast-glob onlyFiles; the fix
-    // must expand it to 'src/realmod/**' before scanDir. Reverting the service to
-    // raw modulePaths makes scanDir receive ['src/realmod'] → this goes red.
-    const scanArgs = vi.mocked(scanDir).mock.calls.at(-1)!;
-    expect(scanArgs[0]).toEqual(['src/realmod/**']);
+    const scanArgs = vi.mocked(listProjectFiles).mock.calls.at(-1)!;
+    expect(scanArgs[1]?.modulePaths).toEqual(['src/realmod']);
   });
 
   it('infers per-extension and per-suffix file descriptions into key_files (L548/L551-554/L565)', async () => {
@@ -273,7 +272,7 @@ describe('updateModuleReadme', () => {
     // matrix across two render calls and assert the distinguishing description
     // string each branch returns (executing the branch is not enough).
     const { renderTemplate: mockRender } = await import('../../../src/lib/template.js');
-    const { scanDir } = await import('../../../src/lib/scanner.js');
+    const { listProjectFiles } = await import('../../../src/lib/project-files-adapters.js');
 
     vol.fromJSON({});
     vol.mkdirSync('/project/prospec/ai-knowledge/modules', { recursive: true });
@@ -289,7 +288,7 @@ describe('updateModuleReadme', () => {
     };
 
     // Batch 1: basename-keyed branches (checked before the extension table)
-    vi.mocked(scanDir).mockResolvedValueOnce({
+    vi.mocked(listProjectFiles).mockReturnValueOnce({
       files: [
         'src/mod/index.ts',
         'src/mod/index.js',
@@ -302,7 +301,7 @@ describe('updateModuleReadme', () => {
         'src/mod/tpl.hbs',
         'src/mod/weird.xyz',
       ],
-      count: 10,
+      available: true, coverage: 'members',
     });
     await updateModuleReadme('mod', ['src/mod/**'], {
       cwd: '/project',
@@ -323,7 +322,7 @@ describe('updateModuleReadme', () => {
 
     // Batch 2: extension-table branches — a fresh module name, because the
     // create-only guard makes a second call on 'mod' a no-op (README exists).
-    vi.mocked(scanDir).mockResolvedValueOnce({
+    vi.mocked(listProjectFiles).mockReturnValueOnce({
       files: [
         'src/mod/plain.js',
         'src/mod/notes.md',
@@ -331,7 +330,7 @@ describe('updateModuleReadme', () => {
         'src/mod/conf.yml',
         'src/mod/data.json',
       ],
-      count: 5,
+      available: true, coverage: 'members',
     });
     await updateModuleReadme('mod2', ['src/mod/**'], {
       cwd: '/project',
@@ -922,7 +921,7 @@ describe('execute', () => {
   });
 
   it('keeps an ADDED module that is also REMOVED README-pending, and reports an existing README as readme-pending (never rewritten)', async () => {
-    const { scanDir } = await import('../../../src/lib/scanner.js');
+    const { listProjectFiles } = await import('../../../src/lib/project-files-adapters.js');
     const deltaContent = `## ADDED
 
 ### REQ-AUTH-001: re-add auth
@@ -967,8 +966,8 @@ describe('execute', () => {
     expect(result.readmePending).toContain('billing');
     expect(result.created).not.toContain('billing');
     const billingScan = vi
-      .mocked(scanDir)
-      .mock.calls.find((c) => Array.isArray(c[0]) && (c[0] as string[]).includes('pkg/billing/**'));
+      .mocked(listProjectFiles)
+      .mock.calls.find((c) => c[1]?.modulePaths?.includes('pkg/billing/**'));
     expect(billingScan).toBeUndefined();
     expect(
       vol.readFileSync('/test/prospec/ai-knowledge/modules/billing/README.md', 'utf-8'),
@@ -983,7 +982,7 @@ describe('execute', () => {
   });
 
   it('acknowledges a MODIFIED module as readme-pending without touching any README (issue #107)', async () => {
-    const { scanDir } = await import('../../../src/lib/scanner.js');
+    const { listProjectFiles } = await import('../../../src/lib/project-files-adapters.js');
     const deltaContent = `## MODIFIED
 
 ### REQ-PAYMENTS-001: tweak payments
@@ -1004,9 +1003,9 @@ describe('execute', () => {
     // nothing generated for the module.
     expect(result.readmePending).toEqual(['payments']);
     const scanCall = vi
-      .mocked(scanDir)
+      .mocked(listProjectFiles)
       .mock.calls.find(
-        (c) => Array.isArray(c[0]) && (c[0] as string[]).includes('src/payments/**'),
+        (c) => c[1]?.modulePaths?.includes('src/payments/**'),
       );
     expect(scanCall).toBeUndefined();
     expect(vol.existsSync('/project/prospec/ai-knowledge/modules/payments/README.md')).toBe(false);
@@ -1110,14 +1109,14 @@ describe('execute', () => {
   });
 
   it('scans the module-map paths of a module in manual mode', async () => {
-    const { scanDir } = await import('../../../src/lib/scanner.js');
+    const { listProjectFiles } = await import('../../../src/lib/project-files-adapters.js');
     vol.fromJSON({
       '/test/prospec/ai-knowledge/module-map.yaml':
         'modules:\n  - name: billing\n    paths: ["pkg/billing/**"]\n    keywords: ["billing"]\n',
       '/project/prospec/index.md': '# AI Knowledge Index\n\n<!-- prospec:auto-start -->\n## Modules\n<!-- prospec:auto-end -->\n',
     });
     await execute({ manualModules: ['billing'], cwd: '/project' });
-    const scanned = vi.mocked(scanDir).mock.calls.some((c) => Array.isArray(c[0]) && (c[0] as string[]).some((p) => p.startsWith('pkg/billing')));
+    const scanned = vi.mocked(listProjectFiles).mock.calls.some((c) => c[1]?.modulePaths?.some((p) => p.startsWith('pkg/billing')));
     expect(scanned).toBe(true);
   });
 
@@ -1133,24 +1132,33 @@ describe('execute', () => {
     expect(result.created).not.toContain('services');
   });
 
-  it('passes config.exclude through to the scanner, and defaults to [] when absent (L380)', async () => {
+  it('passes config.exclude through to the index selector, and defaults to [] when absent', async () => {
     const { readConfig } = await import('../../../src/lib/config.js');
-    const { scanDir } = await import('../../../src/lib/scanner.js');
+    const { listProjectFiles } = await import('../../../src/lib/project-files-adapters.js');
 
     // config WITHOUT an exclude key -> excludePatterns falls back to [] (L380 right)
     vi.mocked(readConfig).mockResolvedValueOnce({
       project: { name: 'test-project' },
     } as unknown as Awaited<ReturnType<typeof readConfig>>);
 
-    vol.fromJSON({
-      '/test/prospec/ai-knowledge/modules/services/README.md':
-        '# services\n\n<!-- prospec:auto-start -->\nold\n<!-- prospec:auto-end -->\n\n<!-- prospec:user-start -->\nkeep\n<!-- prospec:user-end -->\n',
-    });
+    vol.fromJSON({});
 
     await execute({ manualModules: ['services'], cwd: '/project' });
 
-    const scanCall = vi.mocked(scanDir).mock.calls.find((call) => call[0] !== '_*.md')!;
+    const scanCall = vi.mocked(listProjectFiles).mock.calls.at(-1)!;
     expect((scanCall[1] as { exclude: string[] }).exclude).toEqual([]);
+  });
+
+  it('builds one index selector per run and shares it across new modules', async () => {
+    const { listProjectFiles, projectFileSelector } = await import('../../../src/lib/project-files-adapters.js');
+    vi.mocked(projectFileSelector).mockClear();
+    vi.mocked(listProjectFiles).mockClear();
+    vol.fromJSON({});
+
+    await execute({ manualModules: ['services', 'cli'], cwd: '/project' });
+
+    expect(projectFileSelector).toHaveBeenCalledTimes(1);
+    expect(listProjectFiles).toHaveBeenCalledTimes(2);
   });
 
   it('defaults cwd to process.cwd() when no cwd option is given (L374 right side)', async () => {

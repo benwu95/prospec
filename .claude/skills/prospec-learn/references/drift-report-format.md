@@ -68,7 +68,7 @@ subject_skips? }`, adopted **verbatim**.
 | `constitution-severity` | `warn` | Checks Constitution principles for RFC-2119 severity tags (`MUST`/`SHOULD`/`MAY`). | Constitution missing or empty. |
 | `knowledge-health` | `warn`/`fail` | Reports freshness and coverage; see `structural.knowledge_health` below. | Module map unavailable. |
 | `test-provenance` | `fail` | Validates test execution record, freshness, and exit code. | No test command configured (skips honestly). |
-| `unsupported-module-path` | `warn` | Names each module path or `generated_artifacts` pattern the source digest refuses, with a rewrite. | Module map absent or unparseable; `.prospec.yaml` outside the project or unreadable. |
+| `unsupported-module-path` | `warn` | Names refused module paths, `generated_artifacts` patterns and top-level `exclude` entries with rewrites; config entries are checked without a module map. | `.prospec.yaml` outside the project or unreadable. |
 
 **Verdicts are definitive**: `prospec-verify` machine dimensions adopt check results verbatim; `skipped` maps to `not-adjudicated`, never `pass`.
 

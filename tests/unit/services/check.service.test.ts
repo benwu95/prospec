@@ -248,12 +248,16 @@ describe('check.service execute', () => {
     expect(DriftReportSchema.safeParse(onDisk).success).toBe(true);
   });
 
-  it('marks unavailable sources as skipped — never PASS (every registered check, FR-007)', async () => {
+  it('skips unavailable sources and checks config paths without a module map (FR-007)', async () => {
     // no specs, no knowledge, no module paths, no .prospec/changes, no git repo,
     // no feature-map.yaml, no CONSTITUTION.md
     const result = await execute({ cwd: tmpDir });
     if (result.kind !== 'report') throw new Error('expected report');
     for (const check of result.report.structural.checks) {
+      if (check.id === 'unsupported-module-path') {
+        expect(check.status).toBe('pass');
+        continue;
+      }
       expect(check.status, `check ${check.id} must skip in an empty project`).toBe('skipped');
       // Every skip explains itself; most say the source is unavailable, but
       // artifact-language skips for a different reason (its language name is
@@ -265,7 +269,7 @@ describe('check.service execute', () => {
       (c) => c.id === 'artifact-language',
     );
     expect(artifactLanguage?.reason).toContain('not in the script table');
-    expect(result.report.summary.skipped_count).toBe(DRIFT_CHECK_IDS.length);
+    expect(result.report.summary.skipped_count).toBe(DRIFT_CHECK_IDS.length - 1);
     expect(result.report.structural.checks).toHaveLength(DRIFT_CHECK_IDS.length);
     expect(result.hasFail).toBe(false);
     // no facts → no inventory section at all (absent, not empty-and-passing)
@@ -386,6 +390,8 @@ describe('check.service execute', () => {
   it('skips knowledge-health when module-map.yaml is missing — no phantom modules', async () => {
     write('prospec/specs/features/a.md', '#### REQ-A-001: Thing\n');
     write('src/cli/x.ts', '');
+    execFileSync('git', ['init', '-q'], { cwd: tmpDir, stdio: 'pipe' });
+    execFileSync('git', ['add', '.'], { cwd: tmpDir, stdio: 'pipe' });
     const result = await execute({ cwd: tmpDir });
     if (result.kind !== 'report') throw new Error('expected report');
     const health = result.report.structural.checks.find((c) => c.id === 'knowledge-health');
@@ -407,15 +413,19 @@ describe('check.service execute', () => {
 
   it('clamps module-map paths that escape the repo (never scanned or read)', async () => {
     write('prospec/specs/features/a.md', '#### REQ-A-001: Thing\n');
+    write('src/cli/x.ts', '');
     write(
       'prospec/ai-knowledge/module-map.yaml',
       ['modules:', '  - name: evil', '    paths:', '      - ../../', '    keywords: []'].join('\n'),
     );
+    execFileSync('git', ['init', '-q'], { cwd: tmpDir, stdio: 'pipe' });
+    execFileSync('git', ['add', '.'], { cwd: tmpDir, stdio: 'pipe' });
     const result = await execute({ cwd: tmpDir });
     if (result.kind !== 'report') throw new Error('expected report');
     // all of the module's paths were clamped away → no module path exists → honest skip
     const direction = result.report.structural.checks.find((c) => c.id === 'import-direction');
     expect(direction?.status).toBe('skipped');
+    expect(direction?.reason).toContain('no JavaScript/TypeScript source');
     expect(result.hasFail).toBe(false);
   });
 

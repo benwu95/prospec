@@ -6,7 +6,10 @@ import { readConfig, resolveBasePaths, resolveKnowledgeTokenBudget } from '../li
 import type { KnowledgeSizeBudget } from '../types/config.js';
 import { isProvenBackfill, readChangeMetadata, readScaleQuietly } from '../lib/change-metadata.js';
 import { resolveChange } from './change-resolver.js';
-import { scanDir, filterConventions, moduleScanPatterns } from '../lib/scanner.js';
+import { scanDir, filterConventions } from '../lib/scanner.js';
+import { projectFileSelector } from '../lib/project-files-adapters.js';
+import type { ProjectFileSelector } from '../lib/project-files.js';
+import { toInlineCodeSpan } from '../lib/markdown-fences.js';
 import { renderTemplate } from '../lib/template.js';
 import { hasAutoBlock, replaceAutoBlock } from '../lib/content-merger.js';
 import { deriveKeyExports } from '../lib/key-exports.js';
@@ -164,7 +167,7 @@ function indexTarget(cwd: string, baseDir: string): string {
 export async function updateModuleReadme(
   moduleName: string,
   modulePaths: string[],
-  options: { cwd: string; knowledgeBasePath: string; excludePatterns?: string[]; warnings?: string[] },
+  options: { cwd: string; knowledgeBasePath: string; excludePatterns?: string[]; warnings?: string[]; selector?: ProjectFileSelector },
 ): Promise<GeneratedFile | null> {
   const readmePath = readmeTarget(moduleName, options, false);
 
@@ -195,18 +198,31 @@ export async function updateModuleReadme(
 
   await ensureDir(path.dirname(readmePath));
 
-  // Scan module files
-  const patterns =
-    modulePaths.length > 0
-      ? moduleScanPatterns(modulePaths, options.cwd)
-      : [`${moduleName}/**`];
-  const scanResult = await scanDir(patterns, {
-    cwd: options.cwd,
-    exclude: options.excludePatterns ?? [],
+  const selector = options.selector ?? projectFileSelector(options.cwd, options.excludePatterns ?? []);
+  const scanResult = selector.select({
+    modulePaths: modulePaths.length > 0 ? modulePaths : [`${moduleName}/**`],
   });
+  if (!scanResult.available) {
+    options.warnings?.push(
+      `module '${moduleName}': Key Files left empty (delete the skeleton and re-run to fill them): ${scanResult.reason}`,
+    );
+  } else if (scanResult.coverage === 'refused') {
+    options.warnings?.push(
+      `module '${moduleName}': every module path is unsupported — see the unsupported-module-path check`,
+    );
+  } else if (scanResult.coverage === 'no-members') {
+    options.warnings?.push(
+      `module '${moduleName}': no git index member under the module paths — git add new files, delete the skeleton and re-run`,
+    );
+  } else if (scanResult.coverage === 'no-regular-files') {
+    options.warnings?.push(
+      `module '${moduleName}': no index member under the module paths is a regular file in the work tree (deleted, a symlink, or beneath a symlinked directory) — restore the files, delete the skeleton and re-run`,
+    );
+  }
 
-  const keyFiles = scanResult.files.slice(0, 20).map((filePath) => ({
+  const keyFiles = (scanResult.available ? scanResult.files : []).slice(0, 20).map((filePath) => ({
     path: filePath,
+    path_display: toInlineCodeSpan(filePath),
     description: inferFileDescription(filePath),
   }));
 
@@ -218,7 +234,10 @@ export async function updateModuleReadme(
     keywords: [],
     relationships: { depends_on: [], used_by: [] },
     key_files: keyFiles.slice(0, 10),
-    key_exports: deriveKeyExports(keyFiles),
+    key_exports: deriveKeyExports(keyFiles).map((entry) => ({
+      ...entry,
+      name_display: toInlineCodeSpan(entry.name),
+    })),
     section_extensions: sectionExtensions,
   };
 
@@ -449,7 +468,7 @@ export async function execute(
     sweptFiles: [],
   };
 
-  const baseOpts = { cwd, knowledgeBasePath, excludePatterns, warnings: result.warnings };
+  const baseOpts = { cwd, knowledgeBasePath, excludePatterns, warnings: result.warnings, selector: projectFileSelector(cwd, excludePatterns) };
 
   // Every mode reads or rewrites the map below, and without a trustworthy one every
   // delta-spec REQ would classify as "not a module"; refuse before anything is written.

@@ -119,7 +119,7 @@ prospec agent sync               # → 各 agent config + Skills（Claude Code �
 空專案上，`prospec-knowledge-generate` 會產出一份最小的 Knowledge base，隨著你持續出貨變更逐步補完。接著就照上面步驟 3 跑你的第一個變更。
 
 ### Brownfield（既有專案）
-同樣兩個指令；`prospec-quickstart` 會把你既有的程式碼讀進 AI Knowledge。raw scan 只列出 git 追蹤的檔案，所以還沒進 git 的專案要先 `git init`，並 commit 既有的檔案：
+同樣兩個指令；`prospec-quickstart` 會把你既有的程式碼讀進 AI Knowledge。raw scan 列出 git index 成員，包含 staged 檔案，並套用敏感檔與設定的排除規則。尚未使用 git 的專案先執行 `git init`，再用 `git add` 將要掃描的原始碼檔案 stage，之後執行 AI 收尾步驟：
 
 ```bash
 cd existing-project

@@ -1,7 +1,8 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { readConfig, resolveBasePaths } from '../lib/config.js';
-import { scanDir } from '../lib/scanner.js';
+import { listProjectFiles } from '../lib/project-files-adapters.js';
+import { ScanError } from '../types/errors.js';
 import {
   detectTechStack,
   hasCFamilySource,
@@ -60,8 +61,7 @@ export interface RawScanResult {
  * Deterministic, LLM-free production of `raw-scan.md` — the single shared scan
  * core used by `knowledge init` (incl. `--raw-scan-only`) and the archive safety net.
  *
- * Scans the project (git-tracked files only when the project is a git work tree,
- * else the full glob), derives tech stack / entry points / dependencies / config
+ * Lists the project's git index members and derives tech stack / entry points / dependencies / config
  * files / directory tree, and (unless `dryRun`) renders + writes ONLY
  * `raw-scan.md`. It never touches curated files (module-map.yaml, index.md,
  * _conventions.md) — that boundary is what makes a refresh safe to re-run.
@@ -81,15 +81,8 @@ export async function generateRawScan(
   const { knowledgePath } = resolveBasePaths(config, cwd);
   const knowledgeBasePath = path.relative(cwd, knowledgePath);
 
-  // Prefer git-tracked files so gitignored dirs (build output, local scratch,
-  // .prospec, …) never leak into the snapshot; falls back to full globbing when
-  // the project is not a git work tree.
-  const scanResult = await scanDir('**', {
-    cwd,
-    depth,
-    exclude: excludePatterns,
-    gitTrackedOnly: true,
-  });
+  const scanResult = listProjectFiles(cwd, { exclude: excludePatterns });
+  if (!scanResult.available) throw new ScanError(cwd, scanResult.reason);
 
   const techStack = detectTechStack(cwd, config.tech_stack, scanResult.files);
   const entryPoints = detectEntryPoints(scanResult.files, cwd);
@@ -109,12 +102,9 @@ export async function generateRawScan(
     // Every scanned or manifest-derived value the template renders goes through
     // the same guard — `package.json` `main`, a dependency name, a version
     // specifier and a config-file path are all as attacker-shaped as a directory
-    // name, and they land in the same agent-read file. The manifest-derived ones
-    // are the wider class: unlike a scanned path they can carry a newline, which
-    // the guard collapses (see `toInlineCodeSpan`). The Directory Tree is exempt
-    // for a reason: it sits in a fenced block, `scanDir`'s glob never yields a
-    // newline-bearing path, and every emitted line ends in `/`, so no line can
-    // close the fence.
+    // name, and they land in the same agent-read file. The guard collapses line
+    // breaks. The Directory Tree visibly escapes CR/LF and ends each line in
+    // `/` inside its fenced block, so a name cannot close the fence.
     entry_points: entryPoints,
     entry_point_displays: entryPoints.map(toInlineCodeSpan),
     directory_tree: directoryTree,
@@ -132,7 +122,7 @@ export async function generateRawScan(
     config_files: configFiles,
     config_file_displays: configFiles.map(toInlineCodeSpan),
     file_stats: {
-      total_files: scanResult.count,
+      total_files: scanResult.files.length,
       scan_depth: depth,
     },
     // Templates render with `noEscape`, so the code spans are pre-built by
@@ -164,7 +154,7 @@ export async function generateRawScan(
   }
 
   return {
-    totalFiles: scanResult.count,
+    totalFiles: scanResult.files.length,
     scanDepth: depth,
     techStack,
     entryPoints,
@@ -465,7 +455,7 @@ function buildDirectoryTree(files: string[], maxDepth: number): string {
     const depthLevel = dir.split('/').length - 2;
     const name = dir.split('/').filter(Boolean).pop() ?? '';
     const indent = '  '.repeat(depthLevel);
-    lines.push(`${indent}${name}/`);
+    lines.push(`${indent}${name.replace(/\r/g, '\\r').replace(/\n/g, '\\n')}/`);
   }
 
   return lines.join('\n');

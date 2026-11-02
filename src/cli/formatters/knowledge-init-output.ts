@@ -16,7 +16,7 @@ export function formatKnowledgeInitOutput(
 
   // 1. Scan summary
   lines.push(
-    `Scanned ${pc.yellow(result.totalFiles.toString())} files (depth: ${result.scanDepth})`,
+    `Scanned ${pc.yellow(result.totalFiles.toString())} files (Directory Tree depth: ${result.scanDepth})`,
   );
 
   // 2. Entry points

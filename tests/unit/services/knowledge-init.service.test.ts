@@ -29,35 +29,20 @@ vi.mock('../../../src/lib/template.js', () => ({
   registerHelper: vi.fn(),
 }));
 
-// Mock fast-glob to work with memfs
-vi.mock('fast-glob', () => ({
-  default: {
-    glob: vi.fn().mockImplementation(async (_patterns: string | string[], options: { cwd?: string }) => {
-      const cwd = options?.cwd ?? '/';
-      try {
-        const allFiles: string[] = [];
-        const walkDir = (dir: string, prefix: string) => {
-          const entries = fs.readdirSync(dir, { withFileTypes: true });
-          for (const entry of entries) {
-            const fullPath = `${dir}/${entry.name}`;
-            const relativePath = prefix ? `${prefix}/${entry.name}` : entry.name;
-            if (entry.isDirectory()) {
-              if (!['node_modules', '.git', 'dist'].includes(entry.name)) {
-                walkDir(fullPath, relativePath);
-              }
-            } else {
-              allFiles.push(relativePath);
-            }
-          }
-        };
-        walkDir(cwd, '');
-        return allFiles;
-      } catch {
-        return [];
+// This suite supplies file membership; real git selection is covered separately.
+vi.mock('../../../src/lib/project-files-adapters.js', () => ({
+  listProjectFiles: vi.fn().mockImplementation((cwd: string) => {
+    const files: string[] = [];
+    const walk = (dir: string, prefix: string) => {
+      for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+        const relative = prefix ? `${prefix}/${entry.name}` : entry.name;
+        if (entry.isDirectory()) walk(`${dir}/${entry.name}`, relative);
+        else files.push(relative);
       }
-    }),
-    globSync: vi.fn().mockReturnValue([]),
-  },
+    };
+    walk(cwd, '');
+    return { available: true, files: files.sort(), coverage: files.length ? 'members' : 'no-members' };
+  }),
 }));
 
 beforeEach(() => {
@@ -256,7 +241,7 @@ describe('knowledge-init.service', () => {
     // (knowledge-init L126 ← raw-scan L116), so it proves nothing about
     // depth-limiting. The only branch-distinguishing consumer of `depth`
     // observable in this mocked setup is buildDirectoryTree(files, depth)
-    // (raw-scan L82, L398-407) — fast-glob is mocked and ignores `deep`, so the
+    // (raw-scan L82, L398-407) — project-file membership is mocked and ignores `deep`, so the
     // file set is identical at any depth. Inspect the rendered context's
     // directory_tree to prove the cap is depth-driven.
     vi.mocked(renderTemplate).mockClear();

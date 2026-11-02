@@ -95,7 +95,7 @@ your-project/
 
 - **`prospec quickstart [options]`**
   - **核心用途**：新專案快速引導，串接 `init` 與 `agent sync`。
-  - **執行行為**：需在 git repository 內執行（新專案先 `git init`；既有程式碼先 commit，因為 raw scan 只列出 git 追蹤的檔案）。自動執行前置步驟並跳過已完成項目；完成後提示在 AI Agent 內執行 `prospec-quickstart` 進行觸發詞在地化與知識庫生成。
+  - **執行行為**：需在 git repository 內執行（新專案先 `git init`；產生 Knowledge 前先用 `git add` 將原始碼檔案 stage）。自動執行前置步驟並跳過已完成項目；完成後提示在 AI Agent 內執行 `prospec-quickstart` 進行觸發詞在地化與知識庫生成。
   - **選項**：支援與 `init` 相同的 `--name`、`--agents`、`--language`、`--trust-zone-language` 選項。
 
 - **`prospec upgrade [--cwd <dir>]`**
@@ -117,6 +117,8 @@ your-project/
   - **核心用途**：靜態掃描專案原始碼，生成專案結構快照與模組骨架。
   - **執行行為**：
     - 產生 `raw-scan.md` 及初版模組骨架（`module-map.yaml`、`prospec/index.md`、`_conventions.md`，僅在缺檔時建立）。
+    - 列出 git index 成員：新檔先執行 `git add`。不掃描 index 外的 untracked 與 ignored 檔案；受追蹤的建置／相依套件檔案、點開頭目錄與深層檔案可被列出，仍受敏感檔案與設定的 `exclude` 規則限制。不跟隨 symlink，也不展開 submodule gitlink。
+    - `--depth <n>`：Directory Tree depth（預設 `10`），不限制檔案清單或模組偵測。檔案來源 unavailable 時，raw-scan 產生失敗且不寫入輸出。
     - `--raw-scan-only`：僅重新產生 `raw-scan.md`（確定性掃描、不使用 LLM、不更動既有文件），用於程式碼變動後或 `prospec-knowledge-generate` 前刷新結構快照。
 
 - **`prospec knowledge update [--change <name>] [--module <m>...]`**
@@ -124,6 +126,7 @@ your-project/
   - **執行行為**：
     - 依據 `module-map.yaml` 重新生成 `prospec/index.md` 的 auto 區塊。
     - 為全新模組建立 skeleton README；REMOVED 需求只把所屬模組列為 README-pending，不會棄用模組或從 module-map 移除。
+    - 骨架 Key Files 使用 git index 成員，套用敏感檔案與設定的排除規則。沒有 index 成員時，先以 `git add` 加入新檔、刪除骨架，再重新執行。列檔失敗時保留空白 Key Files 並回報原因；修正後刪除骨架再重新執行。模組 paths 全被拒收時另發 warning，指向 `unsupported-module-path`。
     - 以 `--change` 執行時，若 `module-map.yaml` 存在卻無法讀取、解析或驗證，或解析到 knowledge root 之外，在分類與任何寫入之前拒收，指名該原因，而不是把每條 REQ 報成「不是模組」。
     - 絕不重寫既有 README 內容（保留手寫知識），並於終端回報待人工撰寫清單（`README content pending`）。
 
@@ -512,7 +515,7 @@ claude mcp add -s user prospec-b -- prospec mcp serve --cwd /path/to/B
   - **檢驗維度清單**：
     - **規格與連結**：懸空 REQ 引用、Feature Specs 間 REQ id 唯一性（`req-id-uniqueness`，FAIL）、失效 Markdown 連結、Feature Spec frontmatter 計數對帳（`story_count`/`req_count`）。
     - **架構與依賴**：依 `module-map.yaml` 驗證 import 依賴方向、REQ-prefix 合法性（WARN）、feature→module 邊界（FAIL）。
-    - **知識庫健康**：模組新鮮度（記錄的 `source_digest` vs 目前原始碼，WARN）、檔案 Token 與行數預算（`knowledge-size`，WARN）、README 宣告計數真實性（WARN）、source digest 無法照寫法讀取的模組路徑（`unsupported-module-path`，WARN）。
+    - **知識庫健康**：模組新鮮度（記錄的 `source_digest` vs 目前原始碼，WARN）、檔案 Token 與行數預算（`knowledge-size`，WARN）、README 宣告計數真實性（WARN），以及被拒收的模組路徑、`knowledge.generated_artifacts` patterns 與頂層 `exclude` entries（`unsupported-module-path`，WARN）。Module map 缺席或無法讀取時仍檢查 config entries。
     - **審查與測試出處**：
       - `review-provenance`：已實作或已驗證的變更必須具備對應現行程式碼的 review 記錄。
       - `test-provenance`：變更必須具備最新且通過（綠燈）的測試記錄。

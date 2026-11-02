@@ -41,7 +41,8 @@ describe('formatKnowledgeInitOutput', () => {
     captureWrite();
     formatKnowledgeInitOutput(baseResult({ totalFiles: 7, scanDepth: 4 }));
     const out = output();
-    expect(out).toContain('Scanned 7 files (depth: 4)');
+    expect(out).toContain('Scanned 7 files (Directory Tree depth: 4)');
+    expect(out).not.toContain('(depth:');
     expect(out).toContain('Run');
     expect(out).toContain('prospec-knowledge-generate');
     // No entry points / deps / created files in this minimal result.

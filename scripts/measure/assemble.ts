@@ -1,7 +1,7 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { parseYaml } from '../../src/lib/yaml-utils.js';
-import { scanDir } from '../../src/lib/scanner.js';
+import { listProjectFiles } from '../../src/lib/project-files-adapters.js';
 import { rankByRelevance, selectWithinBudget } from '../../src/lib/token-accounting.js';
 import type { AssemblyStrategy } from '../../src/types/measurement.js';
 
@@ -72,7 +72,8 @@ function fileSection(relPath: string, content: string): string {
 
 /** All source + spec/knowledge files, the raw material for full-dump and naive-rag. */
 export async function listRepoFiles(cwd: string): Promise<string[]> {
-  const result = await scanDir(['src/**/*.ts', 'prospec/**/*.md'], { cwd });
+  const result = listProjectFiles(cwd, { modulePaths: ['src/**/*.ts', 'prospec/**/*.md'] });
+  if (!result.available) throw new AssemblyError(result.reason);
   return [...result.files].sort();
 }
 

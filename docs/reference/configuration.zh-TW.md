@@ -10,9 +10,11 @@
 | `version` | string | 未設定 | `prospec init` 或 `prospec upgrade` 最後寫入的版本。舊值 `"1.0"` 視為過期版本，不代表目前版本。 |
 | `project.name` | string | 必填 | 專案名稱。 |
 | `paths.base_dir` | string | `prospec` | Constitution、index、specs 與 Knowledge 目錄（`{paths.base_dir}/ai-knowledge`）的 artifact root。必須是 `.prospec.yaml` 旁的單層目錄名稱：不能是空字串、`.` 或 `..`，也不能含 `/`、`\`、NUL 或磁碟機字首（例如 `C:`）。它與 `{paths.base_dir}/specs`、`{paths.base_dir}/ai-knowledge` 存在時都必須是一般目錄，不能是 symlink。 |
-| `exclude` | string[] | `[]` | AI Knowledge 掃描額外排除的 glob patterns；內建相依套件、建置輸出與敏感檔案排除規則仍適用。 |
+| `exclude` | string[] | `[]` | Raw scan、新模組 README 骨架與 import 掃描額外排除的專案檔案，依 module path 規則判讀；內建敏感檔案排除規則仍適用。 |
 
-Scanner 一律排除 `node_modules`、`.git`、`dist`、`build`、`coverage` 等常見目錄，以及環境變數檔、credentials、secrets、keys、certificates 等敏感 patterns。將 `exclude` 設為空陣列不會停用這些排除規則。
+專案列檔以 git index 成員為起點；掃描前先以 `git add` 加入新檔。不在 index 內的 untracked 與 ignored 檔案不會列出，但受追蹤的相依套件／建置檔案、點開頭目錄與深層檔案可被列出。不跟隨 symlink，也不展開 submodule gitlink。環境變數檔、credentials、secrets、keys、certificates 等敏感 patterns 一律排除；將 `exclude` 設為空陣列不會停用這些規則。受追蹤的專案檔案不再自動套用相依套件／建置目錄排除。
+
+每筆 `exclude` 依 module path 規則判讀：不含 `*` 時為字面路徑（包括 `?`、`[]`、brace、開頭 `!` 與 extglob 寫法），結尾 `/` 排除子樹，`.` 排除全部。含 `*` 時原樣交給 git `:(glob)`：`*` 限於單一目錄層，`**/` 匹配任意層目錄。開頭 `!` 與 extglob 寫法沒有 fast-glob 特殊意義。要排除目錄子樹，把 `**/name` 改為 `**/name/**`。含 brace、`..` segment 或絕對路徑根的 glob 被拒收，由 `unsupported-module-path` 回報，不排除任何檔案。模組與排除 glob 分別正向列出，再扣除排除集合。
 
 ## Tech stack 與測試命令
 

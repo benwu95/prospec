@@ -4,7 +4,7 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg?style=flat-square)](LICENSE)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.9-blue?style=flat-square&logo=typescript)](https://www.typescriptlang.org/)
-[![測試](https://img.shields.io/badge/測試-9071%20總計-success?style=flat-square)](./CONTRIBUTING.md#testing)
+[![測試](https://img.shields.io/badge/測試-9121%20總計-success?style=flat-square)](./CONTRIBUTING.md#testing)
 [![Node](https://img.shields.io/badge/node-%3E%3D22.13-brightgreen?style=flat-square&logo=node.js)](https://nodejs.org/)
 [![pnpm](https://img.shields.io/badge/pnpm-%3E%3D11-orange?style=flat-square&logo=pnpm)](https://pnpm.io/)
 
@@ -95,10 +95,10 @@ powershell -c "irm https://raw.githubusercontent.com/benwu95/prospec/main/instal
 
 ### 2. 建立專案骨架
 
-一個指令完成 deterministic 的設定 —— 它會串接 `init` + `agent sync`，已完成的步驟自動跳過：
+一個指令完成 deterministic 的設定 —— 它會串接 `init` + `agent sync`，已完成的步驟自動跳過。產生 AI Knowledge 前，先用 `git add` 將要納入的原始碼檔案 stage。raw scan、新模組 README 骨架與 import 掃描以 git index 成員為範圍，包含 staged 檔案；untracked 檔案不列入，並套用敏感檔與設定的排除規則。頂層 `exclude` 現在採用 module-path 規則；breaking changes 與改寫方式見[升級指南](./docs/guides/upgrading.zh-TW.md)。
 
 ```bash
-cd my-project                 # git repository；既有程式碼還沒進 git 的話，先 `git init` 並 commit
+cd my-project                 # git repository；尚未初始化時先執行 `git init`
 
 prospec quickstart            # → 選擇 AI Assistant、選擇文件語言；建立 .prospec.yaml + 各 agent config + Skills
 ```

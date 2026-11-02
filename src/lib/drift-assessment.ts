@@ -136,6 +136,7 @@ export async function assessCurrentDrift(cwd: string): Promise<CurrentDriftAsses
     const snapshot = states.repository;
     const { digest: currentDigest, clean: workingTreeClean } = snapshot;
     const inWorkTree = currentDigest !== null || isGitWorkTree(cwd);
+    const inventory = states.inventory ?? new Error(snapshot.reason ?? 'capture failed');
 
     const moduleMap = loadModuleMap(paths.knowledgePath, cwd);
     const attributionMap = moduleMap ?? constitutionFallbackModuleMap();
@@ -161,7 +162,9 @@ export async function assessCurrentDrift(cwd: string): Promise<CurrentDriftAsses
       reqIdUniqueness: collectReqIdUniqueness(featuresDir, cwd),
       reqReferences: collectReqReferences(markdownRoots, cwd),
       links: collectMarkdownLinks(markdownRoots, cwd),
-      importEdges: collectImportEdges(cwd, attributionMap),
+      importEdges: collectImportEdges(cwd, attributionMap, {
+        inventory, exclude: config.exclude, inWorkTree,
+      }),
       dependencyRules,
       timestamps: moduleMap
         ? collectGitTimestamps(
@@ -170,7 +173,7 @@ export async function assessCurrentDrift(cwd: string): Promise<CurrentDriftAsses
             paths.knowledgePath,
             config.knowledge?.generated_artifacts ?? [],
             inWorkTree,
-            { specsPath: paths.specsPath, ...(states.inventory === undefined ? {} : { inventory: states.inventory }) },
+            { specsPath: paths.specsPath, inventory },
           )
         : moduleMapMissing({ modules: [] }),
       tasks: collectTaskStates(cwd),

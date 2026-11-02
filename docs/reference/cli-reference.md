@@ -96,7 +96,7 @@ Every command except `--version`, `--help`, `help`, `print-template` and `config
 
 - **`prospec quickstart [options]`**
   - **Purpose**: Fast, streamlined onboarding by chaining `init` and `agent sync`.
-  - **Behavior**: Run it inside a git repository (`git init` a new project; commit existing code first, since the raw scan lists only the files git tracks). Automatically runs initialization steps (skipping completed ones), then prompts to trigger `prospec-quickstart` in the AI agent for trigger localization and Knowledge generation.
+  - **Behavior**: Run it inside a git repository (`git init` a new project; use `git add` to stage source files before Knowledge generation). Automatically runs initialization steps (skipping completed ones), then prompts to trigger `prospec-quickstart` in the AI agent for trigger localization and Knowledge generation.
   - **Options**: Accepts the same `--name`, `--agents`, `--language`, and `--trust-zone-language` options as `init`.
 
 - **`prospec upgrade [--cwd <dir>]`**
@@ -118,6 +118,8 @@ Every command except `--version`, `--help`, `help`, `print-template` and `config
   - **Purpose**: Statically scan project source code to generate structure snapshots and module skeletons.
   - **Behavior**:
     - Scans the repository to generate `raw-scan.md` and initial curated skeletons (`module-map.yaml`, `prospec/index.md`, `_conventions.md`, only if absent).
+    - Lists git index members: run `git add` for new files first. Untracked and ignored files outside the index are not scanned; tracked build/dependency files, dot-directory files and deep files can appear, subject to sensitive-file and configured `exclude` rules. Symlinks are not followed and submodule gitlinks are not expanded.
+    - `--depth <n>`: Directory Tree depth (default `10`); does not limit file listing or module detection. An unavailable file source fails raw-scan generation without writing its output.
     - `--raw-scan-only`: Regenerates **only** `raw-scan.md` (deterministic, zero LLM, leaving curated files untouched) to refresh snapshots before `prospec-knowledge-generate`.
 
 - **`prospec knowledge update [--change <name>] [--module <m>...]`**
@@ -125,6 +127,7 @@ Every command except `--version`, `--help`, `help`, `print-template` and `config
   - **Behavior**:
     - Regenerates the `prospec/index.md` auto block from `module-map.yaml`.
     - Creates skeleton READMEs for genuinely new modules; a REMOVED requirement lists its module as README-pending and never deprecates or unregisters it from `module-map.yaml`.
+    - Skeleton Key Files use git index members with sensitive-file and configured exclusions. If no index members exist, add new files with `git add`, delete the skeleton and re-run. A listing failure leaves Key Files empty and reports the cause; delete the skeleton and re-run after fixing it. Refused module paths produce a separate warning pointing to `unsupported-module-path`.
     - With `--change`, refuses before classifying or writing anything when `module-map.yaml` exists but cannot be read, parsed or validated, or resolves outside the knowledge root — naming that cause instead of reporting every REQ as not a module.
     - Never rewrites existing README content (preserving authored knowledge) and reports a `README content pending` worklist.
 
@@ -518,7 +521,7 @@ deliberately not included in this version.
   - **Audit Dimensions**:
     - **Specs & Links**: Dangling REQ references, REQ id uniqueness across Feature Specs (`req-id-uniqueness`, FAIL), broken Markdown links, Feature Spec frontmatter count reconciliation (`story_count`/`req_count`).
     - **Architecture & Dependencies**: Import directions enforced by `module-map.yaml`, REQ-prefix legality (WARN), feature→module boundaries (FAIL).
-    - **Knowledge Health**: Module freshness (recorded `source_digest` vs the current source, WARN), token and line size budgets (`knowledge-size`, WARN), README declared resource counts (WARN), module paths the source digest cannot read as written (`unsupported-module-path`, WARN).
+    - **Knowledge Health**: Module freshness (recorded `source_digest` vs the current source, WARN), token and line size budgets (`knowledge-size`, WARN), README declared resource counts (WARN), refused module paths, `knowledge.generated_artifacts` patterns and top-level `exclude` entries (`unsupported-module-path`, WARN). Config entries are checked even without a readable module map.
     - **Review & Test Provenance**:
       - `review-provenance`: Implemented or verified changes must have a recorded review matching the current code.
       - `test-provenance`: Changes must have a recorded current, passing (green) test run.

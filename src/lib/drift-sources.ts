@@ -3,7 +3,10 @@ import { execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import os from 'node:os';
 import path from 'node:path';
-import { scanDirSync, classifyModulePath, filterConventions } from './scanner.js';
+import { scanDirSync, filterConventions } from './scanner.js';
+import { createProjectFileSelector } from './project-files.js';
+import { inventoryFileSource } from './project-files-adapters.js';
+import { probeGitWorkTree } from './git-prerequisite.js';
 import { parseYaml } from './yaml-utils.js';
 import { parseDocument, isMap, isScalar } from 'yaml';
 import { DEFAULT_BASE_DIR, DEFAULT_KNOWLEDGE_TOKEN_BUDGET, isShippedBudgetField, type ShippedBudgetField } from '../types/config.js';
@@ -39,6 +42,9 @@ import { buildReqHomeIndex } from './spec-read.js';
 import {
   ARCHIVED_EXCLUDES,
   classifyModulePathSpec,
+  pathspecCovers,
+  gitPathspec,
+  gitPathspecs,
   isContainedPath,
   isSafeResourceName,
   listFeatureSpecs,
@@ -63,6 +69,7 @@ import { readChangeMetadata } from './change-metadata.js';
 import { PrerequisiteError } from '../types/errors.js';
 import type { InputSnapshot, TestInputState, EvidenceStates, SourceInventory } from '../types/drift-report.js';
 import { resolveTestEvidencePolicy } from './config.js';
+import { nonDirectoryAncestor, type AncestorKind } from './fs-utils.js';
 import { AGENT_CONFIGS, SKILL_DEFINITIONS } from '../types/skill.js';
 import type { KnowledgeSizeBudget, KnowledgeSizeKind, ProspecConfig } from '../types/config.js';
 import { CANONICAL_INIT_DOCS } from '../types/conventions.js';
@@ -681,7 +688,19 @@ function lineNumberAt(newlineOffsets: number[], offset: number): number {
  * dependency-cruiser, go-arch-lint, …) that does it properly — so on a project
  * with no JS/TS source this reports honest `skipped`, never a vacuous PASS.
  */
-export function collectImportEdges(cwd: string, moduleMap: ModuleMap): ImportEdgeSource {
+export function collectImportEdges(
+  cwd: string,
+  moduleMap: ModuleMap,
+  options: { inventory?: SourceInventory | Error; exclude?: readonly string[]; inWorkTree?: boolean } = {},
+): ImportEdgeSource {
+  if (!(options.inWorkTree ?? (probeGitWorkTree(cwd).state === 'work-tree'))) {
+    return { available: false, reason: 'source unavailable: import-direction requires a git work tree and its index', edges: [] };
+  }
+  let inventory: SourceInventory;
+  try { inventory = sharedInventory(cwd, options.inventory); } catch (error) {
+    return { available: false, reason: `source inventory unavailable: ${error instanceof Error ? error.message : String(error)}`, edges: [] };
+  }
+
   const toModule = moduleAttributor(moduleMap);
   // Whole-content matching so multi-line `import { … }\nfrom 'x'` statements are
   // caught. `from` is mandatory except for bare side-effect imports — otherwise
@@ -694,55 +713,17 @@ export function collectImportEdges(cwd: string, moduleMap: ModuleMap): ImportEdg
   const importPattern =
     /^[ \t]*(?:(?:import|export)\s+[^;'"`]*?from\s*|import\s*)['"]([^'"]+)['"]/gm;
   const edges: ImportEdge[] = [];
-  let anyJsTsSource = false;
-  for (const entry of moduleMap.modules) {
-    for (const prefix of entry.paths) {
-      const isGlob = prefix.includes('*');
-      // A literal path is scanned only when classifyModulePath finds it on disk inside the
-      // project — a missing, escaping or project-root path claims no import here; a domain
-      // glob ('**/auth/**') has no literal path to stat, so it is scanned directly.
-      if (!isGlob && classifyModulePath(prefix, cwd) === 'missing') continue;
-      const pattern = importScanPattern(prefix, cwd);
-      if (pattern === null) continue; // non-source file entry — carries no import edges
-      const { files } = scanDirSync(pattern, { cwd });
-      // The check is `available` only where JS/TS source is actually found —
-      // a path (or whole project) with no .ts/.js contributes nothing, so a
-      // non-JS/TS project degrades to honest `skipped`, not a vacuous PASS.
-      if (files.length === 0) continue;
-      anyJsTsSource = true;
-      for (const relPath of files) {
-        const fromModule = toModule(relPath);
-        if (fromModule !== entry.name) continue; // longest-prefix owner emits the edge once
-        // blank block comments AND template-literal interiors (newlines kept) —
-        // commented-out or string-embedded imports are not real edges
-        const raw = readTextOrSkip(path.resolve(cwd, relPath));
-        if (raw === null) continue;
-        const content = raw
-          .replace(/\/\*[\s\S]*?\*\//g, (c) => c.replace(/[^\n]/g, ' '))
-          .replace(/`(?:\\[\s\S]|[^\\`])*`/g, (c) => c.replace(/[^\n]/g, ' '));
-        // One newline-offset table per file, so the line number of each match is a
-        // binary search instead of re-slicing and re-splitting the whole prefix per
-        // match (O(matches × length) → O(matches × log lines)).
-        const newlineOffsets = buildNewlineOffsets(content);
-        for (const m of content.matchAll(importPattern)) {
-          const specifier = m[1];
-          if (specifier === undefined || !specifier.startsWith('.')) continue;
-          const resolved = path.normalize(path.join(path.dirname(relPath), specifier));
-          const target = toModule(resolved);
-          if (target === null || target === fromModule) continue;
-          const matchOffset = (m.index ?? 0) + m[0].indexOf(specifier);
-          edges.push({
-            from_path: relPath,
-            from_module: fromModule,
-            to_module: target,
-            specifier,
-            line: lineNumberAt(newlineOffsets, matchOffset),
-          });
-        }
-      }
-    }
-  }
-  if (!anyJsTsSource) {
+  // One listing over every module's paths, each file attributed to its longest-prefix owner:
+  // a file one module's paths list but another module owns (`**/seg` under `:(glob)` lists no
+  // file beneath `seg/`, while attribution reads it as a directory segment) still emits its edges.
+  const modulePaths = moduleMap.modules.flatMap((entry) => entry.paths).filter((raw) => {
+    const spec = classifyModulePathSpec(raw, cwd);
+    return spec.kind !== 'literal' || spec.rel !== '';
+  });
+  const listing = createProjectFileSelector(cwd, inventoryFileSource(cwd, inventory), options.exclude)
+    .select({ modulePaths, keep: IMPORT_SCAN_FILE_RE });
+  if (!listing.available) return { available: false, reason: listing.reason, edges: [] };
+  if (listing.files.length === 0) {
     return {
       available: false,
       reason:
@@ -750,26 +731,37 @@ export function collectImportEdges(cwd: string, moduleMap: ModuleMap): ImportEdg
       edges: [],
     };
   }
+  for (const relPath of listing.files) {
+    const fromModule = toModule(relPath);
+    if (fromModule === null) continue;
+    // blank block comments AND template-literal interiors (newlines kept) —
+    // commented-out or string-embedded imports are not real edges
+    const raw = readTextOrSkip(path.resolve(cwd, relPath));
+    if (raw === null) continue;
+    const content = raw
+      .replace(/\/\*[\s\S]*?\*\//g, (c) => c.replace(/[^\n]/g, ' '))
+      .replace(/`(?:\\[\s\S]|[^\\`])*`/g, (c) => c.replace(/[^\n]/g, ' '));
+    // One newline-offset table per file, so the line number of each match is a
+    // binary search instead of re-slicing and re-splitting the whole prefix per
+    // match (O(matches × length) → O(matches × log lines)).
+    const newlineOffsets = buildNewlineOffsets(content);
+    for (const m of content.matchAll(importPattern)) {
+      const specifier = m[1];
+      if (specifier === undefined || !specifier.startsWith('.')) continue;
+      const resolved = path.normalize(path.join(path.dirname(relPath), specifier));
+      const target = toModule(resolved);
+      if (target === null || target === fromModule) continue;
+      const matchOffset = (m.index ?? 0) + m[0].indexOf(specifier);
+      edges.push({
+        from_path: relPath,
+        from_module: fromModule,
+        to_module: target,
+        specifier,
+        line: lineNumberAt(newlineOffsets, matchOffset),
+      });
+    }
+  }
   return { available: true, edges };
-}
-
-/** git default pathspec over a literal project-relative path: a file matches its exact self or
- *  anything beneath it as a directory prefix; the project root (`''`) covers every file. */
-function pathspecCovers(spec: string, file: string): boolean {
-  return spec === '' || file === spec || file.startsWith(`${spec}/`);
-}
-
-/** A module path or generated-artifact pattern as git reads it (REQ-LIB-015): a literal path by
- *  its project-relative form, a glob exactly as written; a refused spec reaches git as nothing. */
-function gitPathspec(spec: ModulePathSpec, exclude = false): string | null {
-  const magic = exclude ? 'exclude,' : '';
-  if (spec.kind === 'literal') return `:(${magic}literal)${spec.rel === '' ? '.' : spec.rel}`;
-  if (spec.kind === 'glob') return `:(${magic}glob)${spec.raw}`;
-  return null;
-}
-
-function gitPathspecs(cwd: string, raw: readonly string[], exclude = false): string[] {
-  return raw.flatMap((p) => gitPathspec(classifyModulePathSpec(p, cwd), exclude) ?? []);
 }
 
 /** Collect per-module last-commit timestamps for sources and READMEs. */
@@ -784,7 +776,7 @@ export function collectGitTimestamps(
   /** The source-digest inputs (REQ-LIB-015, REQ-LIB-070): the Feature Specs directory to
    *  exclude, the snapshot's inventory when one exists, and the modules to report — the
    *  digests are still computed against the whole map. */
-  options: { specsPath?: string; inventory?: SourceInventory; subset?: ReadonlySet<string> } = {},
+  options: { specsPath?: string; inventory?: SourceInventory | Error; subset?: ReadonlySet<string> } = {},
 ): GitTimestampSource {
   if (!inWorkTree) {
     return { available: false, reason: 'source unavailable: not a git repository', modules: [] };
@@ -1145,16 +1137,10 @@ const stringItems = (value: unknown): string[] =>
  */
 export function collectUnsupportedModulePaths(cwd: string, knowledgePath: string): UnsupportedModulePathSource {
   const mapText = readModuleMapRaw(knowledgePath);
-  if (mapText === null) {
-    return { available: false, reason: 'source unavailable: module-map.yaml not found or unreadable', paths: [] };
-  }
-  const mapDoc = parseDocument(mapText);
-  if (mapDoc.errors.length > 0) {
-    return { available: false, reason: 'source unavailable: module-map.yaml cannot be parsed', paths: [] };
-  }
+  const mapDoc = mapText === null ? null : parseDocument(mapText);
   const mapPath = path.relative(cwd, path.join(knowledgePath, 'module-map.yaml')).split(path.sep).join('/');
   const declared: Array<{ owner: string; value: string; source_path: string }> = [];
-  const modules = asRecord(mapDoc.toJS())?.modules;
+  const modules = mapDoc !== null && mapDoc.errors.length === 0 ? asRecord(mapDoc.toJS())?.modules : undefined;
   for (const entry of Array.isArray(modules) ? modules : []) {
     const module = asRecord(entry);
     if (module === null) continue;
@@ -1172,6 +1158,9 @@ export function collectUnsupportedModulePaths(cwd: string, knowledgePath: string
   if (configDoc !== null && configDoc.errors.length === 0) {
     for (const value of stringItems(asRecord(asRecord(configDoc.toJS())?.knowledge)?.generated_artifacts)) {
       declared.push({ owner: 'knowledge.generated_artifacts', value, source_path: '.prospec.yaml' });
+    }
+    for (const value of stringItems(asRecord(configDoc.toJS())?.exclude)) {
+      declared.push({ owner: 'exclude', value, source_path: '.prospec.yaml' });
     }
   }
   const paths = declared.flatMap(({ owner, value, source_path }) => {
@@ -1550,31 +1539,12 @@ function readTextOrSkip(absPath: string): string | null {
 }
 
 // The extensions the import-direction scan understands — the SINGLE source for
-// both the directory-scan glob and the single-file-entry guard, so the two can
-// never drift. NOTE: this check is JS/TS-ESM-specific (the `import … from '…'`
+// the index member filter. NOTE: this check is JS/TS-ESM-specific (the `import … from '…'`
 // regex in collectImportEdges parses ESM syntax only); a downstream project in
 // another language gets no import-direction edges from it. Widening to other
 // languages means per-language import parsing, not just more extensions here.
 const IMPORT_SCAN_EXTS = ['ts', 'tsx', 'mts', 'cts', 'js', 'jsx'] as const;
-const IMPORT_SCAN_GLOB = `*.{${IMPORT_SCAN_EXTS.join(',')}}`;
 const IMPORT_SCAN_FILE_RE = new RegExp(`\\.(?:${IMPORT_SCAN_EXTS.join('|')})$`);
-
-/**
- * Build the file-scan glob for a module path entry, or `null` when the entry
- * carries no scannable source. A single SOURCE file entry (`src/lib/config.ts`)
- * is scanned as just itself; a NON-source file entry (`docs/x.md`) yields `null`
- * — import edges come only from source, and globbing `<file>/**` would ENOTDIR.
- * A literal dir prefix (`src/lib` → `src/lib/**\/*.ext`) expands to its subtree;
- * domain globs (`**\/auth/**`, `packages/web/**` → `<prefix>/*.ext`) are verbatim.
- */
-function importScanPattern(prefix: string, cwd: string): string | null {
-  if (classifyModulePath(prefix, cwd) === 'file') {
-    return IMPORT_SCAN_FILE_RE.test(prefix) ? prefix : null;
-  }
-  return prefix.endsWith('/**')
-    ? `${prefix}/${IMPORT_SCAN_GLOB}`
-    : `${prefix}/**/${IMPORT_SCAN_GLOB}`;
-}
 
 function markdownFiles(root: string, cwd: string): Array<{ file: string; relPath: string }> {
   const absRoot = path.resolve(cwd, root);
@@ -1895,6 +1865,13 @@ export function captureSourceInventory(cwd: string): SourceInventory {
   return { entries: index, changed: new Set(state.changed), changedBookkeeping: state.bookkeeping, bookkeeping };
 }
 
+/** The caller's inventory; its capture failure, rethrown rather than captured again; or, with
+ *  neither, a fresh capture. */
+function sharedInventory(cwd: string, given: SourceInventory | Error | undefined): SourceInventory {
+  if (given instanceof Error) throw given;
+  return given ?? captureSourceInventory(cwd);
+}
+
 /** One input of the snapshot under its superproject-relative key. A submodule's own
  *  deletions are confirmed against its own index, not the superproject's status. */
 interface SnapshotEntry { key: string; absolute: string; gitlink?: 'checkout' | 'uninitialized'; deletedIn?: string }
@@ -1966,30 +1943,7 @@ function deletedInRepository(repository: string): Set<string> {
   return new Set(gitReadRecords(repository, 'ls-files', ['-z', '--deleted']).map((file) => path.join(repository, file)));
 }
 
-export type AncestorKind = 'directory' | 'absent' | 'other';
-
-/** The first ancestor of `file` (relative to `root`, the leaf excluded) that exists but is
- *  not a real directory, or null. A path beneath it is not what `lstat` reaches through it:
- *  a symlink would hand back the target's bytes, a regular file nothing. `cache` lives for
- *  one capture, so every directory is judged once against one observation. */
-export function nonDirectoryAncestor(root: string, file: string, cache: Map<string, AncestorKind> = new Map()): string | null {
-  let dir = '';
-  for (const part of file.split('/').slice(0, -1)) {
-    dir = dir === '' ? part : `${dir}/${part}`;
-    let kind = cache.get(dir);
-    if (kind === undefined) {
-      try { kind = lstatSync(path.join(root, dir)).isDirectory() ? 'directory' : 'other'; } catch (error) {
-        const code = (error as NodeJS.ErrnoException).code;
-        if (code !== 'ENOENT' && code !== 'ENOTDIR') throw error;
-        kind = 'absent';
-      }
-      cache.set(dir, kind);
-    }
-    if (kind === 'absent') return null;
-    if (kind === 'other') return dir;
-  }
-  return null;
-}
+export { nonDirectoryAncestor, type AncestorKind } from './fs-utils.js';
 
 /** Where a link text starts resolving and the components that follow it: an absolute text
  *  from its own root — a drive or UNC share stays one root, never a component — and a
@@ -2092,8 +2046,9 @@ export interface ModuleDigestOptions {
   /** The Feature Specs directory (`{base_dir}/specs`), which archive writes after the gate. */
   specsPath: string;
   generatedArtifacts: readonly string[];
-  /** The snapshot's inventory when the caller has one; otherwise it is captured here. */
-  inventory?: SourceInventory;
+  /** The snapshot's inventory, or the error its capture failed with, when the caller has one;
+   *  otherwise it is captured here. */
+  inventory?: SourceInventory | Error;
   /** The modules to answer for; the work-tree recording still covers every module. */
   subset?: ReadonlySet<string>;
 }
@@ -2133,7 +2088,7 @@ export function collectModuleDigests(cwd: string, moduleMap: ModuleMap, options:
   const wanted = moduleMap.modules.filter((m) => options.subset === undefined || options.subset.has(m.name));
   const unavailable = (reason: string) => new Map(wanted.map((m) => [m.name, { digest: null, reason }]));
   let inventory: SourceInventory;
-  try { inventory = options.inventory ?? captureSourceInventory(cwd); } catch (error) {
+  try { inventory = sharedInventory(cwd, options.inventory); } catch (error) {
     return unavailable(`source inventory unavailable: ${error instanceof Error ? error.message : String(error)}`);
   }
   const listed = [...inventory.entries.keys()];
@@ -3188,7 +3143,7 @@ export interface ArtifactLanguageSource {
  * inherits every one of its filters: hardcoded security patterns (`*secret*`,
  * `*credential*`, `*.env*`, `*.key`, `*.pem` — prospec's own defaults, NOT the
  * project's `.prospec.yaml` `exclude:` list, which is deliberately not consulted),
- * `DEFAULT_IGNORE` build-artifact directory names, symlinked entries
+ * symlinked entries
  * (`followSymbolicLinks: false`), dotfiles, and depth over 10.
  *
  * What this collector DOES guarantee is narrower and exact: the four classes

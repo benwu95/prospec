@@ -9,7 +9,7 @@ import { validateConfig, resolveTestCommand } from '../../../src/lib/config.js';
 import { assessVerificationContext } from '../../../src/lib/verification-context.js';
 import { DRIFT_CHECK_IDS } from '../../../src/types/drift-report.js';
 import { ConfigInvalid } from '../../../src/types/errors.js';
-const gitCalls = vi.hoisted(() => ({ count: 0, logOne: 0, recording: 0, updateIndex: 0, adds: 0, failConfig: false, addAfterListing: false, observedAddition: false, addOnStatus: 0, statusCount: 0, spawns: 0 }));
+const gitCalls = vi.hoisted(() => ({ count: 0, exclusions: 0, logOne: 0, recording: 0, updateIndex: 0, adds: 0, failConfig: false, addAfterListing: false, observedAddition: false, addOnStatus: 0, statusCount: 0, spawns: 0 }));
 const configRace = vi.hoisted(() => ({ onFirstConfigRead: null as (() => void) | null }));
 vi.mock('node:fs', async (original) => {
   const actual = await original<typeof import('node:fs')>();
@@ -28,6 +28,7 @@ vi.mock('node:child_process', async (original) => {
     return (actual.spawnSync as (...a: unknown[]) => unknown)(...args);
   }) as typeof actual.spawnSync, execFileSync: ((file: string, args: string[], opts: unknown) => {
     if (file === 'git') gitCalls.count++;
+    if (file === 'git' && args[0] === 'ls-files' && args.includes(':(glob)**/*.env*')) gitCalls.exclusions++;
     if (file === 'git' && args[0] === 'log' && args.includes('-1')) gitCalls.logOne++;
     // The source digest's work-tree recording: locating the index, then git against its copies.
     if (file === 'git' && (args.includes('--git-path') || String((opts as { env?: NodeJS.ProcessEnv } | undefined)?.env?.GIT_INDEX_FILE ?? '').includes('prospec-digest-'))) {
@@ -182,6 +183,20 @@ it.skipIf(process.platform === 'win32' || process.getuid?.() === 0)('records a r
   } finally {
     chmodSync(path.join(root, 'junk.txt'), 0o644);
   }
+});
+
+it('reports the inventory capture failure it is handed without capturing again', () => {
+  const map = { modules: [{ name: 'lib', paths: ['src/lib'], keywords: [] }] };
+  write('src/lib/a.ts', 'a');
+  gitCalls.count = 0;
+  const digests = collectModuleDigests(root, map, {
+    knowledgePath: path.join(root, 'prospec/ai-knowledge'),
+    specsPath: path.join(root, 'prospec/specs'),
+    generatedArtifacts: [],
+    inventory: new Error('Unprovable sparse or unmerged input'),
+  });
+  expect(digests.get('lib')).toEqual({ digest: null, reason: 'source inventory unavailable: Unprovable sparse or unmerged input' });
+  expect(gitCalls.count).toBe(0);
 });
 
 it('records object ids only for changed files a module lists whose entry the index does not already hold (REQ-LIB-070)', async () => {
@@ -434,4 +449,19 @@ describe('Knowledge-excluded assessment scope', () => {
     await assessCurrentDrift(root);
     expect(gitCalls.count).toBeLessThanOrEqual(6);
   });
+});
+
+
+it('shares one lazy exclusion listing across indexed JS/TS modules (REQ-LIB-070)', async () => {
+  const modules = Array.from({ length: 20 }, (_, i) => ({ name: `m${i}`, paths: [`src/m${i}`], keywords: [] }));
+  write('.gitignore', '.prospec/\n');
+  write('prospec/ai-knowledge/module-map.yaml', JSON.stringify({ modules }));
+  for (const module of modules) write(`${module.paths[0]}/a.ts`, 'export const value = 1;');
+  execFileSync('git', ['add', '.'], { cwd: root });
+  execFileSync('git', ['-c', 'user.email=t@t.dev', '-c', 'user.name=t', 'commit', '-q', '-m', 'indexed'], { cwd: root });
+  gitCalls.count = 0; gitCalls.logOne = 0; gitCalls.recording = 0; gitCalls.exclusions = 0;
+  const assessment = await assessCurrentDrift(root);
+  expect(assessment.report.structural.checks.find((check) => check.id === 'import-direction')?.status).toBe('pass');
+  expect(gitCalls.exclusions).toBe(1);
+  expect(gitCalls.count - gitCalls.recording - gitCalls.logOne).toBeLessThanOrEqual(6);
 });
