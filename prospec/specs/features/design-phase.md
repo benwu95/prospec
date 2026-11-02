@@ -1,7 +1,7 @@
 ---
 feature: design-phase
 status: active
-last_updated: 2026-09-29
+last_updated: 2026-11-02
 story_count: 4
 req_count: 11
 ---
@@ -12,7 +12,7 @@ req_count: 11
 
 **Who it serves**: Frontend developers, full-stack developers, UI/UX designers
 
-**Problem it solves**: When an AI Agent implements UI, it lacks precise visual and interaction specifications and can only develop by guessing. The Design Phase inserts a design-spec production stage between Story and Plan, providing precise references such as colors, spacing, component structure, and interaction states.
+**Problem it solves**: When an AI Agent implements UI, it lacks precise visual and interaction specifications and can only develop by guessing. The Design Phase inserts a design-spec production stage after Plan and before Tasks when the change has UI scope, providing precise references such as colors, spacing, component structure, and interaction states.
 
 **Why it matters**: Generate Mode lets teams without design tools produce structured specs from the proposal; Extract Mode lets teams with design tools reverse-extract them into an AI-readable format. Both modes ensure the AI no longer blindly guesses the UI.
 
@@ -171,6 +171,7 @@ _(None)_
 
 | Date | Change | Impact | Stories/REQs |
 |------|--------|--------|-------------|
+| 2026-11-02 | backfill-doc-drift-design-phase | MODIFIED REQ-DSGN-001 | REQ-DSGN-001 |
 | 2026-09-29 | audit-shipped-skill-claims | MODIFIED REQ-DSGN-001; MODIFIED REQ-DSGN-004 | REQ-DSGN-001, REQ-DSGN-004 |
 | 2026-07-30 | restore-cli-first | ADDED REQ-TEMPLATES-164 | REQ-TEMPLATES-164 |
 | 2026-02-16 | add-design-phase | Design Phase Generate/Extract dual modes and 4 platform adapters | US-001~003, REQ-DSGN-001~009 |

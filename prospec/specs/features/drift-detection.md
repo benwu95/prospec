@@ -43,7 +43,7 @@ req_count: 91
 
 ## Success Criteria
 
-- **SC-1**: On a consistent-state repo, `check --strict` exits 0, and each of the sixteen checks has an explicit status
+- **SC-1**: On a consistent-state repo, `check --strict` exits 0, and every check in `DRIFT_CHECK_IDS` has an explicit status
 - **SC-2**: After injecting the three drift categories, `--strict` exits 1, and all findings are locatable
 - **SC-3**: On the same repo state, consecutive runs produce byte-for-byte identical reports (except generated_at); sorting is by codepoint (stable across environments)
 - **SC-4**: The semantic layer is `not-checked` under any run
@@ -64,6 +64,7 @@ _(None)_
 
 | Date | Change | Impact | Stories/REQs |
 |------|--------|--------|--------------|
+| 2026-11-02 | backfill-doc-drift-drift-detection | MODIFIED REQ-TESTS-074; MODIFIED REQ-LIB-079; MODIFIED REQ-TYPES-034; MODIFIED REQ-TYPES-052; MODIFIED REQ-TESTS-045; MODIFIED REQ-LIB-027; MODIFIED REQ-LIB-033; MODIFIED REQ-SERVICES-068 | REQ-TESTS-074, REQ-LIB-079, REQ-TYPES-034, REQ-TYPES-052, REQ-TESTS-045, REQ-LIB-027, REQ-LIB-033, REQ-SERVICES-068 |
 | 2026-11-02 | treat-directory-as-deletion | MODIFIED REQ-LIB-024; MODIFIED REQ-LIB-070; MODIFIED REQ-TESTS-042 | REQ-LIB-024, REQ-LIB-070, REQ-TESTS-042 |
 | 2026-11-02 | count-index-evidence | MODIFIED REQ-LIB-015; MODIFIED REQ-LIB-024; MODIFIED REQ-LIB-070; MODIFIED REQ-SERVICES-068; MODIFIED REQ-CLI-052; MODIFIED REQ-TESTS-042; MODIFIED REQ-TESTS-112; MODIFIED REQ-TESTS-137 | REQ-LIB-015, REQ-LIB-024, REQ-LIB-070, REQ-SERVICES-068, REQ-CLI-052, REQ-TESTS-042, REQ-TESTS-112, REQ-TESTS-137 |
 | 2026-11-01 | list-index-project-files | MODIFIED REQ-LIB-014; MODIFIED REQ-LIB-070; MODIFIED REQ-LIB-037; MODIFIED REQ-LIB-107 | REQ-LIB-014, REQ-LIB-070, REQ-LIB-037, REQ-LIB-107 |

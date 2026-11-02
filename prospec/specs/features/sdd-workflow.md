@@ -14,7 +14,7 @@ req_count: 391
 
 **Problem it solves**: In software development, requirements are scattered, specs drift, changes go untracked, and Knowledge decouples from implementation. Without a structured flow, AI Agent output quality is unstable, and a project accumulates technical debt over time with no way to verify it.
 
-**Why it matters**: The SDD Workflow is Prospec's core value proposition — through the six-phase lifecycle Story → Plan → Tasks → Implement → Verify → Archive, every change gets complete spec tracking, quality gates, and knowledge sedimentation. The spec is a Living Spec, and Knowledge is kept in sync as the project evolves, forming a positive flywheel.
+**Why it matters**: The SDD Workflow is Prospec's core value proposition — through the station sequence Story → Plan → Tasks → Implement → Knowledge Update → Review → Verify → Archive, with Design between Plan and Tasks when UI scope requires it, every change gets complete spec tracking, quality gates, and knowledge sedimentation. The spec is a Living Spec, and Knowledge is kept in sync as the project evolves, forming a positive flywheel.
 
 ---
 
@@ -70,8 +70,8 @@ req_count: 391
 ## Edge Cases
 
 - Touches a third-party lib but Context7 is unavailable: skip silently + a one-line informational (dependency-layer knowledge, US-21)
-- `scale: quick` with no plan: dependency-layer knowledge is provided only by the implement Phase 3 hook (US-21)
-- Archive directory already exists: warn, ask whether to overwrite or skip
+- `scale: quick` with no plan: optional third-party library reference from Context7 is supplied only by the implement Phase 3 hook (US-21); project module READMEs still load on demand in tasks and implement
+- Archive directory already exists: refuse the write and retain the existing bundle; do not offer an overwrite
 - Change lacks delta-spec.md: archive a partial summary, skip Spec Sync
 - Knowledge update fails: non-fatal, recommend a manual update
 - Running plan with no story: prompt to create a story first
@@ -84,7 +84,7 @@ req_count: 391
 
 ## Success Criteria
 
-- **SC-001**: All SDD phases (story → design → plan → tasks → implement → verify → archive) produce correctly formatted artifacts
+- **SC-001**: All applicable SDD stations (story → plan → design when required → tasks → implement → knowledge-update → review → verify → archive) produce correctly formatted artifacts
 - **SC-002**: The Feature Spec Change History accumulates an audit trail in which every row names the change that produced it, and product.md automatically reflects the latest feature map
 - **SC-003**: Supports 5+ concurrent change stories without confusion
 - **SC-004**: Prospec can be used for its own development (self-host), validating the tool's practicality
@@ -111,6 +111,7 @@ req_count: 391
 
 | Date | Change | Impact | Stories/REQs |
 |------|--------|--------|--------------|
+| 2026-11-02 | backfill-doc-drift-sdd-workflow | MODIFIED REQ-CHNG-011; MODIFIED REQ-CHNG-012; MODIFIED REQ-CHNG-013; MODIFIED REQ-CHNG-014; MODIFIED REQ-CHNG-015; MODIFIED REQ-SERVICES-091; MODIFIED REQ-TYPES-026; MODIFIED REQ-TEMPLATES-209; MODIFIED REQ-TEMPLATES-088; MODIFIED REQ-TEMPLATES-130; MODIFIED REQ-TESTS-043; MODIFIED REQ-CLI-025; MODIFIED REQ-TEMPLATES-161; MODIFIED REQ-TEMPLATES-199; MODIFIED REQ-TYPES-098; MODIFIED REQ-CLI-054; MODIFIED REQ-CLI-058; MODIFIED REQ-TESTS-127; MODIFIED REQ-TEMPLATES-251; MODIFIED REQ-CLI-024 | REQ-CHNG-011, REQ-CHNG-012, REQ-CHNG-013, REQ-CHNG-014, REQ-CHNG-015, REQ-SERVICES-091, REQ-TYPES-026, REQ-TEMPLATES-209, REQ-TEMPLATES-088, REQ-TEMPLATES-130, REQ-TESTS-043, REQ-CLI-025, REQ-TEMPLATES-161, REQ-TEMPLATES-199, REQ-TYPES-098, REQ-CLI-054, REQ-CLI-058, REQ-TESTS-127, REQ-TEMPLATES-251, REQ-CLI-024 |
 | 2026-11-02 | count-index-evidence | MODIFIED REQ-LIB-071; MODIFIED REQ-LIB-090; MODIFIED REQ-TEMPLATES-129; MODIFIED REQ-TEMPLATES-130; MODIFIED REQ-TEMPLATES-154; MODIFIED REQ-TESTS-090; MODIFIED REQ-DOCS-002 | REQ-LIB-071, REQ-LIB-090, REQ-TEMPLATES-129, REQ-TEMPLATES-130, REQ-TEMPLATES-154, REQ-TESTS-090, REQ-DOCS-002 |
 | 2026-11-01 | add-req-language-gate-rules | ADDED REQ-TEMPLATES-267; ADDED REQ-TEMPLATES-268; ADDED REQ-TEMPLATES-269; ADDED REQ-TESTS-145 | US-57, REQ-TEMPLATES-267, REQ-TEMPLATES-268, REQ-TEMPLATES-269, REQ-TESTS-145 |
 | 2026-11-01 | encode-non-convergence-discipline | ADDED REQ-TEMPLATES-260; ADDED REQ-TEMPLATES-261; ADDED REQ-TEMPLATES-262; ADDED REQ-TEMPLATES-263; ADDED REQ-TEMPLATES-264; ADDED REQ-TEMPLATES-265; ADDED REQ-TEMPLATES-266; ADDED REQ-TESTS-144; MODIFIED REQ-TEMPLATES-259 | US-56, REQ-TEMPLATES-260, REQ-TEMPLATES-261, REQ-TEMPLATES-262, REQ-TEMPLATES-263, REQ-TEMPLATES-264, REQ-TEMPLATES-265, REQ-TEMPLATES-266, REQ-TESTS-144, REQ-TEMPLATES-259 |

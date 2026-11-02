@@ -1,16 +1,16 @@
-## US-5: README factual-count truthfulness check [P2]
+## US-5: MCP registration counts in module READMEs [P2]
 
 As a developer who keeps README and code consistent,
-I want check to mechanically compare the counts a module README declares (e.g., "registers N resources") against the actual count in the code it names,
+I want check to compare a module README's parseable MCP resource/tool registration counts against the registrations in the source file it names,
 so that factual-count drift is intercepted by a machine in CI, no longer relying solely on humans.
 
 **Acceptance Scenarios:**
-- WHEN a module README's declared count does not match the actual count in the code it names, THEN report WARN (including README `file:line` + expected vs actual)
+- WHEN a module README's parseable MCP resource/tool registration counts do not match the registrations in the source file it names, THEN report WARN (including README `file:line` + expected vs actual)
 - WHEN counts match, there is no parseable declaration, or the declaration falls inside a fenced code block, THEN do not report (no false positives)
 - WHEN module-map is missing, THEN `mcp-readme-counts` is skipped (with reason), never faking a PASS
 
 #### REQ-TYPES-034: Drift Report mcp-readme-counts Check Id
-`DRIFT_CHECK_IDS` renames `readme-counts` → `mcp-readme-counts` (name matches reality: scope is only MCP registration counts, not generic README counts; does not touch the `knowledge_health` frozen contract). For the current total number of frozen check ids see REQ-TYPES-052 (**16**).
+`DRIFT_CHECK_IDS` renames `readme-counts` → `mcp-readme-counts` (name matches reality: scope is only MCP registration counts, not generic README counts; does not touch the `knowledge_health` frozen contract). For the current total number of frozen check ids see REQ-TYPES-052 and the canonical `DRIFT_CHECK_IDS` registry.
 - WHEN a check id is appended to the registry, THEN every prose copy of the total is updated in the same change. This spec's copies are enumerated by REQ id rather than counted — REQ-LIB-014 (as total − 1), REQ-TYPES-034, REQ-TYPES-052, REQ-TESTS-045, REQ-LIB-027 (twice), REQ-TESTS-074 and REQ-CLI-011 — because a count of unguarded numbers is one more unguarded number, and this enumeration has now under-counted itself three times: it said "three" while there were four, then named four while there were six, then six while there were seven. Treat a number stated in prose anywhere in this spec as a copy until proven an ordinal. None of them has a machine guard; the ordinal statements ("the 11th frozen id") are historical and correctly frozen
 
 #### REQ-LIB-020: README count collector + evaluator
@@ -39,9 +39,9 @@ so that "review must precede verify" turns from process prose into a machine-che
 - WHEN not a git repo / `.prospec/changes/` is absent / the digest cannot be computed, THEN the check is `skipped` + reason (never a fake PASS)
 
 #### REQ-TYPES-052: Drift Report review-provenance Check Id
-`DRIFT_CHECK_IDS` appends `review-provenance` (additive-only; does not touch the `knowledge_health` frozen contract) — **16** frozen check ids in total (the 11th is `knowledge-size` from US-8; the 12th `test-provenance` and 13th `constitution-severity` arrive with US-9/US-10, see REQ-TYPES-065; the 14th is `artifact-language`, see REQ-TYPES-072; the 15th is `spec-counters`, see REQ-TYPES-076; the 16th is `delta-spec-provenance`, see REQ-TYPES-078). Failing to dispatch the corresponding evaluator in `runChecks` causes a compile failure (the `Record<DriftCheckId, CheckOutcome>` type exhaustiveness guard).
-- WHEN a check id is appended to the registry, THEN this total is updated in the same change
-- WHEN the total is read, THEN it equals `DRIFT_CHECK_IDS.length`
+`DRIFT_CHECK_IDS` appends `review-provenance` (additive-only; does not touch the `knowledge_health` frozen contract) — the current frozen check-id set is defined by `DRIFT_CHECK_IDS` (the 11th is `knowledge-size` from US-8; the 12th `test-provenance` and 13th `constitution-severity` arrive with US-9/US-10, see REQ-TYPES-065; the 14th is `artifact-language`, see REQ-TYPES-072; the 15th is `spec-counters`, see REQ-TYPES-076; the 16th is `delta-spec-provenance`, see REQ-TYPES-078). Failing to dispatch the corresponding evaluator in `runChecks` causes a compile failure (the `Record<DriftCheckId, CheckOutcome>` type exhaustiveness guard).
+- WHEN a check id is appended to the registry, THEN current-set documentation continues to derive from that registry; historical append ordinals stay historical
+- WHEN the current total is needed, THEN derive it from `DRIFT_CHECK_IDS.length`
 
 #### REQ-LIB-024: review-provenance Collector + Evaluator + computeChangeDigest
 `computeChangeState(cwd)` owns the versioned effective-input snapshot, defaulting to git index membership with working-tree content; `computeChangeDigest` and `computeWorkingTreeClean` remain wrappers, while HEAD is optional Git trace and the clean tri-state is diagnostic only. `collectReviewProvenance` enumerates `.prospec/changes/*` with status, scale, recorded identity/version and `backfill_draft_present`; `evaluateReviewProvenance` is pure and uses `PROVENANCE_AUDITED_STATUSES`, with one repository snapshot compared against each change.
@@ -137,7 +137,7 @@ so that incomplete or ungraded metadata cannot quietly enter the permanent recor
 - WHEN `metadata-completeness` is FAIL and `--allow-incomplete` is not set, THEN archive refuses; WHEN the flag is set, THEN a completeness FAIL alone no longer blocks
 
 #### REQ-TESTS-045: metadata-completeness engine tests
-`evaluateMetadataCompleteness` (pass / each field missing / verified-no-grade / in-progress-exempt / both-findings), `collectMetadataCompleteness` (changes-dir fixture: complete / stub / present-but-empty / verified-no-grade / verified-with-A / empty-null-comment / unparseable), `check.service` injection + skipped-never-PASS across all 16 checks (including knowledge-size, test-provenance, constitution-severity, artifact-language, spec-counters and delta-spec-provenance) — the S/A clause and the skill clause mutation-verified.
+`evaluateMetadataCompleteness` (pass / each field missing / verified-no-grade / in-progress-exempt / both-findings), `collectMetadataCompleteness` (changes-dir fixture: complete / stub / present-but-empty / verified-no-grade / verified-with-A / empty-null-comment / unparseable), `check.service` injection + skipped-never-PASS across every check in `DRIFT_CHECK_IDS` (including knowledge-size, test-provenance, constitution-severity, artifact-language, spec-counters and delta-spec-provenance) — the S/A clause and the skill clause mutation-verified.
 - WHEN a check id is added to the registry, THEN the skipped-never-PASS assertion covers it too
 
 ---
