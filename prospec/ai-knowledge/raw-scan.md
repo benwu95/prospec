@@ -314,5 +314,5 @@ tests/
 
 | Metric | Value |
 |--------|-------|
-| Total files | 1917 |
+| Total files | 1919 |
 | Directory Tree depth | 10 |
