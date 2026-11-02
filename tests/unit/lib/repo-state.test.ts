@@ -74,6 +74,12 @@ describe('captureRepoState / diffRepoState — each facet (REQ-LIB-090)', () => 
     expect(changedAfter(() => put('a.txt', 'changed\n')).changed).toEqual(['content']);
   });
 
+  it('keeps untracked creation, edits and deletion inside the protected content facet', () => {
+    expect(changedAfter(() => put('local.txt', 'first\n')).changed).toEqual(['content']);
+    expect(changedAfter(() => put('local.txt', 'second\n')).changed).toEqual(['content']);
+    expect(changedAfter(() => rmSync(path.join(repo, 'local.txt'))).changed).toEqual(['content']);
+  });
+
   it('reports content when a repository-root report file changes — appearing untracked, or tracked and rewritten (C-1 pin)', () => {
     expect(changedAfter(() => put('prospec-report.json', '{"v":1}\n')).changed).toEqual(['content']);
     git('add', 'prospec-report.json');

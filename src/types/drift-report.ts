@@ -448,11 +448,11 @@ export interface TestInputState extends InputSnapshot {
 /** The superproject listing the snapshot captured, handed to the module source digests
  *  (REQ-LIB-070) so they spawn no listing of their own. */
 export interface SourceInventory {
-  /** Each listed input (project-relative, POSIX) with its index mode and object id; both null for an untracked file. */
+  /** Project-relative index members; preservation captures also list untracked files with null identity. */
   entries: ReadonlyMap<string, { mode: string | null; oid: string | null }>;
-  /** Inputs `git status --untracked-files=all` reports changed (modified, staged, untracked, deleted, renamed). */
+  /** Changed inputs in the capture's index or preservation membership scope. */
   changed: ReadonlySet<string>;
-  /** Workflow bookkeeping paths `git status --untracked-files=all` reports changed, which `changed` leaves out. */
+  /** Changed workflow bookkeeping paths in that scope, which `changed` leaves out. */
   changedBookkeeping: ReadonlySet<string>;
   /** Listed paths in the workflow bookkeeping, which `entries` leaves out. */
   bookkeeping: ReadonlySet<string>;

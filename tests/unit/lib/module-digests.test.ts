@@ -59,26 +59,29 @@ describe('collectModuleDigests (REQ-LIB-015)', () => {
     expect(digestOf(['src/lib']).digest).toBe(base);
   });
 
-  it('counts untracked files, skips ignored and deleted ones, and ignores the file mode', () => {
+  it('ignores untracked files until staging, skips ignored and deleted ones, and ignores the file mode', () => {
     const base = digestOf(['src/lib']).digest;
     put('src/lib/ignored.ts', 'x\n');
     expect(digestOf(['src/lib']).digest).toBe(base);
     chmodSync(path.join(root, 'src/lib/a.ts'), 0o755);
     expect(digestOf(['src/lib']).digest).toBe(base);
     put('src/lib/new.ts', 'n\n');
+    expect(digestOf(['src/lib']).digest).toBe(base);
+    gitIn(root, 'add', 'src/lib/new.ts');
     const withNew = digestOf(['src/lib']).digest;
     expect(withNew).not.toBe(base);
-    gitIn(root, 'add', 'src/lib/new.ts');
     gitIn(root, 'commit', '-qm', 'new');
     expect(digestOf(['src/lib']).digest).toBe(withNew);
     unlinkSync(path.join(root, 'src/lib/new.ts'));
     expect(digestOf(['src/lib']).digest).toBe(base);
   });
 
-  it('lists a glob module with its untracked files', () => {
+  it('lists a glob module with new files only after staging', () => {
     const base = digestOf(['src/lib/*.ts']).digest;
     expect(base).toMatch(/^source-v1:/);
     put('src/lib/new.ts', 'n\n');
+    expect(digestOf(['src/lib/*.ts']).digest).toBe(base);
+    gitIn(root, 'add', 'src/lib/new.ts');
     expect(digestOf(['src/lib/*.ts']).digest).not.toBe(base);
   });
 
@@ -158,7 +161,7 @@ describe('collectModuleDigests (REQ-LIB-015)', () => {
     }
   });
 
-  it('keeps a file untracked by `git rm --cached` as a source, and counts nothing beneath a symlinked ancestor', () => {
+  it('drops files removed from the index and counts nothing beneath a symlinked ancestor', () => {
     put('gen/out.ts', 'generated\n');
     put('.prospec/c/m.md', '# m\n');
     put('r/m.md', '# r\n');
@@ -167,7 +170,8 @@ describe('collectModuleDigests (REQ-LIB-015)', () => {
     const before = [digestOf(['prospec/specs', 'src/lib']).digest, digestOf(['src/lib', 'gen'], ['gen/out.ts']).digest];
     expect(before[0]).toMatch(/^source-v1:/);
     gitIn(root, 'rm', '-q', '--cached', 'src/lib/a.ts', 'src/lib/b.ts');
-    expect([digestOf(['prospec/specs', 'src/lib']).digest, digestOf(['src/lib', 'gen'], ['gen/out.ts']).digest]).toEqual(before);
+    expect(digestOf(['prospec/specs', 'src/lib']).digest).toBeNull();
+    expect(digestOf(['src/lib', 'gen'], ['gen/out.ts']).digest).toBe(digestOf(['gen']).digest);
     gitIn(root, 'reset', '-q', 'HEAD', '--', 'src/lib');
 
     rmSync(path.join(root, '.prospec/c'), { recursive: true });
@@ -224,16 +228,18 @@ describe('collectModuleDigests (REQ-LIB-015)', () => {
     gitIn(root, 'commit', '-qm', 'link');
     expect(digestOf(['src/lib']).digest).toBe(changed);
     symlinkSync('missing.ts', path.join(root, 'src/lib/dangling.ts'));
+    gitIn(root, 'add', 'src/lib/dangling.ts');
+    expect(digestOf(['src/lib']).digest).not.toBe(changed);
     expect(digestOf(['src/lib']).digest).toMatch(/^source-v1:/);
   });
 
-  it('cannot compute a module holding an untracked nested repository', () => {
+  it('ignores an untracked nested repository', () => {
+    const before = digestOf(['src/lib']).digest;
     mkdirSync(path.join(root, 'src/lib/vendor'));
     gitIn(path.join(root, 'src/lib/vendor'), 'init', '-q');
     put('src/lib/vendor/x.ts', 'x\n');
     const result = digestOf(['src/lib']);
-    expect(result.digest).toBeNull();
-    expect(result.reason).toMatch(/nested repository/);
+    expect(result.digest).toBe(before);
     expect(digestOf(['src/other']).digest).toMatch(/^source-v1:/);
   });
 
@@ -284,7 +290,7 @@ describe('what git would record (REQ-LIB-015)', () => {
   };
   const forms: Array<[string[], string[]]> = [[['src/lib'], []], [['src/lib/**'], []], [['src/**', 'gen/**'], ['gen/*.ts']]];
 
-  it('gives a tracked file replaced by a same-named directory one answer in every staging state', () => {
+  it('includes children of a replacing directory only once they enter the index', () => {
     put('gen/out.ts', 'g\n');
     gitIn(root, 'add', 'gen');
     gitIn(root, 'commit', '-qm', 'gen');
@@ -295,7 +301,7 @@ describe('what git would record (REQ-LIB-015)', () => {
       const states = threeStates(paths, generated, 'src/lib/a.ts');
       expect(states[0]!.digest, paths.join(',')).toMatch(/^source-v1:/);
       expect(states[1], paths.join(',')).toEqual(states[0]);
-      expect(states[2], paths.join(',')).toEqual(states[0]);
+      expect(states[2]!.digest, paths.join(',')).not.toBe(states[0]!.digest);
       restore(start);
     }
   });
@@ -387,7 +393,7 @@ describe('what git would record (REQ-LIB-015)', () => {
     }
   });
 
-  it('has no computable digest for a bookkeeping-only module holding just an untracked nested repository', () => {
+  it('keeps an untracked bookkeeping nested repository outside the source set', () => {
     for (const withCommit of [false, true]) {
       mkdirSync(path.join(root, '.prospec/sub'), { recursive: true });
       gitIn(path.join(root, '.prospec/sub'), 'init', '-q');
@@ -397,7 +403,7 @@ describe('what git would record (REQ-LIB-015)', () => {
         gitIn(path.join(root, '.prospec/sub'), 'commit', '-qm', 'x');
       }
       for (const paths of [['.prospec'], ['.prospec/**']]) {
-        expect(digestOf(paths).digest, `${paths[0]} ${withCommit}`).toBeNull();
+        expect(digestOf(paths).digest, `${paths[0]} ${withCommit}`).toMatch(/^source-v1:/);
       }
       rmSync(path.join(root, '.prospec'), { recursive: true, force: true });
     }
@@ -564,10 +570,12 @@ describe('what git would record (REQ-LIB-015)', () => {
     put('.gitattributes', '*.bin filter=die\n');
     gitIn(root, 'add', '.gitattributes');
     gitIn(root, 'commit', '-qm', 'attributes');
+    put('src/lib/new.bin', 'n\n');
+    gitIn(root, 'add', 'src/lib/new.bin');
     await sleep(1100);
     gitIn(root, 'status', '--porcelain');
     gitIn(root, 'config', 'filter.die.clean', 'kill -9 $PPID');
-    put('src/lib/new.bin', 'n\n');
+    put('src/lib/new.bin', 'edited\n');
     const result = digestOf(['src/lib']);
     expect(result.digest).toBeNull();
     expect(result.reason).toBe('work tree cannot be recorded: git add ended by SIGKILL');
@@ -578,7 +586,7 @@ describe('what git would record (REQ-LIB-015)', () => {
     gitIn(path.join(root, 'src/lib/n'), 'init', '-q');
     put('src/other/c.ts', 'edited\n');
     const both = digests([mod('m', ['src/lib']), mod('o', ['src/other'])]);
-    expect(both.get('m')!.reason).toMatch(/nested repository/);
+    expect(both.get('m')!.digest).toMatch(/^source-v1:/);
     rmSync(path.join(root, 'src/lib/n'), { recursive: true, force: true });
     expect(both.get('o')!.digest).toBe(digestOf(['src/other']).digest);
 
@@ -593,14 +601,39 @@ describe('what git would record (REQ-LIB-015)', () => {
     expect(replaced.reason).toMatch(/nested repository/);
   });
 
-  it('keeps a glob module with generated artifacts unchanged when its sources are untracked by `git rm --cached`', () => {
+  it.each([false, true])('refuses an indexed file replaced by a nested checkout before generated exclusion lift (commit=%s)', (withCommit) => {
+    unlinkSync(path.join(root, 'src/lib/b.ts'));
+    mkdirSync(path.join(root, 'src/lib/b.ts'));
+    gitIn(path.join(root, 'src/lib/b.ts'), 'init', '-q');
+    put('src/lib/b.ts/child.ts', 'child\n');
+    if (withCommit) {
+      gitIn(path.join(root, 'src/lib/b.ts'), 'add', '.');
+      gitIn(path.join(root, 'src/lib/b.ts'), 'commit', '-qm', 'child');
+    }
+    const replaced = digestOf(['src/lib/b.ts'], ['src/lib/b.ts']);
+    expect(replaced.digest).toBeNull();
+    expect(replaced.reason).toMatch(/nested repository/);
+    expect(digestOf(['src/other']).digest).toMatch(/^source-v1:/);
+  });
+
+  it.skipIf(!posixUser)('does not read an untracked unreadable file while recording changed indexed source', () => {
+    put('src/lib/a.ts', 'edited\n');
+    const changed = digestOf(['src/lib']).digest;
+    expect(changed).toMatch(/^source-v1:/);
+    put('src/lib/local.txt', 'local\n');
+    chmodSync(path.join(root, 'src/lib/local.txt'), 0o000);
+    try { expect(digestOf(['src/lib']).digest).toBe(changed); }
+    finally { chmodSync(path.join(root, 'src/lib/local.txt'), 0o644); }
+  });
+
+  it('lifts generated exclusions when source members leave the index', () => {
     put('gen/out.ts', 'g\n');
     gitIn(root, 'add', 'gen');
     gitIn(root, 'commit', '-qm', 'gen');
     const before = digestOf(['src/lib/*.ts', 'gen/*.ts'], ['gen/*.ts']).digest;
     expect(before).toBe(digestOf(['src/lib/*.ts']).digest);
     gitIn(root, 'rm', '-q', '--cached', 'src/lib/a.ts', 'src/lib/b.ts');
-    expect(digestOf(['src/lib/*.ts', 'gen/*.ts'], ['gen/*.ts']).digest).toBe(before);
+    expect(digestOf(['src/lib/*.ts', 'gen/*.ts'], ['gen/*.ts']).digest).toBe(digestOf(['gen']).digest);
   });
 
   it.skipIf(!posixUser)('reads no excluded file while a source file settles the answer, so a refused path elsewhere cannot flip it', () => {
@@ -608,6 +641,8 @@ describe('what git would record (REQ-LIB-015)', () => {
     gitIn(root, 'add', '-f', '.prospec');
     gitIn(root, 'commit', '-qm', 'keep');
     put('junk.txt', 'j\n');
+    gitIn(root, 'add', 'junk.txt');
+    put('junk.txt', 'changed\n');
     chmodSync(path.join(root, 'junk.txt'), 0o000);
     try {
       const withSource = digestOf(['src/lib', 'prospec']).digest;
@@ -615,10 +650,12 @@ describe('what git would record (REQ-LIB-015)', () => {
       expect(sourceless.reason).toMatch(/excluded/);
       put('prospec/ai-knowledge/module-map.yaml', 'modules: [] # stamped\n');
       put('prospec/specs/features/y.md', '# graduated\n');
+      gitIn(root, 'add', 'prospec/specs/features/y.md');
       expect(digestOf(['src/lib', 'prospec']).digest).toBe(withSource);
       expect(digestOf(['prospec/ai-knowledge', '.prospec'])).toEqual(sourceless);
 
       put('.prospec/changes/c/proposal.md', '# c\n');
+      gitIn(root, 'add', '-f', '.prospec/changes/c/proposal.md');
       for (const paths of [['src', '.prospec'], ['src/**', '.prospec/**']]) {
         expect(digestOf(paths).digest, paths[0]).toBe(digestOf(['src']).digest);
       }
@@ -629,7 +666,8 @@ describe('what git would record (REQ-LIB-015)', () => {
 
   it.skipIf(!posixUser)('judges a bookkeeping-only module the same whichever of its files sorts first', () => {
     put('junk.txt', 'j\n');
-    chmodSync(path.join(root, 'junk.txt'), 0o000);
+    gitIn(root, 'add', 'junk.txt');
+    gitIn(root, 'commit', '-qm', 'junk');
     try {
       for (const [changed, unchanged] of [['a.md', 'zz.md'], ['zz.md', 'a.md']]) {
         const start = base();
@@ -637,6 +675,8 @@ describe('what git would record (REQ-LIB-015)', () => {
         put(`.prospec/${unchanged}`, '1\n');
         gitIn(root, 'add', '-f', '.prospec');
         gitIn(root, 'commit', '-qm', 'bk');
+        put('junk.txt', 'changed\n');
+        chmodSync(path.join(root, 'junk.txt'), 0o000);
         put(`.prospec/${changed}`, '2\n');
         const only = digestOf(['.prospec']);
         expect(only.reason, changed).toMatch(/excluded/);
@@ -665,14 +705,16 @@ describe('what git would record (REQ-LIB-015)', () => {
     symlinkSync('../t', path.join(root, 'src/lib'));
     const unstaged = digestOf(['src']).digest;
     gitIn(root, 'add', '-A');
+    const staged = digestOf(['src']).digest;
+    expect(staged).not.toBe(unstaged);
     gitIn(root, 'commit', '-qm', 'link');
-    expect(digestOf(['src']).digest).toBe(unstaged);
+    expect(digestOf(['src']).digest).toBe(staged);
   });
 });
 
 describe('module paths as git reads them (REQ-LIB-015, REQ-LIB-039)', () => {
   const lsGlob = (glob: string, cwd = root) =>
-    execFileSync('git', ['ls-files', '-z', '--cached', '--others', '--exclude-standard', '--', `:(glob)${glob}`], { cwd })
+    execFileSync('git', ['ls-files', '-z', '--cached', '--', `:(glob)${glob}`], { cwd })
       .toString().split('\0').filter(Boolean);
 
   it('gives a project-root module, whatever its spelling, a digest that follows every source file', () => {
@@ -689,6 +731,7 @@ describe('module paths as git reads them (REQ-LIB-015, REQ-LIB-039)', () => {
     put('prospec/ai-knowledge/module-map.yaml', 'modules: [] # stamped\n');
     put('prospec/specs/features/x.md', '# graduated\n');
     put('.prospec/changes/c/proposal.md', '# c\n');
+    gitIn(root, 'add', '-f', '.prospec/changes/c/proposal.md');
     expect(digestOf(['.']).digest).toBe(base);
   });
 

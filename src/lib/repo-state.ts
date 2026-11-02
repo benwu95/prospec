@@ -2,8 +2,8 @@
  * The repository state a delegation receipt compares (REQ-LIB-090): five facets
  * read through git reads only. This module's own git calls go through the
  * `git-read` allowlist; the content facet's base reuses `computeChangeState`
- * unchanged — read-only, run without the repository-selecting environment, and
- * run by every delegation caller with `GIT_OPTIONAL_LOCKS=0`, so no read on this
+ * with preservation membership — read-only, without the repository-selecting
+ * environment, and run by every delegation caller with `GIT_OPTIONAL_LOCKS=0`, so no read on this
  * path refreshes the index's stat cache (which no facet includes anyway).
  *
  * `computeChangeState` deliberately leaves the report `prospec check` writes at
@@ -59,13 +59,13 @@ function reportToken(cwd: string, name: string): string {
 }
 
 /**
- * The content facet: the `computeChangeState` digest of the project's non-ignored
- * files outside `.prospec/`, hashed together with the root report that digest
+ * The content facet: the preservation `computeChangeState` digest of the project's
+ * non-ignored files outside `.prospec/`, hashed together with the root report that digest
  * excludes. The snapshot self-check computes the same value at the snapshot's path.
  */
 export function contentDigest(cwd: string): RepoState['content'] {
   return withFixedGitEnv(() => {
-    const state = computeChangeState(cwd);
+    const state = computeChangeState(cwd, 'preservation');
     if (state.digest === null) return { unreadable: failureLine(state.reason ?? 'content digest unavailable') };
     // Provenance hashes a gitlink's checkout files (#352), but a delegation snapshot checks
     // out no submodule files, so a delegate there would test a different tree.

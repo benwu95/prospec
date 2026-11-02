@@ -11,7 +11,7 @@ vi.mock('../../../src/lib/drift-sources.js', async (importOriginal) => ({
 }));
 
 const { execute } = await import('../../../src/services/check.service.js');
-const { UNTRACKED_INPUTS_HINT } = await import('../../../src/lib/drift-checker.js');
+const { INDEX_INPUTS_HINT } = await import('../../../src/lib/drift-checker.js');
 
 let root: string;
 beforeEach(() => {
@@ -34,27 +34,27 @@ const reasonOf = async (): Promise<string> => {
 };
 
 describe('record-review refusal hint (REQ-CLI-052)', () => {
-  it('names the untracked-input rule when the change digest moves while recording', async () => {
+  it('names the index-input rule when the change digest moves while recording', async () => {
     digests.change = ['D1', 'D2'];
     digests.deltaSpec = ['S', 'S'];
-    expect(await reasonOf()).toContain(UNTRACKED_INPUTS_HINT);
+    expect(await reasonOf()).toContain(INDEX_INPUTS_HINT);
   });
 
   it('keeps the hint when the delta-spec is also unprovable', async () => {
     digests.change = ['D1', 'D2'];
     digests.deltaSpec = [null, null];
-    expect(await reasonOf()).toContain(UNTRACKED_INPUTS_HINT);
+    expect(await reasonOf()).toContain(INDEX_INPUTS_HINT);
   });
 
   it('omits the hint when only the delta-spec moved', async () => {
     digests.change = ['D1', 'D1'];
     digests.deltaSpec = ['S1', 'S2'];
-    expect(await reasonOf()).not.toContain(UNTRACKED_INPUTS_HINT);
+    expect(await reasonOf()).not.toContain(INDEX_INPUTS_HINT);
   });
 
   it('omits the hint when the recomputed change digest is unprovable', async () => {
     digests.change = ['D1', null];
     digests.deltaSpec = ['S', 'S'];
-    expect(await reasonOf()).not.toContain(UNTRACKED_INPUTS_HINT);
+    expect(await reasonOf()).not.toContain(INDEX_INPUTS_HINT);
   });
 });

@@ -6,7 +6,7 @@ import { execute } from '../../../src/services/review-merge.service.js';
 import { readChangeMetadata, writeChangeMetadataDoc } from '../../../src/lib/change-metadata.js';
 import { DelegationRefusedError, PrerequisiteError, ProspecError, TestGateError } from '../../../src/types/errors.js';
 import { RELAYED_FIELD_MAX_CHARS, TEST_GATE_PRODUCER } from '../../../src/types/station.js';
-import { UNTRACKED_INPUTS_HINT } from '../../../src/lib/drift-checker.js';
+import { INDEX_INPUTS_HINT } from '../../../src/lib/drift-checker.js';
 
 vi.mock('node:fs', async () => {
   const memfs = await import('memfs');
@@ -687,11 +687,11 @@ describe('review-merge test gate — fresh green before any merge (REQ-CLI-028, 
     expect(readMeta()).toBe(meta);
   });
 
-  it('refuses stale evidence with the untracked-input hint from the shared policy', async () => {
+  it('refuses stale evidence with the index-input hint from the shared policy', async () => {
     seed([critical], undefined, FRESH_GREEN.replaceAll('digest: D', 'digest: OLD'));
     const caught = await execute({ cwd: CWD, findingsPath: FINDINGS }).catch((err: unknown) => err);
     expect(caught).toBeInstanceOf(TestGateError);
-    expect((caught as TestGateError).reason).toContain(UNTRACKED_INPUTS_HINT);
+    expect((caught as TestGateError).reason).toContain(INDEX_INPUTS_HINT);
   });
 
   it('a newly observed failed attempt is refused and counted in a metrics-only review.md; the same id is not counted twice', async () => {

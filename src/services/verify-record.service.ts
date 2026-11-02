@@ -37,7 +37,7 @@ import {
   type EvidenceBlock,
 } from '../lib/delegated-evidence.js';
 import { assessCurrentDrift } from '../lib/drift-assessment.js';
-import { UNTRACKED_INPUTS_HINT } from '../lib/drift-checker.js';
+import { INDEX_INPUTS_HINT } from '../lib/drift-checker.js';
 import { adjudicateChangeCheck, mapCheckStatusToVerdict } from '../lib/change-gate.js';
 import { auditConstitution } from '../lib/constitution-audit.js';
 import type { DriftCheckId } from '../types/drift-report.js';
@@ -453,7 +453,7 @@ export async function execute(options: VerifyRecordOptions): Promise<VerifyRecor
         `Verification context is stale or changed since grading: graded context_id "${deltaInput.context_id}" does not match current repository/spec context_id "${liveContextAssessment.context.context_id}"`,
         `Inputs (spec, proposal, baseline, tests, or code) changed; re-run verify context and re-grade${
           typeof savedContextJson?.snapshot?.digest === 'string' && savedContextJson.snapshot.digest !== liveContextAssessment.context.snapshot.digest
-            ? ` (the repository snapshot moved: ${UNTRACKED_INPUTS_HINT})` : ''}`,
+            ? ` (the repository snapshot moved: ${INDEX_INPUTS_HINT})` : ''}`,
       );
     }
     if (!VerificationContextSchema.safeParse(savedContextJson).success ||

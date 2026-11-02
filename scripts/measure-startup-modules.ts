@@ -146,6 +146,8 @@ function createStatusFixture(cliPath: string, scenario: StatusScenario): string 
     if (git.status !== 0) throw new Error(`startup fixture git init failed: ${git.stderr}`);
     write('.prospec.yaml', 'version: "1.0"\nproject:\n  name: startup-fixture\n');
     write('input.txt', 'before');
+    const staged = spawnSync('git', ['add', '.'], { cwd, encoding: 'utf8' });
+    if (staged.status !== 0) throw new Error(`startup fixture staging failed: ${staged.stderr}`);
     if (scenario !== 'no-report') {
       const check = spawnSync(process.execPath, [cliPath, 'check', '--json'], { cwd, encoding: 'utf8' });
       if (check.status !== 0) throw new Error(`startup fixture check failed: ${check.stderr}`);

@@ -7,7 +7,7 @@ import type { QualityDimension } from '../../../src/types/change.js';
 import { computeAcceptanceDigest } from '../../../src/types/change.js';
 import { RELAYED_FIELD_MAX_CHARS } from '../../../src/types/station.js';
 import { EVIDENCE_SECTION_MARKER } from '../../../src/lib/delegated-evidence.js';
-import { UNTRACKED_INPUTS_HINT } from '../../../src/lib/drift-checker.js';
+import { INDEX_INPUTS_HINT } from '../../../src/lib/drift-checker.js';
 import type { ConstitutionRuleEntry } from '../../../src/types/drift-report.js';
 
 vi.mock('node:fs', async () => {
@@ -1077,7 +1077,7 @@ Spec details.
     });
 
     it.each([
-      ['names the untracked-input rule when the repository snapshot moved', 'moved-snapshot', true],
+      ['names the index-input rule when the repository snapshot moved', 'moved-snapshot', true],
       ['omits the hint when the snapshot is unchanged', 'snapshot-digest', false],
       ['omits the hint when the saved context carries no snapshot digest', 'moved-snapshot', false, true],
     ])('context drift %s', async (_name, liveSnapshot, hinted, savedWithoutSnapshot = false) => {
@@ -1098,7 +1098,7 @@ Spec details.
       try {
         const err = await execute({ cwd: CWD, dimensionsPath: dimsPath, judgmentDimensions: [], warnings: [] }).catch((e) => e);
         expect(err.message).toMatch(/Verification context is stale or changed since grading/);
-        expect(err.suggestion.includes(UNTRACKED_INPUTS_HINT)).toBe(hinted);
+        expect(err.suggestion.includes(INDEX_INPUTS_HINT)).toBe(hinted);
       } finally {
         liveContext.context.snapshot.digest = savedSnapshot;
       }

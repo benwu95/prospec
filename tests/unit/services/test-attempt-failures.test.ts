@@ -41,7 +41,9 @@ it.each(['timeout', 'crash', 'unavailable'])('keeps a real failure through a lat
   expect(meta().test_attempt?.outcome).toBe(kind === 'crash' ? 'unprovable' : kind);
   await run(); expect(await status()).toBe('pass');
 });
-it('keeps a spawn error reason without the untracked-input hint even though inputs moved', async () => {
+it('keeps a spawn error reason without the index-input hint even though inputs moved', async () => {
+  writeFileSync(path.join(root, 'noise.log'), 'before');
+  execFileSync('git', ['add', 'noise.log'], { cwd: root, stdio: 'pipe' });
   vi.mocked(runTestCommand).mockImplementationOnce(() => {
     writeFileSync(path.join(root, 'noise.log'), 'x');
     return outcome(null, { error: 'spawn ENOENT' });

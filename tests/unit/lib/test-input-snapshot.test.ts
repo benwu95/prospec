@@ -57,8 +57,11 @@ describe('test input projection', () => {
     git('add', '-u'); git('commit', '-qm', 'delete knowledge');
     expect(computeTestState(root, context()).digest).toBe(before.test.digest);
     put('kb/ai-knowledge/new.md', 'new');
+    git('add', 'kb/ai-knowledge/new.md');
     expect(computeTestState(root, context()).digest).toBe(before.test.digest);
     put('kb/ai-knowledge-copy/README.md', 'included');
+    expect(computeTestState(root, context()).digest).toBe(before.test.digest);
+    git('add', 'kb/ai-knowledge-copy/README.md');
     expect(computeTestState(root, context()).digest).not.toBe(before.test.digest);
   });
 
@@ -75,16 +78,25 @@ describe('test input projection', () => {
     expect(before.test.identity.testPolicy).toEqual({ version: 1, excluded_path: aliases ? 'kb/ai-knowledge' : 'KB/ai-knowledge' });
   });
 
-  it('compares filesystem identities when index and directory spelling differ', () => {
+  it.each(['KB', 'other-kb'])('compares filesystem identities when Knowledge is renamed to %s', (renamed) => {
     fs.renameSync(path.join(root, 'kb'), path.join(root, 'temporary-kb'));
-    fs.renameSync(path.join(root, 'temporary-kb'), path.join(root, 'KB'));
-    const ctx = context('KB');
+    fs.renameSync(path.join(root, 'temporary-kb'), path.join(root, renamed));
+    const aliases = fs.existsSync(path.join(root, 'kb'));
+    const ctx = context(renamed);
     const before = computeEvidenceStates(root, ctx);
+    expect(before.repository.digest).toBeTruthy();
     expect(before.test.digest).toBeTruthy();
-    put('KB/ai-knowledge/README.md', 'Changed under the canonical directory spelling');
+    put(`${renamed}/ai-knowledge/README.md`, 'Changed under the canonical directory spelling');
     const after = computeEvidenceStates(root, ctx);
-    expect(after.repository.digest).not.toBe(before.repository.digest);
+    expect(after.repository.digest).toBeTruthy();
+    if (aliases) expect(after.repository.digest).not.toBe(before.repository.digest);
+    else expect(after.repository.digest).toBe(before.repository.digest);
     expect(after.test.digest).toBe(before.test.digest);
+    git('add', '-A');
+    const indexed = computeEvidenceStates(root, ctx);
+    expect(indexed.repository.digest).toBeTruthy();
+    expect(indexed.repository.digest).not.toBe(before.repository.digest);
+    expect(indexed.test.digest).toBe(before.test.digest);
   });
 
   it('binds command, descriptor and ignored raw configuration bytes', () => {
@@ -146,6 +158,7 @@ describe('test input projection', () => {
 
   it.skipIf(process.platform === 'win32')('refuses a retained symlink into excluded Knowledge', () => {
     fs.symlinkSync('kb/ai-knowledge/README.md', path.join(root, 'alias'));
+    git('add', 'alias');
     const captured = computeEvidenceStates(root, context());
     expect(captured.repository.digest).toBeTruthy();
     expect(captured.test.digest).toBeNull();
@@ -155,10 +168,12 @@ describe('test input projection', () => {
   it.skipIf(process.platform === 'win32')('refuses a retained directory symlink onto excluded Knowledge or an ancestor of it', () => {
     put('docs/ai-knowledge/README.md', 'notes'); put('docs/guide.md', 'guide'); git('add', '.'); git('commit', '-qm', 'docs');
     fs.symlinkSync('docs', path.join(root, 'ancestor'));
+    git('add', 'ancestor');
     const crossing = computeEvidenceStates(root, context('docs'));
     expect(crossing.repository.digest).toBeTruthy();
     expect(crossing.test).toMatchObject({ digest: null, reason: 'Symlink crosses Knowledge exclusion: ancestor' });
     fs.unlinkSync(path.join(root, 'ancestor')); fs.symlinkSync('docs/ai-knowledge', path.join(root, 'inside'));
+    git('add', '-A');
     expect(computeEvidenceStates(root, context('docs')).test).toMatchObject({ digest: null, reason: 'Symlink crosses Knowledge exclusion: inside' });
   });
 
@@ -176,6 +191,7 @@ describe('test input projection', () => {
 
   it.skipIf(process.platform === 'win32')('records a retained directory symlink beside the exclusion', () => {
     put('lib/a.ts', 'a'); fs.symlinkSync('lib', path.join(root, 'alias'));
+    git('add', 'lib/a.ts', 'alias');
     const captured = computeEvidenceStates(root, context());
     expect(captured.repository.digest).toBeTruthy();
     expect(captured.test.digest).toBeTruthy();

@@ -90,6 +90,7 @@ export async function prepareFixture(input: Scenario, instructions: Record<strin
     git('init', '-q');
     git('config', 'user.name', 'Workflow fixture');
     git('config', 'user.email', 'fixture@example.invalid');
+    git('add', '.');
     // `knowledge verify` is the sole stamp writer: it records the source digest freshness compares.
     fixtureCli(cwd, ['knowledge', 'verify', 'fixture']);
     git('add', '.');

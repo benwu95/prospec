@@ -1,7 +1,7 @@
 import type { DriftReport } from '../types/drift-report.js';
 import type { WorkflowReason } from '../types/status.js';
 import { adjudicateChangeCheck } from './change-gate.js';
-import { UNTRACKED_INPUTS_HINT, withoutUntrackedInputsHint } from './drift-checker.js';
+import { INDEX_INPUTS_HINT, withoutIndexInputsHint } from './drift-checker.js';
 import { knowledgeSyncReasons, type KnowledgeSyncGaps } from './knowledge-sync.js';
 
 /** The archive Entry-Gate verdict: blocked when any reason is present. */
@@ -114,10 +114,10 @@ export function evaluateArchiveEntryGate(
         reasons.push({ ...reason });
         continue;
       }
-      // Review and test evidence stale together on one untracked file; state its hint once per refusal.
       let detail = verdict.findings.map((f) => f.detail).join(' / ');
-      if (hinted) detail = withoutUntrackedInputsHint(detail);
-      hinted ||= detail.includes(UNTRACKED_INPUTS_HINT);
+      // Several failed checks share one refusal; state their common hint only once.
+      if (hinted) detail = withoutIndexInputsHint(detail);
+      hinted ||= detail.includes(INDEX_INPUTS_HINT);
       reasons.push({ ...reason, message: `${reason.message}: ${detail}` });
     }
   }

@@ -95,7 +95,7 @@ export interface CheckpointScope { changed: string[]; deleted: Set<string> }
  * delete through the new link, or meet a directory where it writes a file.
  */
 export function readCheckpointScope(cwd: string): CheckpointScope {
-  const tree = withFixedGitEnv(() => workTreePaths(cwd));
+  const tree = withFixedGitEnv(() => workTreePaths(cwd, 'preservation'));
   const reports = reportPaths(cwd);
   const changed = [...tree.changed, ...reports.changed];
   const deleted = new Set([...tree.deleted, ...reports.deleted]);

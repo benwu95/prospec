@@ -5,14 +5,12 @@
  * CLI only reads git" is checked at run time instead of only stated. The snapshot builder's other git calls go
  * through `gitSnapshot`, which only acts on a snapshot under the temporary directory.
  *
- * It does not reuse `drift-sources`' git calls: those are private to their engine
- * and include its writers (`--record-tests` and the like), so an allowlist placed
- * there would have to admit them. The delegation modules call this adapter for
- * their own reads and keep `drift-sources`' three read-only readers
- * (`computeChangeState`, `workTreePaths`, `gitProjectPrefix`) unchanged. The one
- * `drift-sources` read that does come here is a gitlink's input listing (`ls-files`
- * inside the submodule): its cwd is another repository, so it needs exactly this
- * fixed environment and bound.
+ * The allowlist stays separate from `drift-sources`' evidence writers. Delegation
+ * combines these reads with its read-only capture and path helpers, selecting
+ * preservation membership explicitly for `computeChangeState`. The shared index
+ * reader also serves project listings with each consumer's environment policy;
+ * submodule listings use the fixed environment because their cwd is another
+ * repository.
  *
  * `GIT_READ_TIMEOUT_MS` and `failureLine` are shared beyond the delegation path; the
  * CLI entry's work-tree probe uses them, and this module imports only Node built-ins
@@ -151,6 +149,43 @@ export function gitReadRecords(cwd: string, sub: GitReadSubcommand, args: readon
   if (!Buffer.from(decoded).equals(raw)) throw new Error('Git output cannot be represented losslessly');
   if (decoded !== '' && !decoded.endsWith('\0')) throw new Error('Incomplete NUL Git capture');
   return decoded === '' ? [] : decoded.slice(0, -1).split('\0');
+}
+
+export interface IndexReadOptions {
+  decoding: 'strict' | 'skip';
+  pathspecs?: readonly string[];
+  includeUntracked?: boolean;
+  env?: NodeJS.ProcessEnv;
+  noOptionalLocks?: boolean;
+}
+
+/** Inherits process.env when env is omitted; removes only PATHSPEC_ENV from the
+ *  selected environment, preserving caller-selected repositories and indexes. */
+export function readIndexEntries(cwd: string, options: IndexReadOptions): string[] {
+  if (options.pathspecs?.length === 0) return [];
+  const env = { ...(options.env ?? process.env) };
+  for (const name of PATHSPEC_ENV) delete env[name];
+  const raw = execFileSync('git', [
+    ...(options.noOptionalLocks ? ['--no-optional-locks'] : []),
+    'ls-files', '-z', '-t', '--stage', '--cached',
+    ...(options.includeUntracked ? ['--others', '--exclude-standard'] : []),
+    ...(options.pathspecs === undefined ? [] : ['--', ...options.pathspecs]),
+  ], { cwd, env, stdio: 'pipe', timeout: GIT_READ_TIMEOUT_MS, maxBuffer: GIT_READ_MAX_BUFFER });
+  if (raw.length > 0 && raw[raw.length - 1] !== 0) throw new Error('Incomplete NUL Git capture');
+  const entries: string[] = [];
+  let start = 0;
+  for (let end = 0; end < raw.length; end++) {
+    if (raw[end] !== 0) continue;
+    const record = raw.subarray(start, end);
+    start = end + 1;
+    const decoded = record.toString('utf8');
+    if (!Buffer.from(decoded).equals(record)) {
+      if (options.decoding === 'strict') throw new Error('Git output cannot be represented losslessly');
+      continue;
+    }
+    entries.push(decoded);
+  }
+  return entries;
 }
 
 /** One `ls-files -t [-v] --stage` index record. Under `-v` a lowercase tag marks an

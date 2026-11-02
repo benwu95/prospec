@@ -11,7 +11,7 @@ import { parseYaml } from './yaml-utils.js';
 import { parseDocument, isMap, isScalar } from 'yaml';
 import { DEFAULT_BASE_DIR, DEFAULT_KNOWLEDGE_TOKEN_BUDGET, isShippedBudgetField, type ShippedBudgetField } from '../types/config.js';
 import { withoutFencedBlocks } from './markdown-fences.js';
-import { GIT_READ_TIMEOUT_MS, PATHSPEC_ENV, gitRead, gitReadOptional, gitReadRecords, hiddenIndexShape, parseIndexRecord } from './git-read.js';
+import { GIT_READ_TIMEOUT_MS, PATHSPEC_ENV, gitRead, gitReadOptional, gitReadRecords, fixedGitEnv, hiddenIndexShape, parseIndexRecord, readIndexEntries } from './git-read.js';
 import { moduleSourceDigest, type SourceDigestEntry } from './source-digest.js';
 import { mergeContent } from './content-merger.js';
 import { ARCHIVE_NATIVE_GLOB, ABANDONED_NATIVE_GLOB, compareLanguagePolicy, type LanguagePolicyComparison } from './language-policy.js';
@@ -1701,7 +1701,7 @@ function recordIntoIndexCopy(
       throw new Error(stated ?? `git ${subcommand}${ended}`);
     }
     const recorded = new Map<string, RecordedEntry>();
-    for (const entry of gitPaths(cwd, ['ls-files', '-z', '-t', '--stage'], env)) {
+    for (const entry of readIndexEntries(cwd, { decoding: 'strict', env })) {
       const record = parseIndexRecord(entry);
       if (record.stage === '0') recorded.set(record.file, { mode: record.mode, oid: record.oid });
     }
@@ -1719,15 +1719,14 @@ function locateIndex(cwd: string): string {
 }
 
 /**
- * Which paths `git add -A` would keep for the project's work tree (REQ-LIB-015): the add writes
+ * Which indexed paths `git add -u` would keep for the project's work tree (REQ-LIB-015): the add writes
  * its objects into a directory of its own with no alternate, so no object of the repository is
  * written or freshened — user clean filters it runs may still write where they keep content.
  * Unable to read index blobs, it can convert line endings differently, so only its paths are
- * trusted, never its object ids; `core.safecrlf` is off for the same reason. `excluded`
- * (untracked nested repositories) stays out of the add.
+ * trusted, never its object ids; `core.safecrlf` is off for the same reason.
  */
-function recordMembership(cwd: string, index: string, excluded: readonly string[]): Map<string, RecordedEntry> {
-  return recordIntoIndexCopy(cwd, index, 'add', ['-A', '--', '.', ...excluded.map((dir) => `:(exclude,literal)${dir}`)],
+function recordMembership(cwd: string, index: string): Map<string, RecordedEntry> {
+  return recordIntoIndexCopy(cwd, index, 'add', ['-u', '--', '.'],
     { config: ['-c', 'core.safecrlf=false'], ownObjects: true });
 }
 
@@ -1814,7 +1813,9 @@ function gitPaths(cwd: string, args: string[], env?: NodeJS.ProcessEnv): string[
   return decoded === '' ? [] : decoded.slice(0, -1).split('\0');
 }
 
-/** One `ls-files -t --stage --cached --others` record: an untracked path, or an index
+export type SnapshotMembership = 'index' | 'preservation';
+
+/** One shared index listing record: an untracked path, or an index
  *  entry that must be a plain stage-0 entry the work tree holds. Shared by the
  *  superproject and every submodule, so both refuse the same unprovable shapes. */
 function parseInputRecord(
@@ -1827,10 +1828,8 @@ function parseInputRecord(
   return { file: record.file, gitlink: record.mode === '160000', mode: record.mode, oid: record.oid };
 }
 
-const LS_INPUT_ARGS = ['-z', '-t', '--stage', '--cached', '--others', '--exclude-standard'];
-
 /** Effective superproject inputs, which of them are gitlinks (submodules), and each one's index identity. */
-function inputFiles(cwd: string): {
+function inputFiles(cwd: string, membership: SnapshotMembership = 'index'): {
   files: string[];
   gitlinks: Set<string>;
   index: Map<string, { mode: string | null; oid: string | null }>;
@@ -1839,7 +1838,7 @@ function inputFiles(cwd: string): {
   const index = new Map<string, { mode: string | null; oid: string | null }>();
   const gitlinks = new Set<string>();
   const bookkeeping = new Set<string>();
-  for (const entry of gitPaths(cwd, ['ls-files', ...LS_INPUT_ARGS])) {
+  for (const entry of readIndexEntries(cwd, { decoding: 'strict', includeUntracked: membership === 'preservation' })) {
     const file = entry.startsWith('? ') ? entry.slice(2) : /\t([\s\S]+)$/.exec(entry)?.[1];
     // Bookkeeping is out of scope before its index shape is judged.
     if (file !== undefined && !inEvidenceScope(file)) { bookkeeping.add(file); continue; }
@@ -1859,7 +1858,7 @@ function addedDuringCapture(state: ReturnType<typeof workTreePaths>, listed: Rea
  *  evidence snapshot to share; throws when either capture fails or they disagree on membership. */
 export function captureSourceInventory(cwd: string): SourceInventory {
   const { index, bookkeeping } = inputFiles(cwd);
-  const state = workTreePaths(cwd);
+  const state = workTreePaths(cwd, 'index');
   const added = addedDuringCapture(state, index);
   if (added !== undefined) throw new Error(`Input membership changed during capture: ${added}`);
   return { entries: index, changed: new Set(state.changed), changedBookkeeping: state.bookkeeping, bookkeeping };
@@ -1881,7 +1880,7 @@ interface SnapshotEntry { key: string; absolute: string; gitlink?: 'checkout' | 
  *  neither an uninitialized checkout, nor smudge or line-ending bytes, nor a nested
  *  checkout. The submodule is read through `git-read` (fixed environment, no optional
  *  locks, bounded), and its nested gitlinks are expanded the same way. */
-function expandGitlink(repository: string, file: string, key: string): SnapshotEntry[] {
+function expandGitlink(repository: string, file: string, key: string, membership: SnapshotMembership): SnapshotEntry[] {
   const absolute = path.join(repository, file);
   const state = gitlinkCheckoutState(repository, file);
   // Not a checkout here: an ordinary input of the repository that lists it.
@@ -1890,11 +1889,11 @@ function expandGitlink(repository: string, file: string, key: string): SnapshotE
   if (state === 'uninitialized') return [{ key, absolute, gitlink: 'uninitialized' }];
   const entries: SnapshotEntry[] = [{ key, absolute, gitlink: 'checkout' }];
   const seen = new Set<string>();
-  for (const record of gitReadRecords(absolute, 'ls-files', LS_INPUT_ARGS)) {
+  for (const record of readIndexEntries(absolute, { decoding: 'strict', includeUntracked: membership === 'preservation', env: fixedGitEnv(), noOptionalLocks: true })) {
     const { file: child, gitlink } = parseInputRecord(record, (f) => `${key}/${f}`);
     if (seen.has(child)) continue;
     seen.add(child);
-    if (gitlink) entries.push(...expandGitlink(absolute, child, `${key}/${child}`));
+    if (gitlink) entries.push(...expandGitlink(absolute, child, `${key}/${child}`, membership));
     else entries.push({ key: `${key}/${child}`, absolute: path.join(absolute, child), deletedIn: absolute });
   }
   return entries;
@@ -2008,10 +2007,10 @@ export function gitProjectPrefix(cwd: string): string {
   return text.slice(0, -1);
 }
 
-export function workTreePaths(cwd: string): { changed: string[]; deleted: Set<string>; bookkeeping: Set<string> } {
+export function workTreePaths(cwd: string, membership: SnapshotMembership): { changed: string[]; deleted: Set<string>; bookkeeping: Set<string> } {
   const prefix = gitProjectPrefix(cwd);
   const relative = (file: string): string | null => file.startsWith(prefix) ? file.slice(prefix.length) : null;
-  const records = gitPaths(cwd, ['status', '--porcelain=v1', '-z', '--untracked-files=all']);
+  const records = gitPaths(cwd, ['status', '--porcelain=v1', '-z', ...(membership === 'index' ? ['--untracked-files=no', '--ignore-submodules=untracked'] : ['--untracked-files=all'])]);
   const changed = new Set<string>();
   const deleted = new Set<string>();
   const bookkeeping = new Set<string>();
@@ -2061,10 +2060,10 @@ function exclusionRoots(cwd: string, root: string): string[] {
   return [...roots].filter((rel) => rel !== '' && !rel.startsWith('..'));
 }
 
-/** The files git tracks or would add under `pathspecs`; null when git cannot list them. */
+/** The indexed files under `pathspecs`; null when git cannot list them. */
 function listPathspecs(cwd: string, pathspecs: readonly string[]): string[] | null {
-  const out = gitCapture(cwd, ['ls-files', '-z', '--cached', '--others', '--exclude-standard', '--', ...pathspecs]);
-  return out === null ? null : out.split('\0').filter((file) => file !== '');
+  try { return readIndexEntries(cwd, { decoding: 'strict', pathspecs }).map((entry) => parseIndexRecord(entry).file); }
+  catch { return null; }
 }
 
 /** Why a module with no supported path has no digest. The clamp has already dropped the paths that
@@ -2077,8 +2076,8 @@ function noSupportedPathReason(paths: readonly string[], specs: readonly ModuleP
 
 
 /**
- * Each module's source digest (REQ-LIB-015, REQ-LIB-039, REQ-LIB-070): the files git tracks
- * or would add under the module's paths, minus generated artifacts (lifted when they cover
+ * Each module's source digest (REQ-LIB-015, REQ-LIB-039, REQ-LIB-070): indexed files under
+ * the module's paths, minus generated artifacts (lifted when they cover
  * every source file), the knowledge base, the Feature Specs and workflow bookkeeping; a clean
  * tracked file contributes its index entry, a changed one what git would record for it.
  * Attribution, nested-repository checks and the work-tree recording cover the whole map, so
@@ -2106,14 +2105,13 @@ export function collectModuleDigests(cwd: string, moduleMap: ModuleMap, options:
     }
     return generatedListed !== null && (generatedRels.some((rel) => pathspecCovers(rel, file)) || generatedListed.has(file));
   };
-  const inInventory = (file: string) => inventory.entries.has(file) || file.endsWith('/');
-  const nested = [...listed, ...inventory.bookkeeping].filter((file) => file.endsWith('/')).map((dir) => dir.slice(0, -1));
+  const inInventory = (file: string) => inventory.entries.has(file);
   let index: string | undefined;
   let membership: Map<string, RecordedEntry> | Error | undefined;
   // Which paths git would keep, recorded once and only when a decision reads a changed file.
   const keptByGit = (): Map<string, RecordedEntry> => {
     if (membership === undefined) {
-      try { index = locateIndex(cwd); membership = recordMembership(cwd, index, nested); } catch (error) {
+      try { index = locateIndex(cwd); membership = recordMembership(cwd, index); } catch (error) {
         membership = error instanceof Error ? error : new Error(String(error));
       }
     }
@@ -2121,8 +2119,16 @@ export function collectModuleDigests(cwd: string, moduleMap: ModuleMap, options:
     return membership;
   };
   const changed = (file: string) => inventory.changed.has(file) || inventory.changedBookkeeping.has(file);
-  // A nested repository the listing names stays out of the add, so it counts as held, as on disk.
-  const present = (file: string) => file.endsWith('/') || !changed(file) || keptByGit().has(file);
+  const checkoutReplacements = new Map<string, boolean>();
+  const replacedByCheckout = (file: string): boolean => {
+    if (!checkoutReplacements.has(file)) checkoutReplacements.set(file, inventory.entries.get(file)?.mode !== '160000' && gitlinkCheckoutState(cwd, file) === 'checkout');
+    return checkoutReplacements.get(file)!;
+  };
+  const present = (file: string): boolean => {
+    if (!changed(file) || keptByGit().has(file)) return true;
+    if (replacedByCheckout(file)) throw new Error(`indexed path holds a nested repository: ${file}`);
+    return false;
+  };
   // An unchanged file settles it before any changed one is read, whatever the file order.
   const holdsAny = (files: readonly string[]) => files.some((file) => !changed(file)) || files.some(present);
   // A source file git would record keeps the generated-artifact exclusion in place.
@@ -2164,7 +2170,6 @@ export function collectModuleDigests(cwd: string, moduleMap: ModuleMap, options:
   const toHash: string[] = [];
   for (const file of new Set([...claimed.values()].flatMap((v) => (typeof v === 'string' ? [] : v)))) {
     const entry = inventory.entries.get(file);
-    if (file.endsWith('/')) { blocked.set(file, `untracked nested repository: ${file}`); continue; }
     if (entry?.mode === '160000') {
       const state = gitlinkCheckoutState(cwd, file);
       if (state === 'absent') continue;
@@ -2173,7 +2178,7 @@ export function collectModuleDigests(cwd: string, moduleMap: ModuleMap, options:
       if (state === 'checkout') {
         const dir = path.join(cwd, file);
         try {
-          if (gitRead(dir, 'status', ['--porcelain', '--untracked-files=all', '--ignore-submodules=none']).trim() !== '') {
+          if (gitRead(dir, 'status', ['--porcelain', '--untracked-files=no', '--ignore-submodules=untracked']).trim() !== '') {
             blocked.set(file, `submodule checkout holds uncommitted changes: ${file}`);
           } else ids.set(file, gitRead(dir, 'rev-parse', ['HEAD']).trim());
         } catch { blocked.set(file, `submodule checkout cannot be read: ${file}`); }
@@ -2182,7 +2187,10 @@ export function collectModuleDigests(cwd: string, moduleMap: ModuleMap, options:
     }
     if (entry?.oid != null && entry.mode !== '160000' && !inventory.changed.has(file)) { ids.set(file, entry.oid); continue; }
     let found: RecordedEntry | undefined;
-    try { found = keptByGit().get(file); } catch (error) {
+    try {
+      found = keptByGit().get(file);
+      if (found === undefined && replacedByCheckout(file)) throw new Error(`indexed path holds a nested repository: ${file}`);
+    } catch (error) {
       blocked.set(file, `work tree cannot be recorded: ${error instanceof Error ? error.message : String(error)}`);
       continue;
     }
@@ -2239,8 +2247,8 @@ function validateExcludedTopology(root: string): void {
   }
 }
 
-/** Hash the final represented files, never Git history/index/diff representation. */
-export function computeEvidenceStates(cwd: string, context?: TestInputContext): EvidenceStates {
+/** Hash the working-tree content of the selected members. */
+export function computeEvidenceStates(cwd: string, context?: TestInputContext, membership: SnapshotMembership = 'index'): EvidenceStates {
   const enabled = context?.config.test_evidence?.exclude_knowledge === true;
   let identity: TestEvidenceIdentity = enabled
     ? { fingerprintVersion: TEST_FINGERPRINT_VERSION, scope: TEST_EVIDENCE_SCOPE }
@@ -2282,8 +2290,8 @@ export function computeEvidenceStates(cwd: string, context?: TestInputContext): 
   try {
     cwd = realpathSync(cwd);
     validateTest(validatePolicy);
-    const { files, gitlinks, index, bookkeeping } = inputFiles(cwd);
-    const state = workTreePaths(cwd);
+    const { files, gitlinks, index, bookkeeping } = inputFiles(cwd, membership);
+    const state = workTreePaths(cwd, membership);
     const validateMembership = (candidate: ReturnType<typeof workTreePaths>): void => {
       const added = addedDuringCapture(candidate, index);
       if (added !== undefined) throw new Error(`Input membership changed during capture: ${added}`);
@@ -2299,7 +2307,7 @@ export function computeEvidenceStates(cwd: string, context?: TestInputContext): 
     for (const file of files) {
       const absolute = path.resolve(cwd, file);
       if (gitlinks.has(file)) {
-        const expanded = expandGitlink(cwd, file, file);
+        const expanded = expandGitlink(cwd, file, file, membership);
         // A gitlink path holding something other than a checkout stays a superproject input.
         if (expanded.length === 1 && expanded[0]!.gitlink === undefined) entries.push({ key: file, absolute });
         else entries.push(...expanded);
@@ -2336,7 +2344,7 @@ export function computeEvidenceStates(cwd: string, context?: TestInputContext): 
     const ancestors = new Map<string, AncestorKind>();
     let confirmed: ReturnType<typeof workTreePaths> | undefined;
     const confirmDeleted = (file: string): void => {
-      if (confirmed === undefined) { confirmed = workTreePaths(cwd); validateMembership(confirmed); }
+      if (confirmed === undefined) { confirmed = workTreePaths(cwd, membership); validateMembership(confirmed); }
       if (!confirmed.deleted.has(file)) throw new Error(`Input disappeared during capture: ${file}`);
     };
     const relative = (absolute: string): string => path.relative(cwd, absolute).split(path.sep).join('/');
@@ -2426,8 +2434,8 @@ export function computeEvidenceStates(cwd: string, context?: TestInputContext): 
 }
 
 
-export function computeChangeState(cwd: string): ChangeState {
-  return computeEvidenceStates(cwd).repository;
+export function computeChangeState(cwd: string, membership: SnapshotMembership = 'index'): ChangeState {
+  return computeEvidenceStates(cwd, undefined, membership).repository;
 }
 
 export function computeTestState(cwd: string, context?: TestInputContext): TestInputState {
@@ -2443,9 +2451,9 @@ export function computeWorkingTreeClean(cwd: string): boolean | null {
   return computeChangeState(cwd).clean;
 }
 
-/** Same lossless parser and input scope as the content snapshot. */
+/** Working-tree changed paths for attribution and preservation. */
 export function changedPathsFromWorkTree(cwd: string): string[] | null {
-  try { return workTreePaths(cwd).changed; } catch { return null; }
+  try { return workTreePaths(cwd, 'preservation').changed; } catch { return null; }
 }
 
 /**

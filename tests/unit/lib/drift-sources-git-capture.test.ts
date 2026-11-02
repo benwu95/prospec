@@ -16,14 +16,8 @@ import type { ModuleMap } from '../../../src/types/module-map.js';
 vi.setConfig({ testTimeout: 30_000 });
 
 /**
- * REQ-LIB-024 — BOTH git captures inside computeChangeDigest fail closed.
- *
- * The diff capture's failure branch is covered on real git (unborn HEAD, in
- * drift-sources.test.ts); the untracked-listing capture can only fail while the
- * diff succeeds under fault injection, so this file mocks child_process
- * selectively. Before issue #103 that capture fell back to `?? ''`, silently
- * dropping the untracked dimension from the digest — fail-open, the exact
- * pattern the diff branch was fixed for.
+ * Index listing and status capture fail closed independently. Selective subprocess
+ * faults prove neither failure silently discards part of the represented inputs.
  */
 
 const state = vi.hoisted(() => ({ failLsFiles: false, failExcludePathspec: false, failStatus: false, failGlobListing: false }));

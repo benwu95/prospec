@@ -32,7 +32,7 @@ Write each generated document in the language the Constitution's Language Policy
 Hand-executing a CLI-owned mutation is NEVER the fallback — that re-introduces the
 nondeterministic serialization this contract exists to remove.
 
-Evidence uses `snapshot-v2` / `repository-inputs-v2`: repository input content, independent of staging and equivalent commit history. A legacy record needs one real revalidation; an equivalent commit alone needs no re-record.
+Evidence uses `snapshot-v2` / `repository-inputs-v2`: working-tree content of git index members. Unchanged members and effective content preserve evidence across staging and equivalent commits. Revalidate legacy records once.
 
 ## Startup Loading
 

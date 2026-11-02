@@ -33,6 +33,7 @@ afterEach(() => rmSync(root, { recursive: true, force: true }));
 
 describe('collectGitTimestamps source facts (REQ-LIB-015, REQ-LIB-070)', () => {
   it('judges an unborn HEAD by digest with null commit times', () => {
+    gitIn(root, 'add', 'src');
     const source = collectGitTimestamps(root, map(), knowledge(root), []);
     expect(source.available).toBe(true);
     const lib = source.modules.find((m) => m.name === 'lib')!;

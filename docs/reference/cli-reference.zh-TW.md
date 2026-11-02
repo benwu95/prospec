@@ -132,6 +132,7 @@ your-project/
 
 - **`prospec knowledge verify <module>...`**
   - **核心用途**：為指定模組在 `module-map.yaml` 戳上 `last_verified` 時間戳記與 `source_digest`。
+  - **準備**：先用 `git add` stage 要交付的新 source 檔；成員依 index、內容讀工作樹，因此既有 tracked 修改與刪除不必 stage。本機 untracked 暫存檔不參與 freshness。
   - **執行行為**：記錄模組知識與原始碼確認一致的時間點，以及確認時原始碼的 digest；`prospec check` 以該 digest 比對目前原始碼判斷 staleness。戳記已晚於 `HEAD` 中的值、且原始碼 digest 未變的模組會略過，輸出為 `skipped`；指名的模組全部略過時不改寫 `module-map.yaml`。任一模組的 digest 無法計算時整體拒寫。
 
 - **`prospec agent sync [--cli <name>]`**
@@ -543,14 +544,14 @@ claude mcp add -s user prospec-b -- prospec mcp serve --cwd /path/to/B
     - 測試結果作為 `prospec-verify` 測試維度的客觀裁決依據，防止 Agent 自陳虛報。
     - 指令直接經由 argv 執行（不經 shell）；無法執行時標記為 `skipped` 並說明原因。
     - 若先前已記錄非零退出碼（紅燈），即使事後指令變得無法解析仍判定為 FAIL（事實不被隱藏）。
-    - git submodule 以其 checkout 的實際檔案計入 fingerprint，而不是它指向的 commit：在 submodule 內留下的測試或 build 產物會改變 fingerprint（請在 submodule 內 commit 或 ignore），submodule 內的 sparse 或 unmerged entry 則使輸入無法證明。
+    - git submodule 以自己 git index 成員的工作樹內容計入 fingerprint，而非 commit pin。一般 untracked 測試／build 產物在該 submodule 執行 `git add` 後才納入；indexed 產物的變動仍改變 fingerprint。Submodule 內的 sparse 或 unmerged entry 會使輸入無法證明。
 
 - **`prospec check --record-review [--change <name>]`**
   - **核心用途**：記錄該變更的審查基線（程式碼 digest）與 `delta-spec.md` 指紋，供後續驗證 `review-provenance` 與 `delta-spec-provenance`。
 
 - **明確 `related_modules`（breaking）**：建立時不再依關鍵字推斷模組；使用 `prospec change story <name> --related-module <module>`（可重複），或判斷無關聯後用 `prospec change story <name> --no-related-modules`。省略 creation scope 會拒收且不產生工件。Legacy 缺席 scope 仍可讀取，但 knowledge-sync 會以 `KNOWLEDGE_INPUT_INVALID` 停下；以 `prospec change related-modules <modules...> --change <name>` 或 `prospec change related-modules --change <name> --no-related-modules` 遷移。`[]` 代表已宣告無關聯，而非 unknown。無法歸屬的 `auto-draft` 群組改為失敗且不產生骨架；先判斷 scope 再明確建立。Freeze／amend 輸入與獨立 REQ 分類仍各自保留。
 
-- **已移除的旗標（breaking）**：`prospec check --escaped-defects`、`prospec review merge --spend` / `--budget`、`prospec verify record --spend` 與 `prospec change story --introduced-by` 已不存在——每一個都會被當成未知選項拒絕（exit 1、不寫入任何檔案），請從包裝腳本中移除。既有紀錄仍可讀取：帶有 `introduced_by` 或 `dimensions[].spend` 的 `metadata.yaml` 照常通過驗證；`review.md` metrics 註解中的 `spend_before` / `round_spend` / `cumulative_spend` 可正常解析、這些屬性被忽略，下次合併時不再寫回。工作樹中若仍留有未被 ignore 的 `escaped-defect-report.json`，請刪除或 ignore 它，再重跑 `prospec check --record-review` / `--record-tests`：這個檔案現在是 review 與 test digest 的一般組成部分。
+- **已移除的旗標（breaking）**：`prospec check --escaped-defects`、`prospec review merge --spend` / `--budget`、`prospec verify record --spend` 與 `prospec change story --introduced-by` 已不存在——每一個都會被當成未知選項拒絕（exit 1、不寫入任何檔案），請從包裝腳本中移除。既有紀錄仍可讀取：帶有 `introduced_by` 或 `dimensions[].spend` 的 `metadata.yaml` 照常通過驗證；`review.md` metrics 註解中的 `spend_before` / `round_spend` / `cumulative_spend` 可正常解析、這些屬性被忽略，下次合併時不再寫回。工作樹中若仍留有 `escaped-defect-report.json`，它在 git index 內時才是 review／test digest 的一般輸入；indexed 內容變動需真正重新驗證，僅有 untracked 檔案則不必刪除或 ignore。
 
 - **`prospec check --init-ci`**
   - **核心用途**：生成供應鏈強化的 GitHub Actions CI 閘門（`.github/workflows/prospec-check.yml`），採用完整 SHA 固定、最小權限原則與 PR sticky comment。
@@ -560,14 +561,14 @@ claude mcp add -s user prospec-b -- prospec mcp serve --cwd /path/to/B
 「證據」把已記錄的審查或測試結果，與當時檢查的儲存庫內容連結起來，讓 Prospec 判斷先前的 PASS 現在是否仍有效。
 
 - 先完成 Knowledge、事實計數與生成檔同步，再依序進行最後 review → tests → verify。
-- 只做 staging、commit 或 amend，且輸入內容沒有改變，證據仍有效。修改程式、manifest、lockfile、文件或已追蹤的生成檔，則需要重新驗證。
+- Index 成員與有效內容不變時，staging、commit 或 amend 保留證據。新檔加入 index，或修改 indexed 程式、manifest、lockfile、文件與生成檔，則需要重新驗證。
 - 測試必須實際 exit 0，且執行前後的輸入快照皆可證明且相等，才能建立通過紀錄。最新 attempt 若仍 running 或未經認證，不能沿用舊 PASS；已知失敗會保留到穩定成功為止。
 - 舊版紀錄仍可讀，但需要實際重新審查與測試一次。
 - verify/archive 會評估目前輸入與工作流程事實，並在寫入前重新確認；archive dry-run 使用相同拒絕條件。僅有一份儲存的報告不足以允許操作。
 
-Review 與預設測試證據格式為 `snapshot-v2`／`repository-inputs-v2`；精確的輸入範圍與支援檔案類型見[輸入快照規格](../../prospec/specs/features/drift-detection/us-5.md)。測試輸出應宣告於 Git ignore，已追蹤輸出仍算輸入。不支援或不可讀的輸入會維持 unprovable。執行前後的檢查無法偵測所有短暫修改後還原（change-and-restore），也不涵蓋被忽略的依賴、外部服務或儲存庫輸入之外的工具鏈變更。
+Review 與預設測試證據格式為 `snapshot-v2`／`repository-inputs-v2`；精確的輸入範圍與支援檔案類型見[輸入快照規格](../../prospec/specs/features/drift-detection/us-5.md)。成員來自 git index，內容讀工作樹；不支援或不可讀的輸入維持 unprovable。執行前後的檢查無法偵測所有短暫修改後還原（change-and-restore），也不涵蓋儲存庫輸入之外的依賴、外部服務與工具鏈變更。
 
-未被 ignore 的未追蹤檔案同樣算輸入，所以只存在本機的檔案（例如另一個 session 的輸出或本機 log）也會讓證據過期。記錄與目前的 digest 都可算出但不同時，過期或拒收訊息會說明這點，並要求先取得人的同意才排除路徑。用 `git status --porcelain --untracked-files=all` 列出這些檔案（submodule 內的檔案要在該 submodule 目錄執行）。只存在本機的檔案加進不會被 commit 的 exclude 檔：在該檔案所屬的 repository 執行 `git rev-parse --git-path info/exclude` 會印出它的路徑（一般 clone 為 `.git/info/exclude`；linked worktree 與 submodule 各自解析）。專案產物加進該 repository 的 `.gitignore`。CLI 不會寫入這兩個檔案。
+Knowledge freshness 蓋章或記錄 review／test evidence 前，先用 `git add` stage 要交付的新檔，包含最後同步產生的新檔。Indexed 檔案的工作樹修改與刪除不必 stage。一般 untracked 本機檔案在加入 index 前不會使 evidence 過期；submodule 內要交付的檔案應加入它自己的 index。Digest 皆可證明但不相同時，拒收訊息會先提示此成員規則與檢查變更的 `git status --porcelain --untracked-files=all`（submodule 的檔案在該 submodule 內執行），再提供重新驗證方式。測試仍在工作樹執行：尚未 stage 的新檔可能影響結果，若最後沒有加入 index，evidence 仍可能維持有效。Pre-merge CI 驗證最後的 committed tree；evidence 不取代 CI。
 
 
 啟用 `test_evidence.exclude_knowledge` 的條件與路徑限制見[設定參考](./configuration.zh-TW.md#測試證據)。Opt-in 證據使用 `test-inputs-v1`／`repository-inputs-without-knowledge-v1`，attempt 與 provenance 均記錄 `test_policy: {version: 1, excluded_path: <專案相對路徑>}`。Policy、config bytes、解析後命令或任何保留輸入改變，證據即失效；缺少或未知身分必須真正重跑。

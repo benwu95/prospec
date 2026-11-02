@@ -4,7 +4,7 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg?style=flat-square)](LICENSE)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.9-blue?style=flat-square&logo=typescript)](https://www.typescriptlang.org/)
-[![Tests](https://img.shields.io/badge/tests-9121%20total-success?style=flat-square)](./CONTRIBUTING.md#testing)
+[![Tests](https://img.shields.io/badge/tests-9148%20total-success?style=flat-square)](./CONTRIBUTING.md#testing)
 [![Node](https://img.shields.io/badge/node-%3E%3D22.13-brightgreen?style=flat-square&logo=node.js)](https://nodejs.org/)
 [![pnpm](https://img.shields.io/badge/pnpm-%3E%3D11-orange?style=flat-square&logo=pnpm)](https://pnpm.io/)
 
@@ -95,7 +95,7 @@ Version pinning, manual binary downloads, and the devDependency / `npx` options 
 
 ### 2. Bootstrap your project
 
-One command does the deterministic setup — it chains `init` + `agent sync`, skipping any step already done. Before generating AI Knowledge, use `git add` to stage the source files you want included. Raw scans, new-module README skeletons and import scanning select git index members, including staged files; untracked files are omitted, and sensitive-file and configured exclusions apply. Top-level `exclude` now follows module-path rules; see the [upgrade guide](./docs/guides/upgrading.md) for the breaking changes and rewrites.
+One command does the deterministic setup — it chains `init` + `agent sync`, skipping any step already done. Before generating AI Knowledge, use `git add` to stage the source files you want included. Also stage intended new files before Knowledge freshness stamps and review/test evidence; existing tracked edits are read from the working tree without staging. Raw scans, new-module README skeletons and import scanning select git index members, including staged files; untracked files are omitted, and sensitive-file and configured exclusions apply. Top-level `exclude` now follows module-path rules; see the [upgrade guide](./docs/guides/upgrading.md) for the breaking changes and rewrites.
 
 ```bash
 cd my-project                 # a git repository; run `git init` first if needed

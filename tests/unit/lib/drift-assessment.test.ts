@@ -39,11 +39,13 @@ vi.mock('node:child_process', async (original) => {
     if (gitCalls.failConfig && args[0] === 'config') throw Error('config unreadable');
     if (args[0] === 'status' && gitCalls.addOnStatus > 0 && ++gitCalls.statusCount === gitCalls.addOnStatus) {
       writeFileSync(path.join((opts as { cwd: string }).cwd, 'new-input.ts'), 'unchecked');
+      actual.execFileSync('git', ['add', 'new-input.ts'], opts as never);
     }
     const result = (actual.execFileSync as (...args: unknown[]) => unknown)(file, args, opts);
     if (gitCalls.addAfterListing && args[0] === 'ls-files') {
       gitCalls.addAfterListing = false;
       writeFileSync(path.join((opts as { cwd: string }).cwd, 'new-input.ts'), 'export const unchecked = true;');
+      actual.execFileSync('git', ['add', 'new-input.ts'], opts as never);
     }
     if (args[0] === 'status' && String(result).includes('new-input.ts')) gitCalls.observedAddition = true;
     return result;
@@ -144,7 +146,7 @@ describe('current assessment', () => {
 
   it('detects change membership, source and ignore config mutations', async () => {
     const a = await assessCurrentDrift(root); write('.prospec/changes/new/proposal.md', 'new'); expect(a.recheck()).toBe(false);
-    const b = await assessCurrentDrift(root); write('input.txt', 'new'); expect(b.recheck()).toBe(false);
+    const b = await assessCurrentDrift(root); write('input.txt', 'new'); execFileSync('git', ['add', 'input.txt'], { cwd: root }); expect(b.recheck()).toBe(false);
     const c = await assessCurrentDrift(root); write('.git/info/exclude', 'input.txt\n'); expect(c.recheck()).toBe(false);
   });
 });
@@ -155,6 +157,8 @@ it('keeps ordinary assessment within five Git subprocesses besides one git log -
   write('src/lib/input.ts', 'export const value = 1;');
   // A born HEAD, so every path group is asked (an unborn one fails the first query).
   execFileSync('git', ['-c', 'user.email=t@t.dev', '-c', 'user.name=t', 'commit', '-q', '--allow-empty', '-m', 'base'], { cwd: root });
+  execFileSync('git', ['add', 'src/lib/input.ts'], { cwd: root });
+  write('src/lib/input.ts', 'export const value = 2;');
   gitCalls.count = 0;
   gitCalls.logOne = 0;
   gitCalls.recording = 0;
@@ -170,6 +174,7 @@ it.skipIf(process.platform === 'win32' || process.getuid?.() === 0)('records a r
   const map = { modules: Array.from({ length: 20 }, (_, i) => ({ name: `m${i}`, paths: [`src/m${i}`], keywords: [] })) };
   for (let i = 0; i < 20; i++) write(`src/m${i}/a.ts`, `${i}`);
   write('junk.txt', 'unreadable\n');
+  execFileSync('git', ['add', 'src', 'junk.txt'], { cwd: root });
   chmodSync(path.join(root, 'junk.txt'), 0o000);
   gitCalls.adds = 0;
   try {
@@ -240,6 +245,8 @@ it('spends no Git subprocess beyond the work-tree recording on a handed-over inv
   writeFileSync(path.join(project, '.prospec/changes/c/proposal.md'), '# c\n');
   mkdirSync(path.join(project, 'src'), { recursive: true });
   writeFileSync(path.join(project, 'src/a.ts'), 'a\n');
+  execFileSync('git', ['add', '-f', 'proj/src', 'proj/.prospec'], { cwd: root });
+  writeFileSync(path.join(project, 'src/a.ts'), 'edited\n');
   const { inventory } = computeEvidenceStates(project);
   expect([...inventory!.entries.keys()]).toContain('src/a.ts');
   gitCalls.count = 0;
@@ -269,6 +276,7 @@ it('rejects membership added after listing but observed by status during receipt
   expect(computeChangeState(root).digest).toBeNull();
   expect(gitCalls.observedAddition).toBe(true);
   rmSync(path.join(root, 'new-input.ts'));
+  execFileSync('git', ['rm', '-q', '--cached', 'new-input.ts'], { cwd: root });
   const assessment = await assessCurrentDrift(root);
   gitCalls.addAfterListing = true;
   expect(assessment.recheck()).toBe(false);
@@ -313,7 +321,7 @@ describe('assessCurrentTestEvidence — narrow target assessment with live reche
     ['config', () => write('.prospec.yaml', withCommand + '# edited\n')],
     ['metadata (attempt)', () => write('.prospec/changes/x/metadata.yaml', freshMetadata(computeChangeState(root).digest!).replace('outcome: passed', 'outcome: running'))],
     ['backfill draft', () => write('.prospec/changes/x/backfill-draft.md', '# draft\n')],
-    ['snapshot (source input)', () => write('src/new.ts', 'export const later = 1;\n')],
+    ['snapshot (source input)', () => { write('src/new.ts', 'export const later = 1;\n'); execFileSync('git', ['add', 'src/new.ts'], { cwd: root }); }],
   ])('refuses a %s change observed after collection', async (_n, mutate) => {
     write('.prospec.yaml', withCommand);
     write('.prospec/changes/x/metadata.yaml', freshMetadata(computeChangeState(root).digest!));
@@ -374,6 +382,7 @@ describe('Knowledge-excluded assessment scope', () => {
     const command = `${process.execPath} -e 0`;
     write('.prospec.yaml', `project:\n  name: t\ntech_stack:\n  test_command: ${command}\ntest_evidence:\n  exclude_knowledge: true\n`);
     write('prospec/ai-knowledge/README.md', '# Knowledge before\n');
+    execFileSync('git', ['add', '.prospec.yaml', 'prospec'], { cwd: root });
     const configBytes = readFileSync(path.join(root, '.prospec.yaml'));
     const config = validateConfig(configBytes.toString(), path.join(root, '.prospec.yaml'));
     const state = computeTestState(root, { config, configBytes, command: resolveTestCommand(config, root) });
@@ -409,6 +418,8 @@ describe('Knowledge-excluded assessment scope', () => {
     expect(renewed.recheck()).toBe(true);
     expect(readFileSync(path.join(root, '.prospec/changes/x/metadata.yaml'))).toEqual(metadata);
     write('src/new.ts', 'export const changed = true;');
+    expect(narrow.recheck()).toBe(true);
+    execFileSync('git', ['add', 'src/new.ts'], { cwd: root });
     expect(narrow.recheck()).toBe(false);
     expect((await assessCurrentTestEvidence(root, 'x')).decision.verdict).toBe('refuse');
   });

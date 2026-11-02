@@ -868,6 +868,7 @@ describe('test-provenance gate + --record-tests (REQ-SERVICES-068)', () => {
     );
     setTestCommand(0);
     write('blocked.txt', 'input');
+    git('add', 'blocked.txt');
     chmodSync(path.join(tmpDir, 'blocked.txt'), 0);
     const rec = await execute({ cwd: tmpDir, recordTests: true });
     if (rec.kind !== 'record-tests') throw new Error('expected record-tests');
