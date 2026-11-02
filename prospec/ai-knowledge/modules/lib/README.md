@@ -89,7 +89,7 @@ The drift and station engines are detailed in the linked sub-modules; other sing
 ## Sub-Modules
 
 - [Terminal History](./terminal-history.md) — main-worktree topology, verified publication, preservation integrity and legacy import admission
-- [Drift Engine](./drift-engine.md) — the zero-LLM collectors + evaluators, the provenance fingerprints, and the check-authoring recipe
+- [Drift Engine](./drift-engine.md) — the zero-LLM collectors + evaluators, index-member deletion and symlink integrity, provenance fingerprints, and the check-authoring recipe
 - [Spec Reading](./spec-reading.md) — the REQ heading rule, fence-aware section locator, spec index, and shared REQ-scoped read
 - [Station Engines](./station-engines.md) — the table/evidence/merge/grade/ledger/validator engines the cli-first stations delegate to
 

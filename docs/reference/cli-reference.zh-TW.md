@@ -566,7 +566,7 @@ claude mcp add -s user prospec-b -- prospec mcp serve --cwd /path/to/B
 - 舊版紀錄仍可讀，但需要實際重新審查與測試一次。
 - verify/archive 會評估目前輸入與工作流程事實，並在寫入前重新確認；archive dry-run 使用相同拒絕條件。僅有一份儲存的報告不足以允許操作。
 
-Review 與預設測試證據格式為 `snapshot-v2`／`repository-inputs-v2`；精確的輸入範圍與支援檔案類型見[輸入快照規格](../../prospec/specs/features/drift-detection/us-5.md)。成員來自 git index，內容讀工作樹；不支援或不可讀的輸入維持 unprovable。執行前後的檢查無法偵測所有短暫修改後還原（change-and-restore），也不涵蓋儲存庫輸入之外的依賴、外部服務與工具鏈變更。
+Review 與預設測試證據格式為 `snapshot-v2`／`repository-inputs-v2`；精確的輸入範圍與支援檔案類型見[輸入快照規格](../../prospec/specs/features/drift-detection/us-5.md)。成員來自 git index，內容讀工作樹；不支援或不可讀的輸入維持 unprovable。Indexed 檔案被一般目錄取代時，經 Git 確認刪除後視為刪除，包含 submodule 內的成員；目錄內的 untracked 子檔不會因此成為成員。取代該檔的 nested checkout 維持 unprovable，symlink 目標仍須涵蓋其內容。執行前後的檢查無法偵測所有短暫修改後還原（change-and-restore），也不涵蓋儲存庫輸入之外的依賴、外部服務與工具鏈變更。
 
 Knowledge freshness 蓋章或記錄 review／test evidence 前，先用 `git add` stage 要交付的新檔，包含最後同步產生的新檔。Indexed 檔案的工作樹修改與刪除不必 stage。一般 untracked 本機檔案在加入 index 前不會使 evidence 過期；submodule 內要交付的檔案應加入它自己的 index。Digest 皆可證明但不相同時，拒收訊息會先提示此成員規則與檢查變更的 `git status --porcelain --untracked-files=all`（submodule 的檔案在該 submodule 內執行），再提供重新驗證方式。測試仍在工作樹執行：尚未 stage 的新檔可能影響結果，若最後沒有加入 index，evidence 仍可能維持有效。Pre-merge CI 驗證最後的 committed tree；evidence 不取代 CI。
 

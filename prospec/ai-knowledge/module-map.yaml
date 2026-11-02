@@ -141,8 +141,8 @@ modules:
       - 漂移檢查
       - 知識讀取
     rationale: Foundational infrastructure shared across services and benchmark scripts
-    last_verified: 2026-11-02T05:02:57.210Z
-    source_digest: source-v1:2f50158f053669a121c2c724273ca9451a9ee65e4814e30cb53affef2d8cf015
+    last_verified: 2026-11-02T09:28:20.698Z
+    source_digest: source-v1:29bc9d7c70a2d6adb84ec5d09cbfa4db89c435a616b02a63db2bf0d8448293fb
   - name: services
     description: Business logic — one `execute()` service per command — including
       shared-output agent invocation-guidance rendering — init / quickstart /
@@ -314,7 +314,7 @@ modules:
     last_verified: 2026-11-02T05:02:57.210Z
     source_digest: source-v1:5ec3482e8f3aee4f8db3edec19b88e83dbe96da944e47b197d6d3e3a1f44a07a
   - name: tests
-    description: 4-layer test suite — 341 files, 9,148 tests (unit 6563 + contract
+    description: 4-layer test suite — 341 files, 9,177 tests (unit 6592 + contract
       2088 + integration 252 + e2e 245). Validates every module — format and
       public-document contracts, the cli-first probe + station-command
       contracts, the drift engine, token corpus, and the MCP protocol over
@@ -362,5 +362,5 @@ modules:
       - 驗證
       - vitest
     rationale: Quality gate — validates all layers with pyramid coverage
-    last_verified: 2026-11-02T05:52:43.572Z
-    source_digest: source-v1:922fa5dc4243d1604e14b89af41545518df8febc5d40e5dc79ff2c433ce8f44b
+    last_verified: 2026-11-02T09:28:20.698Z
+    source_digest: source-v1:d14a9ee6abf746d469e7f8f74de7702bca0c4f8b14d3312cbbe35c1d18305616

@@ -5,6 +5,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { computeChangeState, computeEvidenceStates, computeTestState, type TestInputContext } from '../../../src/lib/drift-sources.js';
 import { ProspecConfigSchema } from '../../../src/types/config.js';
+import { GIT_ID } from '../../helpers/git-fixture.js';
 
 vi.mock('node:fs', async (original) => ({ ...await original<typeof import('node:fs')>() }));
 vi.mock('node:child_process', async (original) => ({ ...await original<typeof import('node:child_process')>() }));
@@ -208,6 +209,7 @@ describe('test input projection', () => {
   it('never conceals full capture failure inside the excluded tree', () => {
     fs.unlinkSync(path.join(root, 'kb/ai-knowledge/README.md'));
     fs.mkdirSync(path.join(root, 'kb/ai-knowledge/README.md'));
+    git('init', '-q', path.join(root, 'kb/ai-knowledge/README.md'));
     const captured = computeEvidenceStates(root, context());
     expect(captured.repository.digest).toBeNull();
     expect(captured.test.digest).toBeNull();
@@ -304,5 +306,109 @@ describe('test input projection', () => {
     expect(spawn.mock.calls.length).toBeGreaterThan(0);
     expect(spawn.mock.calls.length).toBeLessThanOrEqual(6);
     expect(reads.mock.calls.filter(([file]) => String(file) === path.join(fs.realpathSync(root), 'source.ts'))).toHaveLength(1);
+  });
+});
+
+describe('directory replacement evidence', () => {
+  const arrange = (layout: string) => {
+    const project = layout === 'pkg' ? path.join(root, 'pkg') : root;
+    const repository = layout === 'submodule' ? path.join(root, 'module') : project;
+    if (layout === 'submodule') git('clone', '-q', root, repository);
+    fs.mkdirSync(repository, { recursive: true });
+    if (layout === 'pkg') fs.writeFileSync(path.join(project, '.prospec.yaml'), fs.readFileSync(path.join(root, '.prospec.yaml')));
+    const member = path.join(repository, 'member');
+    fs.writeFileSync(member, 'before');
+    childProcess.execFileSync('git', ['add', '.'], { cwd: repository, stdio: 'pipe' });
+    childProcess.execFileSync('git', [...GIT_ID, 'commit', '-qm', 'member'], { cwd: repository, stdio: 'pipe' });
+    if (layout === 'submodule') { git('add', 'module'); git('commit', '-qm', 'pin'); }
+    return { project, repository, member };
+  };
+
+  it.skipIf(process.platform === 'win32').each(
+    ['root', 'pkg', 'submodule'].flatMap((layout) => ['a-link', 'z-link'].map((link) => [layout, link])),
+  )('checks represented directory targets in %s with %s', (layout, link) => {
+    const { project, repository, member } = arrange(layout!);
+    fs.symlinkSync('member', path.join(repository, link!));
+    childProcess.execFileSync('git', ['add', link!], { cwd: repository, stdio: 'pipe' });
+    const capture = () => computeEvidenceStates(project, context());
+    expect(capture().repository.digest).toBeTruthy(); expect(capture().test.digest).toBeTruthy();
+    fs.unlinkSync(member); fs.mkdirSync(member);
+    fs.writeFileSync(path.join(member, 'child'), 'untracked');
+    const captured = capture();
+    for (const state of [captured.repository, captured.test]) {
+      expect(state.digest).toBeNull();
+      expect(state.reason).toContain(link);
+      expect(state.reason).toContain('member/child');
+    }
+  });
+
+  it.each(['root', 'submodule'])('rechecks directory deletion in %s', (layout) => {
+    const { project, member } = arrange(layout);
+    fs.unlinkSync(member); fs.mkdirSync(member);
+    const execute = childProcess.execFileSync;
+    let observations = 0;
+    vi.spyOn(childProcess, 'execFileSync').mockImplementation((...args: Parameters<typeof childProcess.execFileSync>) => {
+      const argv = args[1] as string[];
+      if (argv.includes(layout === 'root' ? 'status' : 'diff') && ++observations === 2) {
+        fs.rmSync(member, { recursive: true }); fs.writeFileSync(member, 'before');
+      }
+      return execute(...args);
+    });
+    expect(computeChangeState(project)).toMatchObject({ digest: null, reason: expect.stringMatching(/membership changed|disappeared during capture/i) });
+    expect(observations).toBe(2);
+  });
+
+  it('bounds and isolates the submodule deletion query', () => {
+    const { project, member } = arrange('submodule');
+    fs.unlinkSync(member); fs.mkdirSync(member);
+    const canonicalMember = fs.realpathSync(member);
+    let injected = false;
+    const lstat = fs.lstatSync;
+    vi.spyOn(fs, 'lstatSync').mockImplementation((...args: Parameters<typeof fs.lstatSync>) => {
+      const stat = lstat(...args);
+      if (String(args[0]) === canonicalMember) {
+        injected = true;
+        vi.stubEnv('GIT_DIR', path.join(root, 'wrong-repository'));
+        vi.stubEnv('GIT_INDEX_FILE', path.join(root, 'wrong-index'));
+      }
+      return stat;
+    });
+    const spy = vi.spyOn(childProcess, 'execFileSync');
+    expect(computeChangeState(project).digest).toBeTruthy();
+    expect(injected).toBe(true);
+    vi.unstubAllEnvs();
+    const queries = spy.mock.calls.filter(([, args]) => (args as string[]).includes('diff'));
+    expect(queries).toHaveLength(2);
+    for (const [, argv, options] of queries) {
+      expect(argv).toEqual(expect.arrayContaining(['--no-optional-locks', '--no-ext-diff', '--no-textconv', '-z']));
+      expect(options).toMatchObject({ timeout: 30_000 });
+      for (const name of ['GIT_DIR', 'GIT_WORK_TREE', 'GIT_INDEX_FILE', 'GIT_OBJECT_DIRECTORY', 'GIT_COMMON_DIR', 'GIT_LITERAL_PATHSPECS']) {
+        expect((options as { env: NodeJS.ProcessEnv }).env).not.toHaveProperty(name);
+      }
+    }
+  });
+
+  it.each([['missing', '--deleted'], ['directory', 'diff']])('shares one pair of %s observations per submodule', (kind, marker) => {
+    const { project, repository, member } = arrange('submodule');
+    const second = path.join(repository, 'second');
+    fs.writeFileSync(second, 'before');
+    childProcess.execFileSync('git', ['add', 'second'], { cwd: repository, stdio: 'pipe' });
+    childProcess.execFileSync('git', [...GIT_ID, 'commit', '-qm', 'second'], { cwd: repository, stdio: 'pipe' });
+    git('add', 'module'); git('commit', '-qm', 'pin second');
+    for (const file of [member, second]) { fs.unlinkSync(file); if (kind === 'directory') fs.mkdirSync(file); }
+    const spy = vi.spyOn(childProcess, 'execFileSync');
+    expect(computeChangeState(project).digest).toBeTruthy();
+    expect(spy.mock.calls.filter(([, argv]) => (argv as string[]).includes(marker!))).toHaveLength(2);
+  });
+
+  it('keeps a failed submodule deletion query unprovable', () => {
+    const { project, member } = arrange('submodule');
+    fs.unlinkSync(member); fs.mkdirSync(member);
+    const execute = childProcess.execFileSync;
+    vi.spyOn(childProcess, 'execFileSync').mockImplementation((...args: Parameters<typeof childProcess.execFileSync>) => {
+      if ((args[1] as string[]).includes('diff')) throw new Error('ETIMEDOUT deletion query');
+      return execute(...args);
+    });
+    expect(computeChangeState(project)).toMatchObject({ digest: null, reason: 'ETIMEDOUT deletion query' });
   });
 });
