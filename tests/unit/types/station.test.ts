@@ -262,6 +262,24 @@ describe('JudgmentDimensionsInputSchema', () => {
   });
 
   describe('constitution_rules (REQ-TYPES-102)', () => {
+    const debtDimension = (rule: Record<string, unknown>) => ({
+      name: 'constitution', result: 'PASS', graded_by: 'fresh-subagent',
+      constitution_rules: [{ name: 'Legacy layering', result: 'FAIL',
+        statement: 'src/legacy.ts is unchanged; current artifacts comply.', applicability: 'pre-existing-code', ...rule }],
+    });
+
+    it('preserves evidenced pre-existing debt applicability alongside its raw FAIL', () => {
+      const parsed = JudgmentDimensionInputSchema.parse(debtDimension({}));
+      expect(parsed.constitution_rules?.[0]).toMatchObject({ result: 'FAIL', applicability: 'pre-existing-code' });
+    });
+
+    it.each([
+      { result: 'PASS' }, { result: 'not-adjudicated' }, { result: 'not-applicable' },
+      { statement: '' }, { statement: '  ' }, { statement: undefined }, { applicability: 'current-artifact' },
+    ])('rejects debt applicability without an adjudicated failure and explanation: %j', (rule) => {
+      expect(JudgmentDimensionInputSchema.safeParse(debtDimension(rule)).success).toBe(false);
+    });
+
     it('accepts constitution_rules when name is constitution', () => {
       const constitutionDim = {
         name: 'constitution',

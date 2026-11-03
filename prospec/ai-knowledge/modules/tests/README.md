@@ -1,6 +1,6 @@
 # Verification Suite
 
-> 4-layer Vitest suite (fast-glob/git bypass memfs — 335 test files, 9,147 tests (unit 6548, contract 2102, integration 252, e2e 245)).
+> 4-layer Vitest suite (fast-glob/git bypass memfs — 342 test files, 9,274 tests (unit 6621, contract 2152, integration 256, e2e 245)).
 <!-- prospec:module-readme-format 2026-09-01 -->
 
 <!-- prospec:auto-start -->
@@ -65,7 +65,7 @@ Lens changes require independent eight-lens expectations, alias/custom and thres
 
 - Premise coverage spans schema/parser/contained-reader, read/write services, rendered contracts and `cli-premise` E2E. `helpers/premise.ts` explicitly authors verified fixtures for workflows advancing newly created stories; never make the production scaffold ready to repair fixtures. Its default source is `ai-proposed`, which pauses a standard/full change at plan, so a fixture whose subject is not the pause passes `withVerifiedPremise(text, 'user-observation')`. Refusal tests compare artifact bytes, and template mutation checks must prove the edit landed before judging failure.
 
-- Escalation fixtures pin lifetime chronology, same-round changed-input admission, source-content identity without context IDs, one-use grants, partial-write repair and persisted-versus-observed failures. Fault injection checks actual metadata/artifact bytes; history contracts preserve fenced examples and adjacent prose.
+- Publication fixtures pair pre-rename failure with post-rename claim-cleanup failure, checking actual bytes, acceptance/events/grants, warning-only state and untouched evidence. Resolve target oracles with native realpath semantics; JavaScript realpathSync may retain different Windows casing and miss injected faults. Sign-off interleaving invokes the real verifier writer; `metadata-claim.test.ts` runs competing real processes. Backfill integration runs real exit-0/exit-1 tests through check→verify and retains artifact FAIL versus eligible debt. Formatter/command fixtures retain nested private staging paths, cycle safety and nonzero typed errors. Escalation fixtures also pin chronology, one-use grants and repair.
 
 - Startup measurements use isolated real-Git status fixtures (no/current/stale report and in-flight change); assert the executed branch, not only a module ceiling, so archive cannot hide a report-dependent path. A node_modules ceiling cannot see project modules: an on-demand one (the git entry check) is pinned by name through the load counter's `lazy` list, with a positive control on a path that loads it.
 - Invalid UTF-8 path refusal uses a real Git index on macOS and Linux, with additional Linux worktree coverage, keeping both platforms' test counts aligned. Project-file adapters instead skip each undecodable index record; inventory-backed import scanning retains the inventory's whole-source refusal.

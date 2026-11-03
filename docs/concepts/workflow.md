@@ -42,7 +42,7 @@ Beyond the linear flow, every workflow Skill carries built-in quality machinery:
 
 ## Right-Sized Process (Scale)
 
-Not every change deserves the full ceremony. At story time, `prospec-new-story` (or `prospec-ff`) assesses complexity against explicit criteria and proposes a scale — **you confirm before it is written** to `metadata.yaml`:
+Not every change deserves the full ceremony. At story time, `prospec-new-story` (or `prospec-ff`) assesses complexity against explicit criteria and records the scale in `metadata.yaml`: Draft-First selects it autonomously and records assumptions; interactive mode asks the human to decide; `prospec change auto-draft` assigns it from the triggering drift check.
 
 | Scale | What changes |
 |-------|--------------|

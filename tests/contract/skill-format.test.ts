@@ -4682,6 +4682,9 @@ describe('Startup Loading cache-stable prefix ordering (REQ-TEMPLATES-080/081)',
   // count-index-evidence: staging prompts and scoped evidence semantics, offset by equivalent prose compaction.
   // Mandatory context 91_150 → 91_143 after deployed-sync compaction; cascade-protocol 2_728 → 2_727.
   // Restored review provenance rationale plus equivalent tier-routing compression: review 8_147 → 8_125, cumulative 91_121. Anchors unchanged.
+  // retain-failing-verdicts: per-rule applicability expands the payload reference 3_202 → 3_246;
+  // equivalent backfill guidance compaction reduces 1_265 → 1_196. Both ceiling anchors remain unchanged.
+  // Review removes metadata-format's unconditional human-confirmation premise: 3_999 → 3_978.
   const REFERENCE_CEILING_ANCHOR = 52_315;
   const CUMULATIVE_CEILING_ANCHOR = 91_150;
 
@@ -4982,8 +4985,7 @@ describe('scale adapter — ff quick path and lifecycle (BL-004)', () => {
     // every status transition goes through the prospec change commands, never a hand edit
     expect(never).toContain('the `prospec change` commands own every transition');
     expect(never).toContain('never hand-edit metadata.yaml');
-    // The scale may be user-confirmed OR machine-assigned by `change auto-draft`
-    // — both lifecycle copies say so, and this skill must not contradict them.
+    // Explicit scale selection also includes Draft-First and auto-draft.
     expect(never).toContain('without a `scale: quick`');
     expect(never).toContain('assigned by `prospec change auto-draft`');
     expect(never).toContain('quick skips Plan and loads none');
@@ -4992,11 +4994,10 @@ describe('scale adapter — ff quick path and lifecycle (BL-004)', () => {
   it('lifecycle template records the quick story → tasks transition with archive backstop', () => {
     const content = renderLifecycle();
     expect(content).toContain('skipped when metadata `scale: quick`');
-    expect(content).toContain('**quick path**: metadata `scale: quick` (user-confirmed');
+    expect(content).toContain('**quick path**: metadata `scale: quick` (Draft-First: autonomously selected; interactive: human-confirmed; auto-draft: machine-assigned');
     expect(content).toContain('re-checked at the `prospec-archive` Entry Gate');
     expect(content).toContain('The only legal skip is `story → tasks` under a `scale: quick`');
-    // A machine-assigned scale is as legal as a confirmed one — the document
-    // must not state a blanket "user-confirmed" that `change auto-draft` breaks.
+    // Machine-assigned scale selection remains legal.
     expect(content).toContain('machine-assigned by `prospec change auto-draft`');
   });
 
@@ -5008,7 +5009,7 @@ describe('scale adapter — ff quick path and lifecycle (BL-004)', () => {
     );
     for (const marker of [
       'skipped when metadata `scale: quick`',
-      '**quick path**: metadata `scale: quick` (user-confirmed',
+      '**quick path**: metadata `scale: quick` (Draft-First: autonomously selected; interactive: human-confirmed; auto-draft: machine-assigned',
       'The only legal skip is `story → tasks` under a `scale: quick`',
       'machine-assigned by `prospec change auto-draft`',
       // REQ-TEMPLATES-158 AC3: the executable-router pointer stays in both copies.
@@ -5284,7 +5285,7 @@ describe('backfill graduation — verify spec-fidelity contract (scale: backfill
     expect(backfill).toContain('graded as standard');
   });
 
-  it('3/5 records pre-existing code-quality MUST violations as informational under backfill', () => {
+  it('3/5 records eligible pre-existing debt with per-rule evidence under backfill', () => {
     const v3 = sectionOf(renderVerifyBackfill(), '### Dimension 3/5: Constitution & Conventions');
     expect(v3).toContain('informational tech-debt note');
     expect(v3).toContain('not introduced by this backfill');

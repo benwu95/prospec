@@ -1,7 +1,7 @@
 import type { EscalationDecision, EscalationFailureDetails } from '../../types/cascade.js';
 import type { EscalationHistory } from '../../types/change.js';
 import pc from 'picocolors';
-import { AbandonError, HistoryError, EscalationError, ProspecError, TestGateError } from '../../types/errors.js';
+import { AbandonError, HistoryError, EscalationError, MetadataWriteError, ProspecError, SignoffWriteError, TestGateError, type MetadataWriteFailure, type SignoffWriteFailure } from '../../types/errors.js';
 import { sanitizeTerminal } from './sanitize.js';
 
 /** Project the service's decision without deriving exits or retry eligibility. */
@@ -22,6 +22,18 @@ export function formatEscalationHistoryLines(history?: EscalationHistory): strin
 
 function escalationOf(error: unknown): EscalationFailureDetails | undefined {
   return error instanceof EscalationError ? error.details : error instanceof TestGateError ? error.escalation : undefined;
+}
+
+function publicationOf(error: unknown): { metadata?: MetadataWriteFailure; signoff?: SignoffWriteFailure } | undefined {
+  const publication: { metadata?: MetadataWriteFailure; signoff?: SignoffWriteFailure } = {};
+  const seen = new Set<Error>();
+  while (error instanceof Error && !seen.has(error)) {
+    seen.add(error);
+    if (error instanceof MetadataWriteError && !publication.metadata) publication.metadata = error.details;
+    if (error instanceof SignoffWriteError && !publication.signoff) publication.signoff = error.details;
+    error = error.cause;
+  }
+  return Object.keys(publication).length > 0 ? publication : undefined;
 }
 
 /**
@@ -46,6 +58,8 @@ export function formatProspecError(error: ProspecError): void {
   const msg = `${pc.red('✗')} ${sanitizeTerminal(error.message)}`;
   const suggestion = `  ${pc.dim('→')} ${highlightCommands(sanitizeTerminal(error.suggestion))}`;
   process.stderr.write(msg + '\n' + suggestion + '\n');
+  const publication = publicationOf(error);
+  if (publication) process.stderr.write(`Publication: ${sanitizeTerminal(JSON.stringify(publication))}\n`);
   if ((error instanceof AbandonError || error instanceof HistoryError)) {
     for (const [key, value] of Object.entries(error.details)) {
       process.stderr.write(`  ${sanitizeTerminal(key)}: ${sanitizeTerminal(JSON.stringify(value))}\n`);
@@ -119,6 +133,7 @@ export function handleError(error: unknown, verbose = false, json = false): void
       ...(error instanceof ProspecError ? { suggestion: error.suggestion } : {}),
       ...((error instanceof AbandonError || error instanceof HistoryError) ? { details: error.details } : {}),
       ...(escalationOf(error) ? { escalation: escalationOf(error) } : {}),
+      ...(publicationOf(error) ? { publication: publicationOf(error) } : {}),
       ...(error instanceof TestGateError ? { circuitBreaker: error.circuitBreaker, warningRecorded: error.warningRecorded } : {}),
       ...(error instanceof Error && error.cause !== undefined ? { cause: error.cause instanceof Error ? error.cause.message : String(error.cause) } : {}),
     } }) + '\n');

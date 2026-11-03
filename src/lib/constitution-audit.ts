@@ -16,6 +16,29 @@ export function isLegalCheckId(id: string): boolean {
 
 export type { MachineVerdict };
 
+export function assessConstitutionApplicability(options: {
+  rules: readonly ConstitutionRuleEntry[];
+  graderEntries: readonly ConstitutionRuleJudgment[];
+  provenBackfill: boolean;
+}): { informationalRules: string[]; errors: string[] } {
+  const debt = options.graderEntries.filter((rule) => rule.applicability === 'pre-existing-code');
+  if (debt.length === 0) return { informationalRules: [], errors: [] };
+  if (!options.provenBackfill) {
+    return { informationalRules: [], errors: ['pre-existing-code applicability requires a proven backfill'] };
+  }
+  const names = new Set(options.rules.map((rule) => rule.name));
+  const errors: string[] = [];
+  if (names.size !== options.rules.length) errors.push('Constitution rule names must be unique for debt applicability');
+  for (const name of names) {
+    const count = options.graderEntries.filter((entry) => entry.name === name).length;
+    if (count !== 1) errors.push(`Constitution rule "${name}" requires exactly one judgment; found ${count}`);
+  }
+  for (const entry of options.graderEntries) {
+    if (!names.has(entry.name)) errors.push(`Unknown Constitution rule "${entry.name}"`);
+  }
+  return { informationalRules: errors.length === 0 ? debt.map((rule) => rule.name) : [], errors };
+}
+
 export interface ConstitutionMachineLedgerEntry {
   rule_name: string;
   check_id: string;

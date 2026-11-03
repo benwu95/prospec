@@ -6,6 +6,7 @@ import * as fsUtils from '../../../src/lib/fs-utils.js';
 import { PLAN_VERSION_SIGNOFF_REMEDIES } from '../../../src/types/status.js';
 import { execute } from '../../../src/services/change-log.service.js';
 import { planVersionDigest } from '../../../src/lib/escalation.js';
+import { readChangeMetadata } from '../../../src/lib/change-metadata.js';
 import { MetadataValidationError, PrerequisiteError } from '../../../src/types/errors.js';
 
 vi.mock('node:fs', async () => {
@@ -809,4 +810,250 @@ it.each(['add', 'remove'] as const)('refuses candidate directory %s between atte
       .rejects.toThrow('Planning inputs changed before recording');
     expect(vol.readFileSync(PATH, 'utf8')).toBe(before);
   } finally { spy.mockRestore(); }
+});
+
+describe('sign-off publication boundaries', () => {
+  const DIR = '/repo/.prospec/changes/add-widget';
+  const DECISION = `${DIR}/candidates/decision.json`;
+  const REPORT = '/repo/verifier.json';
+  const CONFIG = '/repo/.prospec.yaml';
+  const PLAN = '# Current plan\n';
+  const DELTA = '# Current delta\n';
+
+  function writeReport(skill: 'prospec-plan' | 'prospec-tasks', evidence: string): void {
+    const dimensions = skill === 'prospec-plan'
+      ? ['project_layering', 'blast_radius', 'state_safety', 'delta_spec', 'reuse']
+      : ['bidirectional_coverage', 'dag_topological_order', 'tdd_module_closure', 'task_sizing_schema'];
+    vol.writeFileSync(REPORT, JSON.stringify({
+      verdict: 'FLAWS', evidence, warnings: [],
+      dimensions: Object.fromEntries(dimensions.map(name => [name, { result: 'FLAWS', rationale: evidence }])),
+    }));
+  }
+
+  function seedSignoff(scale: 'standard' | 'full' = 'full'): void {
+    vol.fromJSON({
+      [PATH]: `name: add-widget\ncreated_at: 2026-07-13T09:51:00.000Z\nstatus: plan\nscale: ${scale}\nquality_log:\n  - skill: prospec-plan\n    date: 2026-09-24\n    result: PASS\n    warnings: []\n    verifier_verdict: PASS\n    audited_plan_digest: ${planVersionDigest(PLAN, DELTA)}\n${scale === 'full' ? '    audited_option: option-a\n' : ''}`,
+      [CONFIG]: 'version: "2.3.0"\nproject:\n  name: fixture\n',
+      [`${DIR}/plan.md`]: PLAN,
+      [`${DIR}/delta-spec.md`]: DELTA,
+    });
+    if (scale === 'full') {
+      vol.mkdirSync(`${DIR}/candidates`);
+      for (const id of ['option-a', 'option-b']) {
+        vol.writeFileSync(`${DIR}/candidates/${id}.json`, JSON.stringify({
+          id, title: id, overview: 'original', trade_offs: { pros: [], cons: [], blast_radius: 'bounded' },
+        }));
+      }
+      vol.writeFileSync(DECISION, JSON.stringify({
+        recommended_option: 'option-a', graded_by: 'in-session', rationale: 'fixture',
+        evaluation_matrix: ['blast_radius_complexity', 'constitution_layering', 'extensibility_simplicity']
+          .map(dimension => ({ dimension, winner: 'option-a', score_rationale: 'fixture' })),
+      }));
+    }
+  }
+
+  const sign = (option = 'option-a') => execute({
+    cwd: CWD, change: 'add-widget', quiet: true,
+    signoff: { skill: 'prospec-plan', option },
+  });
+  const record = (skill: 'prospec-plan' | 'prospec-tasks' = 'prospec-plan') => execute({
+    cwd: CWD, change: 'add-widget', quiet: true, verifierReport: { skill, path: REPORT },
+  });
+  const ledger = () => readChangeMetadata(PATH, 'add-widget').metadata.quality_log ?? [];
+  const decisionOnDisk = () => JSON.parse(vol.readFileSync(DECISION, 'utf8') as string) as { graded_by: string };
+
+  it('preserves a real verifier FAIL accepted after decision publication and refuses the stale sign-off', async () => {
+    seedSignoff();
+    writeReport('prospec-plan', 'concurrent verifier failure');
+    const rename = fs.promises.rename;
+    let injected = false;
+    let concurrentAccepted = false;
+    let concurrentBytes: string | undefined;
+    const spy = vi.spyOn(fs.promises, 'rename').mockImplementation(async (from, to) => {
+      await rename(from, to);
+      if (String(to) === DECISION && !injected) {
+        injected = true;
+        const result = await record();
+        concurrentAccepted = result.entry.verifier_verdict === 'FLAWS';
+        concurrentBytes = vol.readFileSync(PATH, 'utf8') as string;
+      }
+    });
+    try {
+      await expect(sign()).rejects.toMatchObject({
+        name: 'SignoffWriteError',
+        details: { decision_published: true, metadata_recorded: false },
+      });
+      expect(concurrentAccepted).toBe(true);
+      expect(vol.readFileSync(PATH, 'utf8')).toBe(concurrentBytes);
+      expect(ledger().at(-1)?.verifier_verdict).toBe('FLAWS');
+      expect(ledger().some(entry => entry.signoff_option !== undefined)).toBe(false);
+      expect(decisionOnDisk().graded_by).toBe('human');
+    } finally { spy.mockRestore(); }
+  });
+
+  it('refuses the competing verifier during claimed metadata staging without reporting it accepted', async () => {
+    seedSignoff();
+    writeReport('prospec-plan', 'competing verifier failure');
+    const write = fs.promises.writeFile;
+    let injected = false;
+    let concurrentAccepted = false;
+    let concurrentError: unknown;
+    const spy = vi.spyOn(fs.promises, 'writeFile').mockImplementation(async (file, data, options) => {
+      await write(file, data, options);
+      if (String(file).startsWith(`${PATH}.tmp.`) && !injected) {
+        injected = true;
+        try { await record(); concurrentAccepted = true; } catch (error) { concurrentError = error; }
+      }
+    });
+    try {
+      const result = await sign();
+      expect(result.entry.signoff_option).toBe('option-a');
+      expect(injected).toBe(true);
+      expect(concurrentAccepted).toBe(false);
+      expect(concurrentError).toMatchObject({
+        code: 'ESCALATION_REFUSED',
+        details: { persistence: { accepted_persisted: false } },
+        cause: { name: 'MetadataWriteError', details: { metadata_published: false } },
+      });
+      expect(ledger().some(entry => entry.verifier_verdict === 'FLAWS')).toBe(false);
+      expect(ledger().at(-1)?.signoff_option).toBe('option-a');
+    } finally { spy.mockRestore(); }
+  });
+
+  it.each(['metadata', 'plan', 'delta', 'config', 'candidate', 'decision'] as const)(
+    'refuses changed %s inputs after decision publication and preserves their new bytes', async (mutation) => {
+      seedSignoff();
+      const metadataBefore = vol.readFileSync(PATH, 'utf8');
+      const changedPath = mutation === 'plan' ? `${DIR}/plan.md`
+        : mutation === 'delta' ? `${DIR}/delta-spec.md`
+          : mutation === 'config' ? CONFIG
+            : mutation === 'candidate' ? `${DIR}/candidates/option-a.json` : DECISION;
+      let changedBytes: string | undefined;
+      const rename = fs.promises.rename;
+      let injected = false;
+      const spy = vi.spyOn(fs.promises, 'rename').mockImplementation(async (from, to) => {
+        await rename(from, to);
+        if (String(to) !== DECISION || injected) return;
+        injected = true;
+        if (mutation === 'metadata') {
+          await execute({ cwd: CWD, change: 'add-widget', quiet: true, entry: {
+            skill: 'prospec-tasks', result: 'WARN', warnings: ['concurrently recorded note'],
+          } });
+          changedBytes = vol.readFileSync(PATH, 'utf8') as string;
+        } else {
+          changedBytes = mutation === 'candidate'
+            ? String(vol.readFileSync(changedPath, 'utf8')).replace('original', 'revised')
+            : mutation === 'decision'
+              ? String(vol.readFileSync(changedPath, 'utf8')).replace('fixture', 'revised decision')
+              : `${vol.readFileSync(changedPath, 'utf8')}\nchanged after validation\n`;
+          vol.writeFileSync(changedPath, changedBytes);
+        }
+      });
+      try {
+        await expect(sign()).rejects.toMatchObject({
+          name: 'SignoffWriteError', details: { decision_published: true, metadata_recorded: false },
+        });
+        expect(injected).toBe(true);
+        expect(vol.readFileSync(mutation === 'metadata' ? PATH : changedPath, 'utf8')).toBe(changedBytes);
+        if (mutation !== 'metadata') expect(vol.readFileSync(PATH, 'utf8')).toBe(metadataBefore);
+        expect(ledger().some(entry => entry.signoff_option !== undefined)).toBe(false);
+      } finally { spy.mockRestore(); }
+    },
+  );
+
+  it('rechecks the standard plan after staging and before metadata rename', async () => {
+    seedSignoff('standard');
+    const before = vol.readFileSync(PATH, 'utf8');
+    const write = fs.promises.writeFile;
+    let injected = false;
+    const spy = vi.spyOn(fs.promises, 'writeFile').mockImplementation(async (file, data, options) => {
+      await write(file, data, options);
+      if (String(file).startsWith(`${PATH}.tmp.`) && !injected) {
+        injected = true;
+        vol.writeFileSync(`${DIR}/plan.md`, '# Changed while metadata staged\n');
+      }
+    });
+    try {
+      await expect(sign('plan')).rejects.toMatchObject({
+        name: 'SignoffWriteError', details: { decision_published: false, metadata_recorded: false },
+      });
+      expect(injected).toBe(true);
+      expect(vol.readFileSync(PATH, 'utf8')).toBe(before);
+      expect(vol.readFileSync(`${DIR}/plan.md`, 'utf8')).toContain('Changed while metadata staged');
+      expect(vol.existsSync(`${DIR}/candidates`)).toBe(false);
+    } finally { spy.mockRestore(); }
+  });
+
+  it('reports the published decision when metadata rename fails', async () => {
+    seedSignoff();
+    const before = vol.readFileSync(PATH, 'utf8');
+    const rename = fs.promises.rename;
+    const spy = vi.spyOn(fs.promises, 'rename').mockImplementation(async (from, to) => {
+      if (String(to) === PATH) throw new Error('controlled metadata rename failure');
+      await rename(from, to);
+    });
+    try {
+      await expect(sign()).rejects.toMatchObject({
+        name: 'SignoffWriteError',
+        details: { metadataPath: PATH, decisionPath: DECISION, decision_published: true, metadata_recorded: false },
+        cause: { name: 'MetadataWriteError', details: { metadata_published: false } },
+      });
+      expect(vol.readFileSync(PATH, 'utf8')).toBe(before);
+      expect(decisionOnDisk().graded_by).toBe('human');
+    } finally { spy.mockRestore(); }
+  });
+
+  it('reports both publications when claim cleanup fails after metadata rename', async () => {
+    seedSignoff();
+    const remove = fs.promises.rmdir;
+    const spy = vi.spyOn(fs.promises, 'rmdir').mockImplementation(async dir => {
+      if (String(dir).endsWith('.metadata.yaml.write-claim')) throw new Error('controlled claim cleanup failure');
+      await remove(dir);
+    });
+    try {
+      await expect(sign()).rejects.toMatchObject({
+        name: 'SignoffWriteError',
+        details: { decision_published: true, metadata_recorded: true },
+        cause: { name: 'MetadataWriteError', details: { metadata_published: true } },
+      });
+      expect(ledger().at(-1)?.signoff_option).toBe('option-a');
+      expect(decisionOnDisk().graded_by).toBe('human');
+    } finally { spy.mockRestore(); }
+  });
+
+  it.each(['prospec-plan', 'prospec-tasks'] as const)(
+    '%s preserves accepted event and grant consumption when publication succeeds but cleanup fails', async skill => {
+      seed();
+      vol.writeFileSync(CONFIG, 'version: "2.3.0"\nproject:\n  name: fixture\nworkflow:\n  max_station_retries: 1\n');
+      for (const evidence of ['first failed attempt', 'second failed attempt']) {
+        writeReport(skill, evidence);
+        await record(skill);
+      }
+      await execute({ cwd: CWD, change: 'add-widget', quiet: true, entry: {
+        skill, result: 'WARN', warnings: ['Manual override: inspect the revised plan once'],
+      } });
+      writeReport(skill, 'third failed attempt');
+      const remove = fs.promises.rmdir;
+      const spy = vi.spyOn(fs.promises, 'rmdir').mockImplementation(async dir => {
+        if (String(dir).endsWith('.metadata.yaml.write-claim')) throw new Error('controlled claim cleanup failure');
+        await remove(dir);
+      });
+      try {
+        await expect(record(skill)).rejects.toMatchObject({
+          code: 'ESCALATION_REFUSED',
+          details: { persistence: { accepted_persisted: true, event_persisted: true, grant_consumed: true } },
+          cause: { name: 'MetadataWriteError', details: { metadata_published: true } },
+        });
+        const entries = ledger();
+        const accepted = entries.filter(entry => entry.skill === skill && entry.verifier_verdict !== undefined).at(-1);
+        expect(accepted?.verifier_verdict).toBe('FLAWS');
+        expect(accepted?.attempt_id).toEqual(expect.any(String));
+        expect(accepted?.accepted?.request_id).toBe(accepted?.attempt_id);
+        expect(entries.some(entry => entry.escalation?.kind === 'consume'
+          && entry.escalation.attempt_id === accepted?.attempt_id)).toBe(true);
+        expect(entries.some(entry => entry.escalation?.kind === 'trigger'
+          && entry.escalation.event_id === `retry:${accepted?.attempt_id}`)).toBe(true);
+      } finally { spy.mockRestore(); }
+    },
+  );
 });

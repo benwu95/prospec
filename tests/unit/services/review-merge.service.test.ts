@@ -1,10 +1,11 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { vol } from 'memfs';
+import * as fs from 'node:fs';
 import { renderReviewDocument, parseReviewDocument, parseReviewMetricsStrict } from '../../../src/lib/review-merge.js';
 import { admitEscalation, reduceEscalationHistory } from '../../../src/lib/escalation.js';
 import { execute } from '../../../src/services/review-merge.service.js';
 import { readChangeMetadata, writeChangeMetadataDoc } from '../../../src/lib/change-metadata.js';
-import { DelegationRefusedError, PrerequisiteError, ProspecError, TestGateError } from '../../../src/types/errors.js';
+import { DelegationRefusedError, MetadataWriteError, PrerequisiteError, ProspecError, TestGateError } from '../../../src/types/errors.js';
 import { RELAYED_FIELD_MAX_CHARS, TEST_GATE_PRODUCER } from '../../../src/types/station.js';
 import { INDEX_INPUTS_HINT } from '../../../src/lib/drift-checker.js';
 
@@ -1374,7 +1375,7 @@ describe('persistent-test event before metrics', () => {
     writes.failOn = p => p === METADATA;
     const err = await execute({ cwd: CWD, findingsPath: FINDINGS }).catch(e => e);
     expect(err).toBeInstanceOf(TestGateError);
-    expect(err.cause?.message).toBe('disk full (injected)');
+    expect(err.cause).toMatchObject({ details: { metadata_published: false }, cause: { message: 'disk full (injected)' } });
     expect(err.escalation).toMatchObject({
       decision: { ordinal: count, event_id: null, recommended: count >= 2 ? 're-scope' : 'manual-intervention' },
       observed_escalation: { event_id: null, ordinal: null, persisted: false, trigger: 'persistent_test_failure' },
@@ -1669,4 +1670,92 @@ it('propagates certified Knowledge-excluded reuse without rewriting the original
   const written = vol.readFileSync(METADATA, 'utf8') as string;
   expect(result.testGate?.reuse).toMatchObject({ attempt_id: 'a1', date: '2026-09-01', command: 'node -e 0', exit_code: 0 });
   expect(written).toContain(evidence);
+});
+
+describe('review metadata publication outcomes', () => {
+  const metadataFailure = (error: unknown): MetadataWriteError => {
+    const seen = new Set<unknown>();
+    while (error instanceof Error && !seen.has(error)) {
+      if (error instanceof MetadataWriteError) return error;
+      seen.add(error);
+      error = error.cause;
+    }
+    throw new Error('expected a typed metadata publication cause');
+  };
+  const fault = (phase: 'before' | 'cleanup') => {
+    if (phase === 'before') {
+      const rename = fs.promises.rename;
+      return vi.spyOn(fs.promises, 'rename').mockImplementation(async (from, to) => {
+        if (String(to) === METADATA) throw new Error('controlled metadata rename failure');
+        await rename(from, to);
+      });
+    }
+    const remove = fs.promises.rmdir;
+    return vi.spyOn(fs.promises, 'rmdir').mockImplementation(async dir => {
+      if (String(dir).endsWith('.metadata.yaml.write-claim')) throw new Error('controlled claim cleanup failure');
+      await remove(dir);
+    });
+  };
+
+  it.each(['before', 'cleanup'] as const)('reports actual test-failure event persistence on %s failure', async phase => {
+    await persistentFixture(0, false);
+    const before = vol.readFileSync(METADATA, 'utf8');
+    const spy = fault(phase);
+    try {
+      const error: unknown = await execute({ cwd: CWD, findingsPath: FINDINGS }).catch(error => error);
+      expect(error).toBeInstanceOf(TestGateError);
+      expect(error).toMatchObject({ escalation: { persistence: {
+        event_persisted: phase === 'cleanup', metrics_persisted: false,
+        accepted_persisted: false, grant_consumed: false,
+      } } });
+      expect(metadataFailure(error).details.metadata_published).toBe(phase === 'cleanup');
+      expect(vol.readFileSync(REVIEW, 'utf8')).toBe(TWO_FAILURES);
+      const { metadata } = readChangeMetadata(METADATA, 'add-widget');
+      const triggers = metadata.quality_log?.filter(entry => entry.escalation?.kind === 'trigger') ?? [];
+      expect(triggers).toHaveLength(phase === 'cleanup' ? 1 : 0);
+      if (phase === 'before') expect(vol.readFileSync(METADATA, 'utf8')).toBe(before);
+      else expect((error as TestGateError).escalation?.history.events).toHaveLength(1);
+    } finally { spy.mockRestore(); }
+  });
+
+  it.each(['before', 'cleanup'] as const)('preserves exemption warning publication on %s failure without merging findings', async phase => {
+    const authoredReview = '# Authored review remains unchanged\n';
+    seed(round1, authoredReview, '', NO_COMMAND);
+    const before = vol.readFileSync(METADATA, 'utf8');
+    const spy = fault(phase);
+    try {
+      const error: unknown = await execute({ cwd: CWD, findingsPath: FINDINGS }).catch(error => error);
+      expect(metadataFailure(error).details.metadata_published).toBe(phase === 'cleanup');
+      if (phase === 'cleanup') expect(error).toMatchObject({ warningRecorded: true });
+      const log = readChangeMetadata(METADATA, 'add-widget').metadata.quality_log ?? [];
+      expect(log.filter(entry => entry.skill === TEST_GATE_PRODUCER)).toHaveLength(phase === 'cleanup' ? 1 : 0);
+      expect(log.some(entry => entry.accepted !== undefined)).toBe(false);
+      expect(vol.readFileSync(REVIEW, 'utf8')).toBe(authoredReview);
+      if (phase === 'before') expect(vol.readFileSync(METADATA, 'utf8')).toBe(before);
+    } finally { spy.mockRestore(); }
+  });
+
+  it.each(['before', 'cleanup'] as const)('reports actual review acceptance and grant consumption on %s failure', async phase => {
+    await reviewGrantFixture();
+    const before = vol.readFileSync(METADATA, 'utf8');
+    const spy = fault(phase);
+    try {
+      const error: unknown = await execute({ cwd: CWD, findingsPath: FINDINGS, round: 1 }).catch(error => error);
+      expect(error).toMatchObject({ code: 'ESCALATION_REFUSED', details: { persistence: {
+        artifact_persisted: true, accepted_persisted: phase === 'cleanup', grant_consumed: phase === 'cleanup',
+      } } });
+      expect(metadataFailure(error).details.metadata_published).toBe(phase === 'cleanup');
+      expect(vol.readFileSync(REVIEW, 'utf8')).toContain('| F-1 |');
+      const log = readChangeMetadata(METADATA, 'add-widget').metadata.quality_log ?? [];
+      const accepted = log.filter(entry => entry.accepted);
+      const consumed = log.filter(entry => entry.escalation?.kind === 'consume');
+      expect(accepted).toHaveLength(phase === 'cleanup' ? 1 : 0);
+      expect(consumed).toHaveLength(phase === 'cleanup' ? 1 : 0);
+      if (phase === 'before') expect(vol.readFileSync(METADATA, 'utf8')).toBe(before);
+      else {
+        expect(consumed[0]?.escalation).toMatchObject({ grant_id: 'grant-1', attempt_id: accepted[0]?.attempt_id });
+        expect((error as { details: { history: unknown } }).details.history).toEqual(reduceEscalationHistory(log, 3));
+      }
+    } finally { spy.mockRestore(); }
+  });
 });

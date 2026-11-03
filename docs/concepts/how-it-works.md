@@ -27,7 +27,7 @@ flowchart TD
 
 Every **Archive** enriches **AI Knowledge** (more complete with each change), and recurring lessons — review findings, the cross-stage `quality_log`, session corrections — promote, **only with human approval**, into an accumulating body of team rules (`Constitution` + `_playbook`). So the next change doesn't start from scratch; it starts from a richer, smarter baseline.
 
-The diagram shows the standard path. It is also **scale-aware**: Design runs only when UI scope is `full` or `partial`; a user-confirmed `quick` change skips Plan entirely (`story → tasks`); and brownfield backfill enters through `prospec-promote-backfill` before Verify rather than replaying the standard planning path. Archive-time gates remain the backstop — see [Right-Sized Process](./workflow.md#right-sized-process-scale) and [Backfill](../guides/backfill.md#backfill-bringing-brownfield-code-into-the-trust-zone).
+The diagram shows the standard path. It is also **scale-aware**: Design runs only when UI scope is `full` or `partial`; a `quick` change skips Plan entirely (`story → tasks`), whether selected autonomously in Draft-First, confirmed by the human in interactive mode, or assigned by `prospec change auto-draft`; and brownfield backfill enters through `prospec-promote-backfill` before Verify rather than replaying the standard planning path. Archive-time gates remain the backstop — see [Right-Sized Process](./workflow.md#right-sized-process-scale) and [Backfill](../guides/backfill.md#backfill-bringing-brownfield-code-into-the-trust-zone).
 
 ## Skill ↔ CLI Cooperation Model
 

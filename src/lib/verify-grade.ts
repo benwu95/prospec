@@ -10,9 +10,8 @@ import type { QualityDimension, VerifyGrade, GateResult } from '../types/change.
  * dimension (an individual check honestly skipped, e.g. a non-git checkout)
  * still makes S unreachable and consumes the budget like any other WARN.
  *
- * Inputs are the GRADE-INPUT dimensions only — the caller applies scale rules
- * (e.g. `scale: backfill` records 3/5 and 5/5 but excludes them from grading)
- * before calling; this function never re-derives scale policy.
+ * The caller resolves applicability before passing dimensions here; this
+ * function never re-derives scale policy or removes failed dimensions.
  */
 
 /** Grade A tolerates at most this many budget-counted WARNs. */
@@ -32,12 +31,10 @@ export function isSelfVerified(dimensions: QualityDimension[]): boolean {
 }
 
 /**
- * Re-applies the in-session cap over the FULL judgment set — including
- * dimensions a scale policy excluded from the grade inputs (e.g. a proven
- * backfill's constitution). REQ-CLI-029 caps on ANY judgment dimension graded
- * in-session, so an excluded dimension's grading context still blocks S even
- * though its verdict never reaches `computeGrade`. The caller passes judgment
- * dimensions only (a machine dimension's stray `graded_by` never caps).
+ * Re-applies the in-session cap over the full judgment set. Informational
+ * rule debt does not remove its grader's context from this cap. The caller
+ * passes judgment dimensions only (a machine dimension's stray `graded_by`
+ * never caps).
  */
 export function applySelfVerifiedCap(
   grade: VerifyGrade,

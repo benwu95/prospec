@@ -57,7 +57,7 @@ silently drift.
 - `summary`: non-empty, bounded single-line string (optional)
 - `repro`: non-empty, bounded single-line command (optional)
 - `evidence`: non-empty full prose string (optional; never relayed)
-- `constitution_rules`: array of per-rule audit entries, valid only on the constitution dimension (optional)
+- `constitution_rules`: array of per-rule audit entries (`name`, `result`, optional `statement` and `applicability`), valid only on the constitution dimension (optional); `applicability` accepts only `pre-existing-code`, requires raw `FAIL` or `WARN` and a non-whitespace `statement`
 - `items`: requirement judgments (`req_id`, `result`, `evidence_kind`, optional `evidence` and `repro`), only on delta-spec-compliance (optional)
 - `context_id`: canonical 64-character hex string binding prepared verification context inputs (optional; required on delta-spec-compliance when prepared context is used)
 - `scenario_findings`: deviations (`scenario_id`, `affected_req_ids`, `spec_location`, `result`, `summary`, `evidence`), only on delta-spec-compliance (optional)

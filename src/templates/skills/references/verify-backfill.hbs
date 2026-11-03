@@ -1,21 +1,19 @@
 # Backfill Verification Reference (`scale: backfill`)
 
-This document defines the specialized verification rules and quality criteria used by `prospec-verify` when verifying brownfield reverse-extracted specs (`metadata.scale: backfill`).
+Verification rules for brownfield specs under `metadata.scale: backfill`.
 
 ---
 
 ## Core Philosophy: Spec-to-Code Fidelity
 
-Under `scale: backfill`, the existing code is the **ground truth**. The goal of verification is to ensure the generated Feature Spec faithfully captures observable code behavior without inventing intent or fabricating requirements.
+Existing code is the **ground truth**. Verify observable behavior without inventing intent or requirements.
 
 ---
 
 ## 1. Provenance Gate (`backfill-draft.md`)
 
-Proven backfill requires both `metadata.scale: backfill` and `.prospec/changes/[name]/backfill-draft.md` exists. Apply the quality relaxations below only when that provenance holds:
-- Verify checks whether `.prospec/changes/[name]/backfill-draft.md` exists.
-- **`backfill-draft.md` present**: The change is a proven backfill. Apply the quality relaxations below.
-- **`backfill-draft.md` absent**: Grade the change under the **standard** contract (missing tests → graded normally, Constitution `[MUST]` code-quality violations → FAIL) and log a WARN: "`scale: backfill` claimed but no `backfill-draft.md` — graded as standard".
+Proven backfill requires both `metadata.scale: backfill` and `.prospec/changes/[name]/backfill-draft.md` exists. Apply the quality relaxations below only with this provenance.
+- **Draft absent**: Apply standard tests and Constitution grading; log WARN: "`scale: backfill` claimed but no `backfill-draft.md` — graded as standard".
 
 ---
 
@@ -33,24 +31,27 @@ Proven backfill requires both `metadata.scale: backfill` and `.prospec/changes/[
 - Marked as **`not-applicable`** (no `tasks.md` exists by contract).
 
 ### Dimension 2/5: Specification Compliance (Primary Graded Dimension)
-- **Prepared Context & Payload Contract**: Dimension 2/5 applies the shared prepared-context and per-REQ payload contract (`items`, `context_id`, `scenario_findings`) per [`references/delegated-evidence-format.md`](delegated-evidence-format.md) — never recreate a second schema.
-- **No Fabricated Baseline**: Backfill never fabricates an original pre-implementation story baseline; evaluation checks spec-to-code fidelity against observable code.
-- **Baseline Gap & Grade Caps**: When the original pre-implementation baseline is unavailable or the current revision was captured late (`late-capture`), disclose the baseline gap as `not-adjudicated` with the shared single dimension-level gap warning. Real `FAIL` verdicts are strictly preserved and never masked by the gap. Grade S is unreachable (capped below S due to unadjudicated baseline); grade A is reachable when all other gates and the existing grade-A budget allow it.
-- **Fidelity Check**: Every requirement in `delta-spec.md` must accurately reflect the observable behavior of the source code.
-- **Anchor Resolution**: Every cited `file:line` or function symbol in `delta-spec.md` must resolve to real code. A dead reference is a **FAIL**.
-- **No Empty PASS**: An AC with **no `file:line` evidence** to check → **WARN/FAIL**, **NEVER an empty PASS** — unverifiable fidelity is not fidelity.
-- **No Fabricated Intent**: The spec must document observable behavior, not speculative business intent.
+- **Prepared Context & Payload Contract**: Use shared prepared context and per-REQ payload (`items`, `context_id`, `scenario_findings`) per [`references/delegated-evidence-format.md`](delegated-evidence-format.md).
+- **No Fabricated Baseline**: Never fabricate an original pre-implementation baseline; check observable code.
+- **Baseline Gap & Grade Caps**: If the original baseline is unavailable or revision is `late-capture`, disclose `not-adjudicated` with one dimension-level gap warning. Real `FAIL` verdicts are strictly preserved. Grade S is unreachable; grade A is reachable within other gates and its existing budget.
+- **Fidelity Check**: Every `delta-spec.md` requirement must reflect observable code behavior.
+- **Anchor Resolution**: Every cited `file:line` or function symbol must resolve to code; dead references **FAIL**.
+- **No Empty PASS**: An AC without `file:line` evidence → **WARN/FAIL**, **NEVER an empty PASS**.
+- **No Fabricated Intent**: Document behavior, not speculative intent.
 
 ### Dimension 3/5: Constitution & Conventions
-- **Pre-existing Code Violations**: Any pre-existing `[MUST]` code-quality violation (e.g. legacy layering, low test coverage) that the backfill did NOT introduce is recorded as an **informational tech-debt note** ("pre-existing, not introduced by this backfill") and **does NOT lower the grade**.
-- **Artifact Violations**: The backfill artifacts themselves must strictly comply with Constitution rules (Language Policy, INVEST User Story format, No Fabricated Intent).
+- **Debt Eligibility**: Only proven backfill may mark a rule `applicability: pre-existing-code`: raw `FAIL` or `WARN`, non-empty `statement` with code location, why not introduced by this backfill, and artifact compliance evidence. Judgment is reviewable, not machine-proven history; `not-adjudicated` remains applicable.
+- **Complete Rule Audit**: When claiming debt, supply every current Constitution rule exactly once in `constitution_rules`; unknown, duplicate, or missing rules are refused. Retain anti-flip and required statements.
+- **Applicable Rules**: Rules affecting current artifacts or mixed scope remain applicable with their `FAIL`/`WARN` floor; backfill artifacts must comply with all their Constitution obligations.
+- **Floors & Evidence**: Only eligible debt rules become an informational tech-debt note that does NOT lower the grade. The aggregate Constitution `FAIL`, including legacy flags, and independent severity floors remain grade-bearing. Preserve raw rule results, machine ledger, and statements in `verify.md`; debt-only input may report aggregate `PASS`.
 
 ### Dimension 4/5: Knowledge & Module Consistency
 - Confirm affected modules listed in `metadata.related_modules` accurately match the inspected source directories.
 
 ### Dimension 5/5: Tests
-- **Test Absence Tolerance**: The absence of unit tests for the documented brownfield functions is **informational** (expected in brownfield code).
+- **Test Absence Tolerance**: Missing brownfield unit tests are **informational**.
 - **Real Test Failures**: Any existing test in the test suite that actually **fails** is a hard **FAIL**.
+- **Applicability**: Use existing `test-provenance` adjudication for absent runs; actual `FAIL` is never excluded. Unknown or skipped never becomes PASS.
 
 ---
 

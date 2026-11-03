@@ -1,6 +1,6 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
-import { EscalationError, PrerequisiteError, TestGateError } from '../types/errors.js';
+import { EscalationError, MetadataWriteError, PrerequisiteError, TestGateError } from '../types/errors.js';
 import {
   ReviewFindingsInputSchema,
   REVIEW_RESOLVED_STATUSES,
@@ -328,7 +328,11 @@ export async function execute(options: ReviewMergeOptions): Promise<ReviewMergeR
         if (!metadataDoc) throw refusal('metadata.yaml unavailable for escalation', undefined, true);
         for (const entry of entries) appendQualityLogEntry(metadataDoc, entry);
         try { await writeChangeMetadataDoc(metadataPath, metadataDoc, changeName); }
-        catch (cause) { throw refusal(`Escalation event write failed: ${cause instanceof Error ? cause.message : String(cause)}`, cause, true); }
+        catch (cause) {
+          eventPersisted = cause instanceof MetadataWriteError && cause.details.metadata_published;
+          if (eventPersisted) persistedHistory = reduceEscalationHistory([...log, ...entries], retryBound);
+          throw refusal(`Escalation event publication incomplete: ${cause instanceof Error ? cause.message : String(cause)}`, cause, !eventPersisted);
+        }
         persistedHistory = reduceEscalationHistory([...log, ...entries], retryBound);
         eventPersisted = true;
         metadataBytes = Buffer.from(stringifyYamlDocument(metadataDoc));
@@ -420,7 +424,13 @@ export async function execute(options: ReviewMergeOptions): Promise<ReviewMergeR
     const warningRecorded = appendTestGateWarning(metadataDoc, metadata, 'review merge', decision.reason);
     if (warningRecorded) {
       if (!inputsStable() || !assessment.recheck() || !reviewBytesStable() || !metadataBytesStable()) throw unstable(false);
-      await writeChangeMetadataDoc(metadataPath, metadataDoc, changeName);
+      try { await writeChangeMetadataDoc(metadataPath, metadataDoc, changeName); }
+      catch (cause) {
+        if (!(cause instanceof MetadataWriteError) || !cause.details.metadata_published) throw cause;
+        throw new TestGateError({ changeName, entrance: 'review merge',
+          reason: cause instanceof Error ? cause.message : String(cause),
+          warningRecorded: true, cause });
+      }
       metadataBytes = Buffer.from(stringifyYamlDocument(metadataDoc));
       if (!metadataBytesStable()) throw unstable(true);
       try {
@@ -477,9 +487,16 @@ export async function execute(options: ReviewMergeOptions): Promise<ReviewMergeR
   });
 
   const trigger = circuitBreaker.escalationReport?.type;
-  const writeFailure = (cause: unknown, artifactPersisted: boolean): Error => {
+  const writeFailure = (cause: unknown, artifactPersisted: boolean, metadataPublished = false): Error => {
     const message = cause instanceof Error ? cause.message : String(cause);
-    const details = escalationFailureDetails(history, 'prospec-review', trigger, { artifact_persisted: artifactPersisted });
+    const committedLog: ChangeMetadata['quality_log'] = metadataDoc?.toJS().quality_log;
+    const additions = committedLog?.slice(log.length) ?? [];
+    const persistedHistory = metadataPublished ? reduceEscalationHistory(committedLog, retryBound) : history;
+    const details = escalationFailureDetails(persistedHistory, 'prospec-review', metadataPublished ? undefined : trigger, {
+      artifact_persisted: artifactPersisted, accepted_persisted: metadataPublished,
+      event_persisted: metadataPublished && additions.some(e => e.escalation?.kind === 'trigger'),
+      grant_consumed: metadataPublished && additions.some(e => e.escalation?.kind === 'consume'),
+    });
     return warningRecorded
       ? new TestGateError({ changeName, entrance: 'review merge', reason: message, warningRecorded: true, escalation: details, cause })
       : new EscalationError(message, 'Re-run with the unchanged receipt and current-event authorization', details, cause);
@@ -582,7 +599,7 @@ export async function execute(options: ReviewMergeOptions): Promise<ReviewMergeR
     try {
       await writeChangeMetadataDoc(metadataPath, metadataDoc, changeName);
     } catch (err) {
-      throw writeFailure(err, true);
+      throw writeFailure(err, true, err instanceof MetadataWriteError && err.details.metadata_published);
     }
 
     if (circuitBreaker.escalationReport) {

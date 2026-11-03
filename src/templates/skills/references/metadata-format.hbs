@@ -27,7 +27,7 @@ take precedence over canonical ordering. Comments and unknown fields remain pres
 | `name` | yes | `prospec change story` (create) | change dir name (kebab-case) |
 | `created_at` | yes | `prospec change story` (create) | full ISO 8601 |
 | `status` | yes | `prospec change plan/tasks/status` + `verify record` (S/A) + `archive` + `change abandon` | one of the lifecycle values (`_status-lifecycle.md`), forward-only |
-| `scale` | no (defaults `standard`) | `prospec change scale`, after user-confirmed assessment; also `change auto-draft` at create time, from the drift check that triggered it | one of the schema's `CHANGE_SCALES` values |
+| `scale` | no (defaults `standard`) | `prospec change scale`; `change auto-draft` (create) | one of the schema's `CHANGE_SCALES` values |
 | `related_modules` | creation: yes; legacy: optional | `prospec change story` (`--related-module` or `--no-related-modules`); `change auto-draft` (attributed modules); `change related-modules` corrects it | bare module names |
 | `description` | no | `prospec change story --description` | one line, plain text |
 | `quality_log` | no | `prospec change log` (any station) + `verify record` (append) | gate trail — see below |

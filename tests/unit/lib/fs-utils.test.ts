@@ -18,6 +18,25 @@ afterEach(() => {
 });
 
 describe('atomicWrite', () => {
+  it('runs the commit guard after staging and before replacing the target', async () => {
+    vol.fromJSON({ '/tmp/guard.txt': 'old' });
+    let observed = false;
+    await atomicWrite('/tmp/guard.txt', 'new', { beforeRename: () => {
+      expect(fs.readFileSync('/tmp/guard.txt', 'utf8')).toBe('old');
+      expect(fs.readFileSync(`/tmp/guard.txt.tmp.${process.pid}`, 'utf8')).toBe('new');
+      observed = true;
+    } });
+    expect(observed).toBe(true);
+    expect(fs.readFileSync('/tmp/guard.txt', 'utf8')).toBe('new');
+  });
+
+  it('preserves target bytes and cleans staged bytes when the guard refuses', async () => {
+    vol.fromJSON({ '/tmp/guard.txt': 'old' });
+    await expect(atomicWrite('/tmp/guard.txt', 'new', { beforeRename: () => { throw new Error('stale inputs'); } })).rejects.toThrow('stale inputs');
+    expect(fs.readFileSync('/tmp/guard.txt', 'utf8')).toBe('old');
+    expect(fs.readdirSync('/tmp')).toEqual(['guard.txt']);
+  });
+
   it('should write content to a file', async () => {
     vol.fromJSON({ '/tmp': null }, '/');
     await atomicWrite('/tmp/test.txt', 'hello world');

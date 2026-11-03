@@ -1,4 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import * as fs from 'node:fs';
 import {
   existsSync,
   mkdtempSync,
@@ -18,6 +19,8 @@ import { resolveLanguageScope } from '../../../src/lib/language-policy.js';
 import { languagePolicyRule } from '../../../src/lib/constitution-rules.js';
 import type { ProspecConfig } from '../../../src/types/config.js';
 import { parseYaml } from '../../../src/lib/yaml-utils.js';
+import { readChangeMetadata } from '../../../src/lib/change-metadata.js';
+import { MetadataWriteError } from '../../../src/types/errors.js';
 import {
   DriftReportSchema,
   DRIFT_CHECK_IDS,
@@ -691,6 +694,93 @@ describe('test-provenance gate + --record-tests (REQ-SERVICES-068)', () => {
       ].join('\n'),
     );
   }
+
+  // Native resolution can differ from realpathSync's Windows path spelling.
+  describe('check metadata publication outcomes', () => {
+    it.each([0, 3])('retains actual completion and provenance after exit %i when claim cleanup fails', async exitCode => {
+      initGitChange();
+      setTestCommand(exitCode);
+      const metadataPath = path.join(tmpDir, '.prospec/changes/c1/metadata.yaml');
+      const target = await fs.promises.realpath(metadataPath);
+      const rename = fs.promises.rename;
+      const remove = fs.promises.rmdir;
+      let publications = 0;
+      const renameSpy = vi.spyOn(fs.promises, 'rename').mockImplementation(async (from, to) => {
+        await rename(from, to);
+        if (String(to) === target) publications++;
+      });
+      const cleanupSpy = vi.spyOn(fs.promises, 'rmdir').mockImplementation(async dir => {
+        if (String(dir).endsWith('.metadata.yaml.write-claim') && publications === 2) {
+          throw new Error('controlled completion cleanup failure');
+        }
+        await remove(dir);
+      });
+      try {
+        const error: unknown = await execute({ cwd: tmpDir, recordTests: true }).catch(error => error);
+        expect(error).toBeInstanceOf(MetadataWriteError);
+        expect(error).toMatchObject({ details: { metadataPath: target, metadata_published: true } });
+        expect(publications).toBe(2);
+        const { metadata } = readChangeMetadata(metadataPath, 'c1');
+        expect(metadata.test_attempt).toMatchObject({ outcome: exitCode === 0 ? 'passed' : 'failed', exit_code: exitCode });
+        expect(metadata.test_provenance).toMatchObject({ exit_code: exitCode, attempt_id: metadata.test_attempt?.id });
+        expect(fs.existsSync(`${target.replace(/metadata\.yaml$/, '')}.metadata.yaml.write-claim`)).toBe(true);
+      } finally { renameSpy.mockRestore(); cleanupSpy.mockRestore(); }
+    });
+
+    it('propagates completion rename failure while leaving the running attempt non-passing', async () => {
+      initGitChange();
+      setTestCommand(0);
+      const metadataPath = path.join(tmpDir, '.prospec/changes/c1/metadata.yaml');
+      const target = await fs.promises.realpath(metadataPath);
+      const rename = fs.promises.rename;
+      let publications = 0;
+      const spy = vi.spyOn(fs.promises, 'rename').mockImplementation(async (from, to) => {
+        if (String(to) === target && publications === 1) throw new Error('controlled completion rename failure');
+        await rename(from, to);
+        if (String(to) === target) publications++;
+      });
+      try {
+        const error: unknown = await execute({ cwd: tmpDir, recordTests: true }).catch(error => error);
+        expect(error).toBeInstanceOf(MetadataWriteError);
+        expect(error).toMatchObject({ details: { metadata_published: false } });
+        expect(publications).toBe(1);
+        const { metadata } = readChangeMetadata(metadataPath, 'c1');
+        expect(metadata.test_attempt?.outcome).toBe('running');
+        expect(metadata.test_provenance).toBeUndefined();
+      } finally { spy.mockRestore(); }
+    });
+
+    it.each(['before', 'cleanup'] as const)('never starts the suite when running publication has a %s failure', async phase => {
+      initGitChange();
+      write('suite.cjs', "require('fs').writeFileSync('SUITE_RAN', 'yes');\n");
+      setTestCommandArgv(`${NODE} suite.cjs`);
+      const metadataPath = path.join(tmpDir, '.prospec/changes/c1/metadata.yaml');
+      const target = await fs.promises.realpath(metadataPath);
+      const before = readFileSync(metadataPath, 'utf8');
+      const rename = fs.promises.rename;
+      const remove = fs.promises.rmdir;
+      const renameSpy = vi.spyOn(fs.promises, 'rename').mockImplementation(async (from, to) => {
+        if (phase === 'before' && String(to) === target) throw new Error('controlled running rename failure');
+        await rename(from, to);
+      });
+      const cleanupSpy = vi.spyOn(fs.promises, 'rmdir').mockImplementation(async dir => {
+        if (phase === 'cleanup' && String(dir).endsWith('.metadata.yaml.write-claim')) {
+          throw new Error('controlled running cleanup failure');
+        }
+        await remove(dir);
+      });
+      try {
+        const error: unknown = await execute({ cwd: tmpDir, recordTests: true }).catch(error => error);
+        expect(error).toBeInstanceOf(MetadataWriteError);
+        expect(error).toMatchObject({ details: { metadata_published: phase === 'cleanup' } });
+        expect(existsSync(path.join(tmpDir, 'SUITE_RAN'))).toBe(false);
+        const { metadata } = readChangeMetadata(metadataPath, 'c1');
+        expect(metadata.test_provenance).toBeUndefined();
+        if (phase === 'before') expect(readFileSync(metadataPath, 'utf8')).toBe(before);
+        else expect(metadata.test_attempt?.outcome).toBe('running');
+      } finally { renameSpy.mockRestore(); cleanupSpy.mockRestore(); }
+    });
+  });
 
   it('fails when an implemented change has no recorded test run', async () => {
     initGitChange();

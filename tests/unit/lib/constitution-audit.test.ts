@@ -1,6 +1,52 @@
 import { describe, it, expect } from 'vitest';
-import { auditConstitution, isLegalCheckId } from '../../../src/lib/constitution-audit.js';
+import { auditConstitution, assessConstitutionApplicability, isLegalCheckId } from '../../../src/lib/constitution-audit.js';
 import { DRIFT_CHECK_IDS, type ConstitutionRuleEntry } from '../../../src/types/drift-report.js';
+import type { ConstitutionRuleJudgment } from '../../../src/types/station.js';
+
+describe('proven-backfill Constitution applicability', () => {
+  const rules: ConstitutionRuleEntry[] = [
+    { name: 'Legacy layering', severity: 'MUST', has_verify_hint: true, line: 1, check_id: 'import-direction' },
+    { name: 'Artifact integrity', severity: 'MUST', has_verify_hint: true, line: 2 },
+  ];
+  const debt: ConstitutionRuleJudgment = { name: 'Legacy layering', result: 'FAIL',
+    applicability: 'pre-existing-code', statement: 'src/legacy.ts is unchanged; new artifacts comply.' };
+  const artifact: ConstitutionRuleJudgment = { name: 'Artifact integrity', result: 'PASS', statement: 'No invented intent.' };
+  const assess = (graderEntries: ConstitutionRuleJudgment[], provenBackfill = true) =>
+    assessConstitutionApplicability({ rules, graderEntries, provenBackfill });
+
+  it('selects only explicitly evidenced debt while preserving the raw rule verdict', () => {
+    expect(assess([debt, artifact])).toEqual({ informationalRules: ['Legacy layering'], errors: [] });
+    expect(debt.result).toBe('FAIL');
+    expect(assess([{ ...debt, applicability: undefined }, artifact])).toEqual({ informationalRules: [], errors: [] });
+  });
+
+  it('does not grant debt applicability without proven backfill provenance', () => {
+    expect(assess([debt, artifact], false).errors).toEqual([expect.stringContaining('proven backfill')]);
+  });
+
+  it('keeps legacy partial judgments admissible when no debt exemption is claimed', () => {
+    expect(assess([], false)).toEqual({ informationalRules: [], errors: [] });
+  });
+
+  it('records evidenced WARN debt without changing the supplied verdict', () => {
+    expect(assess([{ ...debt, result: 'WARN' }, artifact]).informationalRules).toEqual(['Legacy layering']);
+  });
+
+  it('refuses debt classifications against an ambiguous source rule inventory', () => {
+    const result = assessConstitutionApplicability({ rules: [...rules, rules[0]!], graderEntries: [debt, artifact], provenBackfill: true });
+    expect(result.informationalRules).toEqual([]);
+    expect(result.errors).toEqual([expect.stringContaining('must be unique')]);
+  });
+
+  it.each([
+    { entries: [debt] },
+    { entries: [debt, artifact, artifact] },
+    { entries: [debt, { ...artifact, name: 'Unknown rule' }] },
+  ])('requires complete, unique, known rule coverage: %j', ({ entries }) => {
+    expect(assess(entries).errors.length).toBeGreaterThan(0);
+    expect(assess(entries).informationalRules).toEqual([]);
+  });
+});
 
 describe('constitution-audit (REQ-LIB-083)', () => {
   const sampleRules: ConstitutionRuleEntry[] = [

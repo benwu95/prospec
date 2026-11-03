@@ -342,7 +342,7 @@ Review 維持 artifact→metadata，verify 維持 metadata→evidence 的寫入�
   - **保存邊界**：不還原工作、不自動搶占 writer claim。失敗時檢查回報的 source、staging、final 與 operation 路徑；儲存於 main worktree 不等於 main repository 或 Git objects 的備份。
 
 - **`prospec change scale <quick|standard|full|backfill> [--change <name>]`**
-  - **核心用途**：設定變更的複雜度 scale，就地更新 `metadata.yaml` 並保留原有註解。
+  - **核心用途**：寫入已選定的複雜度 scale，就地更新 `metadata.yaml` 並保留原有註解。Draft-First 自主選擇，interactive 模式由人類決定，`prospec change auto-draft` 依觸發的 check 指派；此命令寫入明確提供的 scale。
 
 - **`prospec change related-modules [module...] [--no-related-modules] [--change <name>]`**
   - **核心用途**：以給定清單取代既有變更 `metadata.yaml` 的 `related_modules`——`prospec change story` 建立變更之後，這是它唯一的寫入者。
@@ -362,7 +362,9 @@ Review 維持 artifact→metadata，verify 維持 metadata→evidence 的寫入�
   - **核心用途**：在 `metadata.yaml` 追加一筆結構化的 `quality_log` 記錄。
   - **選項**：支援 `--warning <w>`、`--grade <g>`、`--dimension n=r`、`--criticals-found <n>` 等參數，欄位順序固定；自由文字由 yaml 函式庫以 YAML 資料序列化（僅在 YAML 語法需要時加引號），metacharacter 不會破壞檔案；此命令寫的是 YAML 而非 Markdown 表格，不做表格跳脫。針對 `prospec-review`，`--criticals-found`、`--criticals-fixed` 與 `--majors` 旗標僅作為期望值稽核輸入而非直寫：與 `review merge` 所記錄的 CLI 真值不符時會追加 `log_mismatch` 警告並將結果至少提升為 `WARN`（不覆寫已記錄之真值），且追加的關輪記錄本身不帶計數欄位。
   - **`--verifier-report <file>`**（plan/tasks 站）：以 rubric 擁有的 schema 驗證 Architecture/Task Verifier 的 JSON 報告（verdict `PASS` | `WARN` | `FLAWS`、恰好該站的 dimensions、單行且有上限的 `rationale`/`warnings`）並記錄——`FLAWS` 落為 `result: FAIL`，無效 payload 在寫入前即被拒絕。對 `prospec-plan` 另以通過 schema 的 `candidates/decision.json` 推薦方案蓋上 `audited_option`（verifier 所稽核者），並以其稽核的 plan.md＋delta-spec.md 版本蓋上 `audited_plan_digest`。與 `--result` 及組合式欄位互斥。`prospec status` 會把最新 verifier 結果為 `FAIL` 的站導回該站，直到後續 verifier `PASS`／`WARN`；Break-Glass `--result WARN --warning "Manual override: …"` 只授權有界重試，不取代 verifier verdict。
-  - **`--signoff <option>`**（僅限 `--skill prospec-plan`，且須有人類明確指示）：記錄人類的 plan 簽核——`scale: full` 簽候選方案，其他有 plan 的 scale 簽 `plan`（被審核的 plan 版本，不讀候選檔）。以下任一不成立即拒絕且不寫入任何檔案：該 scale 有 plan、最新 plan verifier 結果為 PASS/WARN、已記錄 plan verifier 報告（Break-Glass 記錄未稽核任何內容）且其標記的 plan.md＋delta-spec.md 版本就是目前版本、讀取到寫入之間沒有變動。簽候選方案時另須 `candidates/decision.json` 通過 schema、option 等於其 `recommended_option` 與最新報告的 `audited_option`（要改選其他方案，須先修訂 plan 與 decision 並重新記錄 verifier），且整組候選通過 `prospec validate candidates`（因此非 hybrid 的 option 必有有效的 `candidates/<option>.json`）；`scale: full` 不接受 `plan`。接受後，候選方案會把 decision.json 的 `graded_by` 設為 `human`，並追加一筆帶 `signoff_option` 與 `signoff_plan_digest` 的 PASS 記錄；`--warning` 為人類備註。與 `--result`、`--verifier-report` 及組合式欄位互斥。
+  - **`--signoff <option>`**（僅限 `--skill prospec-plan`，且須有人類明確指示）：記錄人類的 plan 簽核——`scale: full` 簽候選方案，其他有 plan 的 scale 簽 `plan`（被審核的 plan 版本，不讀候選檔）。前置驗證在發布前拒絕不符合下列條件的輸入：該 scale 有 plan、最新 plan verifier 結果為 PASS/WARN、已記錄 plan verifier 報告（Break-Glass 記錄未稽核任何內容）且其標記的 plan.md＋delta-spec.md 版本就是目前版本。簽候選方案時另須 `candidates/decision.json` 通過 schema、option 等於其 `recommended_option` 與最新報告的 `audited_option`（要改選其他方案，須先修訂 plan 與 decision 並重新記錄 verifier），且整組候選通過 `prospec validate candidates`（因此非 hybrid 的 option 必有有效的 `candidates/<option>.json`）；`scale: full` 不接受 `plan`。接受後，候選方案會把 decision.json 的 `graded_by` 設為 `human`，並追加一筆帶 `signoff_option` 與 `signoff_plan_digest` 的 PASS 記錄；`--warning` 為人類備註。簽核在 decision 發布前與 metadata claim 內重驗 metadata、plan/delta、config 及 candidate 輸入，包含 rename 前的最後檢查。之後發現的衝突可能留下已發布的 decision，而 metadata 尚無簽核；路由仍以 `quality_log` 為權威。與 `--result`、`--verifier-report` 及組合式欄位互斥。
+  - **發布失敗**：`METADATA_WRITE_FAILED` 與 `SIGNOFF_WRITE_FAILED` 以非零碼結束。Text 與 JSON 揭露相同的實際進度：`error.publication.metadata: { metadataPath, claimPath, metadata_published }` 與 `error.publication.signoff: { metadataPath, decisionPath?, decision_published, metadata_recorded }`（適用時才出現各項）。Metadata rename 成功後若 claim cleanup 失敗，仍回報 `metadata_published: true`，簽核亦為 `metadata_recorded: true`。已發布的 decision 保留，不執行 rollback 或自動重試；先檢查 `prospec status` 與目前輸入再重試。Abandon error 的 private-staging metadata 已發布不代表 terminal bundle 已發布；須保留外層 operation 的 paths 與 phase 判讀。
+  - **共用 metadata 發布**：參與協定的 metadata Document writers 使用 target-adjacent exclusive claim。Claim 忙碌時立即拒絕並列出路徑，只有持有者才釋放自己的 claim。當機後須先確認 writer 已結束，再人工處理遺留 claim；不自動 unlock。簽核另檢查讀取輸入的新鮮度；共用 claim 不替其他 writers 增加 revision checks，也不構成跨檔 transaction。
   - **閘門範圍**：此閘門是 **per-change**——sibling change 的過期證據不會擋住這一個。（以 `[CODE]` 標示 CLI 自有判定的是 `prospec status` 的路由理由行。）
 
 - **`prospec change progress [--complete <task>] [--change <name>]`**
@@ -407,6 +409,7 @@ Review 維持 artifact→metadata，verify 維持 metadata→evidence 的寫入�
   - **重點條列**：
     - 機械維度自讀 `prospec-report.json`，判斷維度由參數或 JSON 檔案傳入（`--dimensions`）。
     - 不論輸入形式（`--dimensions` 檔案或 `--dimension` 旗標），都在任何其他拒收之前結清 verify 委派：grader 票據尚未收件或已被拒收即拒絕並不寫入任何檔案；一般輸出必定帶一行 delegation 揭露。
+    - **Proven backfill debt**：具備 `scale: backfill` 與 `backfill-draft.md` 時，`constitution_rules[]` 只有 raw `FAIL`／`WARN` 規則可加上 `applicability: pre-existing-code`，並須以非空 `statement` 說明既有程式碼、非本次引入的理由與本次 artifacts 的合規證據。主張 debt 時須完整列出目前每條已知規則且各一次；unknown、duplicate 或 missing rules 一律拒絕。Current-artifact 或 mixed-scope 規則仍適用。只有合法 debt-rule floor 視為 informational；aggregate Constitution FAIL（含 legacy flags）、獨立 severity floors 與實際 tests FAIL 仍參與評級。Raw rules、machine ledger 與 statements 保留在 `verify.md`；CLI 驗證 payload 結構，不證明判斷的歷史真實性。Baseline gaps 保持 `not-adjudicated`，既有 grade caps 仍適用。
     - **上下文與逐 REQ 驗證**：當傳入 `--dimensions <file>` 且 `delta-spec-compliance` 包含 `context_id`、`items[]` 與 `scenario_findings[]` 時：
       - `verify record` 會透過共用的 `assessVerificationContext` 比對已保存的 `verify-context.json` 與當前重組事實，確認程式碼快照、規格內文、基準版本、提案與測試 attempt 身分在寫入前完全一致。任一項不符即拒絕記錄。
       - 逐一評定 delta-spec 中的每一項正式需求。缺交的 REQ 會由機器自動補為 `not-adjudicated`。
@@ -547,9 +550,11 @@ claude mcp add -s user prospec-b -- prospec mcp serve --cwd /path/to/B
     - 指令直接經由 argv 執行（不經 shell）；無法執行時標記為 `skipped` 並說明原因。
     - 若先前已記錄非零退出碼（紅燈），即使事後指令變得無法解析仍判定為 FAIL（事實不被隱藏）。
     - git submodule 以自己 git index 成員的工作樹內容計入 fingerprint，而非 commit pin。一般 untracked 測試／build 產物在該 submodule 執行 `git add` 後才納入；indexed 產物的變動仍改變 fingerprint。Submodule 內的 sparse 或 unmerged entry 會使輸入無法證明。
+    - Metadata 發布失敗（`METADATA_WRITE_FAILED`）以非零碼結束；使用 `--json` 時，此類新 typed error 走 structured stderr，`error.publication.metadata` 揭露實際 `metadata_published` 與 target／claim paths。已發布的 attempt／provenance 事實保留，cleanup 失敗亦同。測試行程退出碼與記錄失敗分開判讀。一般 report JSON 與原有 superseded／validation `recorded: false` 結果維持既有行為。
 
 - **`prospec check --record-review [--change <name>]`**
   - **核心用途**：記錄該變更的審查基線（程式碼 digest）與 `delta-spec.md` 指紋，供後續驗證 `review-provenance` 與 `delta-spec-provenance`。
+  - **發布失敗**：`METADATA_WRITE_FAILED` 以非零碼結束；使用 `--json` 時，此類新 typed error 走 structured stderr，揭露實際 `metadata_published` 與 target／claim paths。已發布的 baseline 在 cleanup 失敗後仍保留。一般 report JSON、原有 `recorded: false` 或其他 error 行為維持不變。
 
 - **明確 `related_modules`（breaking）**：建立時不再依關鍵字推斷模組；使用 `prospec change story <name> --related-module <module>`（可重複），或判斷無關聯後用 `prospec change story <name> --no-related-modules`。省略 creation scope 會拒收且不產生工件。Legacy 缺席 scope 仍可讀取，但 knowledge-sync 會以 `KNOWLEDGE_INPUT_INVALID` 停下；以 `prospec change related-modules <modules...> --change <name>` 或 `prospec change related-modules --change <name> --no-related-modules` 遷移。`[]` 代表已宣告無關聯，而非 unknown。無法歸屬的 `auto-draft` 群組改為失敗且不產生骨架；先判斷 scope 再明確建立。Freeze／amend 輸入與獨立 REQ 分類仍各自保留。
 
