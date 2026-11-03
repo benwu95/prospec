@@ -2,8 +2,8 @@ import { execFileSync } from 'node:child_process';
 import { lstatSync, readdirSync, readFileSync, readlinkSync } from 'node:fs';
 import path from 'node:path';
 
-/** Identity and signing flags every git-fixture test passes, so a commit needs no global config. */
-export const GIT_ID = ['-c', 'user.name=t', '-c', 'user.email=t@t', '-c', 'commit.gpgsign=false', '-c', 'tag.gpgsign=false'] as const;
+/** Fixture identity, signing and maintenance flags keep commits independent of host config and background writes. */
+export const GIT_ID = ['-c', 'user.name=t', '-c', 'user.email=t@t', '-c', 'commit.gpgsign=false', '-c', 'tag.gpgsign=false', '-c', 'maintenance.auto=false'] as const;
 
 /** Run git in `cwd` with the fixture identity; returns trimmed stdout. */
 export function gitIn(cwd: string, ...args: string[]): string {
