@@ -1,9 +1,9 @@
 ---
 feature: standalone-binary
 status: active
-last_updated: 2026-11-02
-story_count: 2
-req_count: 10
+last_updated: 2026-11-03
+story_count: 3
+req_count: 11
 ---
 
 # Standalone Binary Compilation
@@ -61,7 +61,7 @@ Adjust the installation and execution instructions — the root READMEs, the bil
 - WHEN a major release is prepared, THEN the public documentation describes the current station chain, compatibility boundaries, and downstream upgrade steps before the release is published
 - WHEN public content is prepared before that release, THEN the upcoming version is labelled as upcoming while package, configuration, navbar, structured-data version, and release-date fields retain the currently released value until the release bump
 - WHEN documentation enumerates the MCP or Skill surface, THEN names and totals match the frozen registries and host profiles in source
-- WHEN a numeric efficiency claim is published, THEN it cites a current reproducible measurement; otherwise the documentation uses non-numeric wording and points to `prospec measure`
+- WHEN a numeric efficiency claim is published, THEN it cites a current reproducible measurement; otherwise the documentation uses non-numeric wording
 - WHEN metadata, structured data, FAQ, social-preview text, or accessibility text restates product behavior, THEN it remains semantically aligned with the visible lifecycle, runtime requirements, and invocation guidance in both languages
 
 #### REQ-CLI-020: Add the print-template Subcommand
@@ -115,6 +115,28 @@ Each CLI command lazy-loads its service and formatter inside the action handler;
 - WHEN the bundled CLI starts under Node, THEN `module.enableCompileCache()` has been invoked before any picocolors import, and the non-TTY color-disable side effect (`setup-color`) still runs before picocolors loads.
 - WHEN the Release Binaries workflow compiles the bundle with `bun build --compile`, THEN the multi-platform binaries build and the Windows smoke check still pass.
 
+
+### US-3: Retire the measurement surface [P1]
+
+As a developer integrating Prospec CLI and repository tooling,
+I want the retired measurement entry points removed while shared accounting and startup checks remain available,
+so that the command inventory, documentation and executable behavior describe the same supported capabilities.
+
+**Acceptance Scenarios:**
+- WHEN inspecting CLI help or invoking measure, THEN the command is absent from help and follows the existing unknown-command rejection.
+- WHEN using retained token estimation, workflow-evaluation accounting or the startup dependency guard, THEN their existing behavior remains available and user reports and session logs are preserved.
+- WHEN reading retired requirements, THEN their deprecated identities remain resolvable at the original feature-spec paths.
+
+#### REQ-CLI-064: Retired measurement surface
+The CLI and repository development entry points retire the Measure command, token benchmark, offline report and context projection modes while retaining shared accounting and startup validation.
+- WHEN the CLI command inventory or help is inspected, THEN it contains no measure command, and invoking measure follows the existing unknown-command rejection.
+- WHEN repository scripts and executable source are inspected, THEN the Measure service, formatter, report schemas, benchmark scripts and measure:tokens package script are absent, with no compatibility command or re-export wrapper.
+- WHEN public documentation and current capability indexes are updated, THEN both documentation languages stop offering the retired surfaces, and the two retired feature specs remain available as deprecated history with resolvable retired REQ identities.
+- WHEN the retirement is delivered, THEN existing user-generated reports and session logs are left untouched, and existing archive bundles and spec-sync replay fixtures are preserved.
+- WHEN shared capabilities are used, THEN token estimation, workflow-evaluation accounting and the startup dependency guard retain their existing callers and behavior.
+
+---
+
 ## Edge Cases
 
 - **Template-not-found error**: When running commands that involve file generation (such as `prospec init`) in the Standalone Binary, the Handlebars template-reading mechanism will crash if it expects to access the external `src/templates` directory. Expected behavior: template content must be embedded in the binary at packaging time, ensuring it can be read normally without external physical template files.
@@ -141,6 +163,7 @@ _(None)_
 
 | Date | Change | Impact | Stories/REQs |
 |------|--------|--------|-------------|
+| 2026-11-03 | retire-measurement | ADDED REQ-CLI-064; MODIFIED REQ-DOCS-001 | REQ-CLI-064, REQ-DOCS-001 |
 | 2026-11-02 | backfill-doc-drift-standalone-binary | MODIFIED REQ-DOCS-001 | REQ-DOCS-001 |
 | 2026-10-09 | slim-readme-into-docs | MODIFIED REQ-DOCS-001 | REQ-DOCS-001 |
 | 2026-09-01 | refresh-v2-documentation | MODIFIED REQ-DOCS-001 | REQ-DOCS-001 |

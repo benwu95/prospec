@@ -104,9 +104,10 @@ features:
       - types
     req_prefixes:
       - MEASURE
-    status: active
+    status: deprecated
   - feature: workflow-evaluation
     modules:
+      - lib
       - tests
     req_prefixes: []
     status: active

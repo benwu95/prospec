@@ -153,7 +153,6 @@ prospec/
       sdd-workflow/
 scripts/
   counts/
-  measure/
   workflow-eval/
 src/
   cli/
@@ -269,7 +268,6 @@ tests/
       2026-08-11-configurable-generated-artifacts/
       synthetic-fenced/
       synthetic-struck/
-    token-corpus/
     workflow-eval/
       private/
       public/
@@ -300,8 +298,8 @@ tests/
 > non-source ancestor, and both lists are ordered by file volume — a cap keeps the biggest, not the
 > alphabetically first.
 
-- `tests/fixtures/` — 635 files: `.md`, `.yaml`, `.json`, `.txt`
-- `prospec/` — 391 files: `.md`, `(no extension)`, `.yaml`
+- `tests/fixtures/` — 622 files: `.md`, `.yaml`, `.json`, `.txt`
+- `prospec/` — 392 files: `.md`, `(no extension)`, `.yaml`
 - `.agents/` — 74 files: `.md`
 - `.claude/` — 74 files: `.md`
 - `planning/` — 10 files: `.md`
@@ -314,5 +312,5 @@ tests/
 
 | Metric | Value |
 |--------|-------|
-| Total files | 1930 |
+| Total files | 1904 |
 | Directory Tree depth | 10 |
