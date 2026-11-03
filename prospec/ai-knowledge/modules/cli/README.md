@@ -66,7 +66,7 @@
 
 - `validate proposal <change> [--json]` addresses a change name, not an arbitrary file. `premise-output.ts` renders shared structural-limit and legacy/exemption notices; validation policy stays in lib/services. Status may route to `prospec-explore` while preserving the recorded lifecycle status.
 
-- `review merge`, `verify record` and `change log` support `--json`: success on stdout, structured refusal on stderr with exit 1. Shared error formatting prints service-owned decisions, partial persistence and observed-only events; history and replay labels remain visible after PASS.
+- `review merge`, `verify record` and `change log` support `--json`: success on stdout, and errors caught inside the command action as structured JSON on stderr with exit 1. Shared `preAction` config/Git prerequisite refusals and Commander usage errors still print human-readable text on stderr with exit 1. Shared error formatting prints service-owned decisions, partial persistence and observed-only events; history and replay labels remain visible after PASS.
 
 - Ordinary status routing excludes Handlebars and stays under 250 dependency modules; recognized saved-report assessment runs canonical rendering with a separate 300-module ceiling. Both paths retain the four unrelated-heavy-dependency exclusions.
 - Archive target-fence refusals print the sanitized source path and instruct the user to close the fence before retrying; `empty-spec` refusals print the sanitized line that ended the block, or that the entry ended.

@@ -1,7 +1,7 @@
 ---
 feature: agent-integration
 status: active
-last_updated: 2026-11-01
+last_updated: 2026-11-02
 story_count: 26
 req_count: 116
 ---
@@ -10,7 +10,7 @@ req_count: 116
 
 ## Who & Why
 
-Serves developers who use Prospec together with a variety of AI Agents (Claude Code, Antigravity CLI, Copilot, etc.). Agent Integration detects installed AI CLI tools and generates the corresponding configuration and SDD Skill files, so that AI Agents operate within Prospec's structured development workflow. Through three-layer Progressive Disclosure and a language-neutralization mechanism, it ensures Skills work correctly across different Agents and language environments.
+Serves developers who use Prospec together with a variety of AI Agents (Claude Code, Antigravity CLI, Copilot, etc.). Project initialization detects installed AI CLI tools; Agent Integration generates configuration and SDD Skill files for the agents configured in `.prospec.yaml`, so that AI Agents operate within Prospec's structured development workflow. Through three-layer Progressive Disclosure and a language-neutralization mechanism, it ensures Skills work correctly across different Agents and language environments.
 
 ## Slices
 
@@ -76,8 +76,8 @@ The generated entry config states a capability-aware Station Transition Protocol
 
 
 #### REQ-TEMPLATES-218: Trimming and Table Simplification for Over-Budget References
-The over-budget references this change trims render within the 2,500 token budget.
-- WHEN `promotion-format.md`, `drift-report-format.md`, `metadata-format.md`, or `delta-spec-format.md` is rendered, THEN its token count satisfies $\le 2,500$
+The named references render within the shipped `reference_per_file` budget in `DEFAULT_KNOWLEDGE_TOKEN_BUDGET`.
+- WHEN `promotion-format.md`, `drift-report-format.md`, `metadata-format.md`, or `delta-spec-format.md` is rendered, THEN its token count does not exceed the shipped `reference_per_file` budget
 - WHEN `prospec check` runs, THEN `knowledge-size` introduces no new reference-budget WARN (the pre-existing MIT-vendored `review-lenses-content.md` is out of scope)
 
 ---
@@ -150,7 +150,7 @@ The repository's English and Traditional Chinese root READMEs are an equivalent 
 
 ## Edge Cases
 
-- No AI CLI detected: list the supported ones and prompt for installation
+- No AI CLI detected during init: list supported agents for selection; agent sync requires at least one configured agent and otherwise refuses with configuration guidance
 - Write failure (disk full, insufficient permissions): atomic write, preserving the original file on failure
 - A new Agent platform not yet supported: gracefully skip and note that support is coming
 - Skill template syntax error: preserve the previously deployed version when rendering fails
@@ -160,7 +160,7 @@ The repository's English and Traditional Chinese root READMEs are an equivalent 
 
 ## Success Criteria
 
-- **SC-1**: `prospec agent sync` generates correct configuration for all detected Agents
+- **SC-1**: `prospec agent sync` generates configuration for all configured agents, or the configured agent selected by `--cli`
 - **SC-2**: The deployed Skills stay consistent with the source .hbs templates
 - **SC-3**: AI Knowledge saves 70%+ of token consumption
 - **SC-4**: All Skills pass the language-neutrality contract test
@@ -182,6 +182,7 @@ The repository's English and Traditional Chinese root READMEs are an equivalent 
 
 | Date | Change | Impact | Stories/REQs |
 |------|--------|--------|-------------|
+| 2026-11-02 | backfill-doc-drift-agent-integration | MODIFIED REQ-AGNT-001; MODIFIED REQ-AGNT-006; MODIFIED REQ-AGNT-005; MODIFIED REQ-TEMPLATES-073; MODIFIED REQ-AGNT-020; MODIFIED REQ-TYPES-033; MODIFIED REQ-TEMPLATES-151; MODIFIED REQ-TEMPLATES-160; MODIFIED REQ-TEMPLATES-218 | REQ-AGNT-001, REQ-AGNT-006, REQ-AGNT-005, REQ-TEMPLATES-073, REQ-AGNT-020, REQ-TYPES-033, REQ-TEMPLATES-151, REQ-TEMPLATES-160, REQ-TEMPLATES-218 |
 | 2026-11-01 | add-req-language-gate-rules | MODIFIED REQ-SKILL-012 | REQ-SKILL-012 |
 | 2026-10-14 | extract-config-reference | MODIFIED REQ-TEMPLATES-230 | REQ-TEMPLATES-230 |
 | 2026-10-11 | unify-review-lenses | MODIFIED REQ-TEMPLATES-084; MODIFIED REQ-TEMPLATES-232 | REQ-TEMPLATES-084, REQ-TEMPLATES-232 |

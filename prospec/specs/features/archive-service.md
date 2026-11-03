@@ -1,7 +1,7 @@
 ---
 feature: archive-service
 status: active
-last_updated: 2026-08-13
+last_updated: 2026-11-02
 story_count: 1
 req_count: 1
 ---
@@ -28,7 +28,7 @@ So that 載入知識的 token 花費可以減少，提高 agent 執行效率並�
 Spec sync writes each element to the file that hosts it — a REQ to its slice, the Change History graduation row to whichever file carries the `## Change History` section.
 - WHEN a MODIFIED or REMOVED REQ exists in a slice, THEN the update is written to that slice.
 - WHEN an ADDED REQ specifies a slice (or defaults to the main file), THEN it is written there.
-- WHEN graduation logic reads specs, THEN only the slices containing touched REQs are loaded.
+- WHEN graduation logic reads a sliced feature, THEN it loads the mother file and every registered slice for routing and fence validation; a non-dry-run sync writes the mother file, including reconciled frontmatter, and any registered slices changed by REQ merges or Change History.
 - WHEN the `## Change History` section is in the mother file, THEN the graduation row is appended there.
 - WHEN the `## Change History` section has been moved into a registered slice, THEN the graduation row is appended to that slice and the slice is written, leaving the mother file's body outside its frontmatter unchanged.
 - WHEN neither the mother file nor any registered slice carries a `## Change History` section, THEN the unrecorded row is surfaced as a finding naming the feature, rather than silently dropped.
@@ -58,5 +58,6 @@ _(None)_
 
 | Date | Change | Impact | Stories/REQs |
 |------|--------|--------|-------------|
+| 2026-11-02 | backfill-doc-drift-archive-service | MODIFIED REQ-SERVICES-018 | REQ-SERVICES-018 |
 | 2026-08-13 | route-change-history-to-host | MODIFIED REQ-SERVICES-018 | REQ-SERVICES-018 |
 | 2026-08-10 | feature-spec-sub-modules | Created from archive | REQ-SERVICES-018 |

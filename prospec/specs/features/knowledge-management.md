@@ -1,7 +1,7 @@
 ---
 feature: knowledge-management
 status: active
-last_updated: 2026-10-25
+last_updated: 2026-11-02
 story_count: 2
 req_count: 2
 ---
@@ -21,8 +21,8 @@ req_count: 2
 ### US-2
 
 #### REQ-SERVICES-001: Knowledge Update Sweep
-The knowledge update flow mechanically compresses repetitive knowledge.
-- WHEN updating a module README, THEN a sweep compresses mechanized Pitfalls and obsolete content before saving
+The delta-driven knowledge update flow applies a narrow mechanical sweep to affected existing module READMEs: it shortens the fixed auto-generated module introduction and removes blocks explicitly marked `sweep:replaced` or `sweep:absorbed`. Semantic compression of arbitrary Pitfalls or obsolete prose remains judgment work.
+- WHEN delta mode processes an affected existing module README, THEN the sweep applies only the supported introduction rewrite and explicit replacement/absorption markers before saving
 - WHEN the sweep reduces size, THEN the token difference is reported
 
 ---
@@ -82,6 +82,7 @@ _(None)_
 
 | Date | Change | Impact | Stories/REQs |
 |------|--------|--------|-------------|
+| 2026-11-02 | backfill-doc-drift-knowledge-management | MODIFIED REQ-SERVICES-001 | REQ-SERVICES-001 |
 | 2026-10-25 | judge-freshness-by-content-digest | MODIFIED REQ-SERVICES-090 | REQ-SERVICES-090 |
 | 2026-10-24 | sync-knowledge-before-evidence | MODIFIED REQ-SERVICES-090 | REQ-SERVICES-090 |
 | 2026-10-03 | contain-knowledge-writes | MODIFIED REQ-SERVICES-090 | REQ-SERVICES-090 |

@@ -253,31 +253,31 @@ I want to auto-decompose the implementation plan into an executable task list or
 so that I can implement step by step, track progress, and estimate effort.
 
 **Acceptance Scenarios:**
-- WHEN running `/prospec-tasks` THEN tasks.md is grouped by architecture layer (Types → Lib → Services → CLI → Tests)
-- WHEN a task is parallelizable THEN mark it `[P]`
-- WHEN each task THEN include a `~{lines} lines` complexity estimate and checkbox format
+- WHEN running `/prospec-tasks` THEN tasks.md is grouped in the dependency order defined by the project’s architecture
+- WHEN a task is dependency-free THEN it may carry the optional `[P]` marker when that helps split the work
+- WHEN writing a task THEN use checkbox format and tag non-code tasks with `[M]` or `[V]`; a `~{lines} lines` estimate is optional
 
 ### Behavior Specifications
 
 #### REQ-CHNG-011: Decompose Plan into Tasks
 `/prospec-tasks` decomposes into a tasks.md grouped by architecture layer. Its plan.md prerequisite is scale-conditional: the `prospec change tasks` CLI reads the light-scale artifact registry instead of assuming every change has a plan.
 - WHEN plan.md valid, THEN tasks.md groups by architecture layer
-- WHEN parallelizable, THEN mark `[P]`
+- WHEN parallelizable, THEN `[P]` may be added; its presence does not gate completion
 - WHEN design-spec.md exists, THEN UI tasks annotated for MCP design reading
 - WHEN `scale: quick`, THEN the plan.md prerequisite is skipped and tasks are decomposed from proposal.md, advancing `story → tasks`
 - WHEN `scale: backfill`, THEN the station refuses: backfill records existing code and its contract forbids tasks.md
 
 #### REQ-CHNG-012: Architecture Layer Ordering
-Ordering: Types → Lib → Services → CLI → Tests; use a Templates grouping when only templates change.
+Order groups by the project’s architecture and dependency direction, with lower layers before their consumers; derive the layer names from project conventions rather than prescribing a fixed framework topology.
 
 #### REQ-CHNG-013: Estimate Task Complexity
-Each task includes a `~{lines} lines` estimate, and the Summary includes the total.
+A task may include a `~{lines} lines` estimate when it helps the reader; when estimates are supplied, the Summary may include their total. Neither field gates the task contract.
 
 #### REQ-CHNG-014: Checkbox Task Format
-Tasks start with `- [ ]`, completed marked `- [x]`; an optional kind marker `[M]` (manual) / `[V]` (verification), no marker means code, coexisting with `[P]` (`[P]` first). The definition is frozen in the tasks-format reference.
+Tasks start with `- [ ]`, completed marked `- [x]`; a required kind marker `[M]` (manual) / `[V]` (verification) for non-code tasks; no marker means code, coexisting with `[P]` (`[P]` first). The definition is frozen in the tasks-format reference.
 
 #### REQ-CHNG-015: Task Summary Statistics
-tasks.md ends with a Summary section (total tasks, total lines, parallelizable count).
+tasks.md ends with a Summary section containing Total Tasks. Total Estimated Lines and Parallelizable Tasks are optional and included only when estimates or `[P]` markers were used.
 
 #### REQ-CHNG-016: Plan Status Update
 - WHEN plan complete, THEN metadata status → `plan`
@@ -415,7 +415,7 @@ The lib module dynamically detects and resolves test commands across multiple pr
 
 #### REQ-SERVICES-091: Cascade Orchestration Service and Transition Evaluator
 The services module provides Tastemaker delivery generation for autonomous cascading (`generateTastemakerSummary`, `formatTastemakerPresentation`); station transitions are NOT evaluated here — `prospec status` (`lib/status-router`) is the single transition authority the cascade consults at every Step 5 [NEXT].
-- WHEN a change achieves Verify Grade S/A, THEN a Tastemaker presentation is generated and status transitions to awaiting human sign-off without performing automated git commit or push
+- WHEN a change achieves Verify Grade S/A, THEN verify recording advances metadata status to `verified` when it has not already reached that status, and the Tastemaker presentation names `human_signoff` as the next human decision without performing automated git commit or push
 - WHEN `src/` is searched, THEN no `evaluateCascadeTransition` and no `CASCADE_STATIONS` exist; circuit-breaker types remain in `types/cascade.ts` for the review loop
 
 ---

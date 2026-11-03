@@ -1,7 +1,7 @@
 ---
 feature: standalone-binary
 status: active
-last_updated: 2026-10-09
+last_updated: 2026-11-02
 story_count: 2
 req_count: 10
 ---
@@ -124,7 +124,7 @@ Each CLI command lazy-loads its service and formatter inside the action handler;
 
 - **SC-1**: The assets of the GitHub Release include archives such as `prospec-linux-x64.tar.gz`, `prospec-macos-arm64.tar.gz`, `prospec-macos-x64.tar.gz`, and `prospec-windows-x64.zip`, which can be run directly after extraction.
 - **SC-2**: All binaries work normally without installing any external Node.js runtime environment.
-- **SC-3**: The binaries support calling the full set of existing commands, including `prospec init`, `prospec check`, and `prospec serve`, and template loading works normally.
+- **SC-3**: The binaries support calling the full set of existing commands, including `prospec init`, `prospec check`, and `prospec mcp serve`, and template loading works normally.
 
 ## Maintenance Rules
 
@@ -141,6 +141,7 @@ _(None)_
 
 | Date | Change | Impact | Stories/REQs |
 |------|--------|--------|-------------|
+| 2026-11-02 | backfill-doc-drift-standalone-binary | MODIFIED REQ-DOCS-001 | REQ-DOCS-001 |
 | 2026-10-09 | slim-readme-into-docs | MODIFIED REQ-DOCS-001 | REQ-DOCS-001 |
 | 2026-09-01 | refresh-v2-documentation | MODIFIED REQ-DOCS-001 | REQ-DOCS-001 |
 | 2026-08-29 | lazy-load-cli-startup | ADDED REQ-CLI-045; ADDED REQ-CLI-046 | REQ-CLI-045, REQ-CLI-046 |
