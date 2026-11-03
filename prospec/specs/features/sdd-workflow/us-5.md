@@ -86,10 +86,12 @@ The frozen check registry keeps its unsorted literal assertion and its skipped-n
 ---
 
 #### REQ-TYPES-102: JudgmentDimensionInput carries a per-rule constitution audit
-`JudgmentDimensionInputSchema` gains an optional `constitution_rules: [{ name, result, statement? }]` array, meaningful only for the `constitution` dimension, so the grader relays a per-rule Constitution verdict through the existing `--dimensions` payload rather than a second contract.
+`JudgmentDimensionInputSchema` gains an optional `constitution_rules: [{ name, result, statement?, applicability? }]` array, meaningful only for the `constitution` dimension, so the grader relays a per-rule Constitution verdict through the existing `--dimensions` payload rather than a second contract.
 - WHEN `constitution_rules` is omitted, THEN the payload still validates (backward-compatible)
 - WHEN a non-`constitution` dimension carries `constitution_rules`, THEN the schema refuses it
 - WHEN an entry is present, THEN its `result` is a `DIMENSION_RESULTS` value and `statement` is an optional string
+- WHEN applicability is supplied, THEN its only value is pre-existing-code, its raw result is FAIL or WARN and its statement is non-whitespace; omission leaves the rule applicable. This is judgment input, not a metadata field.
+- WHEN debt applicability reaches verification, THEN proven-backfill eligibility and complete unique current-rule coverage are required by REQ-SERVICES-113; raw verdicts are preserved.
 
 ---
 
@@ -104,12 +106,17 @@ The frozen check registry keeps its unsorted literal assertion and its skipped-n
 ---
 
 #### REQ-SERVICES-113: verify record folds in the constitution machine sub-ledger
-`verify record` reads `constitution_rules` from the `--dimensions` payload through the existing refusal path and audits them with `lib/constitution-audit`, injecting a single `resolveStatus = adjudicateChangeCheck(report, checkId, changeName).status` (which already encapsulates each check's scope and its skipped pass-through) and mapping machine dimensions through the same `mapCheckStatusToVerdict`; a reported violation, or any `requiredStatements` rule lacking a non-empty statement, refuses before any write and names the missing rules, and the machine sub-ledger floors the `constitution` dimension per rule via the existing Gate D1.
+`verify record` reads `constitution_rules` from the `--dimensions` payload through the existing refusal path and audits them with `lib/constitution-audit`, injecting a single `resolveStatus = adjudicateChangeCheck(report, checkId, changeName).status` (which already encapsulates each check's scope and its skipped pass-through) and mapping machine dimensions through the same `mapCheckStatusToVerdict`; a reported violation, or any `requiredStatements` rule lacking a non-empty statement, refuses before any write and names the missing rules, and applicable raw rule verdicts floor the constitution dimension per rule via Gate D1, with evidenced debt applicability assessed separately from raw audit.
 - WHEN a grader entry flips a declared rule's machine verdict, THEN recording refuses before any write
 - WHEN a rule in `requiredStatements` has no non-empty statement, THEN recording refuses before any write naming that rule
 - WHEN the grader uses the flag form while the Constitution declares checks, THEN the refusal points to the `--dimensions` file form as the way to supply per-rule statements
 - WHEN an old payload still carries `score`, THEN it is accepted and `score` is ignored
-- WHEN the Constitution declares no `check:`, THEN the original path runs and the grade is equivalent to today
+- WHEN the Constitution declares no check and no debt applicability is supplied, THEN the existing judgment path remains, with aggregate FAIL participating in grading
+- WHEN any rule claims pre-existing-code applicability, THEN require scale backfill, backfill-draft.md, complete unique known Constitution rule coverage and a nonempty statement for each claimed debt; refuse invalid claims before writing.
+- WHEN a claim has a raw FAIL/WARN solely for unchanged code debt and its current artifact obligations pass, THEN omit only that rule from the effective floor and its debt-only warning budget, keeping its raw result, statement and machine ledger in verify.md; the grader is responsible for that scope judgment.
+- WHEN a rule is unclassified, applies to current artifacts, is mixed in scope, or remains not-adjudicated, THEN it is not exempted by the debt policy; applicable machine and judgment rule results retain their floor.
+- WHEN an aggregate constitution FAIL is supplied, THEN it remains grade-bearing, including through legacy flags; a debt-only structured aggregate PASS must still satisfy every applicable floor and the independent constitution-severity floor.
+- WHEN the change is a proven backfill, THEN preserve actual tests FAIL, baseline gaps, the original task not-applicable policy and the in-session grade cap; tests use test-provenance rather than a dimension-wide grade exclusion.
 
 ---
 
