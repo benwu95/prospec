@@ -1,8 +1,15 @@
 import { formatPremiseNotice } from './premise-output.js';
 import pc from 'picocolors';
 import type { LogLevel } from '../../types/config.js';
-import type { ArchiveResult, ArchiveFinalizeResult } from '../../services/archive.service.js';
+import type { ArchiveResult, ArchiveFinalizeResult, ProductSpecDecline } from '../../services/archive.service.js';
 import { sanitizeTerminal } from './sanitize.js';
+
+function printProductSpecDecline(decline: ProductSpecDecline | null): void {
+  if (decline === null) return;
+  process.stderr.write(
+    `${pc.yellow('!')} product.md Feature Map not synced (${sanitizeTerminal(decline.reason)}) — ${sanitizeTerminal(decline.detail)}\n`,
+  );
+}
 
 /**
  * Format the ArchiveResult for terminal output.
@@ -67,11 +74,7 @@ export function formatArchiveOutput(result: ArchiveResult, logLevel: LogLevel): 
   // Warning-class like the two worklists below it: the run succeeded, but the
   // Feature Map is NOT current and this line is the only thing that says so — a
   // silent non-write reads exactly like a successful sync.
-  if (result.productSpecDeclined !== null) {
-    process.stderr.write(
-      `${pc.yellow('!')} product.md Feature Map not synced (${sanitizeTerminal(result.productSpecDeclined.reason)}) — ${sanitizeTerminal(result.productSpecDeclined.detail)}\n`,
-    );
-  }
+  printProductSpecDecline(result.productSpecDeclined);
 
   // BLOCKING-class from here down. These two were warnings once: the report
   // printed and the spec was written anyway, so the authored text left the trust
@@ -199,11 +202,12 @@ export function formatArchiveOutput(result: ArchiveResult, logLevel: LogLevel): 
   }
 }
 
-/** Format the ArchiveFinalizeResult: the history copy + counter reconciliations. */
+/** Format the post-judgment history, counters and product synchronization. */
 export function formatArchiveFinalizeOutput(
   result: ArchiveFinalizeResult,
   logLevel: LogLevel = 'normal',
 ): void {
+  printProductSpecDecline(result.productSpecDeclined);
   // A refused reconciliation goes to stderr and survives --quiet, like the other
   // worklists this command hands a human (pendingConvergence / droppedBehavior).
   // It was written to stdout under the normal-verbosity guard, which meant
@@ -245,6 +249,7 @@ export function formatArchiveFinalizeOutput(
       // refusal line is two contradicting claims about the same files.
       lines.push(pc.dim('Feature-spec counters already consistent — nothing to reconcile'));
     }
+    if (result.productSpecSynced) lines.push(`${pc.green('✓')} Refreshed product.md Feature Map`);
   }
   process.stdout.write(lines.join('\n') + '\n');
 }

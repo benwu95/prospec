@@ -38,12 +38,12 @@ The drift and station engines are detailed in the linked sub-modules; other sing
 - Baseline/context/assessment — `parseProposalScenarios`/`computeAcceptanceDigest`/`decideFreezeScenarios`/`decideAmendScenarios`, `assessRequirementCompliance`, `assessVerificationContext`
 - Knowledge/metadata — `loadModuleMap`/`searchModules`/`loadFeatureSpecContent`/`loadModuleKnowledge` (README + `## Sub-Modules` files), `readChangeMetadata`/`appendQualityLogEntry`/`upsertReviewRoundEntry`/`isReviewRoundCountsEntry` (drift exports: see the sub-module)
 - Circuit breaker/runner — `countFlips`/`isOscillating`/`calculateFixInducedRatio`/`ReviewCircuitBreaker` (a station engine), `resolveProjectTestCommand`/`detectTestCommand`
-- Token Accounting — `parseLocalLogs` (agent transcript parsing), `calculateTheoreticalBaseline`
+- Token accounting — `estimateTokens` / `TOKEN_ESTIMATOR_LABEL` (character-based estimation), `effectiveInputCostUsd` / `outputCostUsd` (caller-priced arithmetic)
 - Station mechanics — `indexSpec`/`selectSpecSlices`/`renderSpecSlices`, and `readSpecSlices` (the one narrow-read entry both surfaces share) (the rest: see the Station Engines sub-module)
 
 ## Dependencies
 
-**Depends on:** `types` (ProspecConfig, ModuleMap, errors, measurement schemas)
+**Depends on:** `types` (ProspecConfig, ModuleMap, errors, numeric token/cost contracts)
 **Used by:** `services/*`, `scripts/*` (outside layering)
 
 ## Modification Guide
@@ -83,7 +83,7 @@ The drift and station engines are detailed in the linked sub-modules; other sing
 - `text-lines.ts` owns line-ending strip for per-line matching (`stripTrailingCr`).
 - `landing-fidelity.ts` is the ONE landing-block comparison — `assessDrops` plus the delta-spec block/bullet parsers (`extractDeltaBlock`/`whenThenBullets`/`declaredDrops`/`iterateDeltaEntries`) — the ONE routing-header verdict, `classifyRoutingResolution` (over the `buildReqHomeIndex` map from `spec-read`), and the ONE empty-block verdict, `emptyLandingBlock` (a MODIFIED `**Spec:**` label whose block holds no content, with the line that ended it). `archive.service`'s fail-closed write and the `delta-spec-landing-fidelity` check call all three; never re-implement the drop diff, the routing verdict or the empty-block test (that divergence is the drift the check guards).
 - The pause fails closed: never resolve an unknowable pause setting to "no pause" — a set `PROSPEC_PAUSE_AT` decides alone, an unreadable config pauses.
-- `token-accounting.ts` takes pricing as a parameter; `language-policy.ts` is the single language-scope source.
+- `token-accounting.ts` takes numeric pricing as a parameter; workflow-eval owns its runtime validation; `language-policy.ts` is the single language-scope source.
 - Station engines decide, never re-derive policy — grade budgets, ledger refusals, findings identity and evidence round-trip are in [Station Engines](./station-engines.md).
 
 ## Sub-Modules

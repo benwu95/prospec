@@ -206,19 +206,6 @@ export class ModuleDetectionError extends ProspecError {
   }
 }
 
-// --- Measurement errors ---
-
-export class MeasurementReportInvalid extends ProspecError {
-  constructor(path: string, details: string) {
-    super(
-      `Measurement report validation failed: ${path} (${details})`,
-      'MEASUREMENT_REPORT_INVALID',
-      'Regenerate the report with `pnpm measure:tokens` — do not edit it by hand',
-    );
-    this.name = 'MeasurementReportInvalid';
-  }
-}
-
 // --- Drift errors ---
 
 export class DriftReportInvalid extends ProspecError {

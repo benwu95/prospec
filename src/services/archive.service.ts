@@ -14,11 +14,11 @@ import { ensureDir, atomicWrite } from '../lib/fs-utils.js';
 import { readConfig, resolveBasePaths, resolveMaxStationRetries } from '../lib/config.js';
 import { parseYaml, stringifyYaml } from '../lib/yaml-utils.js';
 import { parseTaskLine } from '../lib/task-markers.js';
-import { isArchivedSpec, isSafeResourceName, loadModuleMap, loadFeatureSpecContent } from '../lib/knowledge-reader.js';
+import { isArchivedSpec, isSafeResourceName, loadModuleMap, loadFeatureSpecContent, resolveContainedTarget } from '../lib/knowledge-reader.js';
 import { reqIdToPrefix } from '../lib/drift-sources.js';
 import { findUnsyncedModules } from '../lib/knowledge-sync.js';
 import { evaluateArchiveEntryGate } from '../lib/archive-gate.js';
-import { matchReqHeading, readSpecCounters, indexSpec, hasChangeHistorySection, locateSpecSections, type SpecContent, type SpecIndex } from '../lib/spec-headings.js';
+import { matchReqHeading, readSpecCounters, indexSpec, hasChangeHistorySection, locateSpecSections, parseSpecSlices, type SpecContent, type SpecIndex } from '../lib/spec-headings.js';
 import { hasUnclosedFence, withoutFencedBlocks } from '../lib/markdown-fences.js';
 import { constitutionFallbackModuleMap } from '../lib/drift-checker.js';
 import { renderTemplate } from '../lib/template.js';
@@ -2357,6 +2357,8 @@ export interface ArchiveFinalizeResult {
   reconciled: CounterReconciliation[];
   /** Feature specs left untouched because the recount refused to zero a counter. */
   refusedReconciliations: RefusedReconciliation[];
+  productSpecDeclined: ProductSpecDecline | null;
+  productSpecSynced: boolean;
   planned: PlannedMutation[];
   dryRun: boolean;
 }
@@ -2364,16 +2366,16 @@ export interface ArchiveFinalizeResult {
 /**
  * The POST-JUDGMENT archive write points. `prospec archive` runs BEFORE the
  * skill's judgment work (the Phase 2 summary overwrite and the Phase 3.5 REQ
- * graduation); these two mutations must run AFTER it, or the history copy
- * captures the scaffold and the counters count the pre-graduation text:
+ * graduation); finalization reads the resulting summary, counters and feature
+ * statuses rather than the pre-graduation state:
  *
  * 1. copy the (overwritten) summary.md to `specs/_archived-history/{dir}.md`
  *    — the committed audit trail (.prospec/archive/ is gitignored);
  * 2. recount every feature spec's frontmatter `story_count` / `req_count` from
  *    its FINAL body via `readSpecCounters` — REQ headings at ANY level outside
  *    Deprecated, stories at `## US-` and `### US-` — EXCEPT a spec whose body
- *    would zero a counter it declares above zero: that one is left untouched and
- *    reported in `refusedReconciliations`.
+ *    would zero a counter it declares above zero without explicit deprecation;
+ * 3. refresh product.md's Feature Map through the existing product writer.
  *
  * Refuses the whole run while summary.md still lacks the `## Review & Verify`
  * section — the deterministic marker that the scaffold has not been overwritten
@@ -2426,6 +2428,18 @@ export async function executeFinalize(
   const config = await readConfig(cwd);
   const { specsPath } = resolveBasePaths(config, cwd);
   const specInputs = fs.existsSync(specsPath) ? inventoryTree(specsPath) : null;
+  function capturedSpecInput(file: string, allowAbsent = false): string {
+    const target = resolveContainedTarget(file, specsPath, { read: true });
+    if (!target.ok) {
+      throw new PrerequisiteError(`Unsafe finalize input: ${file} (${target.reason})`, 'Restore readable inputs contained in the spec tree');
+    }
+    if (allowAbsent && !fs.existsSync(target.path)) return target.path;
+    const relative = path.relative(fs.realpathSync(specsPath), target.path).replace(/\\/g, '/');
+    if (!specInputs?.some(entry => entry.kind === 'regular' && entry.path === relative)) {
+      throw new PrerequisiteError(`Uncaptured finalize input: ${file}`, 'Restore the input as a readable file in the captured spec tree');
+    }
+    return target.path;
+  }
   const escalationHistory = reduceEscalationHistory(readArchivedQualityLog(path.join(archiveDir, 'metadata.yaml'), options.name), resolveMaxStationRetries(config));
   summaryContent = upsertEscalationHistory(summaryContent, escalationHistory);
   const historyDir = path.join(specsPath, '_archived-history');
@@ -2446,19 +2460,25 @@ export async function executeFinalize(
     detail: 'refresh the finalized summary escalation history from metadata',
   });
 
-  // Counter reconciliation across every active feature spec — recounting from
-  // the body is idempotent and also corrects pre-existing drift (PB-004).
   const featuresDir = path.join(specsPath, 'features');
   const reconciled: CounterReconciliation[] = [];
   const refusedReconciliations: RefusedReconciliation[] = [];
   const rewrites: Array<{ absolute: string; content: string }> = [];
   if (fs.existsSync(featuresDir)) {
-    for (const entry of fs.readdirSync(featuresDir, { withFileTypes: true })) {
-      if (!entry.isFile() || !entry.name.endsWith('.md')) continue;
-      const feature = entry.name.replace(/\.md$/, '');
-      const absolute = path.join(featuresDir, entry.name);
+    for (const file of await listFeatureSpecFiles(featuresDir)) {
+      const feature = file.replace(/\.md$/, '');
+      const absolute = capturedSpecInput(path.join(featuresDir, file));
       const loaded = loadFeatureSpecContent(featuresDir, feature);
-      if (!loaded) continue;
+      if (!loaded) throw new PrerequisiteError(`Unreadable finalize input: ${file}`, 'Restore the readable feature spec before finalizing');
+      const main = typeof loaded.specContent === 'string' ? loaded.specContent : loaded.specContent.main;
+      if (parseFeatureSpecFrontmatter(main)?.status === 'deprecated') {
+        for (const slice of parseSpecSlices(main)) {
+          capturedSpecInput(path.join(featuresDir, feature, `${slice}.md`));
+          if (typeof loaded.specContent === 'string' || loaded.specContent.slices[slice] === undefined) {
+            throw new PrerequisiteError(`Unreadable registered slice: ${feature}/${slice}.md`, 'Restore every registered slice before finalizing retirement');
+          }
+        }
+      }
       const recount = recountFeatureSpecCounters(loaded.specContent);
       if (!recount) continue;
       const relFile = path.relative(cwd, absolute).replace(/\\/g, '/');
@@ -2484,6 +2504,21 @@ export async function executeFinalize(
     }
   }
 
+  const productPath = path.join(specsPath, 'product.md');
+  const productTarget = capturedSpecInput(productPath, true);
+  const productExists = fs.existsSync(productTarget);
+  let productSpecDeclined = productExists
+    ? inspectProductSpecSync(await fs.promises.readFile(productTarget, 'utf8'), fs.existsSync(featuresDir))
+    : null;
+  let productSpecSynced = false;
+  planned.push({
+    action: productSpecDeclined !== null ? 'skip' : productExists ? 'update' : 'write',
+    target: path.relative(cwd, productPath).replace(/\\/g, '/'),
+    detail: productSpecDeclined?.detail ?? (productExists
+      ? 'refresh the product.md Feature Map from the final feature statuses, preserving authored content'
+      : 'bootstrap product.md from the product-spec-format skeleton (no existing file)'),
+  });
+
   if (!dryRun) await withHistoryClaim(paths, async () => {
     recheckHistoryPaths(paths);
     assertFinalizeLocalHistory(paths);
@@ -2500,6 +2535,12 @@ export async function executeFinalize(
     for (const rewrite of rewrites) {
       await atomicWrite(rewrite.absolute, rewrite.content);
     }
+    try {
+      productSpecDeclined = (await generateProductSpec(featuresDir, productTarget, config.project?.name ?? 'project')).declined;
+      productSpecSynced = productSpecDeclined === null;
+    } catch (error) {
+      throw new WriteError(productPath, `Product spec sync failed after finalization writes; retained bundle: ${archiveDir}; committed history: ${historyPath}; inspect completed counter writes; ${String(error)}`);
+    }
   });
 
   return {
@@ -2508,6 +2549,8 @@ export async function executeFinalize(
     historyPath: relHistoryPath,
     reconciled,
     refusedReconciliations,
+    productSpecDeclined,
+    productSpecSynced,
     planned,
     dryRun,
   };
@@ -2555,11 +2598,8 @@ function escapeRegExp(text: string): string {
  * — the same derivation the `spec-counters` drift check reads with) and rewrite
  * the frontmatter values. Returns null when the file has no frontmatter.
  *
- * Refuses before writing when a counter the frontmatter declares above zero
- * would be rewritten to zero: the file comes back byte-identical with a
- * `refusal` reason instead. Zero REQs in a spec that claims ten is a parse gap
- * far more often than a fact, and the previous unconditional write put that
- * wrong number into the trust zone silently — where nothing read it again.
+ * A positive-to-zero recount needs explicit deprecation and every registered
+ * slice. Other zeroing outcomes retain the input with a refusal reason.
  */
 export function recountFeatureSpecCounters(specContent: SpecContent): {
   content: string;
@@ -2574,11 +2614,18 @@ export function recountFeatureSpecCounters(specContent: SpecContent): {
 
   const { declared: from, actual: to, frontmatter, frontmatterLength, eol } = counters;
   const content = typeof specContent === 'string' ? specContent : specContent.main;
+  const deprecated = parseFeatureSpecFrontmatter(content)?.status === 'deprecated';
+  const missingSlices = deprecated ? parseSpecSlices(content).filter(
+    slice => typeof specContent === 'string' || specContent.slices[slice] === undefined,
+  ) : [];
+  if (missingSlices.length > 0) {
+    return { content, changed: false, from, to, refusal: `Incomplete registered slices: ${missingSlices.join(', ')}` };
+  }
 
   const zeroed = (['story_count', 'req_count'] as const).filter(
     (field) => (from[field] ?? 0) > 0 && to[field] === 0,
   );
-  if (zeroed.length > 0) {
+  if (zeroed.length > 0 && !deprecated) {
     return {
       content,
       changed: false,

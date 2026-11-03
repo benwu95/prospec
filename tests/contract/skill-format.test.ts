@@ -7196,127 +7196,147 @@ describe('Structured quality_log (issue #61)', () => {
 });
 
 describe('archive delegates deterministic mutations to the CLI (REQ-TEMPLATES-159, issue #98)', () => {
-  const render = () => renderTemplate('skills/prospec-archive.hbs', TEMPLATE_CONTEXT);
+  const template = 'skills/prospec-archive.hbs';
+  const source = () => fs.readFileSync(path.join(__dirname, '../../src/templates', template), 'utf-8');
+  const render = (text = source()) => {
+    const original = BUNDLED_TEMPLATES[template];
+    try {
+      BUNDLED_TEMPLATES[template] = text;
+      return renderTemplate(template, TEMPLATE_CONTEXT);
+    } finally {
+      BUNDLED_TEMPLATES[template] = original!;
+    }
+  };
+  const bodyAndGate = (text: string, heading: string, gateHeading: string) => {
+    const phase = sectionOf(text, heading);
+    const gateStart = phase.indexOf(gateHeading);
+    expect(gateStart).toBeGreaterThan(0);
+    return [phase.slice(0, gateStart), phase.slice(gateStart)];
+  };
+
+  function expectRetirementContract(text: string): void {
+    const phase35 = flat(sectionOf(text, '### Phase 3.5: Feature Spec Sync'));
+    expect(phase35).toContain('`status: deprecated`');
+    expect(phase35).toContain('retired REQ identities resolvable');
+    expect(phase35).toContain('do not recount them by hand');
+    for (const section of bodyAndGate(text, '### Phase 3.6: Product Spec Sync', '> **Phase 3.6 Gate**')) {
+      expect(flat(section)).toContain('initial');
+      expect(flat(section)).toContain('pending refresh to finalize');
+      expect(flat(section)).not.toContain('lists every current active feature');
+      expect(flat(section)).not.toMatch(/next archive run/i);
+    }
+    const phase37 = sectionOf(text, '### Phase 3.7: Finalize');
+    expect(phase37).toMatch(/Only `status: deprecated` permits a positive declared counter to become a body-derived zero/);
+    expect(phase37).toContain('active, absent or unknown status');
+    const refresh = phase37.indexOf('Refreshes the product Feature Map');
+    const confirmation = phase37.indexOf('Confirm the final map');
+    expect(refresh).toBeGreaterThan(phase37.indexOf('prospec archive finalize'));
+    expect(confirmation).toBeGreaterThan(refresh);
+    for (const section of bodyAndGate(text, '### Phase 3.7: Finalize', '> **Phase 3.7 Gate**')) {
+      expect(flat(section)).toContain('decline');
+      expect(flat(section)).toContain('re-run finalize');
+      expect(flat(section)).toContain('when the refresh wrote');
+    }
+  }
 
   it('Phase 3 executes via prospec archive with a dry-run preview, never hand-run steps', () => {
     const phase3 = sectionOf(render(), '### Phase 3: Execute Archive');
     expect(phase3).toContain('prospec archive');
     expect(phase3).toContain('--dry-run');
-    // the CLI is required (shared probe) — the binary resolution ladder is gone (issue #107)
     expect(phase3).toContain('code-executed by the CLI — do not hand-run them');
-    expect(phase3).not.toContain('pnpm exec');
-    expect(phase3).not.toContain('npx');
-    // the old hand-run move instruction is gone
-    expect(phase3).not.toContain('Move all artifacts');
-    // the judgment summary still replaces the scaffold
+    expect(phase3).not.toMatch(/pnpm exec|npx|Move all artifacts|CLI unavailable|fall back manually/);
     expect(phase3).toContain('Review & Verify');
-  });
-
-  it('Phase 3 has NO CLI-unavailable manual fallback — finalize is deferred to Phase 3.7, never hand-run (issue #107)', () => {
-    const phase3 = sectionOf(render(), '### Phase 3: Execute Archive');
-    // the manual fallback was removed with the required-CLI probe (STOP posture)
-    expect(phase3).not.toContain('CLI unavailable');
-    expect(flat(phase3)).not.toMatch(/fall back manually/);
-    expect(flat(phase3)).not.toContain('never silently skip the mutations');
-    // its replacement: the _archived-history copy + counter reconciliation move to 3.7
     expect(flat(phase3)).toContain('via `prospec archive finalize` in Phase 3.7');
   });
 
-  it('Phase 3.7 Finalize owns the _archived-history copy + counter reconciliation, post-judgment (issue #107)', () => {
-    const phase37 = sectionOf(render(), '### Phase 3.7: Finalize');
-    expect(phase37).toContain('prospec archive finalize');
+  it('keeps retirement judgment before CLI-owned counters and final map confirmation', () => {
+    const rendered = render();
+    expectRetirementContract(rendered);
+    const phase37 = sectionOf(rendered, '### Phase 3.7: Finalize');
     expect(phase37).toContain('specs/_archived-history/{archiveIdentity}.md');
-    // refuses a scaffold summary — the Phase 2 record must be in place first
     expect(flat(phase37)).toContain('refuses while the file still lacks `## Review & Verify`');
-    expect(flat(phase37)).toContain('story_count');
-    expect(flat(phase37)).toContain('req_count');
-    // rerun-safe and never un-archives
-    expect(flat(phase37)).toMatch(/idempotent/i);
-    expect(flat(phase37)).toContain('never un-archives');
+    expect(phase37).toContain('story_count');
+    expect(phase37).toContain('req_count');
+    expect(phase37).toMatch(/idempotent/i);
+    expect(phase37).toContain('never un-archives');
+    expect(phase37).toContain('outside the Feature Map apart from `last_updated`');
+    expect(phase37).toContain('product-spec-format.md');
   });
 
   it('Phase 3.5 reviews the mechanical sync instead of re-running it', () => {
     const phase35 = sectionOf(render(), '### Phase 3.5: Feature Spec Sync');
     expect(flat(phase35)).toContain('already performed the **mechanical** Feature Spec Sync');
-    // the judgment work that stays with the skill
     expect(phase35).toContain('Converge wording');
-    // counters moved out of the hand-reconciliation path (issue #107)
-    expect(flat(phase35)).toContain(
-      'Frontmatter counters are reconciled mechanically by `prospec archive finalize` in Phase 3.7',
-    );
-    expect(flat(phase35)).toContain('do not recount them by hand');
+    expect(flat(phase35)).toContain('Frontmatter counters are reconciled mechanically by `prospec archive finalize` in Phase 3.7');
   });
 
-  it('Phase 3.6 confirms the CLI outputs instead of re-deriving them', () => {
+  it('Phase 3.6 retains authored-map and curated-index checks before finalization', () => {
     const phase36 = sectionOf(render(), '### Phase 3.6: Product Spec Sync');
-    expect(flat(phase36)).toContain('already wrote both outputs');
-    expect(phase36).toContain('product.md');
     expect(phase36).toContain('feature-map.yaml');
-    expect(phase36).not.toContain('Extract P0 User Stories');
-    // the check must be satisfiable: it asks about the machine-owned region and
-    // the preservation of everything else, never about a whole-file regeneration
-    expect(flat(phase36)).toContain('outside that section is unchanged');
-    expect(phase36).not.toContain('was regenerated');
+    expect(phase36).toMatch(/bootstrap-once \+ no-clobber/);
+    expect(phase36).toMatch(/different name/);
+    expect(phase36).toContain('Feature Inventory');
+    expect(phase36).toContain('## Feature Map (draft) (2024)');
+    expect(phase36).toContain('lexical');
+    expect(phase36).not.toMatch(/one leading ordinal|one trailing colon|bracketed suffix|one-ordinal|one-colon|one-suffix/);
+    expect(phase36).not.toMatch(/Extract P0 User Stories|was regenerated/);
   });
 
-  // The append-a-duplicate defect passed the old Phase 3.6 check: the appended
-  // section DID list every active Feature Spec. Two questions close that blind
-  // spot — one about the machine's verdict, one only a reader can answer.
-  it('Phase 3.6 asks whether the sync was declined, and looks for a renamed feature map', () => {
-    const rendered = render();
-    const phase36 = sectionOf(rendered, '### Phase 3.6: Product Spec Sync');
-    expect(flat(phase36)).toContain('did **not** report a declined `product.md` sync');
-    expect(flat(phase36)).toMatch(/near-miss/i);
-    // the semantic half: lexical matching cannot see a differently-named map, and
-    // its reach over SAME-name headings is narrow, so both are the reader's to spot
-    expect(flat(phase36)).toMatch(/different name/i);
-    expect(flat(phase36)).toContain('Feature Inventory');
-    expect(flat(phase36)).toContain('lexical');
-    expect(flat(phase36)).toContain('## Feature Map (draft) (2024)');
-    // issue #226 / REQ-TEMPLATES-213 (B-alt): Phase 3.6 keeps the human-catch
-    // guidance and examples (F-5) but no longer RESTATES the CLI's precise lexical
-    // mechanics — that rule lives in archive spec-sync and its contract test, so the
-    // two template copies (here and product-spec-format) cannot drift apart.
-    expect(flat(phase36)).not.toMatch(
-      /one leading ordinal|one trailing colon|bracketed suffix|one-ordinal|one-colon|one-suffix/i,
-    );
+  it.each([
+    ['unconditional zero-counter permission', 'Only `status: deprecated` permits a positive declared counter to become a body-derived zero', 'Any status permits body-derived zero counters'],
+    ['lost retirement identity', 'retired REQ identities resolvable', 'retired REQ definitions absent'],
+    ['missing post-judgment refresh', 'Refreshes the product Feature Map', 'Leaves the product Feature Map'],
+    ['lost initial pending refresh', 'pending refresh to finalize', 'initial outcome complete'],
+    ['premature final confirmation', 'Record the initial product sync outcome', 'Confirm it lists every current active feature; record the initial product sync outcome'],
+    ['missing decline retry', 're-run finalize', 'continue without refreshing'],
+    ['ungated final confirmation', 'when the refresh wrote', 'regardless of whether the refresh wrote'],
+  ])('rejects an applied archive contract mutation: %s', (_name, before, after) => {
+    const original = source();
+    const mutated = original.replaceAll(before!, after!);
+    expect(mutated).not.toBe(original);
+    expect(() => expectRetirementContract(render(mutated))).toThrow();
+  });
 
-    const gate = sectionOf(rendered, '> **Phase 3.6 Gate**');
-    expect(gate.trim().length).toBeGreaterThan(0);
-    expect(flat(gate)).toContain('no declined `product.md` sync');
-    expect(flat(gate)).toMatch(/another name/i);
+  function expectArchiveReference(text: string): void {
+    const section = flat(sectionOf(text, '## Spec Archiving'));
+    for (const clause of [
+      'complete final spec bodies',
+      'refreshes the product Feature Map after semantic graduation',
+      'Only `status: deprecated` permits a positive declared counter to become a body-derived zero',
+      'active, absent or unknown status retains positive-to-zero refusal',
+      'Retired REQ history stays resolvable at the existing feature-spec path',
+      'apply its named remedy and re-run finalize',
+      'bootstrap no-clobber',
+    ]) expect(section).toContain(clause);
+  }
 
-    // `sectionOf` runs to the next `##`/`###`, and the Gate is quoted lines inside
-    // Phase 3.6 — so `phase36` CONTAINS `gate`. Asserting over both is asserting
-    // over the superset twice: the body half must be sliced off explicitly, or a
-    // body-side regression passes on the Gate's copy of the wording alone.
-    const gateStart = phase36.indexOf('> **Phase 3.6 Gate**');
-    expect(gateStart).toBeGreaterThan(0);
-    const body = phase36.slice(0, gateStart);
-    expect(body).not.toContain('Phase 3.6 Gate');
+  it('the archive reference shares the retirement and finalize ownership contract', () => {
+    expectArchiveReference(fs.readFileSync(path.join(__dirname, '../../src/templates/skills/references/archive-format.hbs'), 'utf-8'));
+  });
 
-    // A gate is an all-must-hold list: the product.md confirmation item has to
-    // carry the same decline condition the body states, or a declined run leaves
-    // the gate unsatisfiable and blocks Phase 3.7 — which cannot be skipped, the
-    // bundle having already moved. REQ-TEMPLATES-175 requires the two to match,
-    // so BOTH halves are asserted independently.
-    for (const section of [body, gate]) {
-      expect(flat(section)).toMatch(/when the sync ran/i);
-    }
-
-    // The remedy must be one the workflow can actually perform HERE: Phase 3 already
-    // moved the bundle out of `.prospec/changes/`, so `prospec archive <name>` now
-    // answers `not found` and exits 1 — an instruction to retry this change's sync
-    // is a checkbox no agent can honestly tick.
-    for (const section of [body, gate]) {
-      expect(flat(section)).not.toMatch(/re-run/i);
-      expect(flat(section)).toContain('next archive run');
+  it.each([
+    ['deprecated-only zeros', 'Only `status: deprecated` permits a positive declared counter to become a body-derived zero'],
+    ['post-judgment refresh', 'refreshes the product Feature Map after semantic graduation'],
+    ['retired identity', 'Retired REQ history stays resolvable at the existing feature-spec path'],
+    ['decline retry', 'apply its named remedy and re-run finalize'],
+  ])('the archive reference rejects an applied mutation: %s', (_name, clause) => {
+    const reference = 'skills/references/archive-format.hbs';
+    const original = fs.readFileSync(path.join(__dirname, '../../src/templates', reference), 'utf-8');
+    const mutated = original.replace(clause!, 'Removed contract');
+    expect(mutated).not.toBe(original);
+    const bundled = BUNDLED_TEMPLATES[reference];
+    try {
+      BUNDLED_TEMPLATES[reference] = mutated;
+      expect(() => expectArchiveReference(renderTemplate(reference, TEMPLATE_CONTEXT))).toThrow();
+    } finally {
+      BUNDLED_TEMPLATES[reference] = bundled!;
     }
   });
 
-  it('NEVER forbids hand-executing the deterministic mutations when the CLI is available', () => {
+  it('NEVER keeps deterministic mutations with their CLI owners', () => {
     const never = sectionOf(render(), '## NEVER');
     expect(never).toContain('hand-execute the deterministic mutations');
+    expect(never).toContain('post-graduation product refresh');
     expect(never).toContain('--dry-run');
   });
 });
@@ -11906,4 +11926,34 @@ describe('station rules for graduated references, CLI free text and gate output 
       expect(section, template).toContain('a grant permits one attempt, not verifier PASS or advancement');
     }
   });
+});
+
+
+describe('public measurement retirement and finalize guidance', () => {
+  const read = (file: string) => fs.readFileSync(path.join(__dirname, '../..', file), 'utf-8');
+  it.each([
+    ['README.md', 'docs/reference/cli-reference.md', 'docs/concepts/workflow.md', 'docs/guides/upgrading.md'],
+    ['README.zh-TW.md', 'docs/reference/cli-reference.zh-TW.md', 'docs/concepts/workflow.zh-TW.md', 'docs/guides/upgrading.zh-TW.md'],
+  ])('removes offering surfaces and keeps an actionable retirement migration in %s', (readme, cli, workflow, upgrading) => {
+    expect(read(readme!)).not.toContain('prospec measure');
+    expect(read(cli!)).not.toMatch(/^### (?:Token Measurement|Token 量測)$/m);
+    expect(read(workflow!)).not.toMatch(/#token-measurement|#token-量測/);
+    const migration = sectionOf(read(upgrading!), upgrading!.includes('zh-TW')
+      ? '## 升級至下一個版本（尚未發布）' : '## Upgrade to the next release (unreleased)');
+    for (const capability of ['prospec measure', 'measure:tokens', 'token estimation', 'workflow-evaluation', 'startup dependency guard']) {
+      expect(migration).toContain(capability);
+    }
+    expect(migration).toMatch(/reports.*session logs/s);
+  });
+
+  it.each(['docs/reference/cli-reference.md', 'docs/reference/cli-reference.zh-TW.md'])(
+    '%s documents the final refresh and exact deprecated status', (file) => {
+      const command = read(file).split('- **`prospec archive finalize')[1]!.split('\n- **`')[0]!;
+      expect(command).toContain('status: deprecated');
+      expect(command).toContain('Feature Map');
+      expect(command).toContain('stderr');
+      expect(command).toContain('--quiet');
+      expect(command).toContain('finalize');
+    },
+  );
 });

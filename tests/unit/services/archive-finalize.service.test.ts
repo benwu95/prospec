@@ -1,4 +1,5 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import * as fs from 'node:fs';
 import { vol } from 'memfs';
 import {
   executeFinalize,
@@ -26,6 +27,7 @@ vi.mock('../../../src/lib/config.js', async original => ({
 beforeEach(() => {
   vol.reset();
 });
+afterEach(() => vi.restoreAllMocks());
 
 const CWD = '/repo';
 const ARCHIVE_DIR = '/repo/.prospec/archive/2026-07-30-add-widget';
@@ -81,6 +83,179 @@ function seed(summary: string = FINAL_SUMMARY): void {
   });
 }
 
+const PRODUCT = '/repo/prospec/specs/product.md';
+const RETIRED_SPEC = `---
+feature: widget
+status: deprecated
+story_count: 1
+req_count: 2
+---
+# Widget
+
+## Deprecated Requirements
+
+Retired story US-1.
+
+#### ~~REQ-WIDGET-001: one~~
+Historical behavior one.
+
+#### ~~REQ-WIDGET-002: two~~
+Historical behavior two.
+`;
+const SLICED_RETIRED = `${RETIRED_SPEC}\n## Slices\n\n- [History](./widget/history.md)\n`;
+const AUTHORED_PRODUCT = `---
+product: demo
+last_updated: 2026-07-30
+version: custom
+---
+# Demo
+
+## Vision
+
+Keep this authored vision.
+
+## Feature Map
+
+### widget
+An authored feature description.
+→ [widget](features/widget.md)
+
+## Principles
+
+Keep this authored principle.
+`;
+
+describe('archive finalize — complete feature retirement', () => {
+  it('reconciles an explicitly deprecated feature to zero while preserving retired identities', async () => {
+    seed();
+    vol.writeFileSync(SPEC, RETIRED_SPEC);
+    const result = await executeFinalize({ name: 'add-widget', cwd: CWD });
+    expect(result.refusedReconciliations).toEqual([]);
+    expect(result.reconciled[0]?.to).toEqual({ story_count: 0, req_count: 0 });
+    const body = vol.readFileSync(SPEC, 'utf8') as string;
+    expect(body).toContain('req_count: 0');
+    expect(body).toContain('#### ~~REQ-WIDGET-001: one~~');
+    expect(body).toContain('Historical behavior two.');
+  });
+
+  it.each(['active', 'unknown', undefined])('keeps the zeroing refusal for status %s', async (status) => {
+    seed();
+    const body = RETIRED_SPEC.replace('status: deprecated\n', status ? `status: ${status}\n` : '');
+    vol.writeFileSync(SPEC, body);
+    const result = await executeFinalize({ name: 'add-widget', cwd: CWD });
+    expect(result.refusedReconciliations).toHaveLength(1);
+    expect(vol.readFileSync(SPEC, 'utf8')).toBe(body);
+  });
+
+  it('counts a registered slice before allowing a retired feature to reach zero', async () => {
+    seed();
+    vol.writeFileSync(SPEC, SLICED_RETIRED);
+    vol.fromJSON({ '/repo/prospec/specs/features/widget/history.md': '### US-2: still active\n\n#### REQ-WIDGET-003: present\n' });
+    const result = await executeFinalize({ name: 'add-widget', cwd: CWD });
+    expect(result.reconciled[0]?.to).toEqual({ story_count: 1, req_count: 1 });
+  });
+
+  it('reconciles a completely read retired mother and slice to zero', async () => {
+    seed();
+    vol.writeFileSync(SPEC, SLICED_RETIRED);
+    vol.fromJSON({ '/repo/prospec/specs/features/widget/history.md': '## Deprecated Requirements\n\n#### ~~REQ-WIDGET-003: retired~~\nHistorical slice behavior.\n' });
+    const result = await executeFinalize({ name: 'add-widget', cwd: CWD });
+    expect(result.refusedReconciliations).toEqual([]);
+    expect(result.reconciled[0]?.to).toEqual({ story_count: 0, req_count: 0 });
+  });
+
+  it('rejects an incomplete sliced payload in the pure zero recount', () => {
+    for (const input of [SLICED_RETIRED, { main: SLICED_RETIRED, slices: {} }]) {
+      const recount = recountFeatureSpecCounters(input)!;
+      expect(recount.refusal).toMatch(/slice|complete/i);
+      expect(recount.content).toBe(SLICED_RETIRED);
+    }
+  });
+
+  it.each(['missing', 'unreadable'])('refuses a %s registered slice before any output write', async (kind) => {
+    seed();
+    vol.writeFileSync(SPEC, SLICED_RETIRED);
+    const slicePath = '/repo/prospec/specs/features/widget/history.md';
+    if (kind === 'unreadable') vol.mkdirSync(slicePath, { recursive: true });
+    const before = vol.toJSON();
+    await expect(executeFinalize({ name: 'add-widget', cwd: CWD })).rejects.toThrow(/slice|input/i);
+    expect(vol.toJSON()).toEqual(before);
+    expect(vol.existsSync(HISTORY)).toBe(false);
+  });
+
+  it('refuses a registered file whose content cannot be read after capture', async () => {
+    seed();
+    vol.writeFileSync(SPEC, SLICED_RETIRED);
+    const slicePath = '/repo/prospec/specs/features/widget/history.md';
+    vol.fromJSON({ [slicePath]: '## Deprecated Requirements\nHistorical slice.\n' });
+    const read = fs.readFileSync.bind(fs);
+    let reads = 0;
+    vi.spyOn(fs, 'readFileSync').mockImplementation((...args) => {
+      if (String(args[0]) === slicePath && ++reads > 1) throw Object.assign(new Error('denied'), { code: 'EACCES' });
+      return read(...args);
+    });
+    await expect(executeFinalize({ name: 'add-widget', cwd: CWD })).rejects.toThrow(/registered slice/i);
+    expect(reads).toBeGreaterThan(1);
+    expect(vol.existsSync(HISTORY)).toBe(false);
+    expect(vol.readFileSync(SPEC, 'utf8')).toBe(SLICED_RETIRED);
+  });
+
+  it('refreshes the product map after retirement and preserves authored sections', async () => {
+    seed();
+    vol.writeFileSync(SPEC, RETIRED_SPEC);
+    vol.writeFileSync(PRODUCT, AUTHORED_PRODUCT);
+    const result = await executeFinalize({ name: 'add-widget', cwd: CWD });
+    expect(result.productSpecDeclined).toBeNull();
+    expect(result.productSpecSynced).toBe(true);
+    const body = vol.readFileSync(PRODUCT, 'utf8') as string;
+    expect(body).not.toContain('features/widget.md');
+    expect(body).toContain('version: custom');
+    expect(body).toContain('## Vision\n\nKeep this authored vision.');
+    expect(body).toContain('## Principles\n\nKeep this authored principle.');
+    const after = vol.toJSON();
+    await executeFinalize({ name: 'add-widget', cwd: CWD });
+    expect(vol.toJSON()).toEqual(after);
+  });
+
+  it('previews the same product refresh without changing any file or directory', async () => {
+    seed();
+    vol.writeFileSync(SPEC, RETIRED_SPEC);
+    vol.writeFileSync(PRODUCT, AUTHORED_PRODUCT);
+    const before = vol.toJSON();
+    const result = await executeFinalize({ name: 'add-widget', cwd: CWD, dryRun: true });
+    expect(result.productSpecDeclined).toBeNull();
+    expect(result.productSpecSynced).toBe(false);
+    expect(result.planned).toContainEqual(expect.objectContaining({ target: 'prospec/specs/product.md', action: 'update' }));
+    expect(vol.toJSON()).toEqual(before);
+  });
+
+  it.each([false, true])('reports the product decline without changing authored content (dry-run %s)', async (dryRun) => {
+    seed();
+    const body = AUTHORED_PRODUCT.replace('## Feature Map', '## Feature Map (active)');
+    vol.writeFileSync(PRODUCT, body);
+    const result = await executeFinalize({ name: 'add-widget', cwd: CWD, dryRun });
+    expect(result.productSpecDeclined?.reason).toBe('near-miss-heading');
+    expect(result.productSpecSynced).toBe(false);
+    expect(result.planned).toContainEqual(expect.objectContaining({ action: 'skip', target: 'prospec/specs/product.md' }));
+    expect(vol.readFileSync(PRODUCT, 'utf8')).toBe(body);
+  });
+
+  it('names retained output paths when the later product write fails', async () => {
+    seed();
+    vol.writeFileSync(SPEC, RETIRED_SPEC);
+    vol.writeFileSync(PRODUCT, AUTHORED_PRODUCT);
+    const rename = fs.promises.rename.bind(fs.promises);
+    vi.spyOn(fs.promises, 'rename').mockImplementation(async (...args) => {
+      if (String(args[1]) === PRODUCT) throw new Error('disk full');
+      return rename(...args);
+    });
+    await expect(executeFinalize({ name: 'add-widget', cwd: CWD })).rejects.toThrow(/retained bundle:.*add-widget; committed history:.*add-widget.md/);
+    expect(vol.readFileSync(HISTORY, 'utf8')).toBe(FINAL_SUMMARY);
+    expect(vol.readFileSync(SPEC, 'utf8')).toContain('req_count: 0');
+    expect(vol.readFileSync(PRODUCT, 'utf8')).toBe(AUTHORED_PRODUCT);
+  });
+});
+
 describe('archive finalize', () => {
   it('copies the finalized summary to spec history and reconciles counters from the FINAL body', async () => {
     seed();
@@ -118,7 +293,7 @@ describe('archive finalize', () => {
     seed();
     const result = await executeFinalize({ name: 'add-widget', cwd: CWD, dryRun: true });
     expect(result.dryRun).toBe(true);
-    expect(result.planned).toHaveLength(2);
+    expect(result.planned).toHaveLength(3);
     expect(result.planned[0]!.action).toBe('write');
     expect(vol.existsSync(HISTORY)).toBe(false);
     expect(vol.readFileSync(SPEC, 'utf-8')).toBe(SPEC_CONTENT);

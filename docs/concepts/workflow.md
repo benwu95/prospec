@@ -73,11 +73,9 @@ The classification criterion is **cross-request prefix stability**, not "is it g
 the entry config's Available Skills list is per-project fixed (it changes only when the
 skill set changes), so it is `[STABLE]`. Extension authors adding skills must follow the
 same ordering — static loads before the boundary, dynamic after — or they break the cache
-prefix for every trigger. What the harness measures is the **prospec assembly pipeline**
-(its corpus assembles knowledge files, not the skill templates themselves) — see
-[Token Measurement](../reference/cli-reference.md#token-measurement). The template-level reorder takes effect at the agent deployment layer,
-outside the harness's observable scope (a deliberate exclusion): its benefit follows from
-the providers' documented prefix-caching semantics, not from a direct before/after measurement.
+prefix for every trigger. Template-level ordering takes effect at the agent deployment layer.
+Its expected benefit follows from the providers' documented prefix-caching semantics;
+this project makes no direct before/after measurement claim for that ordering.
 
 </details>
 

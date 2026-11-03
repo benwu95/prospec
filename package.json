@@ -23,7 +23,6 @@
     "lint": "eslint src/ tests/ scripts/workflow-eval/ scripts/evaluate-workflow.ts",
     "typecheck": "tsc -p tsconfig.typecheck.json",
     "prepare": "tsc && pnpm run bundle",
-    "measure:tokens": "npx tsx scripts/measure-tokens.ts",
     "workflow:evaluate": "node --import tsx scripts/evaluate-workflow.ts",
     "counts": "npx tsx scripts/sync-counts.ts",
     "counts:check": "npx tsx scripts/sync-counts.ts --check",

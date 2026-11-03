@@ -4,7 +4,7 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg?style=flat-square)](LICENSE)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.9-blue?style=flat-square&logo=typescript)](https://www.typescriptlang.org/)
-[![測試](https://img.shields.io/badge/測試-9177%20總計-success?style=flat-square)](./CONTRIBUTING.md#testing)
+[![測試](https://img.shields.io/badge/測試-9147%20總計-success?style=flat-square)](./CONTRIBUTING.md#testing)
 [![Node](https://img.shields.io/badge/node-%3E%3D22.13-brightgreen?style=flat-square&logo=node.js)](https://nodejs.org/)
 [![pnpm](https://img.shields.io/badge/pnpm-%3E%3D11-orange?style=flat-square&logo=pnpm)](https://pnpm.io/)
 
@@ -56,7 +56,7 @@ Review 共用八個 lenses：correctness、security 與 spec-architecture 每輪
 |------|------------------|
 | AI 不了解你的程式碼庫 | `prospec knowledge init` + `prospec-knowledge-generate` 自動掃描並生成 AI 可讀文件 |
 | 新 agent 不知道工作停在哪裡 | 專案內的 change artifacts 保留進行中的工作；`prospec status` 指出下一站與阻擋條件 |
-| Context window 限制 | 漸進式揭露：先載入摘要，細節按需取用；用 `prospec measure` 驗證你自己 session 的實際影響 |
+| Context window 限制 | 漸進式揭露：先載入摘要，細節按需取用 |
 | AI 工作流不一致 | 結構化 Skills 強制執行 `story → plan → design → tasks → implement → knowledge-update → review → verify → archive`，條件分支也明確可見 |
 | 供應商鎖定 | 支援 4+ AI CLI，知識儲存在通用 Markdown 格式 |
 | 設計到程式碼斷裂 | `prospec-design` 生成視覺 + 互動規格，整合 MCP 工具 |

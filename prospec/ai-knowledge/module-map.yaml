@@ -7,8 +7,9 @@ modules:
       profiles, Constitution rule types, the station I/O contracts the cli-first
       skills speak (review findings, verify dimension registry, lesson upsert,
       validate kinds), and the canonical index-table column and
-      knowledge-token-budget contracts. Terminal history contracts separate
-      source origin, canonical storage and partial outcomes.
+      knowledge-token-budget contracts, plus numeric token/cost interfaces.
+      Terminal history contracts separate source origin, canonical storage and
+      partial outcomes.
     paths:
       - src/types
     keywords:
@@ -26,7 +27,7 @@ modules:
       - language
       - triggers
       - token-budget
-      - measurement
+      - token-accounting
       - scale
       - drift-report
       - feature-map
@@ -57,23 +58,24 @@ modules:
       - type definitions
       - 錯誤類別
       - validation
-      - 量測
+      - token 成本
       - 複雜度
       - 漂移報告
       - MCP 契約
       - 模組分類
     rationale: Leaf module with zero internal deps — all others import from here
-    last_verified: 2026-11-02T18:11:37.704Z
-    source_digest: source-v1:e423c6aaae21b919e8c5c81b87ec06ea93f3508dbe0580eb1b64200800d4602e
+    last_verified: 2026-11-03T05:12:11.675Z
+    source_digest: source-v1:51c4586ab7e5b6ea65a6fec2baf7179061fe0f525683634bf9659b1a81240fc6
   - name: lib
     description: Shared stateless utilities — config, file I/O, Handlebars
-      rendering, scanning, token accounting, the zero-LLM drift engine
-      (collectors + evaluators), Constitution rule parsing, the flag-gated test
-      runner, knowledge readers, multi-language manifest parsers, and the
-      I/O-free station engines (markdown-table, delegated-evidence, verify
-      grade, review-merge, lessons-ledger, artifact validators,
-      review-circuit-breaker, lens-yield). Terminal history resolves registered
-      worktree roots and verifies bundle publication and preservation integrity.
+      rendering, scanning, token estimation and cost arithmetic, the zero-LLM
+      drift engine (collectors + evaluators), Constitution rule parsing, the
+      flag-gated test runner, knowledge readers, multi-language manifest
+      parsers, and the I/O-free station engines (markdown-table,
+      delegated-evidence, verify grade, review-merge, lessons-ledger, artifact
+      validators, review-circuit-breaker, lens-yield). Terminal history resolves
+      registered worktree roots and verifies bundle publication and preservation
+      integrity.
     paths:
       - src/lib
     keywords:
@@ -137,21 +139,22 @@ modules:
       - helpers
       - 基礎設施
       - infrastructure
-      - 量測計算
+      - token 估算與成本
       - 漂移檢查
       - 知識讀取
     rationale: Foundational infrastructure shared across services and benchmark scripts
-    last_verified: 2026-11-02T18:11:37.704Z
-    source_digest: source-v1:29bc9d7c70a2d6adb84ec5d09cbfa4db89c435a616b02a63db2bf0d8448293fb
+    last_verified: 2026-11-03T05:12:11.675Z
+    source_digest: source-v1:9c93a64dea7d75de99635e19afcee431177ec3bcbd12172c4367d096668a6f2f
   - name: services
     description: Business logic — one `execute()` service per command — including
       shared-output agent invocation-guidance rendering — init / quickstart /
       upgrade, knowledge init + update, change story / plan / tasks / log /
       status / scale / progress, review merge, verify record, learn, validate,
-      archive + spec-sync + finalize, agent-sync, measure, drift check
-      (record-review / record-tests / auto-draft modes), auto-draft, and the
-      read-only MCP server. History import preserves legacy bundles in shared
-      terminal storage while workflow and spec writes remain source-local.
+      archive + spec-sync + finalize (final counters and product map),
+      agent-sync, drift check (record-review / record-tests / auto-draft modes),
+      auto-draft, and the read-only MCP server. History import preserves legacy
+      bundles in shared terminal storage while workflow and spec writes remain
+      source-local.
     paths:
       - src/services
     keywords:
@@ -170,7 +173,6 @@ modules:
       - feature-map
       - triggers
       - language
-      - measure
       - check
       - mcp
       - serve
@@ -203,14 +205,13 @@ modules:
       - business logic
       - execute pattern
       - use case
-      - 量測報告
       - 漂移檢查
       - 真相層
     rationale: Isolates business logic from I/O layer, enables testability
-    last_verified: 2026-11-02T18:11:37.704Z
-    source_digest: source-v1:160ae2da51ea6ff90c9563f4d24c5925c3db5bfeb93b048f8609f3a62c94676b
+    last_verified: 2026-11-03T05:12:11.675Z
+    source_digest: source-v1:21be02f106047dced90e0a5fe32e26978e7e52f798f909bd5f863df2ab8cafc5
   - name: cli
-    description: Thin CLI entry — 20 top-level Commander commands + shared
+    description: Thin CLI entry — 19 top-level Commander commands + shared
       formatters that parse → call one service → format output; the cli-first
       station commands each add one command/formatter pair, never logic. History
       paths/import expose canonical storage and archive finalize accepts exact
@@ -227,7 +228,6 @@ modules:
       - commander
       - output
       - preaction
-      - measure
       - check
       - strict
       - mcp
@@ -254,8 +254,8 @@ modules:
       - 終端
       - entry point
     rationale: "Thin I/O layer: no business logic, delegates to services"
-    last_verified: 2026-11-02T18:11:37.704Z
-    source_digest: source-v1:c6d165db47b6e3ad04d2be7c5249fa36b6b25d5f5916ec720871365307a97256
+    last_verified: 2026-11-03T05:12:11.675Z
+    source_digest: source-v1:badb3d270a931caf1c954dfe66944c1520a5bfdf93fc6f3a5681e6be3529e942
   - name: templates
     description: Handlebars template library — 17 skills + host-labelled invocation
       entry guidance, 12 shared partials, 32 references, 1 agent-config, 5
@@ -263,7 +263,8 @@ modules:
       generated skill, README, and index; every skill delegates its
       deterministic steps to the CLI behind the shared `_cli-probe` partial.
       Terminal-history guidance uses CLI-reported roots and identities with
-      explicit legacy import.
+      explicit legacy import. Archive finalization refreshes counters and the
+      product map after semantic graduation.
     paths:
       - src/templates
     keywords:
@@ -311,15 +312,15 @@ modules:
       - 複雜度適配
       - CI 閘門
     rationale: Pure resources — no logic, consumed by lib/template.ts
-    last_verified: 2026-11-02T18:11:37.704Z
-    source_digest: source-v1:5ec3482e8f3aee4f8db3edec19b88e83dbe96da944e47b197d6d3e3a1f44a07a
+    last_verified: 2026-11-03T05:12:11.675Z
+    source_digest: source-v1:035389d2d23b8cb35215c54933eade9ac4bf3b721740d2e73c6fae1044721b34
   - name: tests
-    description: 4-layer test suite — 341 files, 9,177 tests (unit 6592 + contract
-      2088 + integration 252 + e2e 245). Validates every module — format and
+    description: 4-layer test suite — 335 files, 9,147 tests (unit 6548 + contract
+      2102 + integration 252 + e2e 245). Validates every module — format and
       public-document contracts, the cli-first probe + station-command
-      contracts, the drift engine, token corpus, and the MCP protocol over
-      in-memory transport. Real-worktree history fixtures cover publication
-      faults, origin isolation and retained bundle inventories.
+      contracts, the drift engine, retained workflow/startup guards, and the MCP
+      protocol over in-memory transport. Real-worktree history fixtures cover
+      publication faults, origin isolation and retained bundle inventories.
     paths:
       - tests
     keywords:
@@ -335,7 +336,6 @@ modules:
       - e2e
       - knowledge-format
       - skill-format
-      - token-corpus
       - drift
       - lessons-harvest
       - mcp-server
@@ -362,5 +362,5 @@ modules:
       - 驗證
       - vitest
     rationale: Quality gate — validates all layers with pyramid coverage
-    last_verified: 2026-11-03T00:14:21.450Z
-    source_digest: source-v1:386e88d9b288a459cb345a9d028f5054eb4708a95cea3269597fbccf51350437
+    last_verified: 2026-11-03T05:12:11.675Z
+    source_digest: source-v1:d11a8f358a47c4fa681c9fa654a423a517ef2d3f55c59e82450ee38503f6d3a8

@@ -354,6 +354,8 @@ describe('formatArchiveFinalizeOutput — refused reconciliations are visible', 
       historyPath: 'prospec/specs/_archived-history/2026-08-06-add-widget.md',
       reconciled: [],
       refusedReconciliations: [],
+      productSpecDeclined: null,
+      productSpecSynced: false,
       planned: [],
       dryRun: false,
       ...overrides,
@@ -366,6 +368,24 @@ describe('formatArchiveFinalizeOutput — refused reconciliations are visible', 
     to: { story_count: 1, req_count: 0 },
     reason: 'req_count would drop to zero',
   };
+
+  it.each(['normal', 'quiet'] as const)('prints finalize product declines on stderr under %s', (level) => {
+    formatArchiveFinalizeOutput(finalizeResult({ productSpecDeclined: { reason: 'near-miss-heading', detail: 'Rename evil\u001b[2J heading\u0007.' } }), level);
+    expect(stderr()).toContain('product.md Feature Map not synced (near-miss-heading)');
+    expect(stderr()).toContain('Rename evil');
+    expect(stderr()).not.toContain('\u001b');
+    expect(stderr()).not.toContain('\u0007');
+    expect(out()).not.toContain('Refreshed product.md');
+    if (level === 'quiet') expect(out()).toBe('');
+  });
+
+  it('reports a refreshed product map only for a completed sync', () => {
+    formatArchiveFinalizeOutput(finalizeResult({ productSpecSynced: true }), 'normal');
+    expect(out()).toContain('Refreshed product.md Feature Map');
+    stdoutSpy.mockClear();
+    formatArchiveFinalizeOutput(finalizeResult({ dryRun: true, productSpecSynced: false }), 'normal');
+    expect(out()).not.toContain('Refreshed product.md Feature Map');
+  });
 
   it('routes each refusal to stderr with its declared value and reason', () => {
     formatArchiveFinalizeOutput(finalizeResult({ refusedReconciliations: [refusal] }), 'normal');

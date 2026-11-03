@@ -43,6 +43,15 @@ afterEach(async () => {
 });
 
 describe('CLI subprocess smoke', () => {
+  it.each([CLI_PATH, BIN_PATH])('retires measurement in built output %s', async (entry) => {
+    const { stdout } = await execFileAsync(NODE, [entry, '--help'], { cwd: tmpDir });
+    expect(stdout).not.toMatch(/^\s+measure(?:\s|$)/m);
+    await expect(execFileAsync(NODE, [entry, 'measure'], { cwd: tmpDir })).rejects.toMatchObject({
+      code: 1,
+      stderr: expect.stringContaining("unknown command 'measure'"),
+    });
+  });
+
   it('compiled entry carries a node shebang and prints the version as a real process', async () => {
     const firstLine = (await fs.promises.readFile(CLI_PATH, 'utf-8')).split('\n', 1)[0];
     expect(firstLine).toBe('#!/usr/bin/env node');

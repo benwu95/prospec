@@ -4,7 +4,7 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg?style=flat-square)](LICENSE)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.9-blue?style=flat-square&logo=typescript)](https://www.typescriptlang.org/)
-[![Tests](https://img.shields.io/badge/tests-9177%20total-success?style=flat-square)](./CONTRIBUTING.md#testing)
+[![Tests](https://img.shields.io/badge/tests-9147%20total-success?style=flat-square)](./CONTRIBUTING.md#testing)
 [![Node](https://img.shields.io/badge/node-%3E%3D22.13-brightgreen?style=flat-square&logo=node.js)](https://nodejs.org/)
 [![pnpm](https://img.shields.io/badge/pnpm-%3E%3D11-orange?style=flat-square&logo=pnpm)](https://pnpm.io/)
 
@@ -56,7 +56,7 @@ Review uses eight shared lenses: correctness, security and spec-architecture run
 |-----------|-------------------|
 | AI doesn't know your codebase | `prospec knowledge init` + `prospec-knowledge-generate` auto-scan and generate AI-readable docs |
 | A new agent cannot tell where work stopped | Project-local change artifacts preserve the current work; `prospec status` names the next station and its blocking gates |
-| Context window limits | Progressive disclosure: load a summary first, details on demand; verify the impact on your own sessions with `prospec measure` |
+| Context window limits | Progressive disclosure: load a summary first, details on demand |
 | Inconsistent AI workflows | Structured Skills enforce `story → plan → design → tasks → implement → knowledge-update → review → verify → archive` with explicit conditional branches |
 | Vendor lock-in | Works with 4+ AI CLIs; knowledge stored as universal Markdown |
 | No design-to-code bridge | `prospec-design` generates visual + interaction specs with MCP tool integration |

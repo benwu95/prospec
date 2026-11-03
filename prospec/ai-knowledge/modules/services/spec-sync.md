@@ -9,7 +9,7 @@
 | `archive.service.ts` → `syncToFeatureSpecs` | Merges delta-spec ADDED/MODIFIED/REMOVED into `specs/features/*.md` (Replace-in-Place) and appends the Change History row to whichever file hosts the section — mother file or a registered slice |
 | `archive.service.ts` → `generateProductSpec` | Syncs `product.md`'s `## Feature Map` — the file's ONLY machine-owned region |
 | `archive.service.ts` → `syncFeatureMap` | Bootstraps `feature-map.yaml` once (no-clobber); shares `listFeatureSpecFiles` with product.md so the two indexes cannot disagree |
-| `archive.service.ts` → `executeFinalize` | Post-judgment: `_archived-history` copy + frontmatter counter reconciliation |
+| `archive.service.ts` → `executeFinalize` | Post-judgment: `_archived-history` copy + frontmatter counter reconciliation + product Feature Map refresh |
 
 ## Public API
 
@@ -41,4 +41,4 @@
 - **Struck headings are history, never replacement targets.** MODIFIED routes to the active definition first across files, then merges using active-only `indexSpec`, matching landing-fidelity. With only a struck definition, append the new active section and preserve the retirement record; uniqueness still reports both definitions.
 
 - FUNCTION replacers (verbatim `$`) in every insertion branch, path-contained `**Feature:**` slug, no-clobber `feature-map.yaml`; NO auto knowledge-update (the skill + verify prompt own it).
-- `executeFinalize` refuses while `summary.md` lacks `## Review & Verify` — else the history copy captures the scaffold and counters predate graduation. Its recount refuses to zero a declared counter (a parse gap, not a fact) and reports it.
+- `executeFinalize` refuses while `summary.md` lacks `## Review & Verify` — else the history copy captures the scaffold and counters predate graduation. Its recount allows positive-to-zero only for explicit `status: deprecated` with complete registered slices; other statuses retain byte-identical refusal. Finalize admits contained, captured spec/product referents, proves deprecated slices readable, and rechecks bundle/config/spec inputs under the writer claim before writing. It refreshes the product map through `generateProductSpec` after history/counter writes; dry-run plans the same decision. Product declines retain authored bytes and are visible on stderr under quiet mode; repair their cause and re-run finalize. A later product I/O failure reports retained bundle/history paths and completed counter writes without rollback.
