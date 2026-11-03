@@ -24,6 +24,17 @@ afterEach(async () => {
 });
 
 describe('CLI E2E — basics', () => {
+  it('retires the measurement command and package entry point', async () => {
+    const help = await runCli(['--help']);
+    expect(help.exitCode).toBe(0);
+    expect(help.stdout).not.toMatch(/^\s+measure(?:\s|$)/m);
+    const removed = await runCli(['measure']);
+    expect(removed.exitCode).toBe(1);
+    expect(removed.stderr).toContain("unknown command 'measure'");
+    const pkg = JSON.parse(await fs.promises.readFile(path.resolve(__dirname, '../../package.json'), 'utf8'));
+    expect(pkg.scripts).not.toHaveProperty('measure:tokens');
+  });
+
   describe('prospec --version', () => {
     it('should print version number and exit 0', async () => {
       const { stdout, exitCode } = await runCli(['--version']);

@@ -41,6 +41,10 @@ prospec-upgrade                 # Step 2: AI agent migrates drifted doc formats,
 
 ## Upgrade to the next release (unreleased)
 
+**Breaking:** `prospec measure`, its local-session report, offline report and context projection modes, and the repository's `measure:tokens` script are retired. Remove calls to these entry points from scripts and documentation. Existing reports and session logs are left untouched. Shared token estimation, workflow-evaluation cost accounting and the startup dependency guard (`scripts/measure-startup-modules.ts`) retain their existing behavior.
+
+Complete-feature retirement keeps deprecated Feature Specs and retired REQ identities at their existing paths. After semantic graduation marks a feature `status: deprecated`, `prospec archive finalize` can derive zero counters from its complete body and refresh the product Feature Map. Other statuses retain positive-to-zero refusal. On a product-sync decline, apply the reported remedy and re-run finalize; existing curated feature-map entries remain protected by bootstrap no-clobber.
+
 **Breaking:** Knowledge freshness digests and review/test evidence now take their members from the git index, matching raw scans, README skeletons and import scanning. File contents still come from the working tree: edits and deletions of indexed files affect freshness/evidence without staging, while ordinary untracked files do not participate until added with `git add`. This applies inside repository-subdirectory projects too; submodule evidence uses that submodule's own index and working-tree content. Delegation and work preservation retain their existing protection of non-ignored untracked files.
 
 Stage intended new files before `prospec knowledge verify`, `prospec check --record-review` or `prospec check --record-tests`, including files introduced by final synchronization. Do not stage local scratch files merely to record evidence. Unchanged members and effective content preserve evidence across staging, commit and amend; staging a new member changes identity.

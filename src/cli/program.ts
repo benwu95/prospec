@@ -34,7 +34,6 @@ import { registerReviewCommand } from './commands/review-merge.js';
 import { registerVerifyCommand } from './commands/verify-record.js';
 import { registerLearnCommand } from './commands/learn.js';
 import { registerValidateCommand } from './commands/validate.js';
-import { registerMeasureCommand } from './commands/measure.js';
 import { registerCheckCommand } from './commands/check.js';
 import { registerMcpCommand } from './commands/mcp.js';
 import { PROSPEC_VERSION } from '../types/version.js';
@@ -141,7 +140,6 @@ export function createProgram(): Command {
   registerVerifyCommand(program);
   registerLearnCommand(program);
   registerValidateCommand(program);
-  registerMeasureCommand(program);
   registerCheckCommand(program);
   registerMcpCommand(program);
 

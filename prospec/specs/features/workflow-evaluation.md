@@ -1,9 +1,9 @@
 ---
 feature: workflow-evaluation
 status: active
-last_updated: 2026-09-27
+last_updated: 2026-11-03
 story_count: 1
-req_count: 4
+req_count: 6
 ---
 
 # workflow-evaluation
@@ -76,6 +76,28 @@ A workflow-eval oracle may declare `max_waits`, and the `missing-receipt` scenar
 
 ---
 
+
+#### REQ-LIB-108: Shared token estimation and cost accounting
+Shared token accounting is independent of the retired measurement reports: estimateTokens, TOKEN_ESTIMATOR_LABEL, effectiveInputCostUsd and outputCostUsd remain in lib/token-accounting.ts, with numeric Pricing and TokenUsage contracts in types/token-accounting.ts.
+- WHEN estimating tokens, THEN return ceil(JavaScript string length / 4), including zero for an empty string, and identify the estimator as chars-per-token:4.
+- WHEN calculating input cost, THEN return (input + cache_read * cache_read_multiplier + cache_write * cache_write_multiplier) / 1000000 * input_usd_per_mtok, using caller-supplied pricing.
+- WHEN calculating output cost, THEN return output / 1000000 * output_usd_per_mtok; zero usage yields zero cost.
+- WHEN consuming the retained contracts, THEN Pricing contains the four numeric rate/multiplier fields and TokenUsage contains numeric input, output, cache_read and cache_write fields, with no provider/source registry or report schema dependency.
+- WHEN workflow-evaluation reserves or settles cost and records context, THEN it uses the retained helpers and its existing runtime validation, budget and context-observation contracts remain in force.
+
+---
+
+
+#### REQ-TESTS-146: Measurement retirement regression closure
+The retirement regression closure verifies the surviving capabilities and the complete retirement boundary using offline tests and the existing standing gates.
+- WHEN pruning tests, THEN remove only retirement-specific suites and corpus fixtures, while preserving shared accounting, workflow-evaluation, startup dependency, Knowledge and spec-sync replay coverage.
+- WHEN testing the resulting CLI, THEN exercise command absence and unknown-command rejection against source and built output, and verify the retired package script is absent.
+- WHEN validating complete-feature retirement, THEN cover deprecated zero counters, unchanged active/unspecified-status zero-count refusal, retired-ID resolution, post-graduation product refresh, dry-run byte identity, idempotence and visible sync declines.
+- WHEN validating delivery, THEN lint, typecheck, build, the complete Unit/Contract/Integration/e2e coverage suite, counts:check --from vitest-report.json, agents:check, knowledge:check and strict project drift checks pass; coverage remains at least 80% and factual counts use their existing owning commands.
+- WHEN testing workflow-evaluation, THEN use offline fixtures without invoking paid or subscription executors, and retain the distinction between offline regression evidence and live executor evidence.
+
+---
+
 ## Edge Cases
 
 - Executor unavailable, out of quota or rate-limited: the affected runs stay incomplete and the batch is preserved; a partial batch is never averaged into a verdict.
@@ -104,6 +126,7 @@ _(None)_
 
 | Date | Change | Impact | Stories/REQs |
 |------|--------|--------|-------------|
+| 2026-11-03 | retire-measurement | ADDED REQ-LIB-108; ADDED REQ-TESTS-146 | REQ-LIB-108, REQ-TESTS-146 |
 | 2026-09-27 | isolate-detect-preserve-delegates | ADDED REQ-TESTS-126 | REQ-TESTS-126 |
 | 2026-09-17 | enter-host-skill-stations | MODIFIED REQ-TESTS-115; MODIFIED REQ-TESTS-116 | REQ-TESTS-115, REQ-TESTS-116 |
 | 2026-09-16 | generate-station-reference-map | MODIFIED REQ-TESTS-116 | REQ-TESTS-116 |

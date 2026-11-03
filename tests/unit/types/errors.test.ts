@@ -9,7 +9,6 @@ import {
   YamlParseError,
   TemplateError,
   ModuleDetectionError,
-  MeasurementReportInvalid,
   DriftReportInvalid,
   MetadataValidationError,
   McpResourceNotFound,
@@ -192,17 +191,6 @@ describe('ModuleDetectionError', () => {
     expect(err.message).toBe('Module detection failed');
     expect(err.code).toBe('MODULE_DETECTION_ERROR');
     expect(err.cause).toBeUndefined();
-  });
-});
-
-describe('MeasurementReportInvalid', () => {
-  it('combines path and details into the message', () => {
-    const err = new MeasurementReportInvalid('/report.json', 'bad schema');
-    expect(err.name).toBe('MeasurementReportInvalid');
-    expect(err.code).toBe('MEASUREMENT_REPORT_INVALID');
-    expect(err.message).toBe('Measurement report validation failed: /report.json (bad schema)');
-    expect(err.suggestion).toContain('pnpm measure:tokens');
-    expect(err.suggestion).not.toContain('prospec check --json');
   });
 });
 

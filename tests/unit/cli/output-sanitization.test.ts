@@ -1,9 +1,7 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
-import { formatMeasureOutput } from '../../../src/cli/formatters/measure-output.js';
 import { formatProspecError } from '../../../src/cli/formatters/error-output.js';
 import { formatSpecShowOutput } from '../../../src/cli/formatters/spec-show-output.js';
 import { PrerequisiteError } from '../../../src/types/errors.js';
-import type { MeasureResult } from '../../../src/services/measure.service.js';
 
 // BEL (0x07) is a C0 control char that picocolors never emits (it only uses ESC
 // for color), so asserting "no BEL in output" proves the injected control bytes
@@ -34,44 +32,6 @@ function captureStderr(fn: () => void): string {
   fn();
   return writes.join('');
 }
-
-describe('measure-output terminal sanitization (B13)', () => {
-  it('strips control characters from report-derived strings', () => {
-    const report = {
-      corpus: `corpus${BEL}x`,
-      git_commit: `${BEL}abcdef012345`,
-      generated_at: `2026-01-01${BEL}`,
-      runs: [
-        {
-          source: `cli${BEL}-source`,
-          provider: 'anthropic',
-          model: 'claude-x',
-          pricing: {},
-          aborted: true,
-          aborted_reason: `budget${BEL} gone`,
-          spent_usd: 0,
-          tasks: [],
-          summary: {
-            measured_tasks: 0,
-            skipped_tasks: 0,
-            failed_tasks: 0,
-            prospec_cache_hit_rate: 0,
-            comparisons: [],
-          },
-        },
-      ],
-    };
-
-    const out = captureStdout(() =>
-      formatMeasureOutput({ report } as unknown as MeasureResult),
-    );
-
-    expect(out.includes(BEL)).toBe(false);
-    // legible content is preserved — only the control byte is removed
-    expect(out).toContain('corpusx');
-    expect(out).toContain('cli-source');
-  });
-});
 
 describe('error-output terminal sanitization (B14)', () => {
   it('strips control characters from message and suggestion on stderr', () => {

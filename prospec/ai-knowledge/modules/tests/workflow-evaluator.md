@@ -21,7 +21,7 @@
 
 ## Dependencies
 
-**Depends on:** `scripts/workflow-eval/` — **development tooling, outside `module-map.yaml`**: no module README owns that directory, its coverage threshold lives in `vitest.config.ts`, and these suites are the `tests` module's responsibility. Also `templates` (measures the deployed instructions) and `lib` (`token-accounting`'s estimator, `status-router`'s `STATUS_STATION`).
+**Depends on:** `scripts/workflow-eval/` — **development tooling, outside `module-map.yaml`**: no module README owns that directory, its coverage threshold lives in `vitest.config.ts`, and these suites are the `tests` module's responsibility. Also `templates` (measures the deployed instructions) and `lib` (`token-accounting`'s estimator, label and cost helpers; `status-router`'s `STATUS_STATION`) and `types/token-accounting` (numeric contracts). Workflow-eval protocol schemas retain runtime validation.
 **Used by:** none (leaf).
 
 ## Modification Guide

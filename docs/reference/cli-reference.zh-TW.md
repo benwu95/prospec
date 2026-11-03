@@ -329,7 +329,9 @@ Review 維持 artifact→metadata，verify 維持 metadata→evidence 的寫入�
   - **核心用途**：歸檔後置完成步驟（在人工收斂 `summary.md` 與規格文案後執行）。
   - **重點條列**：
     - 將最終版 `summary.md` 複製至 `specs/_archived-history/` 作為入版控的稽核軌跡。
-    - 依據最新文本對帳並更新每份 feature spec 的 frontmatter `story_count` 與 `req_count`。
+    - 依完整的最終 spec body（包含 registered slices）重算 frontmatter `story_count` 與 `req_count`。只有明確標示 `status: deprecated` 的 feature 可將原本的正數計數重算為零；active、缺少或未知 status 的正數變零仍拒收，原檔保持不變。
+    - semantic graduation 後刷新 product `## Feature Map`，只列 active features；保留該區塊外的 authored content，僅更新 `last_updated`。缺少 product 時依既有格式建立骨架。
+    - reconciliation refusal 與 product-sync decline 會在 stderr 呈現，`--quiet` 下仍可見，不改變 exit status。decline 讓 product 保持原狀；依原因修正後重跑 finalize，再確認最終 map。`--dry-run` 以相同判斷預覽，且不寫入。
     - 在原來源專案執行，將回傳的 `archiveIdentity` 傳入 `--bundle`；已知 foreign origin、ambiguous 裸名稱或 incomplete publication 都會拒絕。應在移除來源 worktree 前完成 finalize。若 `summary.md` 仍為未編輯的 scaffold 樣板則拒絕執行。
 
 - **`prospec history paths [--json]`**
@@ -602,42 +604,6 @@ Review、`implemented`、`test-provenance` 與 verify 共用測試閘門。通�
     - 存活的 mutant 代表測試可能存在的盲點，需由工程師進行人工判斷。
 
 </details>
-
-### Token 量測
-
-| 命令 | 說明 |
-|------|------|
-| `pnpm measure:tokens [options]` | 在活的 repo 上組裝三種 context，記錄 provider API 真實 Token 消耗與費用 |
-| `prospec measure [options]` | 解析本地 session log 以呈現量測數據，或進行上下文預算投影（不呼叫 API、不消耗 Token） |
-
-#### Token 量測命令詳解
-
-- **`pnpm measure:tokens [--provider <p>] [--budget <usd>] [--offline]`**
-  - **核心用途**：組裝 full-dump / naive-rag / prospec 三種 context，向 Provider API 發送並記錄真實 usage。
-  - **選項**：`--provider` 指定模型來源；`--budget` 設定預算上限（預設 US$10）；`--offline` 跳過 API 呼叫，改以字元數估算輸出 `size-report.json`。
-
-- **`prospec measure [--project-workflow <scale>] [--change <name>]`**
-  解析本地 AI CLI 的 session logs，顯示實際 Token 消耗與相對於基線的節省比。亦支援單一變更的上下文預算投影。
-
-harness 讓 token 效率主張可驗證而非空口宣稱：對每個 corpus 任務（`tests/fixtures/token-corpus/`，只版控任務**描述**，context 於執行時組裝）將同一份 context 連送兩次（cold + warm）並讀取 provider 真實 `usage`。
-
-**Agent → 量測 provider 對應**（copilot/codex 無公開 benchmark API，量測其模型來源而非 agent harness 本身）：
-
-| Agent | Provider API | 預設 model |
-|-------|-------------|-----------|
-| claude | Anthropic | `claude-haiku-4-5` |
-| codex、copilot | OpenAI | `gpt-4.1-mini` |
-| antigravity | Google | `gemini-2.5-flash` |
-
-**如何誠實解讀數字：**
-
-- 效率主張 = **vs full-dump baseline 的 input-token 成本**；naive-rag baseline 一律並列（差距較小）。output token 不受影響、誠實列出。
-- **warm\*** 為合成命中（連送兩次）；production 命中率取決於觸發是否落在 cache TTL 內。各 provider 另有最小可 cache 前綴（如 `claude-haiku-4-5` 為 4,096 tokens）——低於地板值的小型 prospec 組裝會誠實記錄 0% 命中率，機制在 production 規模的 context 下才生效。
-- 各 provider 的 cache 折扣結構不同（Anthropic 顯式 `cache_control`、OpenAI/Gemini 自動 prefix caching）—— 數字**僅同 provider 內可比**，不可跨 provider 或跨 repo 快照（報告記錄量測當下的 git commit）。
-- 不設門檻、不進 CI：報告供人解讀，不判定通過與否。
-- 本專案任何「節省 token」數字只能引用本 harness 產出 —— 估算不是資料。
-
----
 
 ---
 

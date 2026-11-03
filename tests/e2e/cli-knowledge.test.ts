@@ -24,7 +24,7 @@ afterEach(async () => {
   await fs.promises.rm(tmpDir, { recursive: true, force: true });
 });
 
-describe('CLI E2E — knowledge, agent & measure', () => {
+describe('CLI E2E — knowledge & agent', () => {
   describe('prospec knowledge init', () => {
     it('should fail without .prospec.yaml', async () => {
       const { exitCode } = await runCli(['knowledge', 'init']);
@@ -391,84 +391,6 @@ describe('CLI E2E — knowledge, agent & measure', () => {
       const { stderr, exitCode } = await runCli(['agent', 'sync', '-q']);
       expect(exitCode).toBe(0);
       expect(stderr).toContain("skill_triggers: unknown skill 'prospec-reveiw' ignored");
-    });
-  });
-
-  describe('prospec measure', () => {
-    beforeEach(async () => {
-      await fs.promises.writeFile(
-        path.join(tmpDir, '.prospec.yaml'),
-        'name: e2e-measure\n',
-      );
-    });
-
-    it('displays local token measurement report', async () => {
-      const claudeProjDir = path.join(tmpDir, '.claude', 'projects');
-      await fs.promises.mkdir(claudeProjDir, { recursive: true });
-      await fs.promises.writeFile(
-        path.join(claudeProjDir, 'test.jsonl'),
-        `{"requestId":"r1","message":{"id":"m1","usage":{"input_tokens":100,"output_tokens":20}}}`
-      );
-
-      const { stdout, exitCode } = await runCli(['measure']);
-
-      expect(exitCode).toBe(0);
-      expect(stdout).toContain('Source: claude');
-      expect(stdout).toContain('full-dump');
-      expect(stdout).toContain('input tokens');
-      expect(stdout).toContain('output tokens');
-    });
-
-    it('guides the user via stderr when no local logs are found', async () => {
-      const { stderr, exitCode } = await runCli(['measure']);
-
-      expect(exitCode).toBe(1);
-      expect(stderr).toContain('No local logs found');
-      expect(stderr).toContain('Use an AI CLI to generate some logs first');
-    });
-
-    it('projects offline budget when --project-workflow is used', async () => {
-      // Set up a fake project and a change
-      await fs.promises.rm(path.join(tmpDir, '.prospec.yaml'), { force: true });
-      await fs.promises.writeFile(
-        path.join(tmpDir, 'package.json'),
-        JSON.stringify({ name: 'workflow-test' }),
-      );
-      await runCli(['init', '--name', 'workflow-test', '--agents', 'claude']);
-      
-      const changeName = 'feat-workflow';
-      const storyRes = await runCli(['change', 'story', changeName, '--related-module', 'core', '--description', 'test workflow scale']);
-      
-      if (storyRes.exitCode !== 0) {
-        console.error('STORY STDERR:', storyRes.stderr);
-        console.error('STORY STDOUT:', storyRes.stdout);
-      }
-      expect(storyRes.exitCode).toBe(0);
-      
-      const changeDir = path.join(tmpDir, '.prospec', 'changes', changeName);
-      
-      try {
-        await fs.promises.access(changeDir);
-      } catch {
-        const changesLs = await fs.promises.readdir(path.join(tmpDir, '.prospec', 'changes')).catch(() => []);
-        console.error('LS .prospec/changes:', changesLs);
-        console.error('STORY STDOUT:', storyRes.stdout);
-      }
-      
-      await fs.promises.writeFile(
-        path.join(changeDir, 'delta-spec.md'),
-        '**Feature:** my-feature\n',
-      );
-
-      const { stdout, exitCode, stderr } = await runCli([
-        'measure', '--project-workflow', 'standard', '--change', changeName
-      ]);
-      
-      expect(stderr).toBe('');
-      expect(exitCode).toBe(0);
-      expect(stdout).toContain('Scale: standard');
-      expect(stdout).toContain('L1 (Constitution, etc.)');
-      expect(stdout).toContain('Total Projected Budget');
     });
   });
 

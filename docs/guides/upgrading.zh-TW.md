@@ -41,6 +41,10 @@ prospec-upgrade                 # 步驟 2：AI Agent 依盤點報告遷移格�
 
 ## 升級至下一個版本（尚未發布）
 
+**Breaking：** `prospec measure`、其本機 session report、offline report、context projection 模式，以及 repo 的 `measure:tokens` script 已退休。請移除 scripts 與文件中對這些入口的呼叫。既有 reports 與 session logs 保持原狀。共用 token estimation、workflow-evaluation 成本計算，以及 startup dependency guard（`scripts/measure-startup-modules.ts`）維持既有行為。
+
+完整 feature 退休時，deprecated Feature Specs 與退休 REQ 身分保留於原路徑。semantic graduation 將 feature 標為 `status: deprecated` 後，`prospec archive finalize` 可依完整 body 推導零計數，並刷新 product Feature Map；其他 status 維持正數變零拒收。若 product sync 被 declined，依回報原因修正後重跑 finalize；既有 curated feature-map entries 仍由 bootstrap no-clobber 保護。
+
 **Breaking：** Knowledge freshness digest 與 review／test evidence 現在依 git index 決定成員，與 raw scan、README 骨架及 import 掃描一致。內容仍讀工作樹：indexed 檔案的修改與刪除不必 stage 就會影響 freshness／evidence；一般 untracked 檔案則在 `git add` 後才參與。Repository 子目錄專案同樣適用；submodule evidence 使用該 submodule 自己的 index 與工作樹內容。Delegation 與 work preservation 繼續保護未被 ignore 的 untracked 檔案。
 
 執行 `prospec knowledge verify`、`prospec check --record-review` 或 `prospec check --record-tests` 前，先 stage 要交付的新檔，包含最後同步產生的新檔。不要為了記錄 evidence 而 stage 本機暫存檔。Index 成員與有效內容不變時，staging、commit 與 amend 保留 evidence；stage 新成員會改變 identity。

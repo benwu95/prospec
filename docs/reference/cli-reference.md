@@ -332,7 +332,9 @@ Review preserves artifact→metadata ordering; verify preserves metadata→evide
   - **Identity**: Run in the original source project with returned `archiveIdentity` passed as `--bundle`; known foreign origins, ambiguous bare names and incomplete publication refuse. Finalize before removing the source worktree.
   - **Key Details**:
     - Copies finalized `summary.md` to `specs/_archived-history/` for version-controlled audit trails.
-    - Reconciles `story_count` and `req_count` in feature spec frontmatter against final spec bodies.
+    - Reconciles `story_count` and `req_count` against complete final spec bodies, including registered slices. Only an explicit `status: deprecated` allows a positive declared counter to become zero; active, absent or unknown status retains positive-to-zero refusal with the spec unchanged.
+    - Refreshes the product `## Feature Map` after semantic graduation to list active features, preserving authored content outside that region apart from `last_updated`; a missing product file is bootstrapped with the existing format.
+    - Reconciliation refusals and product-sync declines remain visible on stderr under `--quiet` without changing exit status. A decline leaves the product untouched: apply the named remedy, re-run finalize and then confirm the final map. `--dry-run` previews the same decisions without writing.
     - Refuses to execute if `summary.md` is still an unmodified template scaffold.
 
 - **`prospec history paths [--json]`**
@@ -607,42 +609,6 @@ Honesty rules: an unavailable source degrades the check to `skipped` with an exp
     - Surviving mutants highlight potential test blind spots for human inspection.
 
 </details>
-
-### Token Measurement
-
-| Command | Description |
-|---------|-------------|
-| `pnpm measure:tokens [options]` | Assemble contexts from live repo and record real provider API token usage and cost |
-| `prospec measure [options]` | Parse local session logs for token measurements, or project context budget (zero API calls) |
-
-#### Token Measurement Commands Breakdown
-
-- **`pnpm measure:tokens [--provider <p>] [--budget <usd>] [--offline]`**
-  - **Purpose**: Assembles full-dump / naive-rag / prospec contexts and measures real usage and cache hit rates via Provider APIs.
-  - **Options**: `--provider` sets provider model; `--budget` sets cost cap (default US$10); `--offline` skips API calls and outputs char-based size estimate in `size-report.json`.
-
-- **`prospec measure [--project-workflow <scale>] [--change <name>]`**
-  Parses your local AI CLI session logs to display actual context usage and theoretical baseline savings. Also supports projecting the token floor for a workflow scale.
-
-The harness makes the token-efficiency claim verifiable instead of asserted: for each corpus task (`tests/fixtures/token-corpus/`, version-controlled task **descriptions** only — contexts are assembled at run time) it sends each assembled context twice (cold + warm) and reads the provider's real `usage`.
-
-**Agent → measured provider** (copilot/codex have no public benchmark API; they are measured via their model provider, not the agent harness itself):
-
-| Agent | Provider API | Default model |
-|-------|-------------|---------------|
-| claude | Anthropic | `claude-haiku-4-5` |
-| codex, copilot | OpenAI | `gpt-4.1-mini` |
-| antigravity | Google | `gemini-2.5-flash` |
-
-**How to read the numbers (honest boundaries):**
-
-- The efficiency claim is **input-token cost vs the full-dump baseline**; the naive-rag baseline is always shown alongside, where the margin is smaller. Output tokens are unaffected and listed honestly.
-- **warm\*** numbers are synthetic cache hits (two back-to-back calls); production hit rates depend on whether triggers land within the provider's cache TTL. Providers also enforce a minimum cacheable prefix (e.g. 4,096 tokens on `claude-haiku-4-5`) — a small prospec assembly below that floor honestly records a 0% hit rate even though the mechanism works at production context sizes.
-- Cache discount structures differ per provider (Anthropic explicit `cache_control`, OpenAI/Gemini automatic prefix caching) — numbers are **comparable only within the same provider**, never across providers or repo snapshots (the report records the git commit it measured).
-- No thresholds, no CI gating: the report informs humans; it does not pass or fail anything.
-- Any "token saving" figure quoted in this project must come from this harness — estimates are not data.
-
----
 
 ---
 

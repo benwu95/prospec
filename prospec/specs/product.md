@@ -1,7 +1,7 @@
 ---
 product: prospec
 version: 1.0.0
-last_updated: 2026-11-02
+last_updated: 2026-11-03
 ---
 
 # prospec — Progressive Spec-Driven Development for AI agents
@@ -72,11 +72,6 @@ Centralizes the reading and parsing logic for AI Knowledge and Feature Specs, en
 `prospec mcp serve` exposes project truth over stdio as read-only MCP resources, so an agent in any harness — with no prospec skills installed — can query architecture, specs, dependency direction, and knowledge freshness. Realpath-contained, re-read per request.
 → [features/mcp-server.md](features/mcp-server.md)
 
-### measure
-
-TBD — describe this feature and its value in 1-2 sentences.
-→ [features/measure.md](features/measure.md)
-
 ### project-setup
 
 `prospec init` scaffolds the whole SDD structure in one command: config, Constitution (with a path-scoped Language Policy), AI Knowledge skeleton, and agent configs. `prospec quickstart` chains init and agent sync for brownfield onboarding.
@@ -91,11 +86,6 @@ The station chain every change walks — explore, story, plan, tasks, implement,
 
 Ships prospec as a single multi-platform executable, so a project machine or CI runner needs neither Node.js nor pnpm to use it.
 → [features/standalone-binary.md](features/standalone-binary.md)
-
-### token-measurement
-
-Benchmarks full-dump vs naive-RAG vs prospec context assembly across providers offline, so the token-savings claim is a measured number with a report behind it. `prospec measure` displays it read-only — no threshold, never a CI gate.
-→ [features/token-measurement.md](features/token-measurement.md)
 
 ### workflow-evaluation
 
