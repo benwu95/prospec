@@ -9,7 +9,7 @@ import {
   type ChangeMetadata,
   type NewQualityLogEntry,
 } from '../types/change.js';
-import { MetadataValidationError } from '../types/errors.js';
+import { MetadataValidationError, MetadataWriteError } from '../types/errors.js';
 import {
   TEST_GATE_NOT_ADJUDICATED,
   TEST_GATE_PRODUCER,
@@ -119,6 +119,7 @@ export async function writeChangeMetadataDoc(
   metadataPath: string,
   doc: Document,
   changeName: string,
+  options: { beforeCommit?: () => void } = {},
 ): Promise<void> {
   assertValidChangeMetadata(doc.toJS(), changeName);
   let hasAliases = false;
@@ -133,7 +134,33 @@ export async function writeChangeMetadataDoc(
     };
     doc.contents.items.sort((a, b) => rank(a.key) - rank(b.key));
   }
-  await atomicWrite(metadataPath, stringifyYamlDocument(doc));
+  const content = stringifyYamlDocument(doc);
+  const basename = path.basename(metadataPath);
+  let target = path.resolve(metadataPath);
+  let claimPath = path.join(path.dirname(target), `.${basename}.write-claim`);
+  let claimed = false;
+  let published = false;
+  let failure: { cause: unknown } | undefined;
+  try {
+    await fs.promises.mkdir(path.dirname(target), { recursive: true });
+    const parent = await fs.promises.realpath(path.dirname(target));
+    target = path.join(parent, basename);
+    claimPath = path.join(parent, `.${basename}.write-claim`);
+    await fs.promises.mkdir(claimPath, { mode: 0o700 });
+    claimed = true;
+    options.beforeCommit?.();
+    await atomicWrite(target, content, { beforeRename: options.beforeCommit });
+    published = true;
+  } catch (cause) {
+    failure = { cause };
+  }
+  if (claimed) {
+    try { await fs.promises.rmdir(claimPath); }
+    catch (cause) {
+      failure = { cause: failure ? new AggregateError([failure.cause, cause], 'Metadata publication and claim cleanup failed') : cause };
+    }
+  }
+  if (failure) throw new MetadataWriteError({ metadataPath: target, claimPath, metadata_published: published }, failure.cause);
 }
 
 /**

@@ -18,7 +18,7 @@ story → plan → tasks → implemented → verified → archived
 |------|----|--------------|---------------------|
 | — | `story` | `prospec-new-story` (or `prospec-ff`) | change scaffolding + `proposal.md` created |
 | `story` | `plan` | `prospec-plan` (or `prospec-ff`) | `plan.md` + `delta-spec.md` created |
-| `story` | `tasks` | `prospec-ff` (or `prospec-tasks`) | **quick path**: metadata `scale: quick` (user-confirmed, or machine-assigned by `prospec change auto-draft` from the drift check that triggered the change) — no plan.md/delta-spec.md; spec & knowledge impact re-checked at the `prospec-archive` Entry Gate |
+| `story` | `tasks` | `prospec-ff` (or `prospec-tasks`) | **quick path**: metadata `scale: quick` (Draft-First: autonomously selected; interactive: human-confirmed; auto-draft: machine-assigned by `prospec change auto-draft`) — no plan.md/delta-spec.md; spec & knowledge impact re-checked at the `prospec-archive` Entry Gate |
 | `plan` | `tasks` | `prospec-tasks` (or `prospec-ff`) | `tasks.md` created |
 | — | `implemented` | `prospec-promote-backfill` | **backfill path**: metadata `scale: backfill` — formalizes a reviewed `backfill-draft.md` into the light scaffold (proposal + delta-spec + metadata; **no plan/tasks** — records existing code); the brownfield code already exists, so it enters at `implemented` (no story/plan/tasks/implement transitions run) |
 | `tasks` | `implemented` | `prospec-implement` | all `tasks.md` **code-task** checkboxes complete (`[M]`/`[V]` kinds are reminders — see the tasks-format reference) |
@@ -29,7 +29,7 @@ story → plan → tasks → implemented → verified → archived
 
 ## Station order
 
-The stations `prospec status` routes between, in canonical order. Wider than the six statuses: `design` and `promote` own no status transition of their own — design sits between plan and tasks (only when `proposal.md` declares `ui_scope` full/partial), and `promote` is the backfill entry that lands at `implemented`.
+The stations `prospec status` routes between, in canonical order. Stations differ from metadata statuses: `design` and `promote` own no status transition of their own — design sits between plan and tasks (only when `proposal.md` declares `ui_scope` full/partial), and `promote` is the backfill entry that lands at `implemented`.
 
 `story → plan → design → tasks → promote → implement → knowledge-update → review → verify → archive`
 
@@ -116,8 +116,8 @@ waive Knowledge checks, document review or project-defined pre-merge CI.
 ## Rules
 
 - The skill that owns a transition MUST update `metadata.yaml` `status` when it completes its phase.
-- No skill may skip ahead (e.g. `tasks → verified` without `implemented`, or archiving a non-`verified` change). The only legal skip is `story → tasks` under a `scale: quick` — confirmed by the user, or assigned by `prospec change auto-draft` from the drift check it drafted for. Separately, `prospec-promote-backfill` is a lifecycle **entry** (not a skip): it enters at `implemented` under metadata `scale: backfill` (the brownfield code it records already exists).
-- These six are the only valid statuses. Adding one requires updating this file **and** every consuming skill. (`scale: backfill` is a metadata **scale** value, not a new status — it routes verify/archive, like `scale: quick`.)
+- No skill may skip ahead (e.g. `tasks → verified` without `implemented`, or archiving a non-`verified` change). The only legal skip is `story → tasks` under a `scale: quick` (Draft-First: autonomously selected; interactive: human-confirmed; auto-draft: machine-assigned by `prospec change auto-draft`). Separately, `prospec-promote-backfill` is a lifecycle **entry** (not a skip): it enters at `implemented` under metadata `scale: backfill` (the brownfield code it records already exists).
+- The only valid metadata statuses are `story`, `plan`, `tasks`, `implemented`, `verified`, `archived`, and `abandoned`. Stations and human sign-off points add no status values. Adding a status requires updating this file **and** every consuming skill; scale values remain separate.
 
 ## Persistent Escalation Decisions
 

@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { vol } from 'memfs';
+import * as fs from 'node:fs';
 import { execute } from '../../../src/services/verify-record.service.js';
 import { assessCurrentDrift } from '../../../src/lib/drift-assessment.js';
 import { PrerequisiteError } from '../../../src/types/errors.js';
@@ -9,6 +10,134 @@ import { RELAYED_FIELD_MAX_CHARS } from '../../../src/types/station.js';
 import { EVIDENCE_SECTION_MARKER } from '../../../src/lib/delegated-evidence.js';
 import { INDEX_INPUTS_HINT } from '../../../src/lib/drift-checker.js';
 import type { ConstitutionRuleEntry } from '../../../src/types/drift-report.js';
+
+describe('verify-record metadata publication milestones', () => {
+  it('retains committed grant consumption when publication succeeds but claim cleanup fails', async () => {
+    await seedVerifyGrant();
+    const release = vi.spyOn(fs.promises, 'rmdir').mockRejectedValueOnce(new Error('controlled grant claim release failure'));
+    try {
+      const failure = await execute({ cwd: CWD, judgmentDimensions: judgment(), warnings: [] }).catch((error: unknown) => error);
+      expect(failure).toMatchObject({ code: 'ESCALATION_REFUSED',
+        details: { persistence: { accepted_persisted: true, grant_consumed: true, artifact_persisted: false } },
+        cause: { details: { metadata_published: true } } });
+      const written = String(vol.readFileSync(META, 'utf8'));
+      expect(written.match(/kind: consume/g)).toHaveLength(1);
+      expect(written).toContain('grant_id: verify-grant');
+      expect(vol.existsSync('/repo/.prospec/changes/add-widget/verify.md')).toBe(false);
+    } finally { release.mockRestore(); }
+  });
+
+  it('retains acceptance when claim cleanup fails after metadata publication without claiming evidence I/O', async () => {
+    seed();
+    const release = vi.spyOn(fs.promises, 'rmdir').mockRejectedValueOnce(new Error('controlled claim release failure'));
+    try {
+      const failure = await execute({ cwd: CWD, judgmentDimensions: judgment(), warnings: [] }).catch((error: unknown) => error);
+      expect(failure).toMatchObject({
+        code: 'ESCALATION_REFUSED',
+        details: { persistence: { accepted_persisted: true, event_persisted: false, grant_consumed: false } },
+        cause: { details: { metadata_published: true } },
+      });
+      expect((failure as Error).message).not.toContain('writing verify.md failed');
+      expect(vol.readFileSync(META, 'utf8')).toContain('status: verified');
+      expect(vol.readFileSync(META, 'utf8')).toContain('accepted:');
+      expect(vol.existsSync('/repo/.prospec/changes/add-widget/verify.md')).toBe(false);
+    } finally { release.mockRestore(); }
+  });
+
+  it('reports acceptance uncommitted and preserves metadata on a pre-publication rename failure', async () => {
+    seed();
+    const before = vol.readFileSync(META, 'utf8');
+    const rename = vi.spyOn(fs.promises, 'rename').mockRejectedValueOnce(new Error('controlled metadata rename failure'));
+    try {
+      const failure = await execute({ cwd: CWD, judgmentDimensions: judgment(), warnings: [] }).catch((error: unknown) => error);
+      expect(failure).toMatchObject({ code: 'ESCALATION_REFUSED',
+        details: { persistence: { accepted_persisted: false, event_persisted: false, grant_consumed: false } },
+        cause: { details: { metadata_published: false } } });
+      expect(vol.readFileSync(META, 'utf8')).toBe(before);
+      expect(vol.existsSync('/repo/.prospec/changes/add-widget/verify.md')).toBe(false);
+    } finally { rename.mockRestore(); }
+  });
+});
+
+describe('verify-record — selective backfill debt', () => {
+  const ruleInventory: ConstitutionRuleEntry[] = [
+    { name: 'Legacy layering', severity: 'MUST', has_verify_hint: true, line: 1, check_id: 'import-direction' },
+    { name: 'Artifact integrity', severity: 'MUST', has_verify_hint: true, line: 2 },
+  ];
+  const debtRules = [
+    { name: 'Legacy layering', result: 'FAIL', applicability: 'pre-existing-code',
+      statement: 'src/legacy.ts is unchanged; all current artifacts comply.' },
+    { name: 'Artifact integrity', result: 'PASS', statement: 'No fabricated intent in the proposal.' },
+  ];
+  const runDebt = (options: { aggregate?: string; artifact?: string; proven?: boolean; severity?: string } = {}) => {
+    seed({ scale: 'backfill', draft: options.proven ?? true,
+      reportJson: report({ id: 'fail', cs: options.severity ?? 'pass' }, { constitution: { rules: ruleInventory } }) });
+    vol.writeFileSync('/repo/debt.json', JSON.stringify([
+      { name: 'delta-spec-compliance', result: 'PASS', graded_by: 'fresh-subagent' },
+      { name: 'constitution', result: options.aggregate ?? 'PASS', graded_by: 'fresh-subagent',
+        constitution_rules: debtRules.map((rule) => rule.name === 'Artifact integrity'
+          ? { ...rule, result: options.artifact ?? 'PASS' } : rule) },
+      { name: 'design', result: 'not-applicable', graded_by: 'fresh-subagent' },
+    ]));
+    return execute({ cwd: CWD, dimensionsPath: '/repo/debt.json', warnings: [] });
+  };
+
+  it('keeps evidenced existing code debt informational and retains its raw audit in verify.md', async () => {
+    const result = await runDebt();
+    expect(result.grade).toBe('A');
+    expect(result.statusAdvanced).toBe(true);
+    expect(result.excludedFromGrade).toEqual([]);
+    const evidence = vol.readFileSync('/repo/.prospec/changes/add-widget/verify.md', 'utf8') as string;
+    expect(evidence).toContain('"applicability": "pre-existing-code"');
+    expect(evidence).toContain('"result": "FAIL"');
+    expect(evidence).toContain('"check_id": "import-direction"');
+    expect(evidence).toContain('"verdict": "FAIL"');
+    expect(evidence).toContain('src/legacy.ts is unchanged');
+  });
+
+  it('keeps an explicit aggregate Constitution FAIL grade-bearing despite classified debt', async () => {
+    const result = await runDebt({ aggregate: 'FAIL' });
+    expect(result.grade).toBe('C');
+    expect(result.statusAdvanced).toBe(false);
+    expect(vol.readFileSync(META, 'utf8')).toContain('status: implemented');
+  });
+
+  it('refuses an aggregate PASS hiding an applicable artifact rule FAIL beside existing debt', async () => {
+    await expect(runDebt({ artifact: 'FAIL' })).rejects.toThrow(/Artifact integrity/);
+    expect(vol.readFileSync(META, 'utf8')).toContain('status: implemented');
+  });
+
+  it('does not let a debt classification lower the independent constitution-severity floor', async () => {
+    await expect(runDebt({ severity: 'fail' })).rejects.toThrow(/constitution-severity/);
+  });
+
+  it('refuses debt classification without proven backfill provenance', async () => {
+    await expect(runDebt({ proven: false })).rejects.toThrow(/proven backfill/);
+  });
+
+  it('refuses if the proven-backfill artifact disappears during live assessment', async () => {
+    const original = vi.mocked(assessCurrentDrift).getMockImplementation()!;
+    vi.mocked(assessCurrentDrift).mockImplementationOnce(async (cwd) => {
+      const observation = await original(cwd);
+      vol.unlinkSync('/repo/.prospec/changes/add-widget/backfill-draft.md');
+      return observation;
+    });
+    await expect(runDebt()).rejects.toThrow(/inputs changed/);
+    expect(vol.readFileSync(META, 'utf8')).toContain('status: implemented');
+  });
+
+  it.each(['FAIL', 'WARN'] as const)('retains an unclassified judgment-only artifact %s floor', async (result) => {
+    seed({ scale: 'backfill', draft: true,
+      reportJson: report({}, { constitution: { rules: [ruleInventory[1]!] } }) });
+    vol.writeFileSync('/repo/artifact.json', JSON.stringify([
+      { name: 'delta-spec-compliance', result: 'PASS', graded_by: 'fresh-subagent' },
+      { name: 'constitution', result: 'PASS', graded_by: 'fresh-subagent',
+        constitution_rules: [{ name: 'Artifact integrity', result, statement: 'Current proposal is defective.' }] },
+      { name: 'design', result: 'not-applicable', graded_by: 'fresh-subagent' },
+    ]));
+    await expect(execute({ cwd: CWD, dimensionsPath: '/repo/artifact.json', warnings: [] })).rejects.toThrow(/Artifact integrity/);
+  });
+});
 
 vi.mock('node:fs', async () => {
   const memfs = await import('memfs');
@@ -291,16 +420,16 @@ describe('verify-record service', () => {
     );
   });
 
-  it('proven backfill excludes constitution + tests from the grade but still records them', async () => {
+  it('proven backfill retains constitution + tests FAIL in the grade and does not advance', async () => {
     seed({ scale: 'backfill', draft: true, reportJson: report({ tp: 'fail' }) });
     const result = await execute({
       cwd: CWD,
       judgmentDimensions: judgment({ constitution: 'FAIL' }),
       warnings: [],
     });
-    expect(result.excludedFromGrade).toEqual(['constitution', 'tests']);
-    // Both FAILs are excluded; the missing-delta gap still caps the grade at A.
-    expect(result.grade).toBe('A');
+    expect(result.excludedFromGrade).toEqual([]);
+    expect(result.grade).toBe('C');
+    expect(result.statusAdvanced).toBe(false);
     const written = vol.readFileSync(META, 'utf-8') as string;
     expect(written).toContain('name: tests');
     expect(written).toContain('name: constitution');
@@ -317,19 +446,19 @@ describe('verify-record service', () => {
     expect(vol.readFileSync(META, 'utf-8')).toContain('status: verified');
   });
 
-  it('a grade-excluded skipped check does not consume the WARN budget on a proven backfill (review C6b)', async () => {
-    // tests (test-provenance) is skipped AND grade-excluded → no auto warning,
-    // Only the missing-delta gap counts; two caller warnings bring the total to three.
+  it('an unadjudicated tests check retains its warning budget on a proven backfill', async () => {
     seed({ scale: 'backfill', draft: true, reportJson: report({ tp: 'skipped' }) });
     const clean = await execute({ cwd: CWD, judgmentDimensions: judgment(), warnings: [] });
     expect(clean.grade).toBe('A');
-    expect(clean.warnings).toEqual([expect.stringContaining('empty requirement set')]);
+    expect(clean.warnings).toEqual([
+      expect.stringContaining('tests: not-adjudicated'), expect.stringContaining('empty requirement set'),
+    ]);
     seed({ scale: 'backfill', draft: true, reportJson: report({ tp: 'skipped' }) });
     const twoWarns = await execute({ cwd: CWD, judgmentDimensions: judgment(), warnings: ['w1', 'w2'] });
     expect(twoWarns.grade).toBe('B');
   });
 
-  it('proven backfill: an in-session grade on a scale-excluded dimension still caps S at A (review CS-1)', async () => {
+  it('proven backfill: an in-session Constitution grade still caps S at A', async () => {
     seed({ scale: 'backfill', draft: true });
     const dims: QualityDimension[] = [
       { name: 'delta-spec-compliance', result: 'PASS', graded_by: 'fresh-subagent' },
@@ -337,7 +466,7 @@ describe('verify-record service', () => {
       { name: 'design', result: 'not-applicable', graded_by: 'fresh-subagent' },
     ];
     const result = await execute({ cwd: CWD, judgmentDimensions: dims, warnings: [], date: '2026-08-22' });
-    expect(result.excludedFromGrade).toContain('constitution');
+    expect(result.excludedFromGrade).toEqual([]);
     expect(result.grade).toBe('A');
     expect(result.selfVerifiedCap).toBeDefined();
     expect(result.selfVerifiedCap!.dimensions).toEqual(['constitution']);

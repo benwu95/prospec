@@ -16,7 +16,7 @@ import { indexInputsHint } from '../lib/drift-checker.js';
 import { runTestCommand } from '../lib/test-runner.js';
 import { resolveChange } from './change-resolver.js';
 import { DRIFT_REPORT_FILENAME, type DriftReport, type TestInputState } from '../types/drift-report.js';
-import { PrerequisiteError, TestTimeoutInvalid } from '../types/errors.js';
+import { MetadataWriteError, PrerequisiteError, TestTimeoutInvalid } from '../types/errors.js';
 import type { AutoDraftResult } from '../types/auto-draft.js';
 import { execute as autoDraftExecute } from './auto-draft.service.js';
 
@@ -297,6 +297,7 @@ async function recordTestProvenance(
       await writeChangeMetadataDoc(metadataPath, doc, change);
       return result;
     } catch (error) {
+      if (error instanceof MetadataWriteError) throw error;
       return { ...result, recorded: false, reason: `metadata.yaml changed during the run and no longer validates or cannot be written — re-run (${error instanceof Error ? error.message : String(error)})` };
     }
   };

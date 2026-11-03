@@ -30,6 +30,39 @@ export class ProspecError extends Error {
   }
 }
 
+export interface MetadataWriteFailure {
+  metadataPath: string;
+  claimPath: string;
+  metadata_published: boolean;
+}
+
+export class MetadataWriteError extends ProspecError {
+  constructor(readonly details: MetadataWriteFailure, cause: unknown) {
+    super(`Metadata publication incomplete (metadata_published=${details.metadata_published}): ${cause instanceof Error ? cause.message : String(cause)}`,
+      'METADATA_WRITE_FAILED',
+      `Inspect current metadata at ${details.metadataPath} and claim ${details.claimPath}. Retry against current state after the active writer completes. If the claim remains, confirm no writer owns it before manual removal; do not automatically unlock or replay a published update.`,
+      { cause });
+    this.name = 'MetadataWriteError';
+  }
+}
+
+export interface SignoffWriteFailure {
+  metadataPath: string;
+  decisionPath?: string;
+  decision_published: boolean;
+  metadata_recorded: boolean;
+}
+
+export class SignoffWriteError extends ProspecError {
+  constructor(readonly details: SignoffWriteFailure, cause: unknown) {
+    super(`Sign-off publication incomplete (decision_published=${details.decision_published}, metadata_recorded=${details.metadata_recorded}): ${cause instanceof Error ? cause.message : String(cause)}`,
+      'SIGNOFF_WRITE_FAILED',
+      `Inspect current metadata at ${details.metadataPath}${details.decisionPath ? ` and decision at ${details.decisionPath}` : ''}; run prospec status before retrying against current inputs. Published files are retained.`,
+      { cause });
+    this.name = 'SignoffWriteError';
+  }
+}
+
 export class AbandonError extends ProspecError {
   constructor(readonly details: AbandonFailureDetails, cause: unknown) {
     super(`Abandonment incomplete during ${details.phase}: ${String(cause)}`,

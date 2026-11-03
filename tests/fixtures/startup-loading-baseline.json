@@ -189,7 +189,7 @@
     "cascade-protocol": 2727,
     "circuit-breaker": 1240,
     "debug-recovery-format": 1255,
-    "delegated-evidence-format": 3202,
+    "delegated-evidence-format": 3246,
     "delegation-protocol": 2871,
     "delta-spec-format": 2061,
     "design-spec-format": 847,
@@ -199,7 +199,7 @@
     "human-decision": 793,
     "implementation-guide": 1021,
     "interaction-spec-format": 743,
-    "metadata-format": 3999,
+    "metadata-format": 3978,
     "plan-format": 2939,
     "plan-verifier-rubric": 2379,
     "product-spec-format": 1189,
@@ -211,6 +211,6 @@
     "spec-graduation": 840,
     "tasks-format": 1467,
     "tasks-verifier-rubric": 1529,
-    "verify-backfill": 1265
+    "verify-backfill": 1196
   }
 }

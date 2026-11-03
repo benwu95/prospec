@@ -9,7 +9,7 @@ import { WriteError } from '../types/errors.js';
 export async function atomicWrite(
   filePath: string,
   content: string | Buffer,
-  options: { mode?: number } = {},
+  options: { mode?: number; beforeRename?: () => void } = {},
 ): Promise<void> {
   const dir = path.dirname(filePath);
   await ensureDir(dir);
@@ -20,6 +20,7 @@ export async function atomicWrite(
     else await fs.promises.writeFile(tmpPath, content);
     // chmod after the write: a mode passed to writeFile is masked by the umask.
     if (options.mode !== undefined) await fs.promises.chmod(tmpPath, options.mode);
+    options.beforeRename?.();
     await fs.promises.rename(tmpPath, filePath);
   } catch (err) {
     // Clean up temp file on failure

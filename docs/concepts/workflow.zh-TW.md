@@ -42,7 +42,7 @@ Prospec 生成 17 個 Skills —— 15 個涵蓋完整 SDD 生命週期，外加
 
 ## 相稱流程（Scale）
 
-不是每個變更都值得完整儀式。story 階段由 `prospec-new-story`（或 `prospec-ff`）依明文判準評估複雜度並建議 scale —— **經你確認後**才寫入 `metadata.yaml`：
+不是每個變更都值得完整儀式。story 階段由 `prospec-new-story`（或 `prospec-ff`）依明文判準評估複雜度並記錄 scale 至 `metadata.yaml`：Draft-First 自主選擇並記錄 assumptions；interactive 模式由人類決定；`prospec change auto-draft` 依觸發的 drift check 指派。
 
 | Scale | 流程差異 |
 |-------|---------|

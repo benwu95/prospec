@@ -48,9 +48,11 @@ Track status via metadata.yaml, with `ai-knowledge/_status-lifecycle.md` as the 
 - WHEN any workflow skill needs the state machine, THEN point at `_status-lifecycle.md` as the source of truth
 - WHEN gating artifacts, THEN Feature Specs are updated ONLY by `/prospec-archive` (Phase 3.5 graduation); `/prospec-verify` gates on Knowledge↔code and does NOT gate on Feature Spec freshness — preventing a verify↔archive deadlock
 - WHEN reaching the S/A commit boundary, THEN final module-README Knowledge and factual-count sync precede final valid review/tests/verify, and a content-equivalent feature commit retains that evidence; archive remains the backstop that FAILs when unsynced, while Feature Specs remain archive-Phase-3.5-only
-- WHEN `prospec change auto-draft` creates a change, THEN its `scale` is assigned from the drift check that triggered it rather than confirmed by a user — a machine-assigned scale is as legal as a confirmed one, and the lifecycle document says so rather than stating a blanket "user-confirmed"
+- WHEN `prospec change auto-draft` creates a change, THEN its `scale` is assigned from the drift check that triggered it rather than confirmed by a user — the lifecycle document includes this assignment alongside Draft-First autonomous selection and interactive human selection
 - WHEN story scaffolding creates metadata, THEN it declares premise_version: 1 under REQ-TYPES-111; legacy records remain readable without that field.
 - WHEN change abandon completes under REQ-SERVICES-128, THEN status becomes terminal abandoned outside the successful graduation chain; generic status cannot set or revive it.
+- WHEN lifecycle source, deployed Knowledge or bundled guidance describes quick scale, THEN it names Draft-First autonomous selection, interactive human selection and auto-draft assignment consistently.
+- WHEN lifecycle guidance names the status set, THEN its seven values match CHANGE_STATUSES including abandoned; stations and plan/Tastemaker human stop points do not add metadata statuses.
 
 #### REQ-CHNG-005: Prevent Duplicate Changes
 - WHEN change name already exists, THEN prompt and exit

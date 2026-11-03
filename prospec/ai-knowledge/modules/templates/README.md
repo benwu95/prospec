@@ -49,7 +49,7 @@
 
 - Archive guidance keeps CLI-returned `archivePath`/`archiveIdentity` for summary, harvest and exact finalize; history/learn/retry guidance resolves canonical roots via `history paths` and names explicit legacy import. Abandon guidance uses the returned canonical abandoned destination; successful archive remains separate. Entry configs inherit its artifact-language scope from `language-policy.ts`.
 
-- New-story/ff review abandoned reasons and author `retry_difference` before validation on every scale. CLI-owned `retry_of` records creation-time history; quick/backfill can use a difference-only Premise. Synchronize both lifecycle copies and refresh exact startup baselines without raising ceilings.
+- New-story/ff review abandoned reasons and author `retry_difference` before scale exemptions. Lifecycle copies distinguish quick selection (Draft-First autonomous, interactive human-confirmed, auto-draft machine-assigned) and all seven `CHANGE_STATUSES`, including terminal `abandoned`; stations/sign-off add no statuses. The metadata field table lists scale writers without selection preconditions; new-story owns the selection modes. Synchronize copies, bundle and deployments without raising startup ceilings.
 
 - `_premise.hbs` is the shared pending proposal mapping. Proposal-format owns the contract; new-story/ff ground confirmed Why in traceable evidence, and explore hands missing evidence back to new-story to update the same proposal without resetting status or scenarios. `source` remains the original origin after verification. Interactive prompts ask only for missing decisions, reusing supplied name, scale and tracker inputs.
 

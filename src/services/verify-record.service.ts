@@ -3,7 +3,7 @@ import type { EscalationDecision } from '../types/cascade.js';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { isDeepStrictEqual } from 'node:util';
-import { EscalationError, PrerequisiteError } from '../types/errors.js';
+import { EscalationError, MetadataWriteError, PrerequisiteError } from '../types/errors.js';
 import {
   isStatusBefore,
   type EscalationHistory,
@@ -24,6 +24,7 @@ import {
   readChangeMetadata,
   writeChangeMetadataDoc,
   appendQualityLogEntry,
+  isProvenBackfill,
 } from '../lib/change-metadata.js';
 import { atomicWrite, captureFileInputs } from '../lib/fs-utils.js';
 import { toInlineCodeSpan, trimTrailingNewlines } from '../lib/markdown-fences.js';
@@ -39,7 +40,7 @@ import {
 import { assessCurrentDrift } from '../lib/drift-assessment.js';
 import { INDEX_INPUTS_HINT } from '../lib/drift-checker.js';
 import { adjudicateChangeCheck, mapCheckStatusToVerdict } from '../lib/change-gate.js';
-import { auditConstitution } from '../lib/constitution-audit.js';
+import { auditConstitution, assessConstitutionApplicability, type ConstitutionMachineLedgerEntry } from '../lib/constitution-audit.js';
 import type { DriftCheckId } from '../types/drift-report.js';
 import {
   computeGrade,
@@ -96,7 +97,7 @@ export interface VerifyRecordResult {
   /** Whether the grade itself graduates (S/A) — lets the CLI tell "already
    *  verified" apart from "grade too low" without re-deriving the rule. */
   gradeGraduates: boolean;
-  /** Grade-input exclusions applied (scale-aware, e.g. proven backfill). */
+  /** Dimension-wide exclusions; rule applicability is assessed separately. */
   excludedFromGrade: string[];
   /** Repo-relative `verify.md` path, when this run recorded verification evidence. */
   evidencePath?: string;
@@ -228,6 +229,7 @@ function readJudgmentInput(dimensionsPath: string): JudgmentDimensionInput[] {
 function evidenceBlockFor(
   d: JudgmentDimensionInput,
   reqAssessment?: RequirementAssessmentResult,
+  machineLedger?: ConstitutionMachineLedgerEntry[],
 ): EvidenceBlock | undefined {
   const bodyParts: string[] = [];
   if (d.name === 'delta-spec-compliance' && d.context_id) {
@@ -241,6 +243,10 @@ function evidenceBlockFor(
   }
   if (d.evidence !== undefined && d.evidence.trim() !== '') {
     bodyParts.push(d.evidence);
+  }
+  if (d.name === 'constitution' && d.constitution_rules !== undefined) {
+    const rawAudit = JSON.stringify({ rules: d.constitution_rules, machine_ledger: machineLedger ?? [] }, null, 2).replace(/</g, '\\u003c');
+    bodyParts.push(`#### Constitution Rule Audit\n\n\`\`\`json\n${rawAudit}\n\`\`\``);
   }
   if (d.name === 'delta-spec-compliance' && reqAssessment && reqAssessment.items.length > 0) {
     const tableRows = reqAssessment.items.map((item) => [
@@ -310,9 +316,8 @@ function verdictRank(result: string): number {
  * Machine dimensions (1/5, 4/5, 5/5) are SELF-SOURCED from `prospec-report.json`
  * — the CLI never accepts an LLM's relay of an engine verdict. Judgment
  * dimensions (2/5, 3/5, 6) arrive as input. Scale policy is applied here:
- * a PROVEN backfill (backfill-draft.md present) excludes constitution + tests
- * from the grade inputs (recorded, informational); an unproven `scale:
- * backfill` grades as standard and records the honesty WARN. Grade S/A appends
+ * a proven backfill records evidenced pre-existing code debt separately from
+ * applicable failures; unproven backfill grades as standard with an honesty WARN. Grade S/A appends
  * the quality_log entry AND advances `status: verified` in one atomic write.
  */
 export async function execute(options: VerifyRecordOptions): Promise<VerifyRecordResult> {
@@ -331,6 +336,7 @@ export async function execute(options: VerifyRecordOptions): Promise<VerifyRecor
   const inputSnapshot = captureFileInputs({
     proposal: path.join(changeDir, 'proposal.md'), deltaSpec: path.join(changeDir, 'delta-spec.md'),
     tasks: path.join(changeDir, 'tasks.md'), config: configPath,
+    backfillDraft: path.join(changeDir, 'backfill-draft.md'),
     ...(options.dimensionsPath ? { dimensions: options.dimensionsPath } : {}),
   });
   const configBytes = inputSnapshot.values.config;
@@ -390,29 +396,14 @@ export async function execute(options: VerifyRecordOptions): Promise<VerifyRecor
     );
   }
 
-  // Scale policy FIRST — it shapes both the machine ledger and the warnings.
-  // A PROVEN backfill (backfill-draft.md present) has no tasks.md by contract,
-  // so 1/5 task-completion is not-applicable (never a vacuous PASS from the
-  // repo-wide check, never a FAIL borrowed from a sibling change), and 3/5 +
-  // 5/5 are recorded but excluded from the grade inputs.
   const metadataPath = path.join(cwd, '.prospec', 'changes', changeName, 'metadata.yaml');
   const metadataInput = fs.readFileSync(metadataPath, 'utf8');
   const { doc, metadata } = readChangeMetadata(metadataPath, changeName);
-  let excludedFromGrade: string[] = [];
-  let notApplicableMachine: string[] = [];
-  let backfillHonestyWarning: string | undefined;
-  if (metadata.scale === 'backfill') {
-    const draftPresent = fs.existsSync(
-      path.join(cwd, '.prospec', 'changes', changeName, 'backfill-draft.md'),
-    );
-    if (draftPresent) {
-      excludedFromGrade = ['constitution', 'tests'];
-      notApplicableMachine = ['task-completion'];
-    } else {
-      backfillHonestyWarning =
-        '`scale: backfill` claimed but no backfill-draft.md — graded as standard';
-    }
-  }
+  const excludedFromGrade: string[] = [];
+  const provenBackfill = isProvenBackfill(path.dirname(metadataPath), metadata.scale);
+  const notApplicableMachine = provenBackfill ? ['task-completion'] : [];
+  const backfillHonestyWarning = metadata.scale === 'backfill' && !provenBackfill
+    ? '`scale: backfill` claimed but no backfill-draft.md — graded as standard' : undefined;
 
   const deltaVerdict = judgmentVerdicts.find((d) => d.name === 'delta-spec-compliance');
   const deltaInput = judgmentInput.find((d) => d.name === 'delta-spec-compliance');
@@ -613,6 +604,17 @@ export async function execute(options: VerifyRecordOptions): Promise<VerifyRecor
     }
   }
 
+  const applicability = assessConstitutionApplicability({
+    rules: constitutionRules, graderEntries: graderConstitutionRules ?? [], provenBackfill,
+  });
+  if (applicability.errors.length > 0) {
+    throw new PrerequisiteError(
+      `Invalid Constitution applicability: ${applicability.errors.join('; ')}`,
+      'Supply complete unique known-rule judgments for a proven backfill; only evidenced unchanged code debt is informational',
+    );
+  }
+  const informationalRules = new Set(applicability.informationalRules);
+
   // Gate A — the review-provenance Entry Gate, enforced here so the verify skill
   // no longer checks it by hand: a non-backfill change whose review-provenance,
   // adjudicated for THIS change, is not `pass` (review absent, stale, or the
@@ -674,6 +676,7 @@ export async function execute(options: VerifyRecordOptions): Promise<VerifyRecor
     }
     if (d.name === 'constitution') {
       for (const entry of constitutionAudit.machineLedger) {
+        if (informationalRules.has(entry.rule_name)) continue;
         if (entry.verdict === 'FAIL' && verdictRank(d.result) < 2) {
           throw new PrerequisiteError(
             `judgment dimension "${d.name}" is declared "${d.result}" but machine check "${entry.check_id}" for rule "${entry.rule_name}" reports "fail" — a judgment cannot be more lenient than a machine finding`,
@@ -684,6 +687,16 @@ export async function execute(options: VerifyRecordOptions): Promise<VerifyRecor
           throw new PrerequisiteError(
             `judgment dimension "${d.name}" is declared "${d.result}" but machine check "${entry.check_id}" for rule "${entry.rule_name}" reports "warn" — a judgment cannot be more lenient than a machine finding`,
             `Grade "${d.name}" at least WARN, or fix the violation and regenerate the report before recording`,
+          );
+        }
+      }
+      for (const rule of graderConstitutionRules ?? []) {
+        if (informationalRules.has(rule.name) || !constitutionRules.some((known) => known.name === rule.name)) continue;
+        const floor = verdictRank(rule.result);
+        if (floor > 0 && verdictRank(d.result) < floor) {
+          throw new PrerequisiteError(
+            `judgment dimension "constitution" is declared "${d.result}" but applicable rule "${rule.name}" reports "${rule.result}"`,
+            `Grade constitution at least ${rule.result}, or repair the applicable violation before recording`,
           );
         }
       }
@@ -707,20 +720,18 @@ export async function execute(options: VerifyRecordOptions): Promise<VerifyRecor
 
   // A not-adjudicated machine dimension is itself a WARN — spell its warning
   // string out so the recorded warnings are the complete budget ledger (there
-  // is no exemption class to park it in post-#107). A dimension EXCLUDED from
-  // the grade inputs is informational, so its warning must not consume the
-  // budget either.
+  // is no exemption class to park it in post-#107).
   // The recorded warnings ARE the ledger — embed the check's own skip reason
   // instead of pointing at a report that is overwritten by the next check run.
   const notAdjudicatedWarnings = machineDimensions
-    .filter((d) => d.result === 'not-adjudicated' && !excludedFromGrade.includes(d.name))
+    .filter((d) => d.result === 'not-adjudicated')
     .map((d) => {
       const reason = machineSkipReasons.get(d.name);
       return `${d.name}: not-adjudicated — its check could not run (${reason ?? 'no skip reason recorded in the report'})`;
     });
 
   const constitutionNotAdjWarnings: string[] = constitutionAudit.machineLedger
-    .filter((entry) => entry.verdict === 'not-adjudicated' && !excludedFromGrade.includes('constitution'))
+    .filter((entry) => entry.verdict === 'not-adjudicated')
     .map((entry) => `constitution: rule "${entry.rule_name}" check "${entry.check_id}" not-adjudicated — its check could not run`);
 
   const warnings = [
@@ -731,13 +742,8 @@ export async function execute(options: VerifyRecordOptions): Promise<VerifyRecor
     ...(reqAssessment && reqAssessment.gapWarnings.length > 0 ? reqAssessment.gapWarnings : []),
   ];
 
-  const gradeInputs = dimensions.filter((d) => !excludedFromGrade.includes(d.name));
-  // The cap scans the FULL judgment set, not only the grade inputs: a scale
-  // policy (proven backfill) excludes a dimension's VERDICT from the grade, but
-  // its grading context is still a self-verification — REQ-CLI-029 caps on ANY
-  // judgment dimension graded in-session.
   const judgmentDimensions = dimensions.filter((d) => d.adjudicator === 'judgment');
-  const grade = applySelfVerifiedCap(computeGrade(gradeInputs, warnings), judgmentDimensions);
+  const grade = applySelfVerifiedCap(computeGrade(dimensions, warnings), judgmentDimensions);
   const gateResult = resultForGrade(grade);
   // A separate signal from the WARN ledger: naming the in-session dimensions and
   // the remedy, surfaced whenever a judgment dimension was self-verified — which
@@ -772,6 +778,7 @@ export async function execute(options: VerifyRecordOptions): Promise<VerifyRecor
       const block = evidenceBlockFor(
         { ...d, result: judgmentVerdicts.find((verdict) => verdict.name === d.name)!.result },
         d.name === 'delta-spec-compliance' ? reqAssessment : undefined,
+        d.name === 'constitution' ? constitutionAudit.machineLedger : undefined,
       );
       if (block !== undefined) blocks.push(block);
     }
@@ -867,10 +874,13 @@ export async function execute(options: VerifyRecordOptions): Promise<VerifyRecor
   }
   let acceptedPersisted = replay;
   let grantConsumed = replay && log.some(e => e.escalation?.kind === 'consume' && e.escalation.attempt_id === attemptId);
-  const partialFailure = (cause: unknown): EscalationError => {
+  const partialFailure = (cause: unknown, phase: 'metadata' | 'evidence' = 'evidence'): EscalationError => {
     const persistedHistory = acceptedPersisted && !replay ? reduceEscalationHistory([...log, entry, ...eventEntries], retryBound) : history;
     return new EscalationError(
-      `${acceptedPersisted ? `metadata.yaml was updated with grade ${grade}, but writing verify.md failed` : 'Verify metadata write failed'} (${cause instanceof Error ? cause.message : String(cause)})`,
+      `${acceptedPersisted ? phase === 'metadata'
+        ? `metadata.yaml was updated with grade ${grade}, but claim cleanup failed; verification evidence was not written`
+        : `metadata.yaml was updated with grade ${grade}, but writing verify.md failed`
+        : 'Verify metadata write failed'} (${cause instanceof Error ? cause.message : String(cause)})`,
       'Re-run the same verify inputs to repair only their missing evidence; accepted grades and grants are not repeated',
       escalationFailureDetails(persistedHistory, 'prospec-verify', !acceptedPersisted ? trigger ?? undefined : undefined, {
         accepted_persisted: acceptedPersisted, grant_consumed: grantConsumed,
@@ -894,7 +904,13 @@ export async function execute(options: VerifyRecordOptions): Promise<VerifyRecor
   assertCurrentInputs();
   if (!replay) {
     try { await writeChangeMetadataDoc(metadataPath, doc, changeName); }
-    catch (cause) { throw partialFailure(cause); }
+    catch (cause) {
+      if (cause instanceof MetadataWriteError && cause.details.metadata_published) {
+        acceptedPersisted = true;
+        grantConsumed = admission.kind === 'accept' && admission.grant !== undefined;
+      }
+      throw partialFailure(cause, 'metadata');
+    }
     acceptedPersisted = true;
     grantConsumed = admission.kind === 'accept' && admission.grant !== undefined;
   }

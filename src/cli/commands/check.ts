@@ -1,5 +1,6 @@
 import { Option, type Command } from 'commander';
 import { DIMENSION_GRADED_BY, type DimensionGradedBy } from '../../types/change.js';
+import { MetadataWriteError } from '../../types/errors.js';
 import { formatCheckOutput } from '../formatters/check-output.js';
 import { handleError } from '../formatters/error-output.js';
 import type { GlobalOptions } from '../index.js';
@@ -83,7 +84,7 @@ export function registerCheckCommand(program: Command): void {
             process.exitCode = 1;
           }
         } catch (err) {
-          handleError(err, globalOpts.verbose ?? false);
+          handleError(err, globalOpts.verbose ?? false, options.json === true && err instanceof MetadataWriteError);
         }
       },
     );

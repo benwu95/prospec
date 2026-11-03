@@ -1,10 +1,12 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import * as fs from 'node:fs';
 import { chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, utimesSync, writeFileSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { parseYaml } from '../../../src/lib/yaml-utils.js';
 import { delegationFailureWarning, execute } from '../../../src/services/change-delegate.service.js';
 import { DELEGATION_PRODUCER } from '../../../src/types/station.js';
+import { MetadataWriteError } from '../../../src/types/errors.js';
 import { gitIn } from '../../helpers/git-fixture.js';
 import { usePrivateTmpdir } from '../../helpers/private-tmpdir.js';
 
@@ -173,4 +175,45 @@ it('carries allowed sibling assessment on received and pending service results',
     put('.prospec/changes/x/.delegated/review-reviewer-1-1.json', FINDINGS);
     expect(await run({ kind: 'receive', stem: 'review-reviewer-1-1' })).toMatchObject({ kind: 'received', assessment: expected });
   } finally { rmSync(sibling, { recursive: true, force: true }); }
+});
+
+describe('delegation metadata publication outcomes', () => {
+  it.each(['before', 'cleanup'] as const)('retains the open ticket and actual warning publication on %s failure', async phase => {
+    const issued = await issue();
+    if (issued.kind !== 'issued') throw new Error('expected a delegation ticket');
+    const target = path.join(repo, META);
+    const ticketPath = path.join(repo, '.prospec/changes/x/.delegated', `${issued.stem}.ticket.json`);
+    const before = readFileSync(target, 'utf8');
+    const rename = fs.promises.rename;
+    const remove = fs.promises.rmdir;
+    const renameSpy = vi.spyOn(fs.promises, 'rename').mockImplementation(async (from, to) => {
+      if (phase === 'before' && String(to) === target) throw new Error('controlled warning rename failure');
+      await rename(from, to);
+    });
+    const cleanupSpy = vi.spyOn(fs.promises, 'rmdir').mockImplementation(async claim => {
+      if (phase === 'cleanup' && String(claim).endsWith('.metadata.yaml.write-claim')) {
+        throw new Error('controlled warning claim cleanup failure');
+      }
+      await remove(claim);
+    });
+    try {
+      const error: unknown = await run({ kind: 'spawn-failed', stem: issued.stem, reason: 'delegate unavailable' })
+        .catch(error => error);
+      expect(error).toBeInstanceOf(MetadataWriteError);
+      expect(error).toMatchObject({ details: {
+        metadataPath: target, claimPath: path.join(path.dirname(target), '.metadata.yaml.write-claim'),
+        metadata_published: phase === 'cleanup',
+      } });
+      const ticket = JSON.parse(readFileSync(ticketPath, 'utf8')) as { state: string; failure?: unknown };
+      expect(ticket.state).toBe('open');
+      expect(ticket.failure).toBeUndefined();
+      expect(existsSync(CHECKPOINT(issued.stem))).toBe(true);
+      const log = metadata().quality_log ?? [];
+      expect(log).toHaveLength(phase === 'cleanup' ? 1 : 0);
+      if (phase === 'cleanup') {
+        expect(log[0]).toMatchObject({ skill: DELEGATION_PRODUCER, result: 'WARN' });
+        expect(log[0]?.warnings[0]).toContain('delegate unavailable');
+      } else expect(readFileSync(target, 'utf8')).toBe(before);
+    } finally { renameSpy.mockRestore(); cleanupSpy.mockRestore(); }
+  });
 });

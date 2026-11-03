@@ -27,7 +27,7 @@ flowchart TD
 
 每次 **Archive** 都讓 **AI Knowledge** 更完善（隨每個變更累積），而反覆出現的教訓 —— review findings、跨階段 `quality_log`、session corrections —— 經**人工核可**晉升為持續累積的團隊規則（`Constitution` + `_playbook`）。所以下一次變更不從零開始，而是從更完整、更聰明的基準起步。
 
-圖中顯示標準路徑。流程同時是 **scale-aware** 的：Design 只在 UI scope 為 `full` 或 `partial` 時執行；經使用者確認的 `quick` 變更完全跳過 Plan（`story → tasks`）；Brownfield backfill 則從 `prospec-promote-backfill` 進入 Verify，不重跑標準 planning path。Archive-time gates 仍是 backstop —— 見[相稱流程](./workflow.zh-TW.md#相稱流程scale)與[回填流程](../guides/backfill.zh-TW.md#backfill把既有程式碼納進信任區)。
+圖中顯示標準路徑。流程同時是 **scale-aware** 的：Design 只在 UI scope 為 `full` 或 `partial` 時執行；`quick` 變更完全跳過 Plan（`story → tasks`），可由 Draft-First 自主選擇、interactive 模式由人類確認，或 `prospec change auto-draft` 指派；Brownfield backfill 則從 `prospec-promote-backfill` 進入 Verify，不重跑標準 planning path。Archive-time gates 仍是 backstop —— 見[相稱流程](./workflow.zh-TW.md#相稱流程scale)與[回填流程](../guides/backfill.zh-TW.md#backfill把既有程式碼納進信任區)。
 
 ## Skill 與 CLI 協同模式：判斷面與確定性執行
 

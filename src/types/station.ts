@@ -327,6 +327,15 @@ export const ConstitutionRuleJudgmentSchema = z.object({
   name: z.string().min(1),
   result: z.enum(DIMENSION_RESULTS),
   statement: z.string().optional(),
+  applicability: z.literal('pre-existing-code').optional(),
+}).superRefine((rule, ctx) => {
+  if (rule.applicability === undefined) return;
+  if (rule.result !== 'FAIL' && rule.result !== 'WARN') {
+    ctx.addIssue({ code: 'custom', path: ['result'], message: 'pre-existing-code requires an adjudicated FAIL or WARN' });
+  }
+  if (!rule.statement?.trim()) {
+    ctx.addIssue({ code: 'custom', path: ['statement'], message: 'pre-existing-code requires a non-empty debt and artifact-compliance statement' });
+  }
 });
 export type ConstitutionRuleJudgment = z.infer<typeof ConstitutionRuleJudgmentSchema>;
 

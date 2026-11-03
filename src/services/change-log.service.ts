@@ -1,7 +1,7 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { PLAN_SIGNOFF_OPTIONS, forbiddenArtifacts, type EscalationHistory, type NewQualityLogEntry, type GateResult, type PlanSignoffOption } from '../types/change.js';
-import { EscalationError, PrerequisiteError } from '../types/errors.js';
+import { EscalationError, MetadataWriteError, PrerequisiteError, SignoffWriteError } from '../types/errors.js';
 import {
   VERIFIER_REPORT_SCHEMAS,
   isVerifierReportSkill,
@@ -304,10 +304,19 @@ export async function execute(options: ChangeLogOptions): Promise<ChangeLogResul
   if (!recheckMetadata()) throw new PrerequisiteError('Metadata changed before recording', 'Re-run against stable inputs');
   try { await writeChangeMetadataDoc(metadataPath, doc, changeName); } catch (cause) {
     if (verifiedReport === undefined) throw cause;
+    const published = cause instanceof MetadataWriteError && cause.details.metadata_published;
+    const committedLog: NewQualityLogEntry[] = doc.toJS().quality_log;
+    const additions = committedLog.slice(log.length);
+    const committedHistory = published ? reduceEscalationHistory(committedLog, retryBound) : history;
     throw new EscalationError(
-      `Planning metadata was not committed: ${cause instanceof Error ? cause.message : String(cause)}`,
-      'Repair the write failure and retry the unchanged inputs; no attempt or grant consumption was committed',
-      escalationFailureDetails(history, composed.skill as 'prospec-plan' | 'prospec-tasks', observedTrigger), cause,
+      `${published ? 'Planning metadata was committed, but claim cleanup failed' : 'Planning metadata was not committed'}: ${cause instanceof Error ? cause.message : String(cause)}`,
+      published ? 'Inspect current metadata and its claim before retrying; the accepted attempt and any grant consumption remain committed'
+        : 'Repair the write failure and retry the unchanged inputs; no attempt or grant consumption was committed',
+      escalationFailureDetails(committedHistory, composed.skill as 'prospec-plan' | 'prospec-tasks', published ? undefined : observedTrigger, {
+        accepted_persisted: published,
+        event_persisted: published && additions.some(e => e.escalation?.kind === 'trigger'),
+        grant_consumed: published && additions.some(e => e.escalation?.kind === 'consume'),
+      }), cause,
     );
   }
 
@@ -320,9 +329,8 @@ export async function execute(options: ChangeLogOptions): Promise<ChangeLogResul
 }
 
 /**
- * Record a human plan sign-off. Every refusal precedes every write; decision.json is
- * written before the quality_log entry because the entry is what unlocks routing, so a
- * failure between the two leaves the change still paused and a re-run completes it.
+ * Record a human plan sign-off. The metadata entry unlocks routing; decision.json
+ * publishes first and is retained if the subsequent guarded metadata commit fails.
  * `plan` signs the audited plan version itself and touches no candidate file; a
  * candidate option keeps the full-scale decision binding. Both bind the entry to the
  * plan version the latest verifier report audited.
@@ -354,8 +362,6 @@ async function recordSignoff(
   );
   const changeDir = path.join(cwd, '.prospec', 'changes', changeName);
   const metadataPath = path.join(changeDir, 'metadata.yaml');
-  // Every refusal below reads this snapshot; the write re-checks it, so a verifier entry
-  // recorded concurrently is never overwritten by a sign-off judged without it.
   const metadataSnapshot = captureFileInputs({ metadata: metadataPath });
   const { doc, metadata } = readChangeMetadata(metadataPath, changeName);
   const scale = metadata.scale ?? 'standard';
@@ -375,7 +381,8 @@ async function recordSignoff(
   const remedies = scale === 'full' ? PLAN_SIGNOFF_REMEDIES : PLAN_VERSION_SIGNOFF_REMEDIES;
 
   const configPath = resolveConfigPath(cwd);
-  const config = captureFileInputs({ config: configPath }).values.config;
+  const configSnapshot = captureFileInputs({ config: configPath });
+  const config = configSnapshot.values.config;
   const history = reduceEscalationHistory(metadata.quality_log, resolveMaxStationRetries(config == null ? null : validateConfig(config, configPath)));
   const verifierEntry = latestVerifierEntry(metadata.quality_log, 'prospec-plan', history);
   const verifier = verifierEntry === null ? null : verifierGateResultOf(verifierEntry, history.pending === null);
@@ -394,6 +401,7 @@ async function recordSignoff(
   // verdict but audited nothing, so it can never release a rewritten recommendation.
   const report = latestStampedVerifierEntry(metadata.quality_log, 'prospec-plan');
   let decision: DecisionPayload | null = null;
+  let expectedCandidates: ReturnType<typeof readCandidateFiles> | null = null;
   if (option === 'plan') {
     if (report === null) {
       throw new PrerequisiteError(
@@ -403,6 +411,7 @@ async function recordSignoff(
     }
   } else {
     const files = readCandidateFiles(changeDir);
+    expectedCandidates = files;
     const set = checkCandidateSet(files.candidates, files.decision);
     if (set.decision.state !== 'valid') {
       throw new PrerequisiteError(
@@ -450,17 +459,17 @@ async function recordSignoff(
       'Run the plan verifier on the current plan and record its new report (`prospec change log --skill prospec-plan --verifier-report <file>`), then sign off',
     );
   }
-  if (!metadataSnapshot.recheck() || !planVersion.recheck()) {
+  const inputsCurrent = () => metadataSnapshot.recheck() && planVersion.recheck() && configSnapshot.recheck()
+    && (expectedCandidates === null || canonicalDigest(readCandidateFiles(changeDir)) === canonicalDigest(expectedCandidates));
+  if (!inputsCurrent()) {
     throw new PrerequisiteError(
       'metadata.yaml, plan.md or delta-spec.md changed before the sign-off was recorded — nothing was written',
       'Re-run `prospec status`, then sign off against the current state',
     );
   }
 
-  if (decision !== null) {
-    const decisionPath = path.join(changeDir, CANDIDATES_DIR, DECISION_FILE);
-    await atomicWrite(decisionPath, `${JSON.stringify({ ...decision, graded_by: 'human' }, null, 2)}\n`);
-  }
+  const decisionPath = decision === null ? undefined : path.join(changeDir, CANDIDATES_DIR, DECISION_FILE);
+  let decisionPublished = false;
   const entry: NewQualityLogEntry = {
     skill: 'prospec-plan',
     date: signoff.date ?? todayIso(),
@@ -469,8 +478,23 @@ async function recordSignoff(
     signoff_option: option satisfies PlanSignoffOption,
     signoff_plan_digest: digest,
   };
-  appendQualityLogEntry(doc, entry);
-  await writeChangeMetadataDoc(metadataPath, doc, changeName);
+  try {
+    if (decision !== null && decisionPath !== undefined) {
+      const content = `${JSON.stringify({ ...decision, graded_by: 'human' }, null, 2)}\n`;
+      await atomicWrite(decisionPath, content);
+      decisionPublished = true;
+      expectedCandidates = { ...expectedCandidates!, decision: { file: DECISION_FILE, content } };
+    }
+    appendQualityLogEntry(doc, entry);
+    await writeChangeMetadataDoc(metadataPath, doc, changeName, { beforeCommit: () => {
+      if (!inputsCurrent()) throw new PrerequisiteError('Sign-off inputs changed before metadata commit', 'Read prospec status and sign off against current inputs');
+    } });
+  } catch (cause) {
+    throw new SignoffWriteError({ metadataPath, ...(decisionPath ? { decisionPath } : {}),
+      decision_published: decisionPublished,
+      metadata_recorded: cause instanceof MetadataWriteError && cause.details.metadata_published,
+    }, cause);
+  }
 
   return {
     changeName,

@@ -23,6 +23,8 @@ import { captureGitState } from '../../../src/lib/repo-state.js';
 import { abandonDirFor } from '../../../src/lib/abandon-paths.js';
 import { gitIn, imageOf } from '../../helpers/git-fixture.js';
 import { premiseProposal } from '../../helpers/premise.js';
+import { AbandonError, HistoryError, MetadataWriteError } from '../../../src/types/errors.js';
+import { handleError } from '../../../src/cli/formatters/error-output.js';
 vi.setConfig({ testTimeout: 30_000 });
 let root: string;
 let dir: string;
@@ -263,4 +265,65 @@ it('counts deletions, symlinks and nonignored source artifacts from the captured
   expect(result.preservedFileCount).toBe(manifest.entries.length);
   expect(result.preservedFileCount).toBe(5);
   expect(fs.existsSync(dir)).toBe(false);
+});
+
+describe('abandon metadata publication outcomes', () => {
+  it.each(['before', 'cleanup'] as const)('retains source and reports private staging publication on %s failure', async phase => {
+    const before = imageOf(dir);
+    const sourceMetadata = path.join(dir, 'metadata.yaml');
+    const rename = fs.promises.rename;
+    const remove = fs.promises.rmdir;
+    const renameSpy = vi.spyOn(fs.promises, 'rename').mockImplementation(async (from, to) => {
+      if (phase === 'before' && path.basename(String(to)) === 'metadata.yaml' && String(to) !== sourceMetadata) {
+        throw new Error('controlled staging metadata rename failure');
+      }
+      await rename(from, to);
+    });
+    const cleanupSpy = vi.spyOn(fs.promises, 'rmdir').mockImplementation(async claim => {
+      if (phase === 'cleanup' && String(claim).endsWith('.metadata.yaml.write-claim')) {
+        throw new Error('controlled staging claim cleanup failure');
+      }
+      await remove(claim);
+    });
+    try {
+      const error: unknown = await execute(opts()).catch(error => error);
+      expect(error).toBeInstanceOf(AbandonError);
+      const failure = error as AbandonError;
+      expect(failure.cause).toBeInstanceOf(HistoryError);
+      const history = failure.cause as HistoryError;
+      expect(history.cause).toBeInstanceOf(MetadataWriteError);
+      const publication = history.cause as MetadataWriteError;
+      const stagingDir = failure.details.stagingDir;
+      expect(stagingDir).toEqual(expect.any(String));
+      const stagingMetadata = path.join(stagingDir!, 'metadata.yaml');
+      expect(publication.details).toMatchObject({
+        metadataPath: stagingMetadata,
+        claimPath: path.join(stagingDir!, '.metadata.yaml.write-claim'),
+        metadata_published: phase === 'cleanup',
+      });
+      expect(imageOf(dir)).toEqual(before);
+      expect(fs.existsSync(failure.details.archiveDir)).toBe(false);
+      expect(readAbandonHistory(root).attempts).toHaveLength(0);
+      expect(metadataOwner.readChangeMetadata(sourceMetadata, 'x').metadata.status).toBe('plan');
+      expect(metadataOwner.readChangeMetadata(stagingMetadata, 'x').metadata.status)
+        .toBe(phase === 'cleanup' ? 'abandoned' : 'plan');
+
+      const previousExitCode = process.exitCode;
+      const writes: string[] = [];
+      const stderrSpy = vi.spyOn(process.stderr, 'write').mockImplementation(chunk => {
+        writes.push(String(chunk));
+        return true;
+      });
+      try {
+        handleError(failure, false, true);
+        const output = JSON.parse(writes.join('')) as { error: {
+          code: string; details: unknown; publication: { metadata: unknown };
+        } };
+        expect(process.exitCode).toBe(1);
+        expect(output.error.code).toBe('ABANDON_INCOMPLETE');
+        expect(output.error.details).toEqual(failure.details);
+        expect(output.error.publication.metadata).toEqual(publication.details);
+      } finally { stderrSpy.mockRestore(); process.exitCode = previousExitCode; }
+    } finally { renameSpy.mockRestore(); cleanupSpy.mockRestore(); }
+  });
 });
