@@ -125,6 +125,9 @@ your-project/
   - **核心用途**：依變更的 `delta-spec.md` 或指定模組進行機械式知識庫增量同步。
   - **執行行為**：
     - 依據 `module-map.yaml` 重新生成 `prospec/index.md` 的 auto 區塊。
+    - 只有 map 未設定的 curated 欄位才從舊 index 補入；明確的空陣列或空字串保持 authoritative，對應 cell 顯示 `—`。
+    - 保留 index auto block 外的 authored 內容，缺少 Loading Strategy 時才補建；既有 authored strategy 保持不變。fenced examples 或 HTML 註解內的標題不算既有章節，原始內容仍完整保留。沒有 markers 的既有 index 保留原文並新增受管 auto block。
+    - Module Map 變更保留存活 node 的註解、scalar style（含 folded scalar）、flow/block collection style 與 Prospec schema 已宣告且未修改的值。需寫入時遇到未宣告欄位或型別不符資料，會拒絕寫入並提示，原 map 不變；不支援任意 metadata 擴充或舊版寫回新版資料。curated migration 失敗時也會保留既有 index、略過重建並回報警告。no-op 保持原始 bytes。實際寫入允許空白與換行正規化；支援資料內的 anchor owner 變更或移除時，aliases 可物化以保留值。
     - 為全新模組建立 skeleton README；REMOVED 需求只把所屬模組列為 README-pending，不會棄用模組或從 module-map 移除。
     - 骨架 Key Files 使用 git index 成員，套用敏感檔案與設定的排除規則。沒有 index 成員時，先以 `git add` 加入新檔、刪除骨架，再重新執行。列檔失敗時保留空白 Key Files 並回報原因；修正後刪除骨架再重新執行。模組 paths 全被拒收時另發 warning，指向 `unsupported-module-path`。
     - 以 `--change` 執行時，若 `module-map.yaml` 存在卻無法讀取、解析或驗證，或解析到 knowledge root 之外，在分類與任何寫入之前拒收，指名該原因，而不是把每條 REQ 報成「不是模組」。

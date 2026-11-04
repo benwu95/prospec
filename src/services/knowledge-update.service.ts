@@ -9,7 +9,7 @@ import { resolveChange } from './change-resolver.js';
 import { scanDir, filterConventions } from '../lib/scanner.js';
 import { projectFileSelector } from '../lib/project-files-adapters.js';
 import type { ProjectFileSelector } from '../lib/project-files.js';
-import { toInlineCodeSpan } from '../lib/markdown-fences.js';
+import { toInlineCodeSpan, withoutFencedBlocks } from '../lib/markdown-fences.js';
 import { renderTemplate } from '../lib/template.js';
 import { hasAutoBlock, replaceAutoBlock } from '../lib/content-merger.js';
 import { deriveKeyExports } from '../lib/key-exports.js';
@@ -354,18 +354,22 @@ export async function updateIndex(
   const existingContent = await readFileIfExists(indexPath);
   const action: GeneratedFile['action'] = existingContent ? 'updated' : 'created';
 
-  let finalContent: string;
-  if (existingContent && hasAutoBlock(existingContent)) {
-    // Replace ONLY the auto block in place; preserve all curated content.
-    // replaceAutoBlock uses a function replacer so `$`-sequences in module
-    // descriptions (the table cells) are inserted verbatim.
-    const autoBlock = `<!-- prospec:auto-start -->
+  const autoBlock = `<!-- prospec:auto-start -->
 ${renderTemplate('knowledge/_index-auto-block.hbs', templateContext).trimEnd()}
 <!-- prospec:auto-end -->`;
+  let finalContent: string;
+  if (existingContent && hasAutoBlock(existingContent)) {
     finalContent = replaceAutoBlock(existingContent, autoBlock);
+  } else if (existingContent) {
+    finalContent = `${existingContent}${existingContent.endsWith('\n') ? '\n' : '\n\n'}${autoBlock}\n`;
   } else {
-    // Create (or a marker-less file): emit the full canonical document.
     finalContent = renderTemplate('knowledge/index.md.hbs', templateContext);
+  }
+  const hasLoadingStrategy = withoutFencedBlocks(finalContent.split(/\r?\n/), { htmlComments: true }).some(line =>
+    /^ {0,3}##[ \t]+Progressive Knowledge Loading Strategy(?:[ \t]+#+)?[ \t]*$/.test(line));
+  if (!hasLoadingStrategy) {
+    const strategy = renderTemplate('knowledge/index.md.hbs', { ...templateContext, loading_rules_only: true }).trimEnd();
+    finalContent += `${finalContent.endsWith('\n') ? '\n' : '\n\n'}${strategy}\n`;
   }
 
   await atomicWrite(indexPath, finalContent);
@@ -392,7 +396,7 @@ export async function updateModuleMap(
   if (content === null || !target.ok) return null;
 
   const moduleMap = parseYaml<ModuleMap>(content, moduleMapPath);
-  const before = JSON.stringify(moduleMap.modules);
+  const before = [...moduleMap.modules];
 
   // Add new modules
   for (const name of changes.added) {
@@ -419,14 +423,15 @@ export async function updateModuleMap(
 
   // No-op when nothing actually changed — the curated file must not be
   // rewritten (and reflowed) just because the coordinator called through.
-  if (JSON.stringify(moduleMap.modules) === before) return null;
+  if (moduleMap.modules.length === before.length
+    && moduleMap.modules.every((entry, index) => entry === before[index])) return null;
 
   // Comment-preserving in-place merge: module-map.yaml is a CURATED file whose
   // header comments document the dependency rule. A full `stringifyYaml`
   // round-trip drops every comment and reflows untouched descriptions, so the
   // merge goes through the yaml Document (same path writeConfig uses).
   const doc = parseYamlDocument(content, moduleMapPath);
-  mergeIntoDocument(doc, moduleMap as unknown as Record<string, unknown>);
+  mergeIntoDocument(doc, moduleMap as unknown as Record<string, unknown>, { preserveModuleMap: true });
   await atomicWrite(target.path, stringifyYamlDocument(doc));
 
   return {
@@ -618,8 +623,8 @@ export async function execute(
 
   // Migrate curated columns into module-map (the single source) before rebuilding
   // the index. A project that curated Keywords/Aliases/Rationale/Description in
-  // index.md gets them seeded into module-map on the fly — no-clobber (never
-  // overwrites a non-empty module-map value) and idempotent — so the rebuilt
+  // index.md gets them seeded into module-map on the fly — absent-only (explicit
+  // empty values in module-map remain authoritative) and idempotent — so the rebuilt
   // index preserves them instead of blanking to `—`.
   const existingIndex = await readFileIfExists(indexPath);
   const mapContent = existingIndex ? readContainedText(moduleMapPath, knowledgePath) : null;
@@ -629,12 +634,13 @@ export async function execute(
       const { moduleMap: migrated, changed } = backfillCuratedFromIndex(existingIndex, moduleMap);
       if (changed) {
         const doc = parseYamlDocument(mapContent, moduleMapPath);
-        mergeIntoDocument(doc, migrated as unknown as Record<string, unknown>);
+        mergeIntoDocument(doc, migrated as unknown as Record<string, unknown>, { preserveModuleMap: true });
         await atomicWrite(mapPath, stringifyYamlDocument(doc));
       }
-    } catch {
-      // Backfill is a non-fatal migration convenience — a malformed module-map
-      // or index must not block the index rebuild below.
+    } catch (error) {
+      // Keep index-only curated values until the map migration succeeds.
+      result.warnings.push(`Module Map migration failed; index was left unchanged: ${error instanceof Error ? error.message : String(error)}`);
+      return result;
     }
   }
 

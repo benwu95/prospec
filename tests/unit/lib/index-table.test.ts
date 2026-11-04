@@ -72,14 +72,32 @@ describe('backfillCuratedFromIndex', () => {
     modules: [{ name: 'types', paths: ['src/types'], keywords: [], relationships: { depends_on: [] } }],
   });
 
-  it('seeds empty module-map curated fields from the index (keywords/aliases/rationale/description)', () => {
+  it('seeds absent optional curated fields while preserving explicit keywords', () => {
     const { moduleMap, changed } = backfillCuratedFromIndex(indexWith(curatedRow), bareMap());
     expect(changed).toBe(true);
     const t = moduleMap.modules[0]!;
-    expect(t.keywords).toEqual(['kw1', 'kw2']);
+    expect(t.keywords).toEqual([]);
     expect(t.aliases).toEqual(['別名1', '別名2']);
     expect(t.rationale).toBe('Leaf rationale');
     expect(t.description).toBe('Rich curated description');
+  });
+
+  it.each([
+    { list: [], scalar: '' },
+    { list: [' '], scalar: '  ' },
+    { list: ['—'], scalar: '—' },
+  ])('preserves explicit empty/placeholder curated values: %j', ({ list, scalar }) => {
+    const map: ModuleMap = { modules: [{
+      name: 'types', paths: ['src/types'], keywords: list, aliases: list,
+      rationale: scalar, description: scalar,
+    }] };
+    const result = backfillCuratedFromIndex(indexWith(curatedRow), map);
+    expect(result.changed).toBe(false);
+    expect(result.moduleMap).toEqual(map);
+    const cells = cellsOf(buildIndexRow({ ...result.moduleMap.modules[0]!, status: 'Active', description: scalar }));
+    expect(cells[INDEX_COLUMN.KEYWORDS]).toBe(EMPTY_CELL);
+    expect(cells[INDEX_COLUMN.ALIASES]).toBe(EMPTY_CELL);
+    expect(cells[INDEX_COLUMN.RATIONALE]).toBe(EMPTY_CELL);
   });
 
   it('never overwrites a non-empty module-map value (no-clobber)', () => {

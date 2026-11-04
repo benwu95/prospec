@@ -31,7 +31,7 @@
 ## Modification Guide
 
 1. **Edit a template** — modify the `.hbs`. Keep shared Skill prose bare; only the labelled host matrix may render a sigil.
-2. **Change index/README rendering** — edit `knowledge/module-readme.hbs` or `index.md.hbs`; sync context with `knowledge-update.service.ts` / `knowledge-init.service.ts`.
+2. **Change index/README rendering** — edit `knowledge/module-readme.hbs` or `index.md.hbs`; sync context with `knowledge-update.service.ts` / `knowledge-init.service.ts`. Loading Strategy uses the shared partial when absent; Module README source details are L3 in both conventions copies.
 3. **Add or change a skill / reference** — see [Skill Authoring](./skill-authoring.md), including quantitative baseline guidance, claim-authoring rules and reference-section cleanup. Archive consumes the CLI-reported module set; README semantic review remains skill judgment.
 4. **Change a delegated-receipt gate** — edit `delegation-protocol.hbs` only (readable non-empty schema-valid file, a wait and a re-spawn count bounded by the rendered `DELEGATION_AWAIT`, disclosed degradation, zero-mock, the review/verify ticket flow and the hand-off of a mutation to the human, the threat model and detection limits — detection and preservation claimed, prevention and restoration never); the five skills and four references keep a one-line link to their station's copy plus their own schema/sink line — never a restated step, and never a capability branch (the guarantee is the CLI's, not a host's).
 

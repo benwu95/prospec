@@ -73,9 +73,10 @@ export function toInlineCodeSpan(raw: string): string {
  * CommonMark close rules matter here: the closer must use the same character,
  * be at least as long as the opener, and carry no info string — otherwise a
  * 4-backtick fence wrapping a 3-backtick example leaks its content.
+ * With htmlComments, also mask lines touched by HTML comments outside fences.
  */
-export function withoutFencedBlocks(lines: string[]): string[] {
-  return scanFences(lines).masked;
+export function withoutFencedBlocks(lines: string[], options: { htmlComments?: boolean } = {}): string[] {
+  return scanFences(lines, options.htmlComments).masked;
 }
 
 /**
@@ -96,9 +97,16 @@ export function fencedCodeBlocks(lines: string[]): FencedCodeBlock[] {
   return scanFences(lines).blocks;
 }
 
-function scanFences(lines: string[]): { masked: string[]; unclosed: boolean; blocks: FencedCodeBlock[] } {
+function isEscapedAt(line: string, index: number): boolean {
+  let escaped = false;
+  for (let cursor = index - 1; cursor >= 0 && line[cursor] === '\\'; cursor--) escaped = !escaped;
+  return escaped;
+}
+
+function scanFences(lines: string[], maskHtmlComments = false): { masked: string[]; unclosed: boolean; blocks: FencedCodeBlock[] } {
   const blocks: FencedCodeBlock[] = [];
   let fence: { char: string; len: number; start: number; info: string } | null = null;
+  let htmlComment = false;
   const masked = lines.map((line, index) => {
     // We allow arbitrary leading whitespace because a fenced block may be deeply
     // indented inside list items. We cannot differentiate root-level indented code
@@ -107,7 +115,7 @@ function scanFences(lines: string[]): { masked: string[]; unclosed: boolean; blo
     // Match against a `\r`-stripped view: `.` never matches `\r` and there is no
     // `m` flag, so a CRLF document's fence lines would not match at all and every
     // fence would read as absent. The ORIGINAL line is what we return.
-    const m = /^[ \t]*(`{3,}|~{3,})[ \t]*(.*)$/.exec(stripTrailingCr(line));
+    const m = htmlComment ? null : /^[ \t]*(`{3,}|~{3,})[ \t]*(.*)$/.exec(stripTrailingCr(line));
     if (m !== null && m[1] !== undefined) {
       const marker = m[1];
       const rest = m[2] ?? '';
@@ -116,15 +124,46 @@ function scanFences(lines: string[]): { masked: string[]; unclosed: boolean; blo
       if (fence === null) {
         // A backtick fence's info string may not contain a backtick (a one-line
         // ```code``` span is inline code, not an opener); tilde info may.
-        if (char === '`' && rest.includes('`')) return line;
-        fence = { char, len: marker.length, start: index, info };
-      } else if (char === fence.char && marker.length >= fence.len && info === '') {
-        blocks.push({ start: fence.start, end: index, info: fence.info });
-        fence = null;
+        if (char !== '`' || !rest.includes('`')) {
+          fence = { char, len: marker.length, start: index, info };
+          return '';
+        }
+      } else {
+        if (char === fence.char && marker.length >= fence.len && info === '') {
+          blocks.push({ start: fence.start, end: index, info: fence.info });
+          fence = null;
+        }
+        return '';
       }
-      return '';
     }
-    return fence === null ? line : '';
+    if (fence !== null) return '';
+    if (maskHtmlComments) {
+      let hidden = htmlComment;
+      const tokens = [...line.matchAll(/`+|<!--|-->/g)];
+      const nextTick = new Map<string, number>();
+      const closingTick = new Map<number, number>();
+      for (let index = tokens.length - 1; index >= 0; index--) {
+        const token = tokens[index]!;
+        if (!token[0].startsWith('`')) continue;
+        const opener = isEscapedAt(line, token.index) ? token[0].slice(1) : token[0];
+        const end = nextTick.get(opener);
+        if (end !== undefined) closingTick.set(index, end);
+        nextTick.set(token[0], index);
+      }
+      for (let index = 0; index < tokens.length; index++) {
+        const token = tokens[index]!;
+        if (htmlComment) {
+          if (token[0] === '-->') htmlComment = false;
+        } else if (token[0] === '<!--' && !isEscapedAt(line, token.index)) {
+          htmlComment = true;
+          hidden = true;
+        } else if (token[0].startsWith('`')) {
+          index = closingTick.get(index) ?? index;
+        }
+      }
+      if (hidden) return '';
+    }
+    return line;
   });
   return { masked, unclosed: fence !== null, blocks };
 }

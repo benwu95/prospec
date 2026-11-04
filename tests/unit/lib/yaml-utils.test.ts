@@ -1,11 +1,12 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
-import { Document } from 'yaml';
+import { Document, isMap, isSeq } from 'yaml';
 import {
   parseYaml,
   stringifyYaml,
   parseYamlDocument,
   stringifyYamlDocument,
   escapeYamlScalar,
+  mergeIntoDocument,
 } from '../../../src/lib/yaml-utils.js';
 import { YamlParseError } from '../../../src/types/errors.js';
 
@@ -178,6 +179,177 @@ describe('stringifyYamlDocument', () => {
     const doc = parseYamlDocument('name: prospec');
     const result = stringifyYamlDocument(doc);
     expect(result.trim()).toBe('name: prospec');
+  });
+});
+
+describe('mergeIntoDocument Module Map policy', () => {
+  const source = `# map owner
+modules:
+  # modules collection
+  - name: alpha # alpha identity
+    description: >-
+      Auth routing
+    paths: [src/alpha]
+    keywords:
+      - auth # retained keyword
+      - old # removed keyword
+    relationships: {depends_on: [beta]}
+  # beta owner
+  - name: beta
+    description: >-
+      Untouched routing
+    paths: [src/beta]
+    keywords: [beta]
+`;
+  const reconcile = (text: string, change: (value: Record<string, unknown>) => void) => {
+    const doc = parseYamlDocument(text);
+    const desired = doc.toJS() as Record<string, unknown>;
+    change(desired);
+    mergeIntoDocument(doc, desired, { preserveModuleMap: true });
+    const output = stringifyYamlDocument(doc);
+    expect(parseYaml(output)).toEqual(desired);
+    return { doc, output };
+  };
+  type Module = { name: string; paths: string[]; keywords: string[]; last_verified?: string };
+
+  it('retains surviving comments, folded/flow style and known values when stamping and adding', () => {
+    const { doc, output } = reconcile(source, value => {
+      const modules = value.modules as Module[];
+      modules[0]!.last_verified = '2026-11-04T00:00:00Z';
+      modules.push({ name: 'gamma', paths: [], keywords: [] });
+    });
+    for (const comment of ['# map owner', '# modules collection', '# alpha identity', '# retained keyword', '# beta owner']) {
+      expect(output).toContain(comment);
+    }
+    expect(output).toContain('description: >-');
+    expect(output).toContain('paths: [ src/beta ]');
+    expect(output).toContain('relationships: { depends_on: [ beta ] }');
+    const modules = doc.get('modules', true);
+    expect(isSeq(modules)).toBe(true);
+    if (!isSeq(modules)) throw new Error('expected modules');
+    const beta = modules.items[1];
+    expect(isMap(beta)).toBe(true);
+    if (!isMap(beta)) throw new Error('expected beta');
+    expect(beta.get('description', true)).toMatchObject({ type: 'BLOCK_FOLDED' });
+    expect(beta.get('paths', true)).toMatchObject({ flow: true });
+  });
+
+  it('retains scalar item nodes by value and occurrence when a list changes', () => {
+    const text = 'modules:\n  - name: alpha\n    paths: []\n    keywords:\n      - auth # first auth\n      - old # remove me\n      - auth # second auth\n';
+    const { output } = reconcile(text, value => {
+      (value.modules as Module[])[0]!.keywords = ['auth', 'auth', 'new'];
+    });
+    expect(output).toContain('auth # first auth');
+    expect(output).toContain('auth # second auth');
+    expect(output).not.toContain('# remove me');
+    expect(output.indexOf('# first auth')).toBeLessThan(output.indexOf('# second auth'));
+  });
+
+  it('retains duplicate module occurrences separately when removing another module', () => {
+    const text = 'modules:\n  - name: same # first occurrence\n    paths: []\n    keywords: [one]\n  # remove owner\n  - name: remove\n    paths: []\n    keywords: []\n  # second owner\n  - name: same # second occurrence\n    paths: []\n    keywords: [two]\n';
+    const { output } = reconcile(text, value => {
+      value.modules = (value.modules as Module[]).filter(m => m.name !== 'remove');
+    });
+    expect(output).toContain('# first occurrence');
+    expect(output).toContain('# second occurrence');
+    expect(output).toContain('# second owner');
+    expect(output).not.toContain('# remove owner');
+    expect(output.indexOf('# first occurrence')).toBeLessThan(output.indexOf('# second occurrence'));
+  });
+
+  it('leaves an unchanged document and its aliased nodes intact', () => {
+    const doc = parseYamlDocument('modules:\n  - &m {name: same, paths: [], keywords: []}\n  - *m # retained alias\n');
+    const contents = doc.contents;
+    const before = stringifyYamlDocument(doc);
+    mergeIntoDocument(doc, doc.toJS(), { preserveModuleMap: true });
+    expect(doc.contents).toBe(contents);
+    expect(stringifyYamlDocument(doc)).toBe(before);
+  });
+
+  it('materializes a surviving nested alias before removing its anchor owner', () => {
+    const text = 'modules:\n  - name: remove\n    keywords: &words [auth] # source words\n    paths: &paths [src/auth]\n  # beta owner\n  - name: beta\n    keywords: *words # beta words\n    paths: *paths # beta paths\n';
+    const { output } = reconcile(text, value => {
+      value.modules = (value.modules as Module[]).filter(m => m.name !== 'remove');
+    });
+    expect(output).toContain('# beta owner');
+    expect(output).toContain('source words');
+    expect(output).toContain('beta words');
+    expect(output).toContain('paths: [ src/auth ] # beta paths');
+  });
+
+  it('materializes an alias module and nested aliases without changing desired independent data', () => {
+    const text = 'modules:\n  - &m {name: same, paths: [], keywords: &words [auth]} # source module\n  - *m # alias module\n';
+    const { output } = reconcile(text, value => {
+      const modules = value.modules as Module[];
+      value.modules = [modules[0], { ...modules[1]!, keywords: ['changed'] }];
+    });
+    expect(output).toContain('source module');
+    expect(output).toContain('alias module');
+    expect(parseYaml<{ modules: Module[] }>(output).modules.map(m => m.keywords)).toEqual([['auth'], ['changed']]);
+  });
+
+  it.each([
+    ['root', 'custom: {owner: team}\nmodules: [{name: alpha, paths: [], keywords: []}]\n'],
+    ['module', 'modules: [{name: alpha, paths: [], keywords: [], custom: team}]\n'],
+    ['relationships', 'modules: [{name: alpha, paths: [], keywords: [], relationships: {custom: team}}]\n'],
+    ['non-finite', 'modules: [{name: alpha, paths: [], keywords: [], custom: .inf}]\n'],
+    ['timestamp', 'modules: [{name: alpha, paths: [], keywords: [], custom: !!timestamp 2026-11-04T00:00:00Z}]\n'],
+    ['set alias', 'modules: [&m {name: alpha, paths: [], keywords: []}]\ncustom: !!set {*m : null}\n'],
+    ['ordered map', 'modules: [{name: alpha, paths: [], keywords: []}]\ncustom: !!omap [owner: team]\n'],
+    ['complex key', 'modules: [{name: alpha, paths: [], keywords: []}]\ncustom: {[a, b]: team}\n'],
+    ['cycle', 'modules: [{name: alpha, paths: [], keywords: []}]\ncustom: &cycle {self: *cycle}\n'],
+    ['invalid declared type', 'modules: [{name: alpha, paths: [], keywords: [], aliases: 1}]\n'],
+  ])('refuses unsupported %s data before mutating the document', (_kind, text) => {
+    const doc = parseYamlDocument(text);
+    const desired = doc.toJS();
+    desired.modules[0].last_verified = '2026-11-05T00:00:00Z';
+    const before = stringifyYamlDocument(doc);
+    expect(() => mergeIntoDocument(doc, desired, { preserveModuleMap: true }))
+      .toThrow(/Unsupported Module Map/);
+    expect(stringifyYamlDocument(doc)).toBe(before);
+  });
+
+  it('refuses stripping an unsupported original or introducing unsupported desired data', () => {
+    for (const originalUnknown of [true, false]) {
+      const doc = parseYamlDocument(`modules: [{name: alpha, paths: [], keywords: []}]\n${originalUnknown ? 'custom: team\n' : ''}`);
+      const desired = { modules: [{ name: 'alpha', paths: [], keywords: [], last_verified: 'now' }],
+        ...(originalUnknown ? {} : { custom: 'team' }) };
+      const before = stringifyYamlDocument(doc);
+      expect(() => mergeIntoDocument(doc, desired, { preserveModuleMap: true }))
+        .toThrow(/Unsupported Module Map/);
+      expect(stringifyYamlDocument(doc)).toBe(before);
+    }
+  });
+
+  it('retains schema-declared scalar mapping-key aliases through a stamp', () => {
+    const text = 'modules:\n  - name: &key paths\n    *key : [src/alpha] # aliased key\n    keywords: []\n';
+    const { output } = reconcile(text, value => {
+      (value.modules as Module[])[0]!.last_verified = 'now';
+    });
+    expect(output).toContain('# aliased key');
+    expect(parseYaml<{ modules: { paths: string[] }[] }>(output).modules[0]!.paths).toEqual(['src/alpha']);
+  });
+
+  it('deletes explicit undefined map fields while retaining untouched values', () => {
+    const doc = parseYamlDocument('modules: [{name: alpha, paths: [], keywords: [], description: old}]\n');
+    const desired = { modules: [{ name: 'alpha', paths: [], keywords: [], description: undefined }] };
+    mergeIntoDocument(doc, desired, { preserveModuleMap: true });
+    expect(doc.toJS()).toEqual({ modules: [{ name: 'alpha', paths: [], keywords: [] }] });
+  });
+
+  it('refuses serialized data that differs from the requested values', () => {
+    const doc = parseYamlDocument('modules: [{name: alpha, paths: [], keywords: []}]\n');
+    vi.spyOn(doc, 'toString').mockReturnValue('modules: []\n');
+    expect(() => mergeIntoDocument(doc, {
+      modules: [{ name: 'alpha', paths: [], keywords: ['changed'] }],
+    }, { preserveModuleMap: true })).toThrow(/reconciliation does not match/);
+  });
+
+  it('preserves default collection replacement for config callers', () => {
+    const doc = parseYamlDocument('agents:\n  - first # old item\n');
+    mergeIntoDocument(doc, { agents: ['first', 'second'] });
+    expect(doc.toJS()).toEqual({ agents: ['first', 'second'] });
+    expect(stringifyYamlDocument(doc)).not.toContain('# old item');
   });
 });
 

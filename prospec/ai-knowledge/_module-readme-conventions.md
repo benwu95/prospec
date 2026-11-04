@@ -42,7 +42,7 @@ The order is fixed. Keep each section concise; the whole README stays within its
 | Section | Required | Content |
 |---------|----------|---------|
 | `## Key Files` | ✅ | Table `\| File \| Purpose \|` — the top ~10 files a reader must know. One-line purpose each. |
-| `## Public API` | ✅ | The module's public surface — exported functions/classes (or HTTP endpoints / events for service modules). Signature + 1-line description, max ~8 entries. The agent reads source (L2) for full detail. |
+| `## Public API` | ✅ | The module's public surface — exported functions/classes (or HTTP endpoints / events for service modules). Signature + 1-line description, max ~8 entries. The agent reads source (L3) for full detail. |
 | `## Dependencies` | ✅ | `**Depends on:**` (with WHY) / `**Used by:**` for internal modules; list external systems where relevant. |
 | `## Modification Guide` | ✅ | Numbered "to change X, edit Y → Z" recipes for the common edits. This is more valuable than an API dump — tell agents HOW to change. |
 | `## Ripple Effects` | ⬜ | Larger modules only: what dependent modules or consumers break when you touch a shared piece. Omit for small leaf modules. |
