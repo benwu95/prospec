@@ -173,10 +173,10 @@ Prospec is a fork of [ci-yang/prospec](https://github.com/ci-yang/prospec) by Ci
 
 Beyond that lineage, Prospec draws inspiration from:
 
-- [OpenSpec](https://github.com/openspec-ai/openspec) — Delta Specs, Fast-Forward, Archive
-- [Spec-Kit](https://github.com/anthropics/spec-kit) — Constitution validation
-- [cc-sdd](https://github.com/kiro-ai/cc-sdd) — Steering analysis, template customization
-- [BMAD](https://github.com/bmad-ai/bmad) — Analyst role (prospec-explore)
+- [OpenSpec](https://github.com/Fission-AI/OpenSpec) — Delta Specs, Fast-Forward, Archive
+- [Spec-Kit](https://github.com/github/spec-kit) — Constitution validation
+- [cc-sdd](https://github.com/gotalab/cc-sdd) — Steering analysis, template customization
+- [BMAD](https://github.com/bmad-code-org/BMAD-METHOD) — Analyst role (prospec-explore)
 
 Prospec's unique contribution: **cli-first SDD with judgment-only Skills** — the CLI executes every deterministic operation (scaffolds, transitions, grading, spec sync) so it is reproducible and token-free, while Skills run the judgment inside your AI agent. Plus **AI Knowledge as Context Engineering** — structured, versioned, progressive project memory for AI agents.
 

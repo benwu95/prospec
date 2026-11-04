@@ -173,10 +173,10 @@ Prospec fork 自 Ci Yang 的 [ci-yang/prospec](https://github.com/ci-yang/prospe
 
 除了這層淵源，Prospec 的設計靈感亦來自：
 
-- [OpenSpec](https://github.com/openspec-ai/openspec) — Delta Specs、Fast-Forward、Archive
-- [Spec-Kit](https://github.com/anthropics/spec-kit) — Constitution 驗證
-- [cc-sdd](https://github.com/kiro-ai/cc-sdd) — Steering 分析、範本自訂
-- [BMAD](https://github.com/bmad-ai/bmad) — Analyst 角色（prospec-explore）
+- [OpenSpec](https://github.com/Fission-AI/OpenSpec) — Delta Specs、Fast-Forward、Archive
+- [Spec-Kit](https://github.com/github/spec-kit) — Constitution 驗證
+- [cc-sdd](https://github.com/gotalab/cc-sdd) — Steering 分析、範本自訂
+- [BMAD](https://github.com/bmad-code-org/BMAD-METHOD) — Analyst 角色（prospec-explore）
 
 Prospec 的獨特貢獻：**cli-first SDD、Skills 只留判斷** — CLI 執行所有確定性操作（scaffold、轉換、評分、spec sync），可重現且零 token；Skills 在 AI Agent 中執行判斷面工作。加上 **AI Knowledge 即 Context Engineering** — 為 AI Agent 設計的結構化、版控、漸進式專案記憶系統。
 
