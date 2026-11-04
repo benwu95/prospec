@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { mkdtempSync, mkdirSync, rmSync, writeFileSync, readFileSync, existsSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, rmSync, writeFileSync, readFileSync, existsSync, symlinkSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { syncFeatureMap } from '../../../src/services/archive.service.js';
@@ -36,6 +36,11 @@ function writeSpec(slug: string, body: string, status = 'active'): void {
     `---\nfeature: ${slug}\nstatus: ${status}\n---\n\n${body}`,
   );
 }
+function writeSlice(slug: string, name: string, body: string): void {
+  const sliceDir = path.join(featuresPath(), slug);
+  mkdirSync(sliceDir, { recursive: true });
+  writeFileSync(path.join(sliceDir, `${name}.md`), body);
+}
 const readMap = () => FeatureMapSchema.parse(parseYaml(readFileSync(mapPath(), 'utf-8')));
 
 describe('syncFeatureMap (REQ-SERVICES-029)', () => {
@@ -51,17 +56,87 @@ describe('syncFeatureMap (REQ-SERVICES-029)', () => {
   });
 
   it('is no-clobber — an existing index (and its curated req_prefixes) is never overwritten', async () => {
-    writeSpec('alpha', '#### REQ-LIB-001: A\n');
+    writeSpec('alpha', '## Slices\n\n- [Broken](./alpha/broken.md)\n');
+    writeSlice('alpha', 'broken', '```markdown\n#### REQ-TYPES-001: unclosed example\n');
+    writeFileSync(path.join(featuresPath(), 'alpha.md'), '---\nfeature: [\n---\n');
     mkdirSync(path.dirname(mapPath()), { recursive: true });
-    writeFileSync(
-      mapPath(),
-      'features:\n  - feature: alpha\n    modules: [lib, services]\n    req_prefixes: [DOM]\n    status: active\n',
-    );
+    const curated = '# Authored ownership; preserve this comment and formatting.\nfeatures:\n  - feature: alpha\n    modules: [lib, services]\n    req_prefixes: [DOM] # Domain IDs do not follow module names.\n    status: active\n';
+    writeFileSync(mapPath(), curated);
     const written = await syncFeatureMap(featuresPath(), mapPath(), MMAP);
     expect(written).toBeNull();
+    expect(readFileSync(mapPath())).toEqual(Buffer.from(curated));
     const alpha = readMap().features[0];
     expect(alpha?.modules).toEqual(['lib', 'services']);
     expect(alpha?.req_prefixes).toEqual(['DOM']);
+  });
+
+  it('seeds the union of mother and registered readable slice modules', async () => {
+    writeSpec('alpha', '#### REQ-LIB-001: Mother\n\n## Slices\n\n- [Runtime](./alpha/runtime.md)\n');
+    writeSlice('alpha', 'runtime', '#### REQ-SERVICES-001: Slice\n');
+
+    await syncFeatureMap(featuresPath(), mapPath(), MMAP);
+
+    expect(readMap().features[0]?.modules).toEqual(['lib', 'services']);
+  });
+
+  it('seeds modules defined only in registered slices when the mother has no REQs', async () => {
+    writeSpec('alpha', '## Slices\n\n- [Runtime](./alpha/runtime.md)\n');
+    writeSlice('alpha', 'runtime', '#### REQ-SERVICES-001: Slice-only behavior\n');
+
+    await syncFeatureMap(featuresPath(), mapPath(), MMAP);
+
+    expect(readMap().features[0]?.modules).toEqual(['services']);
+  });
+
+  it('deduplicates and sorts known modules across slices without inferring unknown prefixes', async () => {
+    writeSpec('alpha', '#### REQ-SERVICES-001: Mother\n\n## Slices\n\n- [Zeta](./alpha/zeta.md)\n- [Alpha](./alpha/alpha.md)\n');
+    writeSlice('alpha', 'zeta', '#### REQ-TYPES-002: Types\n\n#### REQ-LIB-003: Lib\n\n#### REQ-DOM-001: Domain\n');
+    writeSlice('alpha', 'alpha', '#### REQ-LIB-004: Lib again\n\n#### REQ-SERVICES-005: Services again\n\n#### REQ-UNKNOWN-001: Unknown\n');
+
+    await syncFeatureMap(featuresPath(), mapPath(), MMAP);
+
+    expect(readMap().features).toEqual([
+      { feature: 'alpha', modules: ['lib', 'services', 'types'], status: 'active' },
+    ]);
+  });
+
+  it('ignores an unregistered file under the feature slice directory', async () => {
+    writeSpec('alpha', '#### REQ-LIB-001: Mother\n\n## Slices\n\n- [Registered](./alpha/registered.md)\n');
+    writeSlice('alpha', 'registered', '#### REQ-LIB-002: Registered\n');
+    writeSlice('alpha', 'unregistered', '#### REQ-TYPES-001: Unregistered\n');
+
+    await syncFeatureMap(featuresPath(), mapPath(), MMAP);
+
+    expect(readMap().features[0]?.modules).toEqual(['lib']);
+  });
+
+  it('retains mother modules when a registered slice is missing', async () => {
+    writeSpec('alpha', '#### REQ-LIB-001: Mother\n\n## Slices\n\n- [Missing](./alpha/missing.md)\n');
+
+    await expect(syncFeatureMap(featuresPath(), mapPath(), MMAP)).resolves.toBe(mapPath());
+
+    expect(readMap().features[0]?.modules).toEqual(['lib']);
+  });
+
+  it('skips a registered slice whose symlink escapes the features directory', async () => {
+    writeSpec('alpha', '#### REQ-LIB-001: Mother\n\n## Slices\n\n- [Outside](./alpha/outside.md)\n');
+    const outside = path.join(tmp, 'outside.md');
+    writeFileSync(outside, '#### REQ-SERVICES-001: Outside\n');
+    mkdirSync(path.join(featuresPath(), 'alpha'), { recursive: true });
+    symlinkSync(outside, path.join(featuresPath(), 'alpha/outside.md'));
+
+    await expect(syncFeatureMap(featuresPath(), mapPath(), MMAP)).resolves.toBe(mapPath());
+
+    expect(readMap().features[0]?.modules).toEqual(['lib']);
+  });
+
+  it('preserves raw heading policy in slices: struck excluded, closed fenced headings included', async () => {
+    writeSpec('alpha', '#### REQ-LIB-001: Mother\n\n## Slices\n\n- [Examples](./alpha/examples.md)\n');
+    writeSlice('alpha', 'examples', '#### ~~REQ-TYPES-001: Retired~~\n\n```markdown\n#### REQ-SERVICES-001: Closed fenced example\n```\n');
+
+    await syncFeatureMap(featuresPath(), mapPath(), MMAP);
+
+    expect(readMap().features[0]?.modules).toEqual(['lib', 'services']);
   });
 
   it('never shrinks a curated feature-prefixed feature to its REQ-seeded subset (BL-043 mcp-server)', async () => {

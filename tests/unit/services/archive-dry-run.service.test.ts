@@ -185,6 +185,68 @@ describe('execute dry-run (REQ-SERVICES-071)', () => {
     expect(real.droppedBehavior).toEqual(dry.droppedBehavior);
   });
 
+  it.each([false, true])('keeps a mixed new-feature refusal in its source directory without any writes, dryRun=%s', async (dryRun) => {
+    verifiedChangeFixture();
+    write(
+      '.prospec/changes/feat-x/delta-spec.md',
+      `# Delta Spec
+
+## ADDED
+
+### REQ-LIB-001: Healthy new behavior
+
+**Feature:** alpha
+**Story:** US-1
+
+**Spec:**
+Complete behavior for alpha.
+
+---
+
+### REQ-LIB-002: Refused new behavior
+
+**Feature:** alpha
+**Story:** US-1
+
+**Spec:**
+Opening statement.
+**Scenarios:**
+- WHEN invoked, THEN the complete behavior survives
+
+---
+
+### REQ-LIB-003: Independent healthy feature
+
+**Feature:** beta
+**Story:** US-1
+
+**Spec:**
+Complete behavior for beta.
+
+---
+`,
+    );
+    const before = snapshotDir(tmp);
+
+    const result = await execute({ cwd: tmp, names: ['feat-x'], dryRun });
+
+    expect(result.dryRun).toBe(dryRun);
+    expect(result.refused).toEqual([]);
+    expect(result.skipped).toEqual(['feat-x']);
+    expect(result.refusedRequirements).toEqual([
+      expect.objectContaining({ kind: 'truncation', feature: 'alpha', reqId: 'REQ-LIB-002' }),
+    ]);
+    expect(result.archived).toEqual([]);
+    expect(result.specFiles).toEqual([]);
+    expect(result.planned).toEqual([]);
+    expect(result.pendingConvergence).toEqual([]);
+    expect(existsSync(path.join(tmp, '.prospec', 'changes', 'feat-x', 'delta-spec.md'))).toBe(true);
+    expect(existsSync(path.join(tmp, '.prospec', 'archive'))).toBe(false);
+    expect(existsSync(path.join(tmp, 'prospec', 'specs', 'features', 'alpha.md'))).toBe(false);
+    expect(existsSync(path.join(tmp, 'prospec', 'specs', 'features', 'beta.md'))).toBe(false);
+    expect(snapshotDir(tmp)).toEqual(before);
+  });
+
   it('predicts the feature-map bootstrap even when every feature slug is unsafe (spec-sync writes no file but still creates the dir)', async () => {
     verifiedChangeFixture();
     write(
