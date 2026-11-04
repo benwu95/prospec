@@ -46,9 +46,9 @@ Persisted at `.prospec/changes/{name}/review.md`, cumulative across rounds. The 
 ```markdown
 # Review Findings: {change-name}
 
-| ID | Location | Severity | Lens | Status | Origin | Summary | Repro |
+| ID | Location | Severity | Lens | Status | Origin | Summary | Repro (JSON) |
 |---|---|---|---|---|---|---|---|
-| F-1 | src/lib/foo.ts:42 | critical | spec-architecture | fixed | 1 | off-by-one in loop bound | <project test command> <pin selector> |
+| F-1 | src/lib/foo.ts:42 | critical | spec-architecture | fixed | 1 | off-by-one in loop bound | "<project test command> <pin selector>" |
 | F-2 | src/services/bar.ts:88 | major | maintainability | proposed | 1 | duplicated matcher |  |
 
 <!-- prospec:evidence-section -->
@@ -66,24 +66,18 @@ read foo.ts:38-46 — the `<=` bound overruns when n === len.
   [`project-test-runner.md`](project-test-runner.md) resolves; `<project test command>` in the
   example above is a placeholder, never literal text; `<pin selector>` stands for that runner's own
   test-selection syntax (a name filter, a path, a marker) — the example commits to no framework's flags.
-- **Two surfaces carry the finding's evidence half.** `Repro` is a table column whose `\|` escaping round-trips; prose lives in the marker-anchored `## Evidence` section keyed by `id`. Both are cumulative: a round that re-reports a finding without them keeps what the artifact holds. A round with no evidence writes no section at all. Optional author notes go below the closing marker; artifact generation follows `prospec review merge`. [`delegated-evidence-format.md`](delegated-evidence-format.md) owns payload, `repro` forms and relayed-field ceilings.
+- **Storage**: Findings carry the original `repro`; `Repro (JSON)` stores its JSON string with table pipe escaping. The CLI digest uses the decoded command; terminal sanitization still applies. An empty cell means absent; boundary whitespace and backslashes survive carry-forward. Legacy `Repro` retains prior parsing. Invalid/non-string/empty/multiline JSON values and duplicate/mixed repro headers refuse. Readers and writers need CLI builds supporting this header; historical trimmed data cannot be recovered.
+- **Two surfaces carry the finding's evidence half.** Prose lives in marker-anchored `## Evidence`, keyed by `id`. Both are cumulative: a round that re-reports a finding without them keeps what the artifact holds. A round with no evidence writes no section at all. Optional author notes go below the closing marker; artifact generation follows `prospec review merge`. [`delegated-evidence-format.md`](delegated-evidence-format.md) owns payload, `repro` forms and relayed-field ceilings.
 
-- **Origin column** records the integer round (`origin_round`) in which the finding was first detected.
-  When an existing row is carried forward or updated, its `Origin` round is preserved. In round > 1,
-  findings whose `Origin` is later than the current loop's first round quantify fix-induced defect density feeding the circuit breaker.
-- **Full-Lens Re-Review Default**: Re-review is executed as a full-lens pass over the cumulative diff
-  in a fresh minimal context (cumulative diff + lenses + pinned findings list). Pinned findings are
-  mechanically guarded by their regression tests rather than consuming judgment tokens.
-- **Summary and evidence prose follow the artifact language** assigned to `.prospec/changes/**` by the Constitution's Language Policy. Keep paths, identifiers, APIs, `Repro` commands and Severity/Lens/Status enums in English. The CLI preserves the findings JSON's language.
+- **Origin column** stores the first detection's integer `origin_round`; updates and carry-forward preserve it. In later rounds, origins after the loop's first round feed fix-induced defect density.
+- **Full-Lens Re-Review Default**: each re-review covers the cumulative diff in fresh minimal context (diff, lenses, pinned findings). Regression tests mechanically guard pinned findings.
+
+- **Summary and evidence prose follow the artifact language** for `.prospec/changes/**`. Paths, identifiers, APIs, `Repro` commands and Severity/Lens/Status enums stay English. The CLI preserves payload language.
 - **A claim of mutation verification must name the mutations.** Its Summary names each mutation and whether it turned the test red; an unnamed set is indistinguishable from none. This governs the reviewer's output, not the change.
 - **Refuting a claim takes a counterexample inside its subject's existing definition** in the project's documents and Feature Specs. This governs the reviewer's output, not the change.
 - **Identity is the reviewer-supplied `id`**: reuse it for the same finding despite shifted lines; the CLI never infers identity from the Location string. An id no existing row carries **opens a new row**, the one exception is a row carrying no id at all, which it adopts. Id-less input keys by location+lens against rows that **predate this round**, each claimable once in table order, excluding rows named by another input id. **two id-less findings you file at one Location in one round stay two rows**; withholding an id loses cross-round tracking, not the row.
-- The CLI's deterministic bookkeeping: merge by identity, **origin round tracking**, **severity taken as the maximum**, rows
-  **carried forward** across rounds as the anchor (resolved items are not re-raised), prose around
-  the table preserved.
-- Round counting and circuit breaker checks run inside the CLI — the stopping
-  rules are in [`circuit-breaker.md`](circuit-breaker.md); the structured round metrics come from
-  the merge command's report (`round`, `criticals_found` / `criticals_fixed` / `majors`, `fix_induced_ratio`).
+- CLI bookkeeping merges by identity, preserves **origin round tracking**, takes **severity as the maximum**, and keeps rows **carried forward** as anchors (resolved items are not re-raised), preserving surrounding prose.
+- Round counting and circuit breakers are CLI-owned; [`circuit-breaker.md`](circuit-breaker.md) owns stopping rules. Reports carry `round`, `criticals_found` / `criticals_fixed` / `majors` and `fix_induced_ratio`.
 
 - **Test-failure metrics** (CLI-owned, same comment): `test_failures` + bounded `test_failure_ids` —
   distinct failed attempts observed by `prospec review merge` in a row (absent = zero; a replayed id

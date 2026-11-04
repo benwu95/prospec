@@ -43,7 +43,7 @@
 
 ## Pitfalls
 
-- New-story/ff determine scope before creation and reconcile it later. Archive/Knowledge guidance repairs unknown scope through CLI; committed changes remain part of semantic scope review.
+- New-story/ff determine scope before creation and reconcile it later. Archive/Knowledge guidance repairs unknown scope through CLI; committed changes remain part of semantic scope review. Metadata/review references separate extensible reads, reserved-key refusal and snapshot replacement; commands enter payloads unchanged and only artifact `Repro (JSON)` cells are encoded. Preserve legacy reads and reference self-containment.
 
 - The shared delegation protocol distinguishes V1 exact equality from revised V2 scope: non-current local branches, including unused backup branches, are outside protection; required facts, current branches and stash retain their guards. Keep new-issue, recovery and ordinary-failure guidance scoped to protected state; topology proves neither actor attribution nor atomicity. Before changing CLI versions, end outstanding attempts through the authorized lifecycle, then use consistent versions for new tickets. Historical reasons remain readable; older CLIs may reject `non-current-branch`. No automatic acceptance or historical receipt rewriting follows. Preserve pointer-only consumers and token ceilings.
 

@@ -1,6 +1,6 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
-import { isMap, isScalar, isSeq, visit, type Document } from 'yaml';
+import { isMap, isScalar, isSeq, visit, YAMLMap, type Document, type Node } from 'yaml';
 import {
   ChangeMetadataSchema,
   QualityLogEntrySchema,
@@ -9,7 +9,7 @@ import {
   type ChangeMetadata,
   type NewQualityLogEntry,
 } from '../types/change.js';
-import { MetadataValidationError, MetadataWriteError } from '../types/errors.js';
+import { MetadataValidationError, MetadataWriteError, PrerequisiteError } from '../types/errors.js';
 import {
   TEST_GATE_NOT_ADJUDICATED,
   TEST_GATE_PRODUCER,
@@ -236,7 +236,6 @@ export function appendQualityLogEntry(doc: Document, entry: NewQualityLogEntry):
  */
 export function upsertReviewRoundEntry(doc: Document, entry: NewQualityLogEntry): void {
   const ordered = buildOrderedQualityLogEntry(entry);
-  const node = doc.createNode(ordered);
 
   if (!doc.has('quality_log')) {
     doc.set('quality_log', doc.createNode([ordered]));
@@ -257,12 +256,29 @@ export function upsertReviewRoundEntry(doc: Document, entry: NewQualityLogEntry)
     });
 
     if (existingIndex >= 0) {
-      seq.items[existingIndex] = node;
+      const existing = seq.items[existingIndex] as YAMLMap;
+      const modeledKeys = new Set(Object.keys(NewQualityLogEntrySchema.shape));
+      const removed = new YAMLMap(doc.schema);
+      removed.items = existing.items.filter(({ key }) => isScalar(key) && typeof key.value === 'string' && modeledKeys.has(key.value));
+      const removedNodes = new Set<Node>();
+      visit(removed, { Node(_key, node) { removedNodes.add(node); } });
+      // A retained alias can silently bind to an earlier reused anchor.
+      visit(doc, { Alias(_key, alias) {
+        const target = alias.resolve(doc);
+        if (!removedNodes.has(alias) && target && removedNodes.has(target)) {
+          throw new PrerequisiteError(
+            `Review round update would remove the target of retained YAML alias *${alias.source}`,
+            'Use independent extension values rather than aliases into replaced review fields',
+          );
+        }
+      } });
+      for (const key of modeledKeys) existing.delete(key);
+      existing.items.unshift(...Object.entries(ordered).map(([key, value]) => doc.createPair(key, value)));
       return;
     }
   }
 
-  doc.addIn(['quality_log'], node);
+  doc.addIn(['quality_log'], doc.createNode(ordered));
 }
 
 /** The files that make up the plan version a verifier audits and a human signs. */

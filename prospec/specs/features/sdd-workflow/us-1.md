@@ -76,6 +76,8 @@ Track status via metadata.yaml, with `ai-knowledge/_status-lifecycle.md` as the 
 - WHEN documenting abandonment and retry linkage, THEN the reference names the CLI-owned fields and their schema owner without teaching manual metadata mutation.
 - WHEN documenting related-module scope, THEN the reader reference distinguishes legacy absent scope from explicit `[]`, identifies the public create/correction inputs and points to CLI help; it teaches no manual metadata serialization, correction-history field or scope-confirmation state
 
+- WHEN metadata preservation is documented, THEN the reader guide distinguishes extensible metadata objects, closed retry linkage, raw readable test-policy metadata and closed recognized/new policy descriptors; it separates partial updates from explicitly replaced snapshots, names the modeled-object reserved-key refusal under REQ-TYPES-064, and describes additive defaults without claiming byte-identical YAML serialization.
+
 ---
 
 #### REQ-TYPES-103: Acceptance baseline revision contract

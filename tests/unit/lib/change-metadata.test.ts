@@ -40,6 +40,107 @@ related_modules:
   - lib
 description: adds a widget
 `;
+describe('metadata preservation through existing writers', () => {
+  const nested = (extra = '') => VALID + [
+    'custom_root: { untouched: true }',
+    'quality_log:',
+    '  - skill: prospec-review',
+    '    date: old',
+    '    result: WARN',
+    '    warnings: []',
+    '    round: 1',
+    '    grade: B',
+    '    dimensions: [{ name: tasks, result: WARN }]',
+    '    extension: &extra { untouched: true } # operator note',
+    '    shared: *extra',
+    extra,
+    '  - skill: prospec-escalation',
+    '    date: old',
+    '    result: WARN',
+    '    escalation: { event_id: e1, station: prospec-review, kind: resolve, extension: { untouched: true } }',
+    '    accepted: { request_id: r1, extension: { untouched: true } }',
+  ].filter(Boolean).join('\n') + '\n';
+
+  it('updates modeled round fields without dropping unknown YAML nodes or reviving omitted owned fields', async () => {
+    seed(nested());
+    const { doc } = readChangeMetadata(PATH, 'add-widget');
+    const original = doc.toJS();
+    upsertReviewRoundEntry(doc, {
+      skill: 'prospec-review', date: 'new', result: 'PASS', warnings: [], round: 1,
+      criticals_found: 0, criticals_fixed: 0, majors: 0,
+    });
+    await writeChangeMetadataDoc(PATH, doc, 'add-widget');
+    const reread = readChangeMetadata(PATH, 'add-widget');
+    expect(reread.doc.toJS().quality_log[1]).toEqual(original.quality_log[1]);
+    expect(reread.metadata.quality_log?.[0]).toMatchObject({
+      date: 'new', result: 'PASS', round: 1, extension: { untouched: true }, shared: { untouched: true },
+    });
+    expect(reread.doc.toJS().quality_log[0]).not.toHaveProperty('grade');
+    expect(reread.doc.toJS().quality_log[0]).not.toHaveProperty('dimensions');
+    expect(vol.readFileSync(PATH, 'utf8')).toContain('# operator note');
+    expect(reread.metadata.custom_root).toEqual({ untouched: true });
+    const beforeReplay = vol.readFileSync(PATH, 'utf8');
+    upsertReviewRoundEntry(reread.doc, {
+      skill: 'prospec-review', date: 'new', result: 'PASS', warnings: [], round: 1,
+      criticals_found: 0, criticals_fixed: 0, majors: 0,
+    });
+    await writeChangeMetadataDoc(PATH, reread.doc, 'add-widget');
+    expect(vol.readFileSync(PATH, 'utf8')).toBe(beforeReplay);
+  });
+
+  it('keeps nested parsed values through object write independently from Document append', async () => {
+    seed(nested());
+    const { metadata } = readChangeMetadata(PATH, 'add-widget');
+    await writeChangeMetadataObject(PATH, metadata);
+    const read = readChangeMetadata(PATH, 'add-widget');
+    expect(read.metadata.quality_log?.[1]?.escalation).toMatchObject({ extension: { untouched: true } });
+    expect(read.metadata.quality_log?.[1]?.accepted).toMatchObject({ extension: { untouched: true } });
+    const before = read.doc.toJS().quality_log;
+    appendQualityLogEntry(read.doc, { skill: 'prospec-plan', date: 'new', result: 'PASS', warnings: [] });
+    await writeChangeMetadataDoc(PATH, read.doc, 'add-widget');
+    expect(readChangeMetadata(PATH, 'add-widget').doc.toJS().quality_log.slice(0, 2)).toEqual(before);
+  });
+
+  it.each([
+    ['reused scalar anchor', 'earlier: &g A\n', 'grade: &g B', 'extension: *g', ''],
+    ['removed scalar anchor', '', 'grade: &g B', 'extension: *g', ''],
+    ['nested owned anchor', 'earlier: &g A\n', 'dimensions: [{ name: &g B, result: WARN }]', 'extension: *g', ''],
+    ['owned key anchor', 'earlier: &g A\n', '&g grade: B', 'extension: *g', ''],
+    ['later entry alias', 'earlier: &g A\n', 'grade: &g B', '', 'later_extension: *g\n'],
+  ])('refuses an upsert that would orphan a retained alias: %s', async (_name, earlier, field, extension, later) => {
+    const original = VALID + earlier + `quality_log:\n  - skill: prospec-review\n    date: old\n    result: WARN\n    round: 1\n    ${field}\n` +
+      (extension ? `    ${extension}\n` : '') + later;
+    seed(original);
+    const { doc } = readChangeMetadata(PATH, 'add-widget');
+    const before = doc.toString();
+    await expect((async () => {
+      upsertReviewRoundEntry(doc, { skill: 'prospec-review', date: 'new', result: 'PASS', warnings: [], round: 1 });
+      await writeChangeMetadataDoc(PATH, doc, 'add-widget');
+    })()).rejects.toThrow(/alias/i);
+    expect(vol.readFileSync(PATH, 'utf8')).toBe(original);
+    expect(doc.toString()).toBe(before);
+  });
+
+  it.each([
+    'grade: &g B',
+    'warnings: [&g B, *g]',
+  ])('allows replacement when every reference to the owned anchor is removed: %s', async (field) => {
+    seed(VALID + `quality_log:\n  - skill: prospec-review\n    date: old\n    result: WARN\n    round: 1\n    ${field}\n    extension: retained\n`);
+    const { doc } = readChangeMetadata(PATH, 'add-widget');
+    upsertReviewRoundEntry(doc, { skill: 'prospec-review', date: 'new', result: 'PASS', warnings: [], round: 1 });
+    await writeChangeMetadataDoc(PATH, doc, 'add-widget');
+    expect(readChangeMetadata(PATH, 'add-widget').metadata.quality_log?.[0]).toMatchObject({ result: 'PASS', extension: 'retained' });
+  });
+
+  it('refuses a reserved property before publication and retains the original bytes', async () => {
+    seed(nested());
+    const { doc } = readChangeMetadata(PATH, 'add-widget');
+    const original = vol.readFileSync(PATH, 'utf8');
+    doc.setIn(['quality_log', 0, '__proto__'], { untouched: true });
+    await expect(writeChangeMetadataDoc(PATH, doc, 'add-widget')).rejects.toThrow('quality_log.0.__proto__');
+    expect(vol.readFileSync(PATH, 'utf8')).toBe(original);
+  });
+});
 
 function seed(content: string): void {
   vol.fromJSON({ [PATH]: content });

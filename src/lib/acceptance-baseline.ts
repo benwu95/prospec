@@ -236,6 +236,7 @@ export function decideFreezeScenarios(options: DecideFreezeOptions): DecideFreez
   };
 
   const updatedAcceptance: AcceptanceBaseline = {
+    ...metadata.acceptance,
     version: 1,
     current_revision: 1,
     revisions: [newRevision],

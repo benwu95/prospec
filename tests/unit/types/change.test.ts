@@ -12,6 +12,7 @@ import {
   computeAcceptanceDigest,
   CHANGE_STATUSES,
   ChangeMetadataSchema,
+  PremiseMetadataSchema,
   NewChangeMetadataSchema,
   PROVENANCE_AUDITED_STATUSES,
   QualityDimensionSchema,
@@ -34,6 +35,116 @@ const base = {
   created_at: '2026-06-07T00:00:00Z',
   status: 'plan' as const,
 };
+
+describe('metadata extensibility boundaries', () => {
+  function fixture() {
+    const scenarios = [{ id: 'US-1.1', story_id: 'US-1', text: 'WHEN a, THEN b', source: 'proposal.md' }];
+    return {
+      ...base,
+      quality_log: [{
+        skill: 'prospec-review', date: 'today', result: 'PASS', warnings: [],
+        dimensions: [{ name: 'tasks', result: 'PASS' }],
+        escalation: { event_id: 'e1', station: 'prospec-review', kind: 'trigger', trigger: 'oscillation' },
+        accepted: { request_id: 'r1' },
+      }],
+      review_provenance: { digest: 'r', date: 'today' },
+      test_provenance: { command: 'node --test', exit_code: 0, digest: 't', date: 'today' },
+      delta_spec_provenance: { digest: 'd', date: 'today' },
+      test_attempt: { id: 'a1', outcome: 'passed' },
+      acceptance: {
+        version: 1, current_revision: 1,
+        revisions: [{
+          revision: 1, digest: computeAcceptanceDigest(scenarios), captured_at: 'today',
+          captured_status: 'story', origin: 'story', reason: 'freeze', scenarios,
+        }],
+      },
+      abandonment: {
+        reason: 'stop', at: 'today', from_status: 'plan',
+        escalation: { trigger: 'oscillation', ordinal: 1 },
+        overturned: [{ field: 'problem', value: 'old' }], premise_note: '', manifest: 'preservation/manifest.json',
+      },
+    };
+  }
+
+  const paths: (string | number)[][] = [
+    [], ['quality_log', 0], ['quality_log', 0, 'dimensions', 0],
+    ['quality_log', 0, 'escalation'], ['quality_log', 0, 'accepted'],
+    ['review_provenance'], ['test_provenance'], ['delta_spec_provenance'], ['test_attempt'],
+    ['acceptance'], ['acceptance', 'revisions', 0], ['acceptance', 'revisions', 0, 'scenarios', 0],
+    ['abandonment'], ['abandonment', 'escalation'], ['abandonment', 'overturned', 0],
+  ];
+  const cases = paths.map((keys) => ({ label: keys.join('.') || 'root', keys }));
+  const at = (value: unknown, keys: (string | number)[]) =>
+    keys.reduce<unknown>((node, key) => (node as Record<string | number, unknown>)[key], value) as Record<string, unknown>;
+
+  it.each(cases)('preserves ordinary extension values at $label', ({ keys }) => {
+    const input = fixture();
+    const extra = Object.fromEntries([['__proto__', { opaque: true }], ['nested', ['kept']]]);
+    Object.assign(at(input, keys), { extension: extra, constructor: 'kept', prototype: { kept: true } });
+    const output = ChangeMetadataSchema.parse(input);
+    expect(at(output, keys)).toMatchObject({ extension: extra, constructor: 'kept', prototype: { kept: true } });
+    expect(Object.hasOwn(at(output, keys).extension as object, '__proto__')).toBe(true);
+  });
+
+  it.each(cases)('rejects a reserved own key before projection at $label', ({ keys }) => {
+    const input = fixture();
+    Object.defineProperty(at(input, keys), '__proto__', { value: { keep: true }, enumerable: true });
+    const result = ChangeMetadataSchema.safeParse(input);
+    expect(result.success).toBe(false);
+    if (!result.success) expect(result.error.issues[0]?.path).toEqual([...keys, '__proto__']);
+  });
+
+  it.each([
+    { kind: 'trigger', trigger: 'oscillation' },
+    { kind: 'resolve' },
+    { kind: 'override', grant_id: 'g1', reason: 'approved' },
+    { kind: 'consume', grant_id: 'g1', attempt_id: 'a1' },
+  ])('preserves extension data in escalation $kind', (variant) => {
+    const input = fixture();
+    Object.assign(input.quality_log[0]!, {
+      escalation: { event_id: 'e1', station: 'prospec-review', ...variant, extension: { kept: true } },
+    });
+    expect(ChangeMetadataSchema.parse(input).quality_log?.[0]?.escalation).toMatchObject({ ...variant, extension: { kept: true } });
+  });
+
+  it.each(['value', 7, null])('rejects reserved keys regardless of their value: %j', (value) => {
+    const input = { ...fixture(), ...Object.fromEntries([['__proto__', value]]) };
+    expect(Object.hasOwn(input, '__proto__')).toBe(true);
+    expect(ChangeMetadataSchema.safeParse(input).success).toBe(false);
+  });
+
+  it('retains opaque policy descriptors while the recognized policy contract stays closed', () => {
+    const policy = Object.fromEntries([['version', 2], ['__proto__', { future: true }]]);
+    const input = fixture();
+    Object.assign(input.test_attempt, { test_policy: policy });
+    Object.assign(input.test_provenance, { test_policy: policy });
+    const output = ChangeMetadataSchema.parse(input);
+    expect(output.test_attempt?.test_policy).toEqual(policy);
+    expect(output.test_provenance?.test_policy).toEqual(policy);
+    expect(Object.hasOwn(output.test_attempt?.test_policy as object, '__proto__')).toBe(true);
+    expect(TestPolicySchema.safeParse({ version: 1, excluded_path: 'prospec/ai-knowledge', extra: true }).success).toBe(false);
+  });
+
+  it('keeps retry link identities closed', () => {
+    const input = { ...fixture(), retry_of: [{ archive: '2026-11-03-old', digest: 'a'.repeat(64), extension: true }] };
+    const result = ChangeMetadataSchema.safeParse(input);
+    expect(result.success).toBe(false);
+    if (!result.success) expect(result.error.issues[0]?.path).toEqual(['retry_of', 0]);
+  });
+
+  it.each([
+    {}, { scale: 'standard' }, { quality_log: 'legacy', created_at: null, status: 'old' },
+    { premise_version: 2 }, { scale: 'unknown' }, { issue: 7 },
+    { retry_of: [{ archive: '2026-11-03-old', digest: 'a'.repeat(64) }] },
+    { retry_of: [{ archive: '2026-11-03-old', digest: 'invalid' }] },
+    { retry_of: [{ archive: '2026-11-03-old', digest: 'a'.repeat(64), extra: true }] },
+  ])('keeps the premise reader narrow for %j', (input) => {
+    const expected = NewChangeMetadataSchema.pick({ premise_version: true, scale: true, retry_of: true, issue: true }).loose().safeParse(input);
+    const actual = PremiseMetadataSchema.safeParse(input);
+    expect(actual.success).toBe(expected.success);
+    if (actual.success && expected.success) expect(actual.data).toEqual(expected.data);
+  });
+});
 
 describe('ChangeMetadataSchema quality_log', () => {
   it('accepts metadata with a quality_log entry', () => {
@@ -548,7 +659,7 @@ describe('QualityDimensionSchema grading context (graded_by / executor, REQ-TYPE
   });
 
   it('declares no spend field, while a real pre-existing entry carrying dimensions[].spend still validates through the loose view', () => {
-    expect(Object.keys(QualityDimensionSchema.shape)).not.toContain('spend');
+    expect(QualityDimensionSchema.parse({ name: 'tasks', result: 'PASS', spend: { legacy: true } }).spend).toEqual({ legacy: true });
     const legacy = legacyFixture('normalize-executor-labels-and-stats.yaml');
     const r = ChangeMetadataSchema.safeParse(legacy);
     expect(r.success).toBe(true);
@@ -768,6 +879,27 @@ describe('unmodeled keys survive validation at every level (REQ-TYPES-064)', () 
 });
 
 describe('NewQualityLogEntrySchema (strict build view)', () => {
+  it('keeps receipt and escalation builders typed while their read views retain extensions', () => {
+    const entry: NewQualityLogEntry = {
+      skill: 'prospec-escalation', date: 'today', result: 'PASS', warnings: [],
+      accepted: {
+        request_id: 'r1',
+        // @ts-expect-error — receipt builders reject unknown literal fields.
+        request_typo: 'r1',
+      },
+      escalation: {
+        event_id: 'e1', station: 'prospec-plan', kind: 'resolve',
+        // @ts-expect-error — event builders reject unknown literal fields.
+        event_typo: 'e1',
+      },
+    };
+    expect(NewQualityLogEntrySchema.parse(entry).accepted).toEqual({ request_id: 'r1' });
+    expect(NewQualityLogEntrySchema.parse(entry).escalation).toEqual({ event_id: 'e1', station: 'prospec-plan', kind: 'resolve' });
+    const read = QualityLogEntrySchema.parse(entry);
+    expect(read.accepted).toHaveProperty('request_typo', 'r1');
+    expect(read.escalation).toHaveProperty('event_typo', 'e1');
+  });
+
   it('parses a station-built entry and injects the warnings default', () => {
     const r = NewQualityLogEntrySchema.safeParse({
       skill: 'prospec-review',

@@ -6,6 +6,12 @@ The CLI's `ChangeMetadataSchema` owns field semantics; `prospec/ai-knowledge/_st
 
 ---
 
+## Read and update boundaries
+
+Extensible metadata objects preserve unknown values: root; `quality_log` entries, `dimensions`, `escalation` variants and `accepted` receipts; provenance and `test_attempt`; `acceptance`, `revisions` and `scenarios`; `abandonment`, its escalation and `overturned` entries. At these modeled layers, own `__proto__` is rejected before projection. Opaque unknown values and raw `test_policy` remain uninspected and preserved; `retry_of` stays strict, and recognized/new policy descriptors use strict `TestPolicySchema`.
+
+`New*` build views keep compile-time modeled-field checks; ordinary object runtime parsing strips unknown keys, unlike read views. `warnings` and acceptance `revisions` retain additive defaults. Same-round counts retain unknown nodes/comments and clear omitted modeled optionals; retained aliases into replaced nodes refuse; freeze preserves pending baseline extras, and amend preserves history. New provenance/attempt snapshots and terminal abandonment replace their owned subtree, including old extras. Document writes preserve untouched fields/comments; object writes preserve values, not original YAML comments or layout.
+
 ## Abandonment and retry
 
 `prospec change abandon <name> --reason <text> [--overturned <field>]` owns terminal `abandoned` metadata: `reason`, `at`, `from_status`, `escalation` (last trigger/ordinal or null), `overturned` (scalar Premise leaves/values), `premise_note`, `manifest`. CLI returns `archiveDir` in the main worktree project: first available `.prospec/abandoned/YYYY-MM-DD-name/`, then `-2`, `-3`, … . Incomplete publication blocks retry; inspect its external history operation and retained paths; do not auto-unlock.
@@ -20,7 +26,7 @@ Preservation does not restore work. Restoration is a human decision requiring ex
 `quality_log` → `review_provenance` → `test_provenance` → `test_attempt` → `delta_spec_provenance` → `issue` → `acceptance` → `premise_version` → `retry_of` → `abandonment`
 
 Existing documents containing YAML aliases retain their authored field order: anchor/alias bindings
-take precedence over canonical ordering. Comments and unknown fields remain preserved.
+take precedence over canonical ordering. Update boundaries above govern field preservation.
 
 | Field | Required | Written by | Notes |
 |-------|----------|-----------|-------|
@@ -98,29 +104,13 @@ test_policy:
 issue: "#412"                     # quoted: unquoted, `#` opens a YAML comment
 ```
 
-The tracker item this change belongs to, written once at scaffold time
-(`prospec change story --issue <ref>`). **Shape-free — its format is never validated**: prospec binds to no
-forge, so a bare reference (`#412`), a full URL, and another tracker's id (`ABC-123`) are equally
-valid, its shape is never judged, and nothing checks that the item exists or is still open. No API
-is called. Three consequences worth knowing:
+The external tracker item, registered at scaffold time by `prospec change story --issue <ref>`. Its **format is never validated**: `#412`, a URL and another tracker's id (`ABC-123`) are valid. No API is called; existence/open status is not checked.
 
-- **A value opening with `#` is emitted quoted** — it would otherwise read back as a YAML comment and
-  the whole value would vanish. The serializer handles this; do not add quotes by hand.
-- **Absent means unregistered.** A change that names no tracker item carries no `issue` key at all —
-  never an empty string, never `null` — so "not registered" stays distinguishable from "registered as
-  blank". A blank or whitespace-only value reads as unregistered, not as a registration.
-- **Runs of whitespace collapse to one space**, line breaks included — the one way the value is
-  normalized, and it is a safety measure, not a shape judgement. The reference is printed by
-  `prospec status` and by the archive summary that is copied into the committed spec-history trail,
-  where a second line would render a forged `##` heading or a forged `- **Quality Grade**:` row for
-  real. Same defence the pipe-table and code-span writers apply to free-form text.
+- A value opening with `#` is quoted by the serializer because it otherwise becomes a YAML comment.
+- Absent means unregistered: never an empty string or `null`. Blank/whitespace-only input also reads as unregistered.
+- Runs of whitespace collapse to one space, including line breaks: a safety measure, not a shape judgement. Status and the committed archive summary print this value; embedded lines could forge a `##` heading or `- **Quality Grade**:` row.
 
-This is a **registration convention only**: outside the required-field floor (no pre-existing
-change turns red for lacking it) and enforced by no drift check. It names the *external item* the
-change belongs to, never another change. Whether a project registers one at all, how its
-tracker items map to changes, and how a merge closes them are that project's own conventions,
-documented in its contributor docs; this field only makes the link machine-readable.
-`prospec status` and the archive summary print it when present.
+Registration is optional, outside the required-field floor and enforced by no drift check. It names the external item, never another change. Tracker mapping and closure conventions belong in the project's contributor docs; status and archive summaries print the reference when present.
 
 ## `quality_log` entry shape
 
@@ -207,25 +197,6 @@ quality_log:
   not a gate result: it neither counts as a verifier result nor hides an unresolved WARN.
 - `warnings` is always present (use `[]` when none); each entry is one string.
 - Omit the optional keys entirely when they do not apply — do not write them as `null`/empty.
-
-## Canonical example (a standard change mid-lifecycle)
-
-```yaml
-name: add-widget-export
-created_at: 2026-07-13T09:51:00.000Z
-status: tasks
-scale: standard
-related_modules:
-  - services
-  - tests
-description: Add CSV export to the widget service
-quality_log:
-  - skill: prospec-ff
-    date: 2026-07-13
-    result: PASS
-    warnings: []
-issue: "#412"
-```
 
 ## Escalation Ledger (CLI-Owned)
 

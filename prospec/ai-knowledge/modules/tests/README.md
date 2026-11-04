@@ -1,6 +1,6 @@
 # Verification Suite
 
-> 4-layer Vitest suite (fast-glob/git bypass memfs — 342 test files, 9,274 tests (unit 6621, contract 2152, integration 256, e2e 245)).
+> 4-layer Vitest suite (fast-glob/git bypass memfs — 342 test files, 9,396 tests (unit 6720, contract 2172, integration 256, e2e 248)).
 <!-- prospec:module-readme-format 2026-09-01 -->
 
 <!-- prospec:auto-start -->
@@ -53,7 +53,7 @@ Lens changes require independent eight-lens expectations, alias/custom and thres
 - Index-evidence fixtures stage intended inputs and pair ordinary untracked additions with staged counterparts. Shared-reader policies, root/subdirectory migration, recursive submodules and preservation mutations have real-Git pins; four-stage guidance has section/order and delete/move mutation coverage.
 - Directory-replacement fixtures pair deletion with empty/untracked-child directories in root, nested-project and recursive submodule layouts; retain nested-checkout, FIFO and preservation refusals. Assume-unchanged file/symlink deletions in direct/nested submodules, symlink target ordering, full/opt-in integrity, repeat-deletion races, the unreported-directory reason and shared submodule observation counts have regression pins; compare previously recordable captures against the original implementation when identity must remain unchanged.
 
-- Scope regressions distinguish omitted, empty and non-empty declarations, legacy replacement/no-op, independent blockers and partial auto-draft failure. Workflow fixtures declare their actual module scope before recording evidence.
+- Scope regressions distinguish omitted, empty and non-empty declarations, legacy replacement/no-op, independent blockers and partial auto-draft failure. Workflow fixtures declare their actual module scope before recording evidence. Artifact preservation tests separate metadata projection/AST updates from review JSON-cell carry-forward; cover reserved-key/opaque boundaries, alias binding, intentional snapshot replacement, legacy commands and refusal bytes. POSIX shell stdout is platform-scoped; command equality is cross-platform.
 
 - Delegation V2 is pinned by `delegation-policy.test.ts` (pure guard pairs), `repo-state.test.ts` (lossless topology, identity exclusions and bounded retry), `delegation-worktrees.test.ts` (real sibling activity, mixed V1/V2, evidence-write faults and retained settlement observations) and issue-race/service/CLI suites. Cover non-current branch additions/moves/renames/deletions without siblings and late checkout of existing branches followed by commit/rebase and worktree retention/switch/removal; pair lifecycle admission with current-branch, non-branch-ref and unreadable guards. Pin historical reason round-trips and new `non-current-branch` evidence through service/formatter output, plus stash pop/clear, canonical aliases, reordered registrations and physical V1 failure/acceptance round-trips. Preservation tests still refuse sibling refs/stash changes. Run policy killing mutations with an applied-change assertion; restore the source before broader tests.
 

@@ -7663,7 +7663,7 @@ describe('Delegated payload contract (issue #142 E)', () => {
     const format = renderTemplate('skills/references/review-format.hbs', TEMPLATE_CONTEXT);
     const section = sectionOf(format, '## review.md Format');
     // the table header is the structural claim, not just the word "Repro"
-    expect(section).toContain('| ID | Location | Severity | Lens | Status | Origin | Summary | Repro |');
+    expect(section).toContain('| ID | Location | Severity | Lens | Status | Origin | Summary | Repro (JSON) |');
     expect(section).toContain('<!-- prospec:evidence-section -->');
     expect(section).toContain('<!-- prospec:evidence-end -->');
     // Pin the CLAIM, not the word. `/cumulative across rounds|cumulative/` was a
@@ -11957,4 +11957,109 @@ describe('public measurement retirement and finalize guidance', () => {
       expect(command).toContain('finalize');
     },
   );
+});
+
+describe('workflow artifact preservation guidance', () => {
+  const read = (file: string) => fs.readFileSync(path.resolve(import.meta.dirname, '../..', file), 'utf8');
+  const reference = (name: string) => read('src/templates/skills/references/' + name + '.hbs');
+  const section = (text: string, heading: string) => flat(sectionOf(text, heading));
+
+  function metadataContract(text: string): void {
+    const body = section(text, '## Read and update boundaries');
+    for (const value of [
+      'root', 'quality_log', 'dimensions', 'escalation', 'accepted', 'provenance', 'test_attempt',
+      'acceptance', 'revisions', 'scenarios', 'abandonment', 'overturned',
+    ]) expect(body, value).toContain(value);
+    expect(body).toMatch(/unknown.*preserv|preserv.*unknown/i);
+    expect(body).toMatch(/\bown\b.*__proto__.*reject/i);
+    expect(body).toMatch(/opaque.*unknown.*test_policy/i);
+    expect(body).toMatch(/retry_of.*strict.*TestPolicy/);
+    expect(body).toMatch(/New.*compile-time.*runtime.*strip/i);
+    expect(body).toMatch(/warnings.*revisions.*additive defaults/i);
+    expect(body).toMatch(/same-round.*unknown.*omitted.*modeled/i);
+    expect(body).toMatch(/freeze.*pending.*extras.*amend.*history/i);
+    expect(body).toMatch(/snapshot.*replace.*subtree/i);
+    expect(body).toMatch(/Document.*comments.*object.*comments/i);
+  }
+
+  function reviewContract(text: string): void {
+    const body = sectionOf(text, '## review.md Format');
+    const table = findTable(body.split('\n'), { isTarget: (headers) => headers.includes('location') && headers.includes('severity') });
+    expect(table?.headers).toEqual(['ID', 'Location', 'Severity', 'Lens', 'Status', 'Origin', 'Summary', 'Repro (JSON)']);
+    expect(table?.rows[0]?.[7]).toBe('"<project test command> <pin selector>"');
+    const prose = flat(body);
+    expect(prose).toMatch(/original.*repro.*JSON string/i);
+    expect(prose).toMatch(/digest.*decoded command/i);
+    expect(prose).toMatch(/empty cell.*absent/i);
+    expect(prose).toMatch(/boundary whitespace.*backslashes/i);
+    expect(prose).toMatch(/legacy.*Repro.*prior parsing/i);
+    expect(prose).toMatch(/invalid.*non-string.*empty.*multiline.*duplicate.*mixed.*refus/i);
+    expect(prose).toMatch(/readers.*writers.*CLI builds.*header/i);
+    expect(prose).toMatch(/historical.*cannot.*recover/i);
+    expect(prose).toContain('a round that re-reports a finding without them keeps what the artifact holds');
+    expect(prose).toContain('round with no evidence writes no section at all');
+  }
+
+  function landingContract(text: string): void {
+    const body = section(text, '## Evidence landing format');
+    expect(body).toMatch(/review.md.*Repro \(JSON\).*JSON string/i);
+    expect(body).toMatch(/payload.*digest.*original command/i);
+    expect(body).toMatch(/Legacy.*Repro.*prior parsing/i);
+    expect(body).toMatch(/evidence section.*prose.*id/);
+    expect(body).toContain('cumulative');
+  }
+
+  for (const [name, guard] of [
+    ['metadata-format', metadataContract],
+    ['review-format', reviewContract],
+    ['delegated-evidence-format', landingContract],
+  ] as const) {
+    it('source ' + name + ' states the bounded preservation contract', () => guard(reference(name)));
+    it('bundle ' + name + ' states the bounded preservation contract', () => guard(BUNDLED_TEMPLATES['skills/references/' + name + '.hbs']!));
+  }
+
+  for (const [name, before, after, guard] of [
+    ['metadata-format', 'own ' + String.fromCharCode(96) + '__proto__' + String.fromCharCode(96), 'inherited reserved key', metadataContract],
+    ['metadata-format', '__proto__', 'reserved_name', metadataContract],
+    ['metadata-format', 'Opaque', 'Modeled', metadataContract],
+    ['metadata-format', 'snapshot', 'record', metadataContract],
+    ['metadata-format', 'omitted', 'retained', metadataContract],
+    ['metadata-format', 'runtime', 'creation', metadataContract],
+    ['review-format', 'Repro (JSON)', 'Repro', reviewContract],
+    ['review-format', 'prior parsing', 'JSON decoding', reviewContract],
+    ['review-format', 'decoded command', 'encoded string', reviewContract],
+    ['review-format', 'CLI builds', 'editors', reviewContract],
+    ['delegated-evidence-format', 'original command', 'encoded command', landingContract],
+    ['delegated-evidence-format', 'prior parsing', 'JSON decoding', landingContract],
+  ] as const) {
+    it('mutation ' + name + ' rejects removal of ' + before, () => {
+      const original = reference(name);
+      const heading = guard === metadataContract ? '## Read and update boundaries' : guard === reviewContract ? '## review.md Format' : '## Evidence landing format';
+      const start = original.indexOf(heading);
+      expect(start).toBeGreaterThanOrEqual(0);
+      const mutated = original.slice(0, start) + original.slice(start).replace(before, after);
+      expect(mutated).not.toBe(original);
+      expect(() => guard(mutated)).toThrow();
+    });
+  }
+
+  it.each(['', '.zh-TW'])('source public CLI reference%s separates storage from command and metadata input', (language) => {
+    const text = read('docs/reference/cli-reference' + language + '.md');
+    const review = text.split('- **').find((part) => part.startsWith(String.fromCharCode(96) + 'prospec review merge --findings'));
+    expect(review).toBeDefined();
+    const start = text.indexOf('- **' + String.fromCharCode(96) + 'prospec review merge --findings');
+    const end = text.indexOf('\n- **', start + 1);
+    const command = text.slice(start, end < 0 ? undefined : end);
+    expect(command).toContain('Repro (JSON)');
+    expect(command).toContain('JSON string');
+    expect(command).toContain('legacy');
+    expect(command).toMatch(/CLI builds|CLI build/);
+    const logStart = text.indexOf('- **' + String.fromCharCode(96) + 'prospec change log --skill');
+    const logEnd = text.indexOf('\n- **', logStart + 1);
+    const log = text.slice(logStart, logEnd < 0 ? undefined : logEnd);
+    expect(log).toContain('__proto__');
+    expect(log).toContain('test_policy');
+    expect(log).toContain('opaque');
+    expect(log).toContain('snapshot');
+  });
 });

@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { vol } from 'memfs';
 import * as fs from 'node:fs';
+import { execFileSync } from 'node:child_process';
 import { renderReviewDocument, parseReviewDocument, parseReviewMetricsStrict } from '../../../src/lib/review-merge.js';
 import { admitEscalation, reduceEscalationHistory } from '../../../src/lib/escalation.js';
 import { execute } from '../../../src/services/review-merge.service.js';
@@ -8,6 +9,8 @@ import { readChangeMetadata, writeChangeMetadataDoc } from '../../../src/lib/cha
 import { DelegationRefusedError, MetadataWriteError, PrerequisiteError, ProspecError, TestGateError } from '../../../src/types/errors.js';
 import { RELAYED_FIELD_MAX_CHARS, TEST_GATE_PRODUCER } from '../../../src/types/station.js';
 import { INDEX_INPUTS_HINT } from '../../../src/lib/drift-checker.js';
+
+vi.setConfig({ testTimeout: 30_000 });
 
 vi.mock('node:fs', async () => {
   const memfs = await import('memfs');
@@ -113,6 +116,62 @@ const round1 = [
 ];
 
 describe('review-merge service', () => {
+  it('refuses unsafe round alias replacement while reporting the already-published artifact', async () => {
+    seed([]);
+    const original = META_HEAD + FRESH_GREEN + 'earlier: &g A\nquality_log:\n  - skill: prospec-review\n    date: old\n    result: WARN\n    round: 1\n    grade: &g B\n    extension: *g\n';
+    vol.writeFileSync(METADATA, original);
+    await expect(execute({ cwd: CWD, findingsPath: FINDINGS, round: 1 })).rejects.toMatchObject({
+      message: expect.stringMatching(/alias/i),
+      details: { persistence: { artifact_persisted: true, accepted_persisted: false, grant_consumed: false } },
+    });
+    expect(vol.readFileSync(METADATA, 'utf8')).toBe(original);
+    expect(readChangeMetadata(METADATA, 'add-widget').metadata.quality_log?.[0]?.extension).toBe('B');
+    expect(vol.readFileSync(REVIEW, 'utf8')).toContain('# Review Findings: add-widget');
+  });
+
+  it('carries the exact command and metadata extras through status updates and same-round replay', async () => {
+    const repro = 'printf x' + String.fromCharCode(92, 32);
+    seed([{ id: 'F-1', location: 'a.ts:1', severity: 'major', lens: 'correctness', status: 'open', summary: 'command', repro }]);
+    await execute({ cwd: CWD, findingsPath: FINDINGS, round: 1 });
+    const first = readChangeMetadata(METADATA, 'add-widget');
+    const index = first.metadata.quality_log!.findIndex((entry) => entry.skill === 'prospec-review' && entry.round === 1);
+    first.doc.setIn(['quality_log', index, 'extension'], { untouched: true });
+    first.doc.setIn(['quality_log', index, 'grade'], 'B');
+    await writeChangeMetadataDoc(METADATA, first.doc, 'add-widget');
+    vol.writeFileSync(FINDINGS, JSON.stringify([{ id: 'F-1', location: 'a.ts:1', severity: 'major', lens: 'correctness', status: 'open', summary: 'updated command', repro }]));
+    await execute({ cwd: CWD, findingsPath: FINDINGS, round: 1 });
+    const replay = readChangeMetadata(METADATA, 'add-widget').metadata.quality_log?.[index];
+    expect(replay?.extension).toEqual({ untouched: true });
+    expect(replay).not.toHaveProperty('grade');
+    vol.writeFileSync(FINDINGS, JSON.stringify([{ id: 'F-1', location: 'a.ts:1', severity: 'major', lens: 'correctness', status: 'fixed', summary: 'fixed' }]));
+    await execute({ cwd: CWD, findingsPath: FINDINGS, round: 2 });
+    const beforeReplay = vol.readFileSync(REVIEW, 'utf8') as string;
+    expect(parseReviewDocument(beforeReplay).rows[0]?.repro).toBe(repro);
+    await execute({ cwd: CWD, findingsPath: FINDINGS, round: 2 });
+    expect(vol.readFileSync(REVIEW, 'utf8')).toBe(beforeReplay);
+  });
+
+  it.skipIf(process.platform === 'win32')('preserves actual shell stdout for the escaped trailing-space command', async () => {
+    const repro = 'printf x' + String.fromCharCode(92, 32);
+    seed([{ id: 'F-1', location: 'a.ts:1', severity: 'major', lens: 'correctness', summary: 'command', repro }]);
+    await execute({ cwd: CWD, findingsPath: FINDINGS, round: 1 });
+    vol.writeFileSync(FINDINGS, '[]');
+    await execute({ cwd: CWD, findingsPath: FINDINGS, round: 2 });
+    const carried = parseReviewDocument(vol.readFileSync(REVIEW, 'utf8') as string).rows[0]!.repro!;
+    const stdout = (command: string) => execFileSync('/bin/sh', ['-c', command], { encoding: 'utf8' });
+    expect(stdout(repro)).toBe('x ');
+    expect(stdout(carried)).toBe(stdout(repro));
+  });
+
+  it('refuses malformed encoded artifacts before metadata or review publication', async () => {
+    const malformed = '| Location | Severity | Repro (JSON) |\n|---|---|---|\n| a.ts:1 | major | not-json |\n';
+    seed([], malformed);
+    const metadata = vol.readFileSync(METADATA, 'utf8');
+    await expect(execute({ cwd: CWD, findingsPath: FINDINGS })).rejects.toThrow(PrerequisiteError);
+    expect(vol.readFileSync(REVIEW, 'utf8')).toBe(malformed);
+    expect(vol.readFileSync(METADATA, 'utf8')).toBe(metadata);
+  });
+
   it('creates review.md from the first round and reports the round counts', async () => {
     seed(round1);
     const result = await execute({ cwd: CWD, findingsPath: FINDINGS });
@@ -120,7 +179,7 @@ describe('review-merge service', () => {
     expect(result.round).toMatchObject({ criticals_found: 1, criticals_fixed: 1, majors: 1, roundNumber: 1 });
     const written = vol.readFileSync(REVIEW, 'utf-8') as string;
     expect(written).toContain(
-      '| F-1 | src/a.ts:10 | critical | correctness | fixed | 1 | off-by-one | pnpm vitest run tests/unit/a.test.ts |',
+      '| F-1 | src/a.ts:10 | critical | correctness | fixed | 1 | off-by-one | "pnpm vitest run tests/unit/a.test.ts" |',
     );
   });
 

@@ -4,6 +4,8 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 import * as os from 'node:os';
 import { execFileSync } from 'node:child_process';
+import { parseDocument } from 'yaml';
+import { parseReviewDocument } from '../../src/lib/review-merge.js';
 import { RELAYED_FIELD_MAX_CHARS } from '../../src/types/station.js';
 import { parseYaml } from '../../src/lib/yaml-utils.js';
 import { recordCliEvidence } from './helpers/evidence.js';
@@ -391,9 +393,64 @@ quality_log:
       expect(exitCode).toBe(0);
       expect(stdout).toContain('criticals_found=1');
       const review = await fs.promises.readFile(path.join(changeDir, 'review.md'), 'utf-8');
-      expect(review).toContain('| F-1 | src/a.ts:1 | critical | correctness | fixed | 1 | bug | pnpm vitest run a |');
+      expect(review).toContain('| F-1 | src/a.ts:1 | critical | correctness | fixed | 1 | bug | "pnpm vitest run a" |');
       const bad = await runCli(['review', 'merge', '--findings', path.join(tmpDir, 'missing.json')]);
       expect(bad.exitCode).not.toBe(0);
+    });
+
+    it('review merge preserves encoded commands and metadata extensions through two CLI rounds', async () => {
+      const changeDir = await initChange();
+      const metadataPath = path.join(changeDir, 'metadata.yaml');
+      const metadata = parseDocument(await fs.promises.readFile(metadataPath, 'utf8'));
+      metadata.set('extension', { root: true });
+      metadata.set('quality_log', [{ skill: 'prospec-escalation', date: 'old', result: 'PASS', warnings: [], accepted: { request_id: 'old', extension: { receipt: true } } }]);
+      await fs.promises.writeFile(metadataPath, metadata.toString());
+      const repro = 'printf x' + String.fromCharCode(92, 32);
+      const findings = path.join(tmpDir, 'round.json');
+      await fs.promises.writeFile(findings, JSON.stringify([{ id: 'F-1', location: 'a.ts:1', severity: 'critical', lens: 'correctness', summary: 'command', repro }]));
+      const first = await runCli(['review', 'merge', '--findings', findings, '--round', '1']);
+      expect(first.exitCode).toBe(0);
+      expect(first.stdout).toContain(`repro: ${repro}`);
+      const reviewPath = path.join(changeDir, 'review.md');
+      expect(await fs.promises.readFile(reviewPath, 'utf8')).toContain('Repro (JSON)');
+      await fs.promises.writeFile(findings, '[]');
+      expect((await runCli(['review', 'merge', '--findings', findings, '--round', '2'])).exitCode).toBe(0);
+      const beforeReplay = await fs.promises.readFile(reviewPath, 'utf8');
+      expect(parseReviewDocument(beforeReplay).rows[0]?.repro).toBe(repro);
+      expect((await runCli(['review', 'merge', '--findings', findings, '--round', '2'])).exitCode).toBe(0);
+      expect(await fs.promises.readFile(reviewPath, 'utf8')).toBe(beforeReplay);
+      const recorded = parseDocument(await fs.promises.readFile(metadataPath, 'utf8')).toJS();
+      expect(recorded.extension).toEqual({ root: true });
+      expect(recorded.quality_log[0].accepted.extension).toEqual({ receipt: true });
+    });
+
+    it('review merge retains legacy JSON-looking command text on upgrade', async () => {
+      const changeDir = await initChange();
+      const repro = JSON.stringify('printf x');
+      const reviewPath = path.join(changeDir, 'review.md');
+      await fs.promises.writeFile(reviewPath, `| ID | Location | Severity | Lens | Status | Summary | Repro |\n|---|---|---|---|---|---|---|\n| F-1 | a.ts:1 | minor | correctness | fixed | legacy | ${repro} |\n`);
+      const findings = path.join(tmpDir, 'round.json');
+      await fs.promises.writeFile(findings, '[]');
+      expect((await runCli(['review', 'merge', '--findings', findings])).exitCode).toBe(0);
+      const rendered = await fs.promises.readFile(reviewPath, 'utf8');
+      expect(rendered).toContain('Repro (JSON)');
+      expect(parseReviewDocument(rendered).rows[0]?.repro).toBe(repro);
+    });
+
+    it('review merge refuses malformed encoded command cells without publishing either artifact', async () => {
+      const changeDir = await initChange();
+      const metadataPath = path.join(changeDir, 'metadata.yaml');
+      const originalMetadata = await fs.promises.readFile(metadataPath, 'utf8');
+      const reviewPath = path.join(changeDir, 'review.md');
+      const review = '| Location | Severity | Repro (JSON) |\n|---|---|---|\n| a.ts:1 | major | not-json |\n';
+      await fs.promises.writeFile(reviewPath, review);
+      const findings = path.join(tmpDir, 'round.json');
+      await fs.promises.writeFile(findings, '[]');
+      const refused = await runCli(['review', 'merge', '--findings', findings]);
+      expect(refused.exitCode).not.toBe(0);
+      expect(refused.stderr).toContain('Repro (JSON)');
+      expect(await fs.promises.readFile(reviewPath, 'utf8')).toBe(review);
+      expect(await fs.promises.readFile(metadataPath, 'utf8')).toBe(originalMetadata);
     });
 
     it('review merge lands evidence in review.md and keeps it out of stdout', async () => {
