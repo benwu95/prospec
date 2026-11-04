@@ -3,7 +3,7 @@ feature: sdd-workflow
 status: active
 last_updated: 2026-11-04
 story_count: 57
-req_count: 394
+req_count: 390
 ---
 
 # SDD Workflow
@@ -111,6 +111,7 @@ req_count: 394
 
 | Date | Change | Impact | Stories/REQs |
 |------|--------|--------|--------------|
+| 2026-11-04 | reconcile-feature-ownership | MODIFIED REQ-SPECS-001; MODIFIED REQ-CLI-034; REMOVED REQ-TEMPLATES-050; REMOVED REQ-TEMPLATES-051; REMOVED REQ-TEMPLATES-052; REMOVED REQ-TEMPLATES-053; REMOVED REQ-TEMPLATES-057; REMOVED REQ-TEMPLATES-058 | REQ-SPECS-001, REQ-CLI-034, REQ-TEMPLATES-050, REQ-TEMPLATES-051, REQ-TEMPLATES-052, REQ-TEMPLATES-053, REQ-TEMPLATES-057, REQ-TEMPLATES-058 |
 | 2026-11-04 | preserve-artifact-roundtrips | MODIFIED REQ-TYPES-064; MODIFIED REQ-LIB-031; MODIFIED REQ-TESTS-055; MODIFIED REQ-LIB-081; MODIFIED REQ-LIB-050; MODIFIED REQ-CLI-028; MODIFIED REQ-TEMPLATES-067; MODIFIED REQ-TEMPLATES-150; MODIFIED REQ-TESTS-082 | REQ-TYPES-064, REQ-LIB-031, REQ-TESTS-055, REQ-LIB-081, REQ-LIB-050, REQ-CLI-028, REQ-TEMPLATES-067, REQ-TEMPLATES-150, REQ-TESTS-082 |
 | 2026-11-03 | retain-failing-verdicts | ADDED REQ-TYPES-117; ADDED REQ-LIB-109; ADDED REQ-TESTS-147; MODIFIED REQ-TYPES-102; MODIFIED REQ-TEMPLATES-116; MODIFIED REQ-SERVICES-113; MODIFIED REQ-SERVICES-117; MODIFIED REQ-CLI-029; MODIFIED REQ-CHNG-004; MODIFIED REQ-SERVICES-126 | REQ-TYPES-117, REQ-LIB-109, REQ-TESTS-147, REQ-TYPES-102, REQ-TEMPLATES-116, REQ-SERVICES-113, REQ-SERVICES-117, REQ-CLI-029, REQ-CHNG-004, REQ-SERVICES-126 |
 | 2026-11-03 | retire-measurement | MODIFIED REQ-SPEC-013; MODIFIED REQ-CLI-024; MODIFIED REQ-SERVICES-071; MODIFIED REQ-TEMPLATES-159; MODIFIED REQ-TEMPLATES-175; MODIFIED REQ-SERVICES-080; MODIFIED REQ-CLI-033 | REQ-SPEC-013, REQ-CLI-024, REQ-SERVICES-071, REQ-TEMPLATES-159, REQ-TEMPLATES-175, REQ-SERVICES-080, REQ-CLI-033 |
@@ -268,3 +269,12 @@ req_count: 394
 | 2026-07-29 | add-status-router | Routing as code: read-only `prospec status` computes each in-flight change's current node / next station / blocking gates / reasons — the executable copy of `_status-lifecycle.md` (quick skip, backfill entry, no-status design/review placement, B/C/D stays); entry-config Session Start points at the command (net L0 reduction); MODIFIED REQ-TEMPLATES-099 + US-19 scenario (prose derivation → command); REQ-TEMPLATES-158 graduates in agent-integration (issue #97) | US-28; REQ-TYPES-070, REQ-LIB-035, REQ-SERVICES-070, REQ-CLI-023, REQ-TESTS-058 (ADDED); REQ-TEMPLATES-099 (MODIFIED) |
 | 2026-07-30 | add-harness-capability-flags | prospec-review and prospec-verify stop judging harness capability in prose and render the shared `harness-capabilities` partial against the sync-resolved flags, each supplying only its own degraded action (issue #95) | REQ-TEMPLATES-066, REQ-TEMPLATES-155 (MODIFIED) |
 | 2026-07-30 | report-dropped-req-bullets | archive spec-sync reports the authored `WHEN/THEN` bullets a `**Spec:**` block replaced without restating — a SET difference, never a count — in a `droppedBehavior` worklist distinct from `pendingConvergence`, rendered by the CLI and gated at Phase 3.5; delta-spec-format tells authors to write the resulting requirement, not the delta | US-30; REQ-SERVICES-073, REQ-CLI-032, REQ-TEMPLATES-168, REQ-TESTS-064 (ADDED); REQ-SERVICES-072, REQ-TEMPLATES-166 (MODIFIED) |
+| 2026-11-04 | reconcile-feature-ownership | archive-service/US-1 + REQ-SERVICES-018 -> sdd-workflow/US-7 + REQ-SERVICES-018; registered slicing intent retained | REQ-SERVICES-018 |
+| 2026-11-04 | reconcile-feature-ownership | knowledge-reader/US-1 + REQ-LIB-067 -> sdd-workflow/US-7 + REQ-LIB-067; registered slicing intent retained | REQ-LIB-067 |
+| 2026-11-04 | reconcile-feature-ownership | sdd-workflow/US-9 + REQ-TEMPLATES-050 -> design-phase/US-001 + REQ-DSGN-001; redundant definition retired, capability retained | REQ-TEMPLATES-050, REQ-DSGN-001 |
+| 2026-11-04 | reconcile-feature-ownership | sdd-workflow/US-9 + REQ-TEMPLATES-051 -> design-phase/US-001 + REQ-DSGN-002; redundant definition retired, capability retained | REQ-TEMPLATES-051, REQ-DSGN-002 |
+| 2026-11-04 | reconcile-feature-ownership | sdd-workflow/US-9 + REQ-TEMPLATES-052 -> design-phase/US-001 + REQ-DSGN-003; redundant definition retired, capability retained | REQ-TEMPLATES-052, REQ-DSGN-003 |
+| 2026-11-04 | reconcile-feature-ownership | sdd-workflow/US-9 + REQ-TEMPLATES-053 -> design-phase/US-003 + REQ-DSGN-004, REQ-DSGN-006, REQ-DSGN-007, REQ-DSGN-008; redundant definition retired, capability retained | REQ-TEMPLATES-053, REQ-DSGN-004, REQ-DSGN-006, REQ-DSGN-007, REQ-DSGN-008 |
+| 2026-11-04 | reconcile-feature-ownership | sdd-workflow/US-7 + REQ-TEMPLATES-057 -> design-phase/US-001 + REQ-DSGN-005; redundant definition retired, capability retained | REQ-TEMPLATES-057, REQ-DSGN-005 |
+| 2026-11-04 | reconcile-feature-ownership | sdd-workflow/US-9 + REQ-TEMPLATES-058 -> design-phase/US-003 + REQ-DSGN-009; redundant definition retired, capability retained | REQ-TEMPLATES-058, REQ-DSGN-009 |
+| 2026-11-04 | reconcile-feature-ownership | US-10 retains all three scenarios and references its shared planning owners | US-10, REQ-TEMPLATES-085, REQ-TEMPLATES-228, REQ-TEMPLATES-236 |

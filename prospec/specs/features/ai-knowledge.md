@@ -1,9 +1,9 @@
 ---
 feature: ai-knowledge
 status: active
-last_updated: 2026-11-02
-story_count: 15
-req_count: 72
+last_updated: 2026-11-04
+story_count: 16
+req_count: 74
 ---
 
 # AI Knowledge
@@ -18,6 +18,7 @@ Serves developers and AI Agents using Prospec. AI Knowledge is a structured proj
 - [US-302–US-303](./ai-knowledge/us-302.md)
 - [US-310–US-350](./ai-knowledge/us-310.md)
 - [US-351–US-361](./ai-knowledge/us-351.md)
+- [US-362: Explicit knowledge confirmation stamp](./ai-knowledge/us-362.md)
 
 
 #### REQ-TYPES-093: Module README Format Contracts
@@ -130,6 +131,9 @@ The test suite proves the Module README format contract at every boundary using 
 
 | Date | Change | Impact | Stories/REQs |
 |------|--------|--------|-------------|
+| 2026-11-04 | reconcile-feature-ownership | Relocate unchanged identity and complete behavior from knowledge-management/US-2 to ai-knowledge/US-310; retain the source container as deprecated history | knowledge-management/US-2/REQ-SERVICES-001 → ai-knowledge/US-310/REQ-SERVICES-001 |
+| 2026-11-04 | reconcile-feature-ownership | Relocate unchanged identity and complete behavior from knowledge-management/US-3 to ai-knowledge/US-362; retain the source container as deprecated history | knowledge-management/US-3/REQ-SERVICES-090 → ai-knowledge/US-362/REQ-SERVICES-090 |
+| 2026-11-04 | reconcile-feature-ownership | MODIFIED REQ-SERVICES-029 | REQ-SERVICES-029 |
 | 2026-11-02 | backfill-doc-drift-ai-knowledge | MODIFIED REQ-KNOW-001; MODIFIED REQ-KNOW-011; MODIFIED REQ-SERVICES-023; MODIFIED REQ-CLI-026; MODIFIED REQ-TEMPLATES-041; MODIFIED REQ-TEMPLATES-207; MODIFIED REQ-KNOW-024; MODIFIED REQ-TYPES-069; MODIFIED REQ-TEMPLATES-141 | REQ-KNOW-001, REQ-KNOW-011, REQ-SERVICES-023, REQ-CLI-026, REQ-TEMPLATES-041, REQ-TEMPLATES-207, REQ-KNOW-024, REQ-TYPES-069, REQ-TEMPLATES-141 |
 | 2026-11-02 | count-index-evidence | MODIFIED REQ-TEMPLATES-162 | REQ-TEMPLATES-162 |
 | 2026-11-01 | list-index-project-files | MODIFIED REQ-KNOW-002; MODIFIED REQ-KNOW-007; MODIFIED REQ-KNOW-004; MODIFIED REQ-KNOW-022; MODIFIED REQ-KNOW-038; MODIFIED REQ-LIB-038; MODIFIED REQ-TESTS-050; REMOVED REQ-LIB-029 | REQ-KNOW-002, REQ-KNOW-007, REQ-KNOW-004, REQ-KNOW-022, REQ-KNOW-038, REQ-LIB-038, REQ-TESTS-050, REQ-LIB-029 |

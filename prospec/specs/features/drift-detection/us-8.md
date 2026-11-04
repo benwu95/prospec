@@ -4,12 +4,27 @@ As a maintainer who maintains the effectiveness of layered knowledge loading,
 I want a deterministic `knowledge-size` check that counts tokens/lines for EVERY load surface an agent reads — index.md and the core conventions, every module README and sub-module, every Feature Spec and `product.md`, the load-on-demand conventions, and (where the project authors skills) each deployed `SKILL.md` and reference — and compares each against the budget its own surface declares,
 so that the layered token budget — long declared but never mechanically enforced — becomes a machine-checkable warn, preventing the layered model's effectiveness from silently eroding change by change.
 
+Budget governance also needs justified increases, warnings for ineffective shipped-budget keys, and early size warnings before a file exhausts its budget.
+
 **Acceptance Scenarios:**
 - WHEN an L1 file (index.md or a core convention) exceeds the per-file token budget, THEN report WARN (including `source_path` + measured token/budget + `TOKEN_ESTIMATOR_LABEL`)
 - WHEN a module knowledge file's tokens exceed the per-module budget or its line count exceeds the line-count cap — the README and each extracted sub-module alike — THEN report WARN (tokens and lines each form an independent finding)
 - WHEN a file's token count is `≤` its token budget, THEN do not report a token over-budget finding; independent headroom and line-count checks may still produce WARN
 - WHEN the knowledge base does not exist, THEN `knowledge-size` is skipped (with reason), never faking a PASS
 - WHEN `.prospec.yaml` sets per-project `knowledge.token_budget` fields, THEN resolve those overrides field by field and keep shipped skill/reference budgets unchanged; otherwise use the defaults
+- WHEN a per-project token-budget increase lacks an adjacent justification, THEN warn; shipped-budget keys are reported as ineffective settings
+- WHEN a file exceeds its configured headroom threshold while remaining under budget, THEN warn before the budget is exhausted
+
+#### REQ-LIB-001: Token Budget Override Drift Check
+The drift engine enforces justification for token budget increases and flags per-project keys that no longer bind. `collectBudgetOverrides` walks `knowledge.token_budget` through the YAML AST: a schema-declared key above its shipped default becomes an override (with its comment status and line); a key named by `SHIPPED_BUDGET_FIELDS` becomes an `ineffective` entry (key and line) and is never compared against a default. `evaluateBudgetOverrides` emits one warn finding per unjustified override and one per ineffective key, both under `unjustified-budget-override`.
+- WHEN a `token_budget` override exceeds its shipped default and lacks an adjacent comment, THEN a drift check warning is emitted
+- WHEN the override has a comment or is <= the default, THEN the check passes
+- WHEN `token_budget` carries `skill_per_file` or `reference_per_file`, THEN a warn finding names that key and its line, states that the budget ships with prospec and is not a per-project setting, and tells the user to remove the line
+- WHEN `token_budget` carries no shipped key, THEN no ineffective finding is emitted and the outcome is byte-identical to the pre-change behavior
+
+#### REQ-LIB-002: Knowledge Size Headroom
+The knowledge size check provides early warnings via a headroom band.
+- WHEN a file's size exceeds the headroom threshold but is under budget, THEN an early warning drift check is emitted
 
 #### REQ-TYPES-060: Drift Report knowledge-size Check Id
 `DRIFT_CHECK_IDS` appends `knowledge-size` (the 11th frozen check id, **warn-class**; additive-only, does not touch the `knowledge_health` frozen contract). Failing to dispatch the corresponding evaluator in `runChecks` causes a compile failure (the `Record<DriftCheckId, CheckOutcome>` exhaustiveness guard).

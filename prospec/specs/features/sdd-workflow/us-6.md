@@ -13,6 +13,8 @@ so that `.prospec/changes/` stays clean, the SDD lifecycle closes correctly, and
 - WHEN archiving completes THEN summary.md (and its committed `_archived-history` copy) carries a `## Review & Verify` section, so the audit trail carries review/verify evidence and does not evaporate with the gitignored bundle
 - WHEN executing the deterministic mutations THEN `prospec archive <name...>` performs them (previewable with `--dry-run`), and the skill keeps only the judgment work (Entry Gate, Review & Verify summary, REQ semantic graduation)
 
+Registered-slice write and history placement follow REQ-SERVICES-018 in [US-7](./us-7.md).
+
 ### Behavior Specifications
 
 #### REQ-TYPES-010: ChangeStatus Archived Support

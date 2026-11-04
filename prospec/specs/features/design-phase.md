@@ -1,7 +1,7 @@
 ---
 feature: design-phase
 status: active
-last_updated: 2026-11-02
+last_updated: 2026-11-04
 story_count: 4
 req_count: 11
 ---
@@ -112,7 +112,7 @@ so that I can integrate seamlessly with Prospec using tools I am familiar with.
 - WHEN Verify Phase, THEN API structural comparison
 
 #### REQ-DSGN-008: Platform Adapter -- HTML
-**Scenarios:**
+The HTML platform adapter uses a zero-dependency prototype/ directory.
 - WHEN Design Phase, THEN produce prototype/ directory (index.html, styles.css, pages)
 - WHEN Implement Phase, THEN read CSS custom properties and HTML structure
 - WHEN Verify Phase, THEN DOM structure and CSS property comparison
@@ -171,6 +171,7 @@ _(None)_
 
 | Date | Change | Impact | Stories/REQs |
 |------|--------|--------|-------------|
+| 2026-11-04 | reconcile-feature-ownership | MODIFIED REQ-DSGN-008 | REQ-DSGN-008 |
 | 2026-11-02 | backfill-doc-drift-design-phase | MODIFIED REQ-DSGN-001 | REQ-DSGN-001 |
 | 2026-09-29 | audit-shipped-skill-claims | MODIFIED REQ-DSGN-001; MODIFIED REQ-DSGN-004 | REQ-DSGN-001, REQ-DSGN-004 |
 | 2026-07-30 | restore-cli-first | ADDED REQ-TEMPLATES-164 | REQ-TEMPLATES-164 |
@@ -180,3 +181,9 @@ _(None)_
 | 2026-06-17 | extract-backfill-spec-skill | REQ-DSGN-003 removed the input=code reverse-variant cross-reference -- the capability was split out into the standalone skill prospec-backfill-spec; prospec-design returns to pure Generate/Extract | REQ-DSGN-003 (MODIFIED) |
 | 2026-07-05 | quick-scale-and-ceremony-cleanup | ADDED US-004 (design's position in the lifecycle) + REQ-TEMPLATES-138 (`_status-lifecycle.md` + shipped template make explicit that design has no status, ui_scope-gated) (issue #67) | US-004, REQ-TEMPLATES-138 |
 | 2026-07-17 | translate-feature-specs-to-english | Translated spec to English (Language Policy); no requirement changes. | — |
+| 2026-11-04 | reconcile-feature-ownership | sdd-workflow/US-9 + REQ-TEMPLATES-050 -> design-phase/US-001 + REQ-DSGN-001; redundant definition retired, capability retained | REQ-TEMPLATES-050, REQ-DSGN-001 |
+| 2026-11-04 | reconcile-feature-ownership | sdd-workflow/US-9 + REQ-TEMPLATES-051 -> design-phase/US-001 + REQ-DSGN-002; redundant definition retired, capability retained | REQ-TEMPLATES-051, REQ-DSGN-002 |
+| 2026-11-04 | reconcile-feature-ownership | sdd-workflow/US-9 + REQ-TEMPLATES-052 -> design-phase/US-001 + REQ-DSGN-003; redundant definition retired, capability retained | REQ-TEMPLATES-052, REQ-DSGN-003 |
+| 2026-11-04 | reconcile-feature-ownership | sdd-workflow/US-9 + REQ-TEMPLATES-053 -> design-phase/US-003 + REQ-DSGN-004, REQ-DSGN-006, REQ-DSGN-007, REQ-DSGN-008; redundant definition retired, capability retained | REQ-TEMPLATES-053, REQ-DSGN-004, REQ-DSGN-006, REQ-DSGN-007, REQ-DSGN-008 |
+| 2026-11-04 | reconcile-feature-ownership | sdd-workflow/US-7 + REQ-TEMPLATES-057 -> design-phase/US-001 + REQ-DSGN-005; redundant definition retired, capability retained | REQ-TEMPLATES-057, REQ-DSGN-005 |
+| 2026-11-04 | reconcile-feature-ownership | sdd-workflow/US-9 + REQ-TEMPLATES-058 -> design-phase/US-003 + REQ-DSGN-009; redundant definition retired, capability retained | REQ-TEMPLATES-058, REQ-DSGN-009 |

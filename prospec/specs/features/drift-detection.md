@@ -2,8 +2,8 @@
 feature: drift-detection
 status: active
 last_updated: 2026-11-03
-story_count: 22
-req_count: 91
+story_count: 25
+req_count: 96
 ---
 
 # Deterministic Drift Check
@@ -29,6 +29,9 @@ req_count: 91
 - [US-21: Constitution Language Policy drifts from the resolved language scope](./drift-detection/us-21.md)
 - [US-22: A station's reference map is checked where the station reads it](./drift-detection/us-22.md)
 - [US-23: Module paths git cannot read as written are refused with a rewrite hint](./drift-detection/us-23.md)
+- [US-24: Canonical document drift detection](./drift-detection/us-24.md)
+- [US-25: Delta-spec landing fidelity](./drift-detection/us-25.md)
+- [US-26: Unique requirement identities](./drift-detection/us-26.md)
 
 ---
 
@@ -64,6 +67,11 @@ _(None)_
 
 | Date | Change | Impact | Stories/REQs |
 |------|--------|--------|--------------|
+| 2026-11-04 | reconcile-feature-ownership | Relocate unchanged identity and complete behavior from drift-checks/US-1 to drift-detection/US-8; retain the source container as deprecated history | drift-checks/US-1/REQ-LIB-001 → drift-detection/US-8/REQ-LIB-001 |
+| 2026-11-04 | reconcile-feature-ownership | Relocate unchanged identity and complete behavior from drift-checks/US-3 to drift-detection/US-8; retain the source container as deprecated history | drift-checks/US-3/REQ-LIB-002 → drift-detection/US-8/REQ-LIB-002 |
+| 2026-11-04 | reconcile-feature-ownership | Relocate unchanged identity and complete behavior from drift-checks/US-4 to drift-detection/US-24; retain the source container as deprecated history | drift-checks/US-4/REQ-LIB-052 → drift-detection/US-24/REQ-LIB-052 |
+| 2026-11-04 | reconcile-feature-ownership | Relocate unchanged identity and complete behavior from drift-checks/US-5 to drift-detection/US-25; retain the source container as deprecated history | drift-checks/US-5/REQ-LIB-061 → drift-detection/US-25/REQ-LIB-061 |
+| 2026-11-04 | reconcile-feature-ownership | Relocate unchanged identity and complete behavior from drift-checks/US-6 to drift-detection/US-26; retain the source container as deprecated history | drift-checks/US-6/REQ-LIB-068 → drift-detection/US-26/REQ-LIB-068 |
 | 2026-11-03 | retain-failing-verdicts | MODIFIED REQ-SERVICES-068; MODIFIED REQ-CLI-022 | REQ-SERVICES-068, REQ-CLI-022 |
 | 2026-11-02 | backfill-doc-drift-drift-detection | MODIFIED REQ-TESTS-074; MODIFIED REQ-LIB-079; MODIFIED REQ-TYPES-034; MODIFIED REQ-TYPES-052; MODIFIED REQ-TESTS-045; MODIFIED REQ-LIB-027; MODIFIED REQ-LIB-033; MODIFIED REQ-SERVICES-068 | REQ-TESTS-074, REQ-LIB-079, REQ-TYPES-034, REQ-TYPES-052, REQ-TESTS-045, REQ-LIB-027, REQ-LIB-033, REQ-SERVICES-068 |
 | 2026-11-02 | treat-directory-as-deletion | MODIFIED REQ-LIB-024; MODIFIED REQ-LIB-070; MODIFIED REQ-TESTS-042 | REQ-LIB-024, REQ-LIB-070, REQ-TESTS-042 |

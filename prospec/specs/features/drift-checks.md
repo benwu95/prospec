@@ -1,88 +1,24 @@
 ---
 feature: drift-checks
-status: active
-last_updated: 2026-10-24
-story_count: 5
-req_count: 5
+status: deprecated
+last_updated: 2026-11-04
+story_count: 0
+req_count: 0
 ---
 
 # drift-checks
 
 ## Who & Why
 
-**Who it serves**: TBD
+**Who it serves**: Maintainers following historical Story and requirement ownership
 
-**Problem it solves**: TBD
+**Problem it solves**: Preserves the retired container and its original Change History after its capabilities converge under `drift-detection`
 
-**Why it matters**: TBD
+**Why it matters**: Stable historical references remain traceable while each capability has one active owner
 
-## User Stories & Behavior Specifications
+## Container Status
 
-### US-1
-
-#### REQ-LIB-001: Token Budget Override Drift Check
-The drift engine enforces justification for token budget increases and flags per-project keys that no longer bind. `collectBudgetOverrides` walks `knowledge.token_budget` through the YAML AST: a schema-declared key above its shipped default becomes an override (with its comment status and line); a key named by `SHIPPED_BUDGET_FIELDS` becomes an `ineffective` entry (key and line) and is never compared against a default. `evaluateBudgetOverrides` emits one warn finding per unjustified override and one per ineffective key, both under `unjustified-budget-override`.
-- WHEN a `token_budget` override exceeds its shipped default and lacks an adjacent comment, THEN a drift check warning is emitted
-- WHEN the override has a comment or is <= the default, THEN the check passes
-- WHEN `token_budget` carries `skill_per_file` or `reference_per_file`, THEN a warn finding names that key and its line, states that the budget ships with prospec and is not a per-project setting, and tells the user to remove the line
-- WHEN `token_budget` carries no shipped key, THEN no ineffective finding is emitted and the outcome is byte-identical to the pre-change behavior
-
----
-
-### US-3
-
-#### REQ-LIB-002: Knowledge Size Headroom
-The knowledge size check provides early warnings via a headroom band.
-- WHEN a file's size exceeds the headroom threshold but is under budget, THEN an early warning drift check is emitted
-
----
-
-### US-4
-
-#### REQ-LIB-052: Canonical Doc Drift Check
-The `canonical-doc-drift` check WARNs when a canonical init doc's template-owned content has diverged from the installed version's template. Scope is the in-project README and the two canonical convention docs (`_status-lifecycle.md`, `_module-readme-conventions.md`), resolved at their actual locations and rendered through the shared init-doc path; user-authored docs (CONSTITUTION, index, user-managed conventions) are out of scope, and the canonical subset plus per-doc preservation semantics are the single classification `INIT_DOC_REGISTRY` carries.
-- WHEN a present canonical doc's on-disk content differs from its rendered template after normalizing line endings and a single trailing newline, THEN a WARN finding names that doc
-- WHEN a present canonical doc matches its rendered template, THEN the check passes for it
-- WHEN a present canonical doc without `preserveUserContent` differs from its rendered template after normalizing line endings and a single trailing newline, THEN a WARN finding names that doc
-- WHEN `_module-readme-conventions.md` has `preserveUserContent`, THEN compare its rendered generated/static content through the shared user-block merge semantics; a changed Project Section Extensions registry alone does not produce drift
-- WHEN a present canonical doc matches its rendered template-owned content, THEN the check passes for it
-- WHEN a canonical doc is absent, THEN it is skipped (absence is not drift)
-- WHEN a user-authored doc differs from its template, THEN this check reports nothing (out of scope)
-
----
-
-### US-5
-
-#### REQ-LIB-061: Delta-Spec Landing Fidelity Check
-The `delta-spec-landing-fidelity` check fails when a MODIFIED delta-spec landing block would drop an authored trust-zone `WHEN/THEN` bullet it has not declared, surfacing at every `prospec check` the loss the archive write path otherwise catches only after the feature commit. It derives the undeclared-drop set from the same shared implementation the archive write path uses, so the two cannot diverge. It also fails when a MODIFIED or REMOVED entry's `**Feature:**` names a feature that does not host the REQ id while the REQ lives in another feature, so a mis-routed header can no longer pass by skipping the comparison. It also fails when a MODIFIED entry with a `**Feature:**` header carries a `**Spec:**` label whose block holds no content — the block boundary ends it before any text, a REQ heading pasted under the label being the usual cause — and no truncation cut it short, so that gap surfaces at every `prospec check` instead of after the feature commit. The empty-block verdict comes from the same shared implementation the archive write path refuses on, and an entry whose routing header already fails as a mis-route reports only that finding, matching the order the archive write path refuses in.
-- WHEN a MODIFIED entry's `**Spec:**` block omits a `WHEN/THEN` bullet present in the trust-zone REQ body it replaces, and `**Dropped:**` does not declare that bullet, THEN the check fails and the finding names the REQ id and the omitted bullet's source text
-- WHEN the omitted bullet is declared as a `**Dropped:**` list item, THEN the check passes for it as a deliberate, acknowledged drop
-- WHEN the landing block restates every existing trust-zone bullet, THEN the check passes
-- WHEN a `**Dropped:**` declaration names a bullet the landing block did not drop, THEN it is reported with the archive write path's stale-declaration semantics
-- WHEN an entry is ADDED, or a MODIFIED entry carries no `**Spec:**` block, THEN it is excluded from the drop comparison
-- WHEN a MODIFIED entry with a `**Feature:**` header carries a `**Spec:**` label whose block holds no content and does not fail as a mis-route, THEN the check fails and the finding names the REQ id and the line that ended the block, or states that the entry ended
-- WHEN the `**Spec:**` block holds content, THEN the entry is not treated as an empty block
-- WHEN the `**Spec:**` block is cut short by a label outside the template registry with content after it, THEN the entry is not treated as an empty block
-- WHEN an entry with an empty `**Spec:**` block also fails as a mis-route, THEN only the mis-route finding is reported for it
-- WHEN this check and the archive write path assess the same entry's `**Spec:**` block, THEN both derive the empty-block verdict from one shared implementation
-- WHEN a MODIFIED or REMOVED entry's `**Feature:**` does not host its REQ id while the REQ lives in another feature, THEN the check fails and the finding names the REQ id and the feature it actually lives in
-- WHEN a MODIFIED or REMOVED entry's REQ id is defined in no feature yet, THEN it is not treated as a mis-route (a create-and-deprecate shape)
-- WHEN a `**Dropped:**` block carries non-empty content but no parseable list item, THEN a non-fail warning names the entry so the author sees the declaration was not registered
-- WHEN this check and the archive write path assess the same landing block and trust-zone body, THEN both derive the undeclared-drop set from one shared implementation and report the identical set
-- WHEN this check and the archive write path resolve the same routing header, THEN both derive the resolution from one shared implementation
-- WHEN a MODIFIED id is defined only by struck headings, THEN existingBody is null and no struck body enters the drop comparison, matching the archive active-only merge target in REQ-SERVICES-072
-
----
-
-### US-6
-
-#### REQ-LIB-068: REQ Id Uniqueness Drift Check
-The `req-id-uniqueness` check fails when any REQ id is defined (as a heading) in more than one place across the Feature Specs, so a cross-feature id collision cannot silently enter the trust zone. Definition detection reuses the shared REQ-heading matcher and groups a feature's slices with its parent; a mention that is not a heading is a reference, not a definition. It is appended to the frozen `DRIFT_CHECK_IDS` set without changing existing ids or their order.
-- WHEN a REQ id has a defining heading in two or more feature specs, THEN the check fails and the finding names the id and every definition's `source_path` and line
-- WHEN every REQ id is defined exactly once across the Feature Specs, THEN the check passes
-- WHEN the features directory is absent or holds no parseable spec, THEN the check is skipped (never a vacuous pass)
-
----
+This deprecated container is permanently retained as history only. Its capabilities remain active under `drift-detection`; the Change History records their fully qualified Story and REQ destinations.
 
 ## Edge Cases
 
@@ -107,6 +43,12 @@ _(None)_
 
 | Date | Change | Impact | Stories/REQs |
 |------|--------|--------|-------------|
+| 2026-11-04 | reconcile-feature-ownership | Relocate unchanged identity and complete behavior from drift-checks/US-1 to drift-detection/US-8; retain the source container as deprecated history | drift-checks/US-1/REQ-LIB-001 → drift-detection/US-8/REQ-LIB-001 |
+| 2026-11-04 | reconcile-feature-ownership | Relocate unchanged identity and complete behavior from drift-checks/US-3 to drift-detection/US-8; retain the source container as deprecated history | drift-checks/US-3/REQ-LIB-002 → drift-detection/US-8/REQ-LIB-002 |
+| 2026-11-04 | reconcile-feature-ownership | Relocate unchanged identity and complete behavior from drift-checks/US-4 to drift-detection/US-24; retain the source container as deprecated history | drift-checks/US-4/REQ-LIB-052 → drift-detection/US-24/REQ-LIB-052 |
+| 2026-11-04 | reconcile-feature-ownership | Relocate unchanged identity and complete behavior from drift-checks/US-5 to drift-detection/US-25; retain the source container as deprecated history | drift-checks/US-5/REQ-LIB-061 → drift-detection/US-25/REQ-LIB-061 |
+| 2026-11-04 | reconcile-feature-ownership | Relocate unchanged identity and complete behavior from drift-checks/US-6 to drift-detection/US-26; retain the source container as deprecated history | drift-checks/US-6/REQ-LIB-068 → drift-detection/US-26/REQ-LIB-068 |
+| 2026-11-04 | reconcile-feature-ownership | MODIFIED REQ-LIB-001; MODIFIED REQ-LIB-002; MODIFIED REQ-LIB-052; MODIFIED REQ-LIB-061; MODIFIED REQ-LIB-068 | REQ-LIB-001, REQ-LIB-002, REQ-LIB-052, REQ-LIB-061, REQ-LIB-068 |
 | 2026-10-24 | fail-empty-modified-spec | MODIFIED REQ-LIB-061 | REQ-LIB-061 |
 | 2026-09-29 | fix-spec-sync-safety | MODIFIED REQ-LIB-061 | REQ-LIB-061 |
 | 2026-09-18 | internalize-skill-budgets | MODIFIED REQ-LIB-001 | REQ-LIB-001 |
