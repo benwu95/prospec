@@ -3,7 +3,7 @@ feature: ai-knowledge
 status: active
 last_updated: 2026-11-04
 story_count: 16
-req_count: 74
+req_count: 75
 ---
 
 # AI Knowledge
@@ -131,6 +131,7 @@ The test suite proves the Module README format contract at every boundary using 
 
 | Date | Change | Impact | Stories/REQs |
 |------|--------|--------|-------------|
+| 2026-11-04 | preserve-authored-knowledge | ADDED REQ-LIB-110; MODIFIED REQ-LIB-026; MODIFIED REQ-KNOW-036; MODIFIED REQ-KNOW-008; MODIFIED REQ-KNOW-012; MODIFIED REQ-KNOW-005; MODIFIED REQ-KNOW-013; MODIFIED REQ-SERVICES-022; MODIFIED REQ-SERVICES-090 | REQ-LIB-110, REQ-LIB-026, REQ-KNOW-036, REQ-KNOW-008, REQ-KNOW-012, REQ-KNOW-005, REQ-KNOW-013, REQ-SERVICES-022, REQ-SERVICES-090 |
 | 2026-11-04 | reconcile-feature-ownership | Relocate unchanged identity and complete behavior from knowledge-management/US-2 to ai-knowledge/US-310; retain the source container as deprecated history | knowledge-management/US-2/REQ-SERVICES-001 → ai-knowledge/US-310/REQ-SERVICES-001 |
 | 2026-11-04 | reconcile-feature-ownership | Relocate unchanged identity and complete behavior from knowledge-management/US-3 to ai-knowledge/US-362; retain the source container as deprecated history | knowledge-management/US-3/REQ-SERVICES-090 → ai-knowledge/US-362/REQ-SERVICES-090 |
 | 2026-11-04 | reconcile-feature-ownership | MODIFIED REQ-SERVICES-029 | REQ-SERVICES-029 |

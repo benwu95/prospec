@@ -131,17 +131,18 @@ export async function execute(options: KnowledgeVerifyOptions): Promise<Knowledg
   if (verified.length === 0) return { moduleMapPath, verified, skipped, timestamp: now };
 
   const targets = new Set(verified);
+  const changed = moduleMap.modules.some(m => targets.has(m.name)
+    && (m.last_verified !== now || (digests !== null && m.source_digest !== digests.get(m.name))));
+  if (!changed) return { moduleMapPath, verified, skipped, timestamp: now };
+
   for (const m of moduleMap.modules) {
     if (!targets.has(m.name)) continue;
     m.last_verified = now;
     if (digests !== null) m.source_digest = digests.get(m.name)!;
   }
 
-  // Comment-preserving in-place merge: module-map.yaml is a CURATED file. Reusing
-  // the same Document path as `updateModuleMap` keeps the header comments and every
-  // untouched module's fields byte-stable.
   const doc = parseYamlDocument(content, moduleMapPath);
-  mergeIntoDocument(doc, moduleMap as unknown as Record<string, unknown>);
+  mergeIntoDocument(doc, moduleMap as unknown as Record<string, unknown>, { preserveModuleMap: true });
   await atomicWrite(target.path, stringifyYamlDocument(doc));
 
   return { moduleMapPath, verified, skipped, timestamp: now };

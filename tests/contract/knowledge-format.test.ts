@@ -24,6 +24,23 @@ import {
 vi.mock('../../src/lib/bundled-templates.js', () => ({ BUNDLED_TEMPLATES: {} }));
 
 describe('Knowledge Format Contract', () => {
+  it('classifies full source detail as L3 in the conventions Public API row across source, bundle and deployment', async () => {
+    const { BUNDLED_TEMPLATES } = await vi.importActual<typeof import('../../src/lib/bundled-templates.js')>('../../src/lib/bundled-templates.js');
+    const copies = [
+      fs.readFileSync(path.resolve(__dirname, '../../src/templates/init/module-readme-conventions.md.hbs'), 'utf8'),
+      BUNDLED_TEMPLATES['init/module-readme-conventions.md.hbs'],
+      fs.readFileSync(path.resolve(__dirname, '../../prospec/ai-knowledge/_module-readme-conventions.md'), 'utf8'),
+    ];
+    for (const content of copies) {
+      expect(content).toBeTypeOf('string');
+      const row = content!.split('\n').find(line => line.startsWith('| `## Public API` |'));
+      expect(row).toBeDefined();
+      expect(row!.split('|').filter(Boolean)).toHaveLength(3);
+      const sourceLayer = row!.match(/source \((L\d)\)/);
+      expect(sourceLayer?.[1]).toBe('L3');
+    }
+  });
+
   describe('Module README (Recipe-First format)', () => {
     const templateContext = {
       module_name: 'services',

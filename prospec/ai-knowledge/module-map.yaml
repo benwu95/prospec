@@ -64,7 +64,7 @@ modules:
       - MCP 契約
       - 模組分類
     rationale: Leaf module with zero internal deps — all others import from here
-    last_verified: 2026-11-04T04:56:50.843Z
+    last_verified: 2026-11-04T09:14:33.688Z
     source_digest: source-v1:3a35d9083e4a320c27a695bf40425f4604fefc31623d87c0d8b12e3e42c9e531
   - name: lib
     description: Shared stateless utilities — config, file I/O, Handlebars
@@ -143,8 +143,8 @@ modules:
       - 漂移檢查
       - 知識讀取
     rationale: Foundational infrastructure shared across services and benchmark scripts
-    last_verified: 2026-11-04T04:56:50.843Z
-    source_digest: source-v1:84554f37e68ca5ceb2751ca0a4d973e06123cd938280795f7efeededf49c7a91
+    last_verified: 2026-11-04T10:27:07.913Z
+    source_digest: source-v1:d9a9b082e6e0559f1d5a6a370afa0c237f380994f4cdde2fbb390c3ba7864cf6
   - name: services
     description: Business logic — one `execute()` service per command — including
       shared-output agent invocation-guidance rendering — init / quickstart /
@@ -208,8 +208,8 @@ modules:
       - 漂移檢查
       - 真相層
     rationale: Isolates business logic from I/O layer, enables testability
-    last_verified: 2026-11-04T04:56:50.843Z
-    source_digest: source-v1:677b780902734654bf0aa3f277b06080c22df34976b3a9227050df31bdfc95b1
+    last_verified: 2026-11-04T10:27:07.913Z
+    source_digest: source-v1:fc529f0e39ec144166ec7353d2feb3da0299076508f0389b9174360978ee1bd0
   - name: cli
     description: Thin CLI entry — 19 top-level Commander commands + shared
       formatters that parse → call one service → format output; the cli-first
@@ -254,7 +254,7 @@ modules:
       - 終端
       - entry point
     rationale: "Thin I/O layer: no business logic, delegates to services"
-    last_verified: 2026-11-04T04:56:50.843Z
+    last_verified: 2026-11-04T09:14:33.688Z
     source_digest: source-v1:cf5809b80265bdd544d07431cc8f7c86814b4074f1654aeff237df18646b2589
   - name: templates
     description: Handlebars template library — 17 skills + host-labelled invocation
@@ -312,11 +312,11 @@ modules:
       - 複雜度適配
       - CI 閘門
     rationale: Pure resources — no logic, consumed by lib/template.ts
-    last_verified: 2026-11-04T04:56:50.843Z
-    source_digest: source-v1:b963132f0d40fd799e29d4c4983e2eb29ae8ae20795731292cfd74096f819c39
+    last_verified: 2026-11-04T06:15:55.479Z
+    source_digest: source-v1:f6ce22d9c231fe6235822eb13aebf0220ced19bb55498787c6be8c13f936abea
   - name: tests
-    description: 4-layer test suite — 343 files, 9,439 tests (unit 6759 + contract
-      2172 + integration 260 + e2e 248). Validates every module — format and
+    description: 4-layer test suite — 344 files, 9,492 tests (unit 6799 + contract
+      2173 + integration 272 + e2e 248). Validates every module — format and
       public-document contracts, the cli-first probe + station-command
       contracts, the drift engine, retained workflow/startup guards, and the MCP
       protocol over in-memory transport. Real-worktree history fixtures cover
@@ -362,5 +362,5 @@ modules:
       - 驗證
       - vitest
     rationale: Quality gate — validates all layers with pyramid coverage
-    last_verified: 2026-11-04T05:46:49.600Z
-    source_digest: source-v1:600effe2163ec63479aa27bf2b170d2fb3ce8318fe2e7f4233ff6251a7bd52f6
+    last_verified: 2026-11-04T10:27:07.913Z
+    source_digest: source-v1:c2e0de853b79612fcf2116012308a0f9982618cf991207039ea4b90f520fa190

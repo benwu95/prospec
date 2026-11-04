@@ -11,6 +11,8 @@ import {
   execute,
 } from '../../../src/services/knowledge-update.service.js';
 import { PrerequisiteError } from '../../../src/types/errors.js';
+import { parseYaml } from '../../../src/lib/yaml-utils.js';
+import type { ModuleMap } from '../../../src/types/module-map.js';
 import { classifyDeltaSpec, loadDeltaModuleContext } from '../../../src/lib/knowledge-sync.js';
 import {
   INDEX_TABLE_HEADER,
@@ -493,6 +495,62 @@ ${INDEX_TABLE_SEPARATOR}
     });
   });
 
+  it.each([
+    { label: 'managed', before: '# Authored title\n<!-- prospec:auto-start -->\nold\n<!-- prospec:auto-end -->\n\n## Notes\nKeep exactly.\n', headings: 1 },
+    { label: 'marker-less', before: '# Authored title\n\n## Notes\nKeep exactly.\n', headings: 1 },
+    { label: 'fenced example', before: '# Authored title\n<!-- prospec:auto-start -->\nold\n<!-- prospec:auto-end -->\n\n```md\n## Progressive Knowledge Loading Strategy\nexample only\n```\n\n## Notes\nKeep exactly.\n', headings: 2 },
+  ])('adds missing Loading Strategy while retaining $label static content, once', async ({ before, headings }) => {
+    vol.fromJSON({ '/test/prospec/index.md': before });
+    const options = { cwd: '/test', baseDir: 'prospec', knowledgeBasePath: 'prospec/ai-knowledge', projectName: 'p', tokenBudget: DEFAULT_KNOWLEDGE_TOKEN_BUDGET };
+    const modules = [{ name: 'auth', description: 'Auth module', status: 'Active' }];
+    await updateIndex(modules, options);
+    const first = vol.readFileSync('/test/prospec/index.md', 'utf8') as string;
+    expect(first.startsWith('# Authored title\n')).toBe(true);
+    expect(first).toContain('## Notes\nKeep exactly.\n');
+    expect(first.match(/^## Progressive Knowledge Loading Strategy$/gm)).toHaveLength(headings);
+    expect(first).toContain('| **L3** | Source code files |');
+    if (!before.includes('prospec:auto-start')) expect(first.startsWith(before)).toBe(true);
+    await updateIndex(modules, options);
+    expect(vol.readFileSync('/test/prospec/index.md', 'utf8')).toBe(first);
+  });
+
+  it.each([
+    { label: 'HTML comment', snippet: '<!--\n## Progressive Knowledge Loading Strategy\nexample only\n-->', existing: false },
+    { label: 'adjacent HTML comments', snippet: '<!-- first --> <!--\n## Progressive Knowledge Loading Strategy\n--> <!-- last -->', existing: false },
+    { label: 'fence inside an HTML comment', snippet: '<!--\n```md\n## Progressive Knowledge Loading Strategy\n-->\n\n## Progressive Knowledge Loading Strategy\nAuthored policy.', existing: true },
+    { label: 'literal HTML markers in a fence and inline code', snippet: '```md\n<!--\n## Progressive Knowledge Loading Strategy\n```\n\n`<!--` is a literal opener.\n\n## Progressive Knowledge Loading Strategy\nAuthored policy.\n\n`-->` is a literal closer.', existing: true },
+    { label: 'HTML comment opener in fence info', snippet: '```md <!--\n## Progressive Knowledge Loading Strategy\n```', existing: false },
+    { label: 'HTML comment followed by an existing section', snippet: '<!--\n## Progressive Knowledge Loading Strategy\n-->\n\n## Progressive Knowledge Loading Strategy\nAuthored policy.', existing: true },
+    { label: 'CRLF HTML comment', snippet: '<!--\r\n## Progressive Knowledge Loading Strategy\r\n-->', existing: false },
+  ])('checks Loading Strategy outside $label without rewriting authored content', async ({ snippet, existing }) => {
+    const heading = '## Progressive Knowledge Loading Strategy';
+    const before = `# Authored title\n<!-- prospec:auto-start -->\nold\n<!-- prospec:auto-end -->\n\n${snippet}\n\n## Notes\nKeep exactly.\n`;
+    vol.fromJSON({ '/test/prospec/index.md': before });
+    const options = { cwd: '/test', baseDir: 'prospec', knowledgeBasePath: 'prospec/ai-knowledge', projectName: 'p', tokenBudget: DEFAULT_KNOWLEDGE_TOKEN_BUDGET };
+    const modules = [{ name: 'auth', description: 'Auth', status: 'Active' }];
+    await updateIndex(modules, options);
+    const after = vol.readFileSync('/test/prospec/index.md', 'utf8') as string;
+    expect(after).toContain(snippet);
+    expect(after).toContain('## Notes\nKeep exactly.\n');
+    expect(after.split(heading)).toHaveLength(before.split(heading).length + (existing ? 0 : 1));
+    if (existing) expect(after).not.toContain('| **L3** | Source code files |');
+    else expect(after).toContain('| **L3** | Source code files |');
+    await updateIndex(modules, options);
+    expect(vol.readFileSync('/test/prospec/index.md', 'utf8')).toBe(after);
+  });
+
+  it.each(['', ' ##'])('keeps an authored Loading Strategy%s unchanged', async (closing) => {
+    const strategy = `## Progressive Knowledge Loading Strategy${closing}\n\nAuthored policy.\n`;
+    const before = `# Index\n<!-- prospec:auto-start -->\nold\n<!-- prospec:auto-end -->\n\n${strategy}\n## Notes\nKeep exactly.\n`;
+    vol.fromJSON({ '/test/prospec/index.md': before });
+    await updateIndex([{ name: 'auth', description: 'Auth', status: 'Active' }], {
+      cwd: '/test', baseDir: 'prospec', knowledgeBasePath: 'prospec/ai-knowledge', projectName: 'p', tokenBudget: DEFAULT_KNOWLEDGE_TOKEN_BUDGET,
+    });
+    const after = vol.readFileSync('/test/prospec/index.md', 'utf8') as string;
+    expect(after.endsWith(`${strategy}\n## Notes\nKeep exactly.\n`)).toBe(true);
+    expect(after.match(/^## Progressive Knowledge Loading Strategy/gm)).toHaveLength(1);
+  });
+
   it('renders curated columns from module data instead of blanking them to — (REQ-KNOW-036)', async () => {
     vol.fromJSON({
       '/test/prospec/index.md': `# AI Knowledge Index\n\n## Modules\n\n<!-- prospec:auto-start -->\n${INDEX_TABLE_HEADER}\n${INDEX_TABLE_SEPARATOR}\n<!-- prospec:auto-end -->\n`,
@@ -590,7 +648,7 @@ describe('updateModuleMap', () => {
     await updateModuleMap({ added: ['auth'], removed: ['legacy'] }, '/project/module-map.yaml');
 
     const content = vol.readFileSync('/project/module-map.yaml', 'utf-8') as string;
-    expect(content).toContain(digest);
+    expect(parseYaml<ModuleMap>(content).modules[0]?.source_digest).toBe(digest);
     expect(content).not.toContain('legacy');
     expect(content.match(/source_digest/g)).toHaveLength(1);
   });

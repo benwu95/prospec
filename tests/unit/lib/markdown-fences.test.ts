@@ -24,6 +24,19 @@ describe('withoutFencedBlocks', () => {
     expect(out).toHaveLength(lines.length);
   });
 
+  it('optionally masks HTML comment lines without changing the default view', () => {
+    const lines = ['before', '<!--', 'hidden', '--> <!-- second -->', '`<!--`', 'after', '`-->`', '\\<!--', 'visible escaped', '\\-->', '``<!-- ` -->``'];
+    expect(withoutFencedBlocks(lines)).toEqual(lines);
+    expect(withoutFencedBlocks(lines, { htmlComments: true })).toEqual(['before', '', '', '', '`<!--`', 'after', '`-->`', '\\<!--', 'visible escaped', '\\-->', '``<!-- ` -->``']);
+  });
+
+  it('ignores fences inside comments and comment delimiters inside fences', () => {
+    const lines = ['<!--', '```md', '-->', 'visible', '```md <!--', 'hidden', '```', 'also visible'];
+    const masked = withoutFencedBlocks(lines, { htmlComments: true });
+    expect(masked).toEqual(['', '', '', 'visible', '', '', '', 'also visible']);
+    expect(masked).toHaveLength(lines.length);
+  });
+
   it('keeps a longer closer rule: a 4-backtick fence wraps a 3-backtick example', () => {
     const out = run(['````', '```', 'inner example', '```', '````', 'visible'].join('\n'));
     expect(out).toEqual(['', '', '', '', '', 'visible']);

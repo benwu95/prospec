@@ -1,6 +1,6 @@
 # Verification Suite
 
-> 4-layer Vitest suite (fast-glob/git bypass memfs — 343 test files, 9,439 tests (unit 6759, contract 2172, integration 260, e2e 248)).
+> 4-layer Vitest suite (fast-glob/git bypass memfs — 344 test files, 9,492 tests (unit 6799, contract 2173, integration 272, e2e 248)).
 <!-- prospec:module-readme-format 2026-09-01 -->
 
 <!-- prospec:auto-start -->
@@ -49,6 +49,7 @@ Lens changes require independent eight-lens expectations, alias/custom and thres
 - Archive-finalize suites pin deprecated zero counters, complete slices, product refresh/declines, dry-run, captured symlink referents and retained partial writes. Template/skill/service/CLI changes ripple to contract + E2E expectations; public README, `docs/` page or website claims ripple to the section-scoped document contracts; a new station command needs a formatter unit test AND an E2E case. Release bumps update website/social-preview assertions in `skill-format.test.ts`; a CLI floor bump updates `version.test.ts` (2.10.0: source-digest freshness and Knowledge sync before review).
 
 ## Pitfalls
+- Knowledge regeneration fixtures test migration → map → index → clear → update, each writer’s comments/style/parsed values and no-op bytes separately; stamp/digest assertions parse YAML so retained quoting and wrapping cannot mask data correctness.
 
 - Index-evidence fixtures stage intended inputs and pair ordinary untracked additions with staged counterparts. Shared-reader policies, root/subdirectory migration, recursive submodules and preservation mutations have real-Git pins; four-stage guidance has section/order and delete/move mutation coverage.
 - Directory-replacement fixtures pair deletion with empty/untracked-child directories in root, nested-project and recursive submodule layouts; retain nested-checkout, FIFO and preservation refusals. Assume-unchanged file/symlink deletions in direct/nested submodules, symlink target ordering, full/opt-in integrity, repeat-deletion races, the unreported-directory reason and shared submodule observation counts have regression pins; compare previously recordable captures against the original implementation when identity must remain unchanged.

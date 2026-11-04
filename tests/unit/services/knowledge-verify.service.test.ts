@@ -4,6 +4,8 @@ import { execute } from '../../../src/services/knowledge-verify.service.js';
 import { readHeadModuleStamps } from '../../../src/lib/knowledge-sync.js';
 import { collectModuleDigests, isGitWorkTree } from '../../../src/lib/drift-sources.js';
 import { PrerequisiteError } from '../../../src/types/errors.js';
+import { parseYaml } from '../../../src/lib/yaml-utils.js';
+import type { ModuleMap } from '../../../src/types/module-map.js';
 
 vi.mock('node:fs', async () => {
   const memfs = await import('memfs');
@@ -72,7 +74,7 @@ describe('knowledge-verify.service (REQ-SERVICES-090)', () => {
     expect(result.verified).toEqual(['lib']);
     expect(result.timestamp).toBe(NOW);
     const content = vol.readFileSync(MAP_PATH, 'utf-8') as string;
-    expect(content).toContain(`last_verified: ${NOW}`);
+    expect(parseYaml<ModuleMap>(content).modules[0]?.last_verified).toBe(NOW);
     // cli's stamp is untouched; the curated header comment survives the write.
     expect(content).toContain('2026-02-02T00:00:00Z');
     expect(content).not.toContain('2026-01-01T00:00:00Z');
@@ -87,7 +89,7 @@ describe('knowledge-verify.service (REQ-SERVICES-090)', () => {
     await execute({ modules: ['lib'], cwd: '/test', now: NOW });
 
     const content = vol.readFileSync(MAP_PATH, 'utf-8') as string;
-    expect(content).toContain(`last_verified: ${NOW}`);
+    expect(parseYaml<ModuleMap>(content).modules[0]?.last_verified).toBe(NOW);
   });
 
   it('stamps several de-duplicated modules in one call', async () => {
@@ -229,6 +231,23 @@ describe('knowledge-verify.service — digest-based skip (REQ-SERVICES-090)', ()
     expect(vol.readFileSync(MAP_PATH, 'utf-8')).toBe(before);
   });
 
+  it('skips an unchanged digest with recursive unknown data without serializing the raw map', async () => {
+    const original = map(LATER, null) + 'custom: &cycle {self: *cycle}\n';
+    vol.fromJSON({ [MAP_PATH]: original });
+    head({ lib: '2026-08-01T00:00:00.000Z' });
+    const result = await execute({ modules: ['lib'], cwd: '/test', now: NOW });
+    expect(result.skipped).toEqual(['lib']);
+    expect(result.verified).toEqual([]);
+    expect(vol.readFileSync(MAP_PATH, 'utf-8')).toBe(original);
+  });
+
+  it('refuses unsupported data when a stamp requires writing and preserves the original bytes', async () => {
+    const original = map(null, null) + 'custom: {owner: team}\n';
+    vol.fromJSON({ [MAP_PATH]: original });
+    await expect(execute({ modules: ['lib'], cwd: '/test', now: NOW })).rejects.toThrow(/Unsupported Module Map/);
+    expect(vol.readFileSync(MAP_PATH, 'utf-8')).toBe(original);
+  });
+
   it('stamps again, whatever the day, once the source digest moved after the stamp', async () => {
     vol.fromJSON({ [MAP_PATH]: map(LATER, null) });
     head({ lib: '2026-08-01T00:00:00.000Z' });
@@ -236,8 +255,8 @@ describe('knowledge-verify.service — digest-based skip (REQ-SERVICES-090)', ()
     const result = await execute({ modules: ['lib'], cwd: '/test', now: NOW });
     expect(result.verified).toEqual(['lib']);
     const content = vol.readFileSync(MAP_PATH, 'utf-8') as string;
-    expect(content).toContain(`last_verified: ${NOW}`);
-    expect(content).toContain(`source_digest: ${OTHER}`);
+    expect(parseYaml<ModuleMap>(content).modules[0]?.last_verified).toBe(NOW);
+    expect(parseYaml<ModuleMap>(content).modules[0]?.source_digest).toBe(OTHER);
   });
 
   it('treats a module or stamp absent at HEAD, or an unparsable HEAD stamp, as earlier', async () => {
@@ -263,7 +282,7 @@ describe('knowledge-verify.service — digest-based skip (REQ-SERVICES-090)', ()
       head({ lib: atHead });
       const result = await execute({ modules: ['lib'], cwd: '/test', now: NOW });
       expect(result.verified, `${worktree} vs ${atHead}`).toEqual(['lib']);
-      expect(vol.readFileSync(MAP_PATH, 'utf-8')).toContain(`source_digest: ${DIGEST}`);
+      expect(parseYaml<ModuleMap>(vol.readFileSync(MAP_PATH, 'utf-8') as string).modules[0]?.source_digest).toBe(DIGEST);
     }
   });
 
@@ -299,8 +318,8 @@ describe('knowledge-verify.service — digest-based skip (REQ-SERVICES-090)', ()
     const result = await execute({ modules: ['lib'], cwd: '/test', now: NOW });
     expect(result.verified).toEqual(['lib']);
     const content = vol.readFileSync(MAP_PATH, 'utf-8') as string;
-    expect(content).toContain(`last_verified: ${NOW}`);
-    expect(content).toMatch(new RegExp(`source_digest: "?${OTHER}"?\\n`));
+    expect(parseYaml<ModuleMap>(content).modules[0]?.last_verified).toBe(NOW);
+    expect(parseYaml<ModuleMap>(content).modules[0]?.source_digest).toBe(OTHER);
     expect(content).not.toContain(DIGEST);
     expect(collectModuleDigests).not.toHaveBeenCalled();
   });

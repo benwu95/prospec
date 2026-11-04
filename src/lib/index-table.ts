@@ -109,8 +109,8 @@ function isEmptyList(a: readonly string[] | undefined): boolean {
 /**
  * No-clobber migration: seed each module-map entry's curated columns
  * (keywords / aliases / rationale / description) from an existing `index.md`
- * whenever the module-map field is empty/missing. NEVER overwrites a non-empty
- * module-map value, so it is bootstrap-once + idempotent — a second run over the
+ * only when the module-map field is absent. Explicit empty values remain
+ * authoritative, so migration is bootstrap-once + idempotent — a second run over the
  * same inputs reports `changed: false`.
  *
  * `Depends On` is intentionally NOT backfilled: it renders from the
@@ -131,19 +131,19 @@ export function backfillCuratedFromIndex(
     if (idx === undefined) return entry;
 
     const next = { ...entry };
-    if (isEmptyList(next.keywords) && !isEmptyList(idx.keywords)) {
+    if (next.keywords === undefined && !isEmptyList(idx.keywords)) {
       next.keywords = idx.keywords;
       changed = true;
     }
-    if (isEmptyList(next.aliases) && !isEmptyList(idx.aliases)) {
+    if (next.aliases === undefined && !isEmptyList(idx.aliases)) {
       next.aliases = idx.aliases;
       changed = true;
     }
-    if (isEmptyScalar(next.rationale) && !isEmptyScalar(idx.rationale)) {
+    if (next.rationale === undefined && !isEmptyScalar(idx.rationale)) {
       next.rationale = idx.rationale;
       changed = true;
     }
-    if (isEmptyScalar(next.description) && !isEmptyScalar(idx.description)) {
+    if (next.description === undefined && !isEmptyScalar(idx.description)) {
       next.description = idx.description;
       changed = true;
     }
