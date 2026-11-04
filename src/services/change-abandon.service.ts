@@ -1,6 +1,6 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
-import type { ChangeMetadata } from '../types/change.js';
+import type { NewChangeMetadata } from '../types/change.js';
 import { ABANDON_MANIFEST, ABANDON_OPERATION_FILE, type AbandonOperation, type ChangeAbandonResult } from '../types/abandon.js';
 import { AbandonError, PrerequisiteError } from '../types/errors.js';
 import { PremiseSchema } from '../types/premise.js';
@@ -63,7 +63,7 @@ export async function prepareAbandon(options: ChangeAbandonOptions) {
     if (fs.readdirSync(sourceDir).includes(reserved)) throw new PrerequisiteError(`Reserved abandon artifact name: ${reserved}`, 'Rename this original artifact before abandoning');
   }
   requireSettled(sourceDir);
-  const overturned: NonNullable<ChangeMetadata['abandonment']>['overturned'] = [];
+  const overturned: NonNullable<NewChangeMetadata['abandonment']>['overturned'] = [];
   let premiseNote = 'No overturned fields declared';
   try {
     const proposal = resolveContainedTarget(path.join(sourceDir, 'proposal.md'), root, { read: true });
@@ -83,7 +83,7 @@ export async function prepareAbandon(options: ChangeAbandonOptions) {
     premiseNote = `Premise could not be parsed; original proposal retained: ${String(error)}`;
   }
   const last = reduceEscalationHistory(metadata.quality_log, resolveMaxStationRetries(config)).events.at(-1);
-  const record: NonNullable<ChangeMetadata['abandonment']> = {
+  const record: NonNullable<NewChangeMetadata['abandonment']> = {
     reason: options.reason.trim(), at: new Date().toISOString(), from_status: metadata.status,
     escalation: last ? { trigger: last.trigger, ordinal: last.ordinal } : null,
     overturned, premise_note: premiseNote, manifest: ABANDON_MANIFEST,

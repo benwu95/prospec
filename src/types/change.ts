@@ -3,6 +3,16 @@ import { z } from 'zod';
 import { RetryLinkSchema, ABANDON_MANIFEST } from './abandon.js';
 import { isNormalizedProjectPath } from './config.js';
 
+function readMetadataObject<T extends z.ZodType>(schema: T) {
+  return z.preprocess((value, ctx) => {
+    if (value !== null && typeof value === 'object' && Object.hasOwn(value, '__proto__')) {
+      ctx.addIssue({ code: 'custom', path: ['__proto__'], message: 'Reserved metadata property "__proto__" cannot be preserved by object projection' });
+      return z.NEVER;
+    }
+    return value;
+  }, schema);
+}
+
 /**
  * ChangeMetadata schema — validates metadata.yaml in change directories
  *
@@ -54,24 +64,32 @@ const EscalationAnchorShape = {
   station: z.enum(ESCALATION_STATIONS),
 };
 /** Append-only transitions, separate from verdicts, counts and round closes. */
-export const EscalationRecordSchema = z.discriminatedUnion('kind', [
-  z.object({
+const EscalationVariants = {
+  trigger: z.object({
     ...EscalationAnchorShape, kind: z.literal('trigger'), trigger: z.enum(ESCALATION_TRIGGERS),
     legacy: z.boolean().optional(),
     /** Position of a legacy source preserved before its counts row is replaced. */
     source_index: z.number().int().nonnegative().optional(),
   }),
-  z.object({ ...EscalationAnchorShape, kind: z.literal('resolve') }),
-  z.object({
+  resolve: z.object({ ...EscalationAnchorShape, kind: z.literal('resolve') }),
+  override: z.object({
     ...EscalationAnchorShape, kind: z.literal('override'), grant_id: z.string().min(1),
     reason: z.string().refine((value) => value.trim().length > 0, 'An override needs a nonempty reason'),
   }),
-  z.object({
+  consume: z.object({
     ...EscalationAnchorShape, kind: z.literal('consume'), grant_id: z.string().min(1),
     attempt_id: z.string().min(1),
   }),
+};
+export const NewEscalationRecordSchema = z.discriminatedUnion('kind', [
+  EscalationVariants.trigger, EscalationVariants.resolve,
+  EscalationVariants.override, EscalationVariants.consume,
 ]);
-export type EscalationRecord = z.infer<typeof EscalationRecordSchema>;
+export const EscalationRecordSchema = readMetadataObject(z.discriminatedUnion('kind', [
+  EscalationVariants.trigger.loose(), EscalationVariants.resolve.loose(),
+  EscalationVariants.override.loose(), EscalationVariants.consume.loose(),
+]));
+export type EscalationRecord = z.infer<typeof NewEscalationRecordSchema>;
 
 export interface EscalationEvent {
   event_id: string;
@@ -98,12 +116,13 @@ export interface EscalationHistory {
 }
 
 /** Lightweight receipt: evidence itself remains in the station artifact. */
-export const AcceptedAttemptSchema = z.object({
+export const NewAcceptedAttemptSchema = z.object({
   request_id: z.string().min(1),
   artifact_digest: z.string().min(1).optional(),
   base_digest: z.string().min(1).optional(),
 });
-export type AcceptedAttempt = z.infer<typeof AcceptedAttemptSchema>;
+export const AcceptedAttemptSchema = readMetadataObject(NewAcceptedAttemptSchema.loose());
+export type AcceptedAttempt = z.infer<typeof NewAcceptedAttemptSchema>;
 
 /** Each sink collects these causal inputs; the pure identity function performs no I/O. */
 export interface AttemptSpecInputs {
@@ -172,7 +191,7 @@ export const DIMENSION_ADJUDICATORS = ['machine', 'judgment'] as const;
 export const DIMENSION_GRADED_BY = ['fresh-subagent', 'in-session'] as const;
 
 /** One prospec-verify dimension outcome, for machine-aggregatable quality trends. */
-export const QualityDimensionSchema = z.looseObject({
+export const QualityDimensionSchema = readMetadataObject(z.looseObject({
   name: z.string(),
   result: z.enum(DIMENSION_RESULTS),
   /** Optional keeps every pre-existing entry valid. */
@@ -189,7 +208,7 @@ export const QualityDimensionSchema = z.looseObject({
   /** Lightweight verify identity fields (REQ-TYPES-103, REQ-TYPES-104). */
   context_id: z.string().optional(),
   baseline_revision: z.number().int().positive().optional(),
-});
+}));
 
 /** Field shape shared by the strict (build) and loose (read) entry views below. */
 const QualityLogEntryShape = {
@@ -246,14 +265,18 @@ const QualityLogEntryShape = {
  *  a typo'd key when a station BUILDS an entry (`prospec change log` / `verify record`
  *  construct entries from CLI input; a misspelled optional key must not silently
  *  become an unmodeled extra). Mirrors the NewChangeMetadataSchema precedent. */
-export const NewQualityLogEntrySchema = z.object(QualityLogEntryShape);
+export const NewQualityLogEntrySchema = z.object({
+  ...QualityLogEntryShape,
+  escalation: NewEscalationRecordSchema.optional(),
+  accepted: NewAcceptedAttemptSchema.optional(),
+});
 
 /** One Entry/Exit gate record, appended per skill stage for cross-stage traceability.
  *  `result` is the gate three-state (PASS/WARN/FAIL). The structured fields below are
  *  optional and machine-aggregatable (BL — issue #61): verify writes `grade`+`dimensions`,
  *  review writes the critical/major counts. Absent keeps every existing entry valid.
  *  Loose: reads never strip unmodeled keys (see ChangeMetadataSchema). */
-export const QualityLogEntrySchema = NewQualityLogEntrySchema.loose();
+export const QualityLogEntrySchema = readMetadataObject(z.looseObject(QualityLogEntryShape));
 
 /**
  * Acceptance Baseline Contract (REQ-TYPES-103).
@@ -270,7 +293,7 @@ const AcceptanceScenarioShape = {
 };
 
 export const NewAcceptanceScenarioSchema = z.object(AcceptanceScenarioShape);
-export const AcceptanceScenarioSchema = NewAcceptanceScenarioSchema.loose();
+export const AcceptanceScenarioSchema = readMetadataObject(NewAcceptanceScenarioSchema.loose());
 export type AcceptanceScenario = z.infer<typeof AcceptanceScenarioSchema>;
 export type NewAcceptanceScenario = z.infer<typeof NewAcceptanceScenarioSchema>;
 
@@ -341,9 +364,9 @@ export const NewAcceptanceRevisionSchema = z
   })
   .superRefine(refineAcceptanceRevision);
 
-export const AcceptanceRevisionSchema = z
+export const AcceptanceRevisionSchema = readMetadataObject(z
   .looseObject(AcceptanceRevisionShape)
-  .superRefine(refineAcceptanceRevision);
+  .superRefine(refineAcceptanceRevision));
 
 export type AcceptanceRevision = z.infer<typeof AcceptanceRevisionSchema>;
 export type NewAcceptanceRevision = z.infer<typeof NewAcceptanceRevisionSchema>;
@@ -427,9 +450,9 @@ export const NewAcceptanceBaselineSchema = z
   })
   .superRefine(refineAcceptanceBaseline);
 
-export const AcceptanceBaselineSchema = z
+export const AcceptanceBaselineSchema = readMetadataObject(z
   .looseObject(AcceptanceBaselineShape)
-  .superRefine(refineAcceptanceBaseline);
+  .superRefine(refineAcceptanceBaseline));
 
 export type AcceptanceBaseline = z.infer<typeof AcceptanceBaselineSchema>;
 export type NewAcceptanceBaseline = z.infer<typeof NewAcceptanceBaselineSchema>;
@@ -481,27 +504,27 @@ export const NewTestAttemptSchema = z.object({
   signal: z.string().optional(),
   reason: z.string().optional(),
 });
-export const TestAttemptSchema = NewTestAttemptSchema.extend({
+export const TestAttemptSchema = readMetadataObject(NewTestAttemptSchema.extend({
   test_policy: z.unknown().optional(),
-}).loose();
+}).loose());
 export type TestAttempt = z.infer<typeof NewTestAttemptSchema>;
 
 /** Machine-written review baseline (BL-066). `digest` fingerprints the reviewed
  *  code state; `date` is the ISO 8601 record date. `graded_by` is the reviewer's
  *  self-declaration of the grading context (`fresh-subagent`|`in-session`),
  *  optional so every pre-existing baseline stays valid. */
-export const ReviewProvenanceSchema = z.looseObject({
+export const ReviewProvenanceSchema = readMetadataObject(z.looseObject({
   ...EvidenceTraceShape,
   digest: z.string(),
   date: z.string(), // ISO 8601 date
   graded_by: z.enum(DIMENSION_GRADED_BY).optional(),
-});
+}));
 
 /** Machine-written test baseline (written by `prospec check --record-tests`).
  *  `command` is the test command that ran, `exit_code` its result (kept even when
  *  non-zero — a failing suite is the fact the check must see), `digest` fingerprints
  *  the code state it ran against, `date` is the ISO 8601 record date. */
-export const TestProvenanceSchema = z.looseObject({
+const TestProvenanceShape = {
   ...EvidenceTraceShape,
   test_policy: z.unknown().optional(),
   attempt_id: z.string().optional(),
@@ -509,11 +532,13 @@ export const TestProvenanceSchema = z.looseObject({
   exit_code: z.number().int(),
   digest: z.string(),
   date: z.string(), // ISO 8601 date
-});
+};
+export const TestProvenanceSchema = readMetadataObject(z.looseObject(TestProvenanceShape));
 
-export const NewTestProvenanceSchema = TestProvenanceSchema.extend({
+export const NewTestProvenanceSchema = z.object({
+  ...TestProvenanceShape,
   test_policy: TestPolicySchema.optional(),
-}).strip();
+});
 export type NewTestProvenance = z.infer<typeof NewTestProvenanceSchema>;
 
 /** Machine-written delta-spec baseline (written by `prospec check --record-review`
@@ -521,10 +546,10 @@ export type NewTestProvenance = z.infer<typeof NewTestProvenanceSchema>;
  *  moment). `digest` fingerprints the change's `delta-spec.md` ALONE — the whole-tree
  *  `computeChangeDigest` excludes `.prospec/`, leaving the one artifact archive copies
  *  verbatim into the trust zone unguarded. `date` is the ISO 8601 record date. */
-export const DeltaSpecProvenanceSchema = z.looseObject({
+export const DeltaSpecProvenanceSchema = readMetadataObject(z.looseObject({
   digest: z.string(),
   date: z.string(), // ISO 8601 date
-});
+}));
 
 /** A module name as written to `related_modules` — the plain name, matching a
  *  `module-map.yaml` entry. Rejects the markdown emphasis and stray whitespace a
@@ -539,6 +564,28 @@ export const BareModuleNameSchema = z
   // `_` is NOT rejected — snake_case module names (`user_profile`) are legitimate,
   // and underscore emphasis only reads as such when it wraps the whole token.
   .refine((v) => !/[*`~]/.test(v), 'must be a bare module name, without markdown emphasis');
+
+const AbandonmentEscalationShape = {
+  trigger: z.enum(ESCALATION_TRIGGERS), ordinal: z.number().int().positive(),
+};
+const OverturnedPremiseShape = {
+  field: z.string().min(1), value: z.union([z.string(), z.number(), z.boolean(), z.null()]),
+};
+const AbandonmentShape = {
+  reason: z.string().refine((value) => value.trim().length > 0, 'reason must not be blank'),
+  at: z.string().min(1),
+  from_status: z.enum(CHANGE_STATUSES).exclude(['archived', 'abandoned']),
+  escalation: z.object(AbandonmentEscalationShape).nullable(),
+  overturned: z.array(z.object(OverturnedPremiseShape)),
+  premise_note: z.string(),
+  manifest: z.literal(ABANDON_MANIFEST),
+};
+const NewAbandonmentSchema = z.object(AbandonmentShape);
+const AbandonmentSchema = readMetadataObject(z.looseObject({
+  ...AbandonmentShape,
+  escalation: readMetadataObject(z.looseObject(AbandonmentEscalationShape)).nullable(),
+  overturned: z.array(readMetadataObject(z.looseObject(OverturnedPremiseShape))),
+}));
 
 /** Field shape shared by the strict (build) and loose (read) views below. */
 const ChangeMetadataShape = {
@@ -591,21 +638,16 @@ const ChangeMetadataShape = {
   // Missing declares a legacy change; malformed/unknown versions fail closed.
   premise_version: z.literal(1).optional(),
   retry_of: z.array(RetryLinkSchema).optional(),
-  abandonment: z.object({
-    reason: z.string().refine((value) => value.trim().length > 0, 'reason must not be blank'),
-    at: z.string().min(1),
-    from_status: z.enum(CHANGE_STATUSES).exclude(['archived', 'abandoned']),
-    escalation: z.object({ trigger: z.enum(ESCALATION_TRIGGERS), ordinal: z.number().int().positive() }).nullable(),
-    overturned: z.array(z.object({ field: z.string().min(1), value: z.union([z.string(), z.number(), z.boolean(), z.null()]) })),
-    premise_note: z.string(),
-    manifest: z.literal(ABANDON_MANIFEST),
-  }).optional(),
+  abandonment: AbandonmentSchema.optional(),
 } as const;
 
 /** Strict view — no index signature, so tsc's excess-property check still
  *  catches a typo'd key in an object literal. Use it when BUILDING metadata;
  *  the loose `ChangeMetadataSchema` below is for validating what was READ. */
-export const NewChangeMetadataSchema = z.object(ChangeMetadataShape);
+export const NewChangeMetadataSchema = z.object({
+  ...ChangeMetadataShape,
+  abandonment: NewAbandonmentSchema.optional(),
+});
 
 /**
  * The change `metadata.yaml` contract, enforced at read AND write by
@@ -614,15 +656,16 @@ export const NewChangeMetadataSchema = z.object(ChangeMetadataShape);
  * purpose: both scan every change directory and must report a malformed
  * record rather than throw on it.)
  *
- * Loose at every level (here and in the nested entry schemas), and that is
- * load-bearing rather than incidental: metadata legitimately carries keys this
- * schema does not model (`archived_at`, historical `quality_grade`), and
- * validation is a gate, never a rewrite. Stripping them would make the parsed
- * value diverge from the file, so a caller doing read → modify → write would
- * silently drop them. The one deliberate divergence is `warnings`, whose
- * `.default([])` only ever ADDS the key the format reference requires.
+ * Extensible objects preserve unknown fields and reject own `__proto__` before
+ * projection. Retry links remain closed; opaque test policies remain readable
+ * for separate adjudication. Warnings and acceptance revisions retain their
+ * additive defaults. Build views keep their modeled-field type checks.
  */
-export const ChangeMetadataSchema = NewChangeMetadataSchema.loose();
+export const ChangeMetadataSchema = readMetadataObject(z.looseObject(ChangeMetadataShape));
+
+export const PremiseMetadataSchema = readMetadataObject(z.looseObject(ChangeMetadataShape).pick({
+  premise_version: true, scale: true, retry_of: true, issue: true,
+}));
 
 export type ChangeMetadata = z.infer<typeof ChangeMetadataSchema>;
 /** The shape a station constructs from scratch — see NewChangeMetadataSchema. */

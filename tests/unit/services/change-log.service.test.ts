@@ -33,6 +33,28 @@ function seed(): void {
 }
 
 describe('change-log service', () => {
+  it('retains nested extension data in existing entries while appending a new station record', async () => {
+    const raw = METADATA + `extension: { root: true }
+quality_log:
+  - skill: prospec-escalation
+    date: old
+    result: PASS
+    warnings: []
+    extension: { entry: true }
+    escalation: { event_id: e1, station: prospec-plan, kind: resolve, extension: { event: true } }
+    accepted: { request_id: r1, extension: { receipt: true } }
+`;
+    vol.fromJSON({ [PATH]: raw });
+    const original = readChangeMetadata(PATH, 'add-widget').doc.toJS();
+    await execute({ cwd: CWD, entry: { skill: 'prospec-verify', result: 'PASS', warnings: [] } });
+    const result = readChangeMetadata(PATH, 'add-widget');
+    expect(result.doc.toJS().quality_log[0]).toEqual(original.quality_log[0]);
+    expect(result.metadata.quality_log?.[0]?.escalation).toMatchObject({ extension: { event: true } });
+    expect(result.metadata.quality_log?.[0]?.accepted).toMatchObject({ extension: { receipt: true } });
+    expect(result.metadata.extension).toEqual({ root: true });
+    expect(result.metadata.quality_log).toHaveLength(2);
+  });
+
   it('appends a review close entry without count fields and stamps today when no date given', async () => {
     seed();
     const result = await execute({

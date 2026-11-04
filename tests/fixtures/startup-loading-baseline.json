@@ -148,7 +148,7 @@
         "{{knowledge_base_path}}/_conventions.md"
       ],
       "mandatory": 1,
-      "mandatory_context_tokens": 8125
+      "mandatory_context_tokens": 8138
     },
     "prospec-tasks": {
       "items": [
@@ -189,7 +189,7 @@
     "cascade-protocol": 2727,
     "circuit-breaker": 1240,
     "debug-recovery-format": 1255,
-    "delegated-evidence-format": 3246,
+    "delegated-evidence-format": 3234,
     "delegation-protocol": 2871,
     "delta-spec-format": 2061,
     "design-spec-format": 847,
@@ -199,14 +199,14 @@
     "human-decision": 793,
     "implementation-guide": 1021,
     "interaction-spec-format": 743,
-    "metadata-format": 3978,
+    "metadata-format": 3958,
     "plan-format": 2939,
     "plan-verifier-rubric": 2379,
     "product-spec-format": 1189,
     "project-test-runner": 655,
     "promotion-format": 1765,
     "proposal-format": 1202,
-    "review-format": 2470,
+    "review-format": 2483,
     "review-lenses-content": 3384,
     "spec-graduation": 840,
     "tasks-format": 1467,

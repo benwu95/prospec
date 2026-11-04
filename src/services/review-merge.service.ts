@@ -573,16 +573,20 @@ export async function execute(options: ReviewMergeOptions): Promise<ReviewMergeR
     }
 
     const counts = roundCounts(findings);
-    upsertReviewRoundEntry(metadataDoc, {
-      skill: 'prospec-review',
-      date: todayIso(),
-      result: roundResult,
-      warnings: [],
-      round: finalRoundNumber,
-      criticals_found: counts.criticals_found,
-      criticals_fixed: counts.criticals_fixed,
-      majors: counts.majors,
-    });
+    try {
+      upsertReviewRoundEntry(metadataDoc, {
+        skill: 'prospec-review',
+        date: todayIso(),
+        result: roundResult,
+        warnings: [],
+        round: finalRoundNumber,
+        criticals_found: counts.criticals_found,
+        criticals_fixed: counts.criticals_fixed,
+        majors: counts.majors,
+      });
+    } catch (err) {
+      throw writeFailure(err, true);
+    }
 
     appendQualityLogEntry(metadataDoc, {
       skill: 'prospec-review', date: todayIso(), result: roundResult, warnings: [], attempt_id: attemptId,

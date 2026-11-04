@@ -171,10 +171,7 @@ read a.ts:38-46 — the `<=` bound overruns when n === len.
 any note of your own goes here, below the closing marker
 ```
 
-- **review.md**: the `Repro` column of the findings table holds the command; the evidence section
-  holds the prose, keyed by finding `id`. Both are **cumulative** — a later round that re-reports a
-  finding without them keeps what the artifact already holds, because a fix round reports a status
-  and must not erase the reason the finding existed.
+- **review.md**: `Repro (JSON)` holds a JSON string; payload and structured digest retain the original command. Legacy `Repro` retains its prior parsing. The evidence section holds prose keyed by `id`. Both are **cumulative**: omitting them in a later round preserves the recorded command and reason.
 - **verify.md**: each `verify record --dimensions` run appends a marker-opened section headed
   `## {date} — grade {G}`, containing a block per judgment dimension that carries prose
   (`**Summary:**` / `**Repro:**` lines, then the evidence). The marker is what delimits a run, so

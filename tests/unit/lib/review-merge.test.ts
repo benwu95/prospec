@@ -21,13 +21,129 @@ import {
 } from '../../../src/lib/review-merge.js';
 import { EMPTY_TEST_FAILURE_STREAK } from '../../../src/types/cascade.js';
 import { PrerequisiteError } from '../../../src/types/errors.js';
-import type { ReviewFinding } from '../../../src/types/station.js';
+import { ReviewFindingSchema, type ReviewFinding } from '../../../src/types/station.js';
+import { renderMarkdownTable, splitTableRow } from '../../../src/lib/markdown-table.js';
 
 const finding = (over: Partial<ReviewFinding> & Pick<ReviewFinding, 'location' | 'summary'>): ReviewFinding => ({
   severity: 'major',
   lens: 'correctness',
   status: 'open',
   ...over,
+});
+
+describe('Repro JSON storage preserves legal commands (issue #444)', () => {
+  const commands = [
+    ['whitespace only', '   '],
+    ['tabs only', '\t\t'],
+    ['leading whitespace', ' \tprintf x'],
+    ['trailing whitespace', 'printf x\t  '],
+    ['backslash before trailing space', 'printf "%s" \\ '],
+    ['terminal backslash', 'printf x\\'],
+    ['embedded tabs', 'printf\t"%s"\tx'],
+    ['backslashes', String.raw`printf '%s' C:\tmp\file`],
+    ['pipe', 'printf x | cat'],
+    ['backslash before pipe', String.raw`printf '%s' '\|'`],
+    ['quotes', `printf '%s' '"quoted"'`],
+    ['Unicode', 'printf "%s" 臺灣🧪é'],
+    ['NUL storage', 'printf x\0y'],
+  ];
+
+  it.each(commands)('preserves %s through two rounds and an identical replay', (_label, repro) => {
+    const firstFinding = ReviewFindingSchema.parse(finding({
+      id: 'F-1', location: 'a.ts:1', summary: 'defect', repro, evidence: 'Original evidence.',
+    }));
+    const first = renderReviewDocument('', mergeFindings([], [firstFinding], 1), 'x', { round: 1 });
+    const parsedFirst = parseReviewDocument(first);
+    expect(parsedFirst.rows[0]!.repro).toBe(repro);
+    expect(renderReviewDocument(first, mergeFindings(parsedFirst.rows, [firstFinding], 1), 'x', { round: 1 })).toBe(first);
+
+    const fixed = ReviewFindingSchema.parse(finding({
+      id: 'F-1', location: 'a.ts:1', summary: 'defect', status: 'fixed',
+    }));
+    const second = renderReviewDocument(first, mergeFindings(parsedFirst.rows, [fixed], 2), 'x', { round: 2 });
+    const parsedSecond = parseReviewDocument(second);
+    expect(parsedSecond.rows[0]).toMatchObject({ repro, status: 'fixed', evidence: 'Original evidence.', origin_round: 1 });
+    expect(renderReviewDocument(second, mergeFindings(parsedSecond.rows, [fixed], 2), 'x', { round: 2 })).toBe(second);
+  });
+
+  it('writes exactly eight canonical columns and a JSON string cell through the table writer', () => {
+    const repro = ' \tprintf "%s" "\\|臺灣"\\ ';
+    const value = ReviewFindingSchema.parse(finding({ id: 'F-1', location: 'a.ts:1', summary: 'defect', repro }));
+    const lines = renderReviewTable(mergeFindings([], [value])).split('\n');
+    expect(splitTableRow(lines[0]!)).toEqual(['ID', 'Location', 'Severity', 'Lens', 'Status', 'Origin', 'Summary', 'Repro (JSON)']);
+    expect(splitTableRow(lines[2]!)).toEqual(['F-1', 'a.ts:1', 'major', 'correctness', 'open', '1', 'defect', JSON.stringify(repro)]);
+  });
+
+  it('stores absent repro as an empty canonical cell and carries absence across a status-only round', () => {
+    const value = ReviewFindingSchema.parse(finding({ id: 'F-1', location: 'a.ts:1', summary: 'defect' }));
+    const first = renderReviewDocument('', mergeFindings([], [value]), 'x');
+    const table = first.split('\n').filter((line) => line.startsWith('|'));
+    expect(splitTableRow(table[0]!)[7]).toBe('Repro (JSON)');
+    expect(splitTableRow(table[2]!)[7]).toBe('');
+    const parsed = parseReviewDocument(first);
+    expect(parsed.rows[0]!.repro).toBeUndefined();
+    const fixed = ReviewFindingSchema.parse({ ...value, status: 'fixed' });
+    const second = renderReviewDocument(first, mergeFindings(parsed.rows, [fixed], 2), 'x');
+    expect(parseReviewDocument(second).rows[0]!.repro).toBeUndefined();
+    expect(renderReviewDocument(second, mergeFindings(parseReviewDocument(second).rows, [fixed], 2), 'x')).toBe(second);
+  });
+
+  it.each(['"printf x"', 'null', '{"command":"printf x"}'])('keeps legacy JSON-looking Repro command %s literal while upgrading storage', (repro) => {
+    const legacy = renderMarkdownTable(
+      ['ID', 'Location', 'Severity', 'Lens', 'Status', 'Summary', 'Repro'],
+      [['F-1', 'a.ts:1', 'major', 'correctness', 'open', 'defect', repro]],
+    );
+    const parsed = parseReviewDocument(legacy);
+    expect(parsed.rows[0]!.repro).toBe(repro);
+    const fixed = ReviewFindingSchema.parse(finding({ id: 'F-1', location: 'a.ts:1', summary: 'defect', status: 'fixed' }));
+    const upgraded = renderReviewDocument(legacy, mergeFindings(parsed.rows, [fixed], 2), 'x');
+    expect(splitTableRow(upgraded.split('\n')[0]!)[7]).toBe('Repro (JSON)');
+    expect(parseReviewDocument(upgraded).rows[0]!.repro).toBe(repro);
+    expect(renderReviewDocument(upgraded, mergeFindings(parseReviewDocument(upgraded).rows, [fixed], 2), 'x')).toBe(upgraded);
+  });
+
+  const canonical = (headers: string[], cells: string[]) => renderMarkdownTable(
+    ['ID', 'Location', 'Severity', 'Lens', 'Status', 'Summary', ...headers],
+    [['F-1', 'a.ts:1', 'major', 'correctness', 'open', 'defect', ...cells]],
+  );
+
+  it.each([
+    ['malformed JSON', '"unterminated'],
+    ['unquoted command', 'printf x'],
+    ['null', 'null'],
+    ['boolean', 'true'],
+    ['number', '42'],
+    ['object', '{"command":"printf x"}'],
+    ['array', '["printf x"]'],
+    ['empty string', '""'],
+    ['decoded LF', JSON.stringify('printf x\nprintf y')],
+    ['decoded CR', JSON.stringify('printf x\rprintf y')],
+  ])('refuses a canonical cell containing %s as PrerequisiteError', (_label, cell) => {
+    const content = canonical(['Repro (JSON)'], [cell!]);
+    expect(() => parseReviewRows(content)).toThrow(PrerequisiteError);
+    expect(() => parseReviewDocument(content)).toThrow(PrerequisiteError);
+  });
+
+  it.each([
+    ['duplicate canonical columns', ['Repro (JSON)', 'Repro (JSON)']],
+    ['case-insensitive duplicate canonical columns', ['Repro (JSON)', 'repro (json)']],
+    ['duplicate legacy columns', ['Repro', 'Repro']],
+    ['mixed legacy and canonical columns', ['Repro', 'Repro (JSON)']],
+    ['mixed canonical and legacy columns', ['Repro (JSON)', 'Repro']],
+  ])('refuses %s as PrerequisiteError even when their cells are empty', (_label, headers) => {
+    const content = canonical(headers as string[], ['', '']);
+    expect(() => parseReviewRows(content)).toThrow(PrerequisiteError);
+    expect(() => parseReviewDocument(content)).toThrow(PrerequisiteError);
+  });
+
+  it('counts table escaping over JSON storage cells without counting quotes or tabs', () => {
+    const values = ['printf "x"', 'printf\tx', 'printf x | cat'].map((repro, index) =>
+      ReviewFindingSchema.parse(finding({ id: `F-${index}`, location: `a.ts:${index + 1}`, summary: 'defect', repro })),
+    );
+    const rows = mergeFindings([], values);
+    expect(escapedCellsFor(rows, values)).toBe(1);
+    expect(escapedCellsFor(rows, [values[0]!])).toBe(0);
+  });
 });
 
 describe('mergeFindings', () => {

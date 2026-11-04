@@ -793,6 +793,12 @@ describe('test-provenance gate + --record-tests (REQ-SERVICES-068)', () => {
   it('--record-tests writes the baseline and clears the gate, preserving comments and unknown keys', async () => {
     initGitChange();
     setTestCommand(0);
+    const metadataPath = path.join(tmpDir, '.prospec/changes/c1/metadata.yaml');
+    const previous = readChangeMetadata(metadataPath, 'c1');
+    previous.doc.set('test_attempt', { id: 'old', outcome: 'passed', extension: 'replace this snapshot' });
+    previous.doc.set('test_provenance', { digest: 'old', date: 'old', command: 'old', exit_code: 0, extension: 'replace this snapshot' });
+    previous.doc.set('quality_log', [{ skill: 'prospec-escalation', date: 'old', result: 'PASS', warnings: [], accepted: { request_id: 'old', extension: { untouched: true } } }]);
+    writeFileSync(metadataPath, previous.doc.toString());
     const rec = await execute({ cwd: tmpDir, recordTests: true });
     expect(rec.kind).toBe('record-tests');
     if (rec.kind !== 'record-tests') return;
@@ -803,6 +809,10 @@ describe('test-provenance gate + --record-tests (REQ-SERVICES-068)', () => {
     expect(raw).toContain('unmodelled_key: keep-me');
     expect(raw).toContain('test_provenance:');
     expect(raw).toContain('exit_code: 0');
+    const recorded = readChangeMetadata(metadataPath, 'c1').metadata;
+    expect(recorded.test_attempt).not.toHaveProperty('extension');
+    expect(recorded.test_provenance).not.toHaveProperty('extension');
+    expect(recorded.quality_log?.[0]?.accepted).toMatchObject({ extension: { untouched: true } });
 
     expect(testCheck(await execute({ cwd: tmpDir }))?.status).toBe('pass');
   });

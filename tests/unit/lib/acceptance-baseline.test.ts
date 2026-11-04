@@ -437,3 +437,29 @@ As a user...
     });
   });
 });
+
+describe('acceptance extension data', () => {
+  const proposal = '## User Stories\n### US-1: Feature [P0]\n**Acceptance Scenarios:**\n- WHEN a, THEN b\n- WHEN c, THEN d\n';
+  const source = 'proposal.md';
+  it('preserves pending baseline data on initial freeze and historical extensions on amendment', () => {
+    const metadata: ChangeMetadata = {
+      name: 'c', created_at: 'today', status: 'story',
+      acceptance: { version: 1, revisions: [], extension: { untouched: true } },
+    };
+    const first = decideFreezeScenarios({ metadata, proposalContent: proposal, proposalSource: source, capturedAt: 'today' });
+    expect(first.kind).toBe('freeze');
+    if (first.kind !== 'freeze') return;
+    expect(first.updatedAcceptance.extension).toEqual({ untouched: true });
+    first.updatedAcceptance.revisions[0]!.extension = { old: true };
+    first.updatedAcceptance.revisions[0]!.scenarios[0]!.extension = { scenario: true };
+    const amended = decideAmendScenarios({
+      metadata: { ...metadata, acceptance: first.updatedAcceptance },
+      proposalContent: proposal.replace('THEN b', 'THEN changed'), proposalSource: source,
+      reason: 'changed scenario', expectedDigest: first.newRevision.digest, capturedAt: 'later',
+    });
+    expect(amended.kind).toBe('amend');
+    if (amended.kind !== 'amend') return;
+    expect(amended.updatedAcceptance.extension).toEqual({ untouched: true });
+    expect(amended.updatedAcceptance.revisions[0]).toEqual(first.updatedAcceptance.revisions[0]);
+  });
+});

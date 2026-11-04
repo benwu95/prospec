@@ -1,5 +1,5 @@
 import * as path from 'node:path';
-import { ChangeMetadataSchema, type ChangeScale } from '../types/change.js';
+import { PremiseMetadataSchema, type ChangeScale } from '../types/change.js';
 import { PrerequisiteError } from '../types/errors.js';
 import { captureFileInputs } from './fs-utils.js';
 import { resolveContainedTarget } from './knowledge-reader.js';
@@ -117,7 +117,7 @@ export function readPremiseAssessment(changeDir: string, root: string, targetSca
     // Each writer retains its own metadata-completeness contract.
     const envelope = parseYamlDocument(metadataText, paths.metadata!).toJS();
     if (envelope?.status === 'abandoned') throw new Error('Abandoned change is terminal; create a new Story to retry');
-    const metadata = ChangeMetadataSchema.pick({ premise_version: true, scale: true, retry_of: true, issue: true }).parse(envelope);
+    const metadata = PremiseMetadataSchema.parse(envelope);
     for (const [index, link] of (metadata.retry_of ?? []).entries()) {
       const attempt = readAbandonedAttempt(root, link.archive);
       if (attempt.digest !== link.digest || attempt.issue !== normalizeIssueRef(metadata.issue)) {

@@ -37,7 +37,8 @@ import { PrerequisiteError } from '../types/errors.js';
  *
  * `repro` and `evidence` are the reviewer's evidence half, and they live in two
  * different places for one reason: exact round-tripping. `repro` is one command,
- * so it is a table column and rides the pipe-table engine's own `\|` escaping;
+ * so JSON quotes protect its boundary whitespace from the table engine's trim;
+ * pipe escaping remains the table engine's responsibility.
  * `evidence` is prose, so it lands in the marker-anchored section below as raw
  * lines. Both are CUMULATIVE — a later round that re-reports a finding without
  * them keeps what the artifact holds, because a fix round reports a status and
@@ -55,7 +56,7 @@ export interface ReviewRow {
   /** Review round in which this finding was first detected. */
   origin_round?: number;
   summary: string;
-  /** The command that shows the defect — a table column, so it round-trips. */
+  /** Original command; JSON encoding belongs only to the artifact cell. */
   repro?: string;
   /** Full evidence prose; rendered into the evidence section, keyed by `id`. */
   evidence?: string;
@@ -75,7 +76,7 @@ const CANONICAL_HEADER = [
   'Status',
   'Origin',
   'Summary',
-  'Repro',
+  'Repro (JSON)',
 ] as const;
 
 /** Column-name aliases accepted when parsing a pre-existing hand-written table. */
@@ -94,6 +95,7 @@ const COLUMN_ALIASES: Record<string, keyof ReviewRow> = {
   note: 'summary',
   finding: 'summary',
   repro: 'repro',
+  'repro (json)': 'repro',
 };
 
 /** The findings table is the first markdown table whose header carries both a
@@ -109,13 +111,41 @@ function toSeverity(value: string): ReviewSeverity | undefined {
     : undefined;
 }
 
+function decodeReproCell(cell: string): string | undefined {
+  if (cell === '') return undefined;
+  let decoded: unknown;
+  try {
+    decoded = JSON.parse(cell);
+  } catch {
+    throw new PrerequisiteError(
+      'review.md carries malformed JSON in its Repro (JSON) column',
+      'Restore the last CLI-written review.md or encode the original command as a JSON string',
+    );
+  }
+  if (typeof decoded !== 'string' || decoded.length === 0 || /[\r\n]/.test(decoded)) {
+    throw new PrerequisiteError(
+      'review.md Repro (JSON) cells must contain a nonempty single-line JSON string or be empty for absent repro',
+      'Restore the last CLI-written review.md or encode the original single-line command as a JSON string',
+    );
+  }
+  return decoded;
+}
+
 /** Parse the cumulative table out of an existing review.md (empty file → []).
  *  Tolerates the legacy hand-written shapes: a missing ID / Summary / Repro / Origin
  *  column simply leaves that field unset. */
 export function parseReviewRows(content: string): ReviewRow[] {
   const table = findTable(content.split('\n'), FINDINGS_TABLE);
   if (!table) return [];
-  const columnFor = table.headers.map((h) => COLUMN_ALIASES[h.toLowerCase()]);
+  const headers = table.headers.map((h) => h.toLowerCase());
+  const columnFor = headers.map((h) => COLUMN_ALIASES[h]);
+  if (columnFor.filter((key) => key === 'repro').length > 1) {
+    throw new PrerequisiteError(
+      'review.md carries repeated or mixed Repro / Repro (JSON) columns',
+      'Restore the last CLI-written review.md or keep exactly one repro column',
+    );
+  }
+  const encodedRepro = headers.includes('repro (json)');
   return table.rows
     .map((cells) => {
       const row: ReviewRow = { location: '', severity: 'major', unrecognizedSeverity: '', lens: '', status: 'open', summary: '' };
@@ -132,7 +162,8 @@ export function parseReviewRows(content: string): ReviewRow[] {
           const n = parseInt(cell.trim(), 10);
           if (!Number.isNaN(n) && n > 0) row.origin_round = n;
         }
-        else if (key === 'id' || key === 'repro') row[key] = cell || undefined;
+        else if (key === 'repro') row.repro = encodedRepro ? decodeReproCell(cell) : cell || undefined;
+        else if (key === 'id') row.id = cell || undefined;
         else if (key !== 'evidence') row[key] = cell;
       });
       return row;
@@ -305,7 +336,7 @@ function reviewRowCells(r: ReviewRow): string[] {
     r.status,
     r.origin_round !== undefined ? String(r.origin_round) : '1',
     r.summary,
-    r.repro ?? '',
+    r.repro === undefined ? '' : JSON.stringify(r.repro),
   ];
 }
 
