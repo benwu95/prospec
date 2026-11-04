@@ -322,6 +322,8 @@ Review 維持 artifact→metadata，verify 維持 metadata→evidence 的寫入�
   - **執行行為**：
     - 將完整 bundle 複製、驗證並發布至 main worktree 對應專案的 `.prospec/archive/{date}-{name}/`，再清理來源；產生 `summary.md` 骨架並設定 `status: archived`。使用回傳的 `archivePath` 與 `archiveIdentity`，勿自行推導日期或 cwd 路徑。Spec／Knowledge 寫入仍位於執行的來源專案。
     - 執行 Feature Spec 機械式同步：將 delta-spec 中的 `**Spec:**` 區塊合併進正式規格，並在 stderr 輸出兩份工作清單（保留原規格 body 的 REQ 清單，以及被取代且漏掉既有 `WHEN/THEN` 條點的清單）。
+    - 若 REQ 被拒收，或替換漏掉未宣告移除的行為，preflight 會在 bundle transfer 前拒絕整個 change。底層 sync helper 會保留整個受影響 feature，包含具有合法 sibling routes 的新 feature；helper 層的其他 features 仍各自獨立。Dry-run 採相同拒收邊界。
+    - 缺少 `feature-map.yaml` 時，從母檔及其 registered readable slices 的已知 module prefixes 建立索引。缺失或不安全的 slices 維持 reader fallback。既有 map 的 curated modules、prefixes 與 comments 均保持位元組不變。
     - 同步 `product.md` 的 `## Feature Map` 區段（若遇近似標題、未閉合 code fence 或缺目錄則安全拒絕並提供修復指南；缺檔時自動 bootstrap）。
     - `--dry-run`：完整列出預定進行的所有 mutation 而不寫入磁碟；目標未達 verified 狀態時回報 refused（exit 1）。
 

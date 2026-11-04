@@ -4,10 +4,14 @@ As a developer using Prospec,
 I want `specs/` to be a living behavioral spec that accumulates automatically with each archive, with proposal.md fully expressing User Scenarios and acceptance criteria,
 so that the spec truly becomes the Single Source of Truth for SDD.
 
+Feature Spec slicing preserves requirement IDs and relationships while reducing loaded context without losing read/write behavior. UI scope follows REQ-DSGN-005 in the [canonical Design feature](../design-phase.md).
+
 **Acceptance Scenarios:**
 - WHEN creating a Feature Spec THEN it includes Who & Why, User Stories & Behavior Specs (REQ ID + WHEN/THEN), Edge Cases, Change History
 - WHEN Archive triggers Feature Spec Sync THEN merge in User Stories + add or update requirements per the format (Replace-in-Place)
 - WHEN viewing `specs/` THEN a Product-First structure: `product.md` (PRD entry) + `features/` (Feature Specs)
+- WHEN a feature is sliced, THEN registered slices preserve requirement identities and relationships across reading, writing and aggregate counters
+- WHEN archiving a sliced feature, THEN requirements and history land in their respective hosts after validation of the complete loaded feature
 
 ### Behavior Specifications
 
@@ -35,9 +39,24 @@ so that the spec truly becomes the Single Source of Truth for SDD.
 
 #### REQ-SPECS-001: specs/ Directory Structure
 Product-First structure: `product.md` (PRD entry) + `features/` (Feature Specs). Historical traceability is handled by the Feature Spec Change History + `.prospec/archive/`.
+Feature Specs group product capabilities; the feature-to-module index records technical module ownership separately. Approved ownership consolidation preserves retained capabilities and their requirement identities.
+- WHEN feature ownership is consolidated during archive semantic graduation, THEN retained requirements keep their IDs and one active definition under the selected canonical feature, with the original Story and requirement ownership traceable through Change History mappings
+- WHEN a source feature container is fully retired after its retained capabilities move, THEN its original spec path keeps a deprecated history-only record and its existing Change History, while the canonical feature holds the active definitions
+- WHEN a narrative refers to behavior owned by another requirement, THEN it links to that canonical requirement rather than duplicating its behavior definition
 
-#### REQ-TEMPLATES-057: Proposal UI Scope Field
-UI Scope optional field (full/partial/none); when none, skip the Design Phase; legacy proposals are unaffected.
+#### REQ-SERVICES-018: Spec Sync Replaces in Place
+Spec sync writes each element to the file that hosts it — a REQ to its slice, the Change History graduation row to whichever file carries the `## Change History` section.
+- WHEN a MODIFIED or REMOVED REQ exists in a slice, THEN the update is written to that slice.
+- WHEN an ADDED REQ specifies a slice (or defaults to the main file), THEN it is written there.
+- WHEN graduation logic reads a sliced feature, THEN it loads the mother file and every registered slice for routing and fence validation; a non-dry-run sync writes the mother file, including reconciled frontmatter, and any registered slices changed by REQ merges or Change History.
+- WHEN the `## Change History` section is in the mother file, THEN the graduation row is appended there.
+- WHEN the `## Change History` section has been moved into a registered slice, THEN the graduation row is appended to that slice and the slice is written, leaving the mother file's body outside its frontmatter unchanged.
+- WHEN neither the mother file nor any registered slice carries a `## Change History` section, THEN the unrecorded row is surfaced as a finding naming the feature, rather than silently dropped.
+
+#### REQ-LIB-067: Feature Spec Slice Parsing
+Feature specs support a sub-module slice mechanism. 
+- WHEN a main feature spec contains links to `{slice}.md`, THEN the REQs in those slices are indexed as part of the feature.
+- WHEN aggregating counters, THEN totals reflect the sum across the main file and all slices.
 
 #### REQ-REF-001: Reference Format Document Language Neutrality
 Reference documents only define structure (English headings), and do not mandate content language. Language is controlled by the Constitution.
@@ -73,30 +92,7 @@ so that the design spec becomes a precise basis for implementation.
 - WHEN complete THEN produce design-spec.md + interaction-spec.md
 - WHEN implementing a UI task THEN MCP-First reading of precise design values
 
-### Behavior Specifications
-
-#### REQ-TEMPLATES-050: Design Spec Format Reference
-`design-spec-format.hbs` — platform-agnostic visual spec: Visual Identity, Components, Responsive Strategy, using tokens rather than hardcoded values.
-
-#### REQ-TEMPLATES-051: Interaction Spec Format Reference
-`interaction-spec-format.hbs` — Interaction DSL (draft-1): Screen/Component States, Transitions, Flow sequences.
-
-#### REQ-TEMPLATES-052: prospec-design Skill Template
-- WHEN triggered, THEN detect mode via proposal.md (ui_scope) + .prospec.yaml (design.platform)
-- WHEN Generate, THEN produce specs from proposal
-- WHEN Extract, THEN read via MCP + reverse-produce specs; ambiguous → [NEEDS CLARIFICATION]
-- WHEN Phase 4, THEN verify via screenshot or structural comparison
-
-#### REQ-TEMPLATES-053~056: Platform Adapters (pencil / Figma / Penpot / HTML)
-The 4 platform adapters each define MCP operation guidance for the three phases Design/Implement/Verify:
-- **pencil**: batch_design(), set_variables(), batch_get(), get_screenshot()
-- **Figma**: HTML prototype → html-to-figma MCP, node detail reading, property comparison
-- **Penpot**: Penpot API create/export/compare
-- **HTML**: prototype/ directory (zero deps), CSS custom properties, DOM comparison
-
-#### REQ-TEMPLATES-058: Implement Skill MCP-First Design Reading
-- WHEN UI task, THEN Phase 2 loads design specs + adapter; Phase 3 reads precise values via MCP first
-- WHEN no design-spec.md, THEN warn
+Behavior contracts are owned by [design-phase](../design-phase.md): US-001 / REQ-DSGN-001, REQ-DSGN-002, REQ-DSGN-003 and REQ-DSGN-005 for the two spec formats, mode detection and UI scope; US-002 for Extract intent; US-003 / REQ-DSGN-004, REQ-DSGN-006, REQ-DSGN-007, REQ-DSGN-008 and REQ-DSGN-009 for platform adapters and implementation awareness; US-004 / REQ-TEMPLATES-138 for lifecycle integration.
 
 ---
 
@@ -110,6 +106,8 @@ so that when requirements are clear I can advance quickly, without triggering th
 - WHEN running `/prospec-ff` THEN run story → plan → tasks in order (`scale: quick`: story → tasks, skipping plan; under the plan sign-off pause a standard or full run stops after plan until the human signs off)
 - WHEN any phase fails THEN stop and report progress
 - WHEN all complete THEN metadata.yaml status: `tasks`
+
+Behavior contracts: quick planning follows REQ-TEMPLATES-085; shared station/verifier routing follows REQ-TEMPLATES-228; plan sign-off follows REQ-TEMPLATES-236.
 
 ---
 
@@ -143,3 +141,12 @@ Each skill emits a uniform-format Output Summary at the end, using PASS/WARN/FAI
 - WHEN a skill's Output Contract section is removed, THEN its assertion turns red
 
 ---
+
+## Deprecated Requirements
+- **REQ-TEMPLATES-058**: Implement Skill MCP-First Design Reading _(removed 2026-11-04)_ — redundant definition superseded by REQ-DSGN-009 in [design-phase](../design-phase.md); original identity retained for history.
+- **REQ-TEMPLATES-057**: Proposal UI Scope Field _(removed 2026-11-04)_ — redundant definition superseded by REQ-DSGN-005 in [design-phase](../design-phase.md); original identity retained for history.
+- **REQ-TEMPLATES-053**: Platform Adapters (pencil / Figma / Penpot / HTML) _(removed 2026-11-04)_ — redundant definition superseded by REQ-DSGN-004, REQ-DSGN-006, REQ-DSGN-007, REQ-DSGN-008 in [design-phase](../design-phase.md); original identity retained for history.
+- **REQ-TEMPLATES-052**: prospec-design Skill Template _(removed 2026-11-04)_ — redundant definition superseded by REQ-DSGN-003 in [design-phase](../design-phase.md); original identity retained for history.
+- **REQ-TEMPLATES-051**: Interaction Spec Format Reference _(removed 2026-11-04)_ — redundant definition superseded by REQ-DSGN-002 in [design-phase](../design-phase.md); original identity retained for history.
+
+- **REQ-TEMPLATES-050**: Design Spec Format Reference _(removed 2026-11-04)_ — redundant definition superseded by REQ-DSGN-001 in [design-phase](../design-phase.md); original identity retained for history.

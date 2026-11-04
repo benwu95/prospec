@@ -324,6 +324,8 @@ Review preserves artifact→metadata ordering; verify preserves metadata→evide
   - **Behavior**:
     - Copies, verifies and publishes the complete bundle to the corresponding main worktree project’s `.prospec/archive/{date}-{name}/`, then cleans the source; generates the summary scaffold and sets `status: archived`. Use returned `archivePath` and `archiveIdentity`, never reconstructed dates or cwd paths. Spec/Knowledge writes stay in the executing source project.
     - Performs mechanical Feature Spec sync: merges delta-spec `**Spec:**` blocks into feature specs and emits two worklists on stderr (kept bodies requiring convergence, and replaced bodies omitting prior bullets).
+    - Preflight refuses the change before bundle transfer when a REQ is refused or a replacement drops undeclared behavior. The underlying sync helper holds the entire affected feature, including a new feature with valid sibling routes; unrelated features remain independent at helper level. Dry-run applies the same refusal boundary.
+    - Bootstraps a missing `feature-map.yaml` from known module prefixes in the mother specs and their registered readable slices. Missing or unsafe slices retain the reader's fallback. An existing map, including curated modules, prefixes and comments, remains byte-identical.
     - Syncs `product.md` `## Feature Map` (refusing safely on ambiguous headers, unclosed code blocks, or missing directories).
     - `--dry-run`: Previews all planned file modifications without writing; exits 1 if change is not verified.
 

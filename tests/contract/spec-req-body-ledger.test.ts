@@ -20,13 +20,12 @@ const REPO_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..
 const FEATURES_DIR = path.join(REPO_ROOT, 'prospec/specs/features');
 
 /**
- * Pre-existing body-less REQs (10), as `{spec-path}:{REQ-ID}` relative to
+ * Pre-existing body-less REQs (9), as `{spec-path}:{REQ-ID}` relative to
  * FEATURES_DIR. The path is the file that actually holds the heading — after the
  * per-story slice split these REQs live in `{feature}/{slice}.md`, not the main
  * spec. Repair → delete the entry.
  */
 const LEGACY_BODYLESS = [
-  'ai-knowledge/us-351.md:REQ-SERVICES-029',
   'ai-knowledge/us-351.md:REQ-TEMPLATES-113',
   'ai-knowledge/us-351.md:REQ-TEMPLATES-114',
   'ai-knowledge/us-351.md:REQ-TESTS-032',

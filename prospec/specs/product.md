@@ -32,20 +32,10 @@ Detects installed AI CLI tools and generates their entry configs and SDD Skill f
 Scans source code into modular, layered project memory (per-module README, root index, module map) and updates it incrementally — only the modules a change touched. The progressive L0–L3 loading model is what keeps agent context small.
 → [features/ai-knowledge.md](features/ai-knowledge.md)
 
-### archive-service
-
-Automates the cleanup and transition of completed changes, migrating short-lived artifacts to permanent records and syncing behavior to feature specifications.
-→ [features/archive-service.md](features/archive-service.md)
-
 ### design-phase
 
 Produces visual and interaction specs from a proposal (Generate Mode) or extracts them from Figma, pencil, and Penpot (Extract Mode). Platform adapters give an agent exact colors, spacing, and states instead of guesses.
 → [features/design-phase.md](features/design-phase.md)
-
-### drift-checks
-
-TBD — describe this feature and its value in 1-2 sentences.
-→ [features/drift-checks.md](features/drift-checks.md)
 
 ### drift-detection
 
@@ -56,16 +46,6 @@ TBD — describe this feature and its value in 1-2 sentences.
 
 Collects session corrections, repeated verify FAILs, and recurring review criticals into a version-controlled lessons ledger, scores them by an explicit rule, and promotes them — only with human approval — through ledger → team playbook → Constitution rule.
 → [features/feedback-promotion.md](features/feedback-promotion.md)
-
-### knowledge-management
-
-Keeps an existing knowledge base honest rather than generating it: a sweep that compresses mechanized and obsolete README content on update, and `prospec knowledge verify`, the CLI-owned stamp recording when each module's knowledge was last confirmed against its source. That stamp is what freshness is judged on — and what CI's sync gate requires when a module's source changes.
-→ [features/knowledge-management.md](features/knowledge-management.md)
-
-### knowledge-reader
-
-Centralizes the reading and parsing logic for AI Knowledge and Feature Specs, ensuring consistent interpretation across all system tools and agents.
-→ [features/knowledge-reader.md](features/knowledge-reader.md)
 
 ### mcp-server
 

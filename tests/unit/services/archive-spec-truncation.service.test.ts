@@ -770,3 +770,182 @@ gone
     expect(vol.readFileSync('/f/content-library.md', 'utf-8')).not.toContain('Deprecated');
   });
 });
+
+
+describe('syncToFeatureSpecs holds a refused feature as a whole', () => {
+  const route = (reqId: string, body: string, feature = 'brand-new'): string => `## MODIFIED
+
+### ${reqId}: Routed requirement
+
+**Feature:** ${feature}
+**Story:** US-1
+
+${body}
+
+---
+`;
+  const healthy = route('REQ-NEW-001', '**Spec:**\nA complete new behavior.');
+  const pending = route('REQ-NEW-002', '**Reason:**\nConverge this body later.');
+  const refusalCases = [
+    {
+      kind: 'truncation',
+      reqId: 'REQ-NEW-003',
+      body: '**Spec:**\nOpening statement.\n**Scenarios:**\n- WHEN invoked, THEN the full behavior survives',
+    },
+    {
+      kind: 'unresolved-feature',
+      reqId: 'REQ-CONTENT-LIBRARY-013',
+      body: '**Spec:**\nThis belongs to content-library.',
+    },
+    {
+      kind: 'empty-spec',
+      reqId: 'REQ-NEW-004',
+      body: '**Spec:**\n**Priority:** High',
+    },
+  ];
+  const existing = `---
+feature: brand-new
+status: active
+last_updated: 2026-01-01
+---
+
+# Authored feature
+
+## User Stories
+
+### US-1: Existing story
+
+#### REQ-NEW-002: Preserved body
+An authored body awaiting convergence.
+
+## Change History
+
+| Date | Change | Impact | Refs |
+|------|--------|--------|------|
+`;
+
+  describe.each([false, true])('dryRun=%s', (dryRun) => {
+    it.each(refusalCases.flatMap((refusal) => [false, true].map((mixed) => ({ ...refusal, mixed }))))(
+      'does not create or plan a new feature with $kind, mixed=$mixed',
+      async ({ kind, reqId, body, mixed }) => {
+        vol.fromJSON({
+          '/f/content-library.md': FEATURE_SPEC,
+          '/c/delta-spec.md': `# Delta Spec\n\n${route(reqId, body)}${mixed ? healthy + pending : ''}`,
+        });
+
+        const result = await syncToFeatureSpecs('/c', '/f', 'held-change', dryRun);
+
+        expect(result.refusedRequirements).toEqual([
+          expect.objectContaining({ kind, feature: 'brand-new', reqId }),
+        ]);
+        expect(result.files).toEqual([]);
+        expect(result.pendingConvergence).toEqual([]);
+        expect(vol.existsSync('/f/brand-new.md')).toBe(false);
+        expect(vol.readFileSync('/f/content-library.md', 'utf-8')).toBe(FEATURE_SPEC);
+      },
+    );
+
+    it.each(refusalCases)(
+      'keeps an existing feature byte-identical when a healthy route shares its $kind refusal',
+      async ({ kind, reqId, body }) => {
+        vol.fromJSON({
+          '/f/content-library.md': FEATURE_SPEC,
+          '/f/brand-new.md': existing,
+          '/c/delta-spec.md': `# Delta Spec\n\n${route(reqId, body)}${healthy}${pending}`,
+        });
+
+        const result = await syncToFeatureSpecs('/c', '/f', 'held-change', dryRun);
+
+        expect(result.refusedRequirements).toEqual([
+          expect.objectContaining({ kind, feature: 'brand-new', reqId }),
+        ]);
+        expect(result.files).toEqual([]);
+        expect(result.pendingConvergence).toEqual([]);
+        expect(vol.readFileSync('/f/brand-new.md', 'utf-8')).toBe(existing);
+        expect(vol.readFileSync('/f/content-library.md', 'utf-8')).toBe(FEATURE_SPEC);
+      },
+    );
+
+    it.each([false, true])('retains every refusal and its priority without publishing the feature, mixed=%s', async (mixed) => {
+      const truncatedHome = FEATURE_SPEC.replaceAll('REQ-CONTENT-LIBRARY-013', 'REQ-HOME-001');
+      const emptyHome = FEATURE_SPEC.replaceAll('REQ-CONTENT-LIBRARY-013', 'REQ-HOME-002');
+      vol.fromJSON({
+        '/f/content-library.md': FEATURE_SPEC,
+        '/f/truncated-home.md': truncatedHome.replace('feature: content-library', 'feature: truncated-home'),
+        '/f/empty-home.md': emptyHome.replace('feature: content-library', 'feature: empty-home'),
+        '/c/delta-spec.md': `# Delta Spec\n\n${
+          refusalCases.map(({ reqId, body }) => route(reqId, body)).join('')
+        }${route('REQ-HOME-001', refusalCases[0]!.body)}${
+          route('REQ-HOME-002', refusalCases[2]!.body)
+        }${mixed ? healthy + pending : ''}`,
+      });
+      const before = vol.toJSON('/f');
+
+      const result = await syncToFeatureSpecs('/c', '/f', 'held-change', dryRun);
+
+      expect(result.refusedRequirements.map(({ kind, reqId }) => ({ kind, reqId }))).toEqual([
+        { kind: 'truncation', reqId: 'REQ-NEW-003' },
+        { kind: 'truncation', reqId: 'REQ-HOME-001' },
+        { kind: 'unresolved-feature', reqId: 'REQ-CONTENT-LIBRARY-013' },
+        { kind: 'unresolved-feature', reqId: 'REQ-HOME-002' },
+        { kind: 'empty-spec', reqId: 'REQ-NEW-004' },
+      ]);
+      expect(result.files).toEqual([]);
+      expect(result.pendingConvergence).toEqual([]);
+      expect(vol.toJSON('/f')).toEqual(before);
+    });
+
+    it('publishes an unrelated healthy feature independently of a refused new feature', async () => {
+      vol.fromJSON({
+        '/f/content-library.md': FEATURE_SPEC,
+        '/c/delta-spec.md': `# Delta Spec\n\n${
+          route(refusalCases[0]!.reqId, refusalCases[0]!.body)
+        }${healthy}${pending}${route('REQ-OTHER-001', '**Spec:**\nIndependent behavior.', 'other')}`,
+      });
+
+      const result = await syncToFeatureSpecs('/c', '/f', 'held-change', dryRun);
+
+      expect(result.refusedRequirements).toEqual([
+        expect.objectContaining({ kind: 'truncation', feature: 'brand-new', reqId: 'REQ-NEW-003' }),
+      ]);
+      expect(result.files).toEqual(['/f/other.md']);
+      expect(result.pendingConvergence).toEqual([]);
+      expect(vol.existsSync('/f/brand-new.md')).toBe(false);
+      expect(vol.existsSync('/f/other.md')).toBe(!dryRun);
+      if (!dryRun) expect(vol.readFileSync('/f/other.md', 'utf-8')).toContain('Independent behavior.');
+      expect(vol.readFileSync('/f/content-library.md', 'utf-8')).toBe(FEATURE_SPEC);
+    });
+  });
+});
+
+describe('syncToFeatureSpecs validates every loaded file before writing a feature', () => {
+  it.each(['mother', 'untouched-slice', 'history-host'].flatMap((malformed) =>
+    [false, true].map((dryRun) => ({ malformed, dryRun })),
+  ))('holds all feature bytes for an unclosed fence in $malformed, dryRun=$dryRun', async ({ malformed, dryRun }) => {
+    const motherPath = '/f/alpha.md';
+    const untouchedPath = '/f/alpha/untouched.md';
+    const historyPath = '/f/alpha/history.md';
+    const malformedPath = malformed === 'mother' ? motherPath
+      : malformed === 'untouched-slice' ? untouchedPath : historyPath;
+    const files = {
+      [motherPath]: '---\nfeature: alpha\nstatus: active\nlast_updated: 2026-01-01\n---\n\n# alpha\n\n## Slices\n\n- [Untouched](./alpha/untouched.md)\n- [History](./alpha/history.md)\n\n## User Stories\n\n### US-1: Main story\n\n#### REQ-LIB-001: Existing behavior\nOriginal behavior.\n',
+      [untouchedPath]: '### US-2: Unchanged story\n\n#### REQ-LIB-002: Unchanged behavior\nKeep this body.\n',
+      [historyPath]: '## Change History\n\n| Date | Change | Impact | Refs |\n|------|--------|--------|------|\n',
+    };
+    files[malformedPath] += '\n```md\nAn authored unclosed example.\n';
+    vol.fromJSON({
+      ...files,
+      '/c/delta-spec.md': '# Delta Spec\n\n## MODIFIED\n\n### REQ-LIB-001: Updated behavior\n\n**Feature:** alpha\n**Story:** US-1\n\n**Spec:**\nUpdated behavior.\n\n---\n',
+    });
+    const before = vol.toJSON('/f');
+
+    const result = await syncToFeatureSpecs('/c', '/f', 'held-change', dryRun);
+
+    expect(result.refusedRequirements).toEqual([
+      { kind: 'unclosed-fence', feature: 'alpha', reqId: 'REQ-LIB-001', sourcePath: malformedPath },
+    ]);
+    expect(result.files).toEqual([]);
+    expect(result.pendingConvergence).toEqual([]);
+    expect(vol.toJSON('/f')).toEqual(before);
+  });
+});

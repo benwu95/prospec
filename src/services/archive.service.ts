@@ -802,6 +802,7 @@ export async function syncToFeatureSpecs(
         }
       }
     } else {
+      const refusalStart = refusedRequirements.length;
       // A truncated route is refused on the creation path too — landing a fragment
       // into a brand-new spec is the same loss as landing one into an existing
       // file, minus the chance of noticing it in a diff.
@@ -832,12 +833,9 @@ export async function syncToFeatureSpecs(
         (r) => r.truncation === undefined && !misrouted.has(r) && r.emptySpec !== undefined,
       );
       refusedRequirements.push(...empty.map((r) => blockRefusal(r)!));
-      const landable = featureRoutes.filter((r) => blockRefusal(r) === undefined && !misrouted.has(r));
-      // Every route refused → there is nothing to write. Creating the scaffold
-      // anyway would claim the feature is documented when none of it landed.
-      if (landable.length === 0) continue;
-      const content = createNewFeatureSpec(feature, landable, today, changeName);
-      pendingConvergence.push(...landable.filter(bodyless).map((r) => pendingFor(r)));
+      if (refusedRequirements.length > refusalStart) continue;
+      const content = createNewFeatureSpec(feature, featureRoutes, today, changeName);
+      pendingConvergence.push(...featureRoutes.filter(bodyless).map((r) => pendingFor(r)));
       if (!dryRun) await atomicWrite(specFile, content);
     }
 
@@ -1376,11 +1374,14 @@ export async function syncFeatureMap(
   const files = await listFeatureSpecFiles(featuresPath);
   const features: FeatureEntry[] = [];
   for (const file of files) {
-    const content = await fs.promises.readFile(path.join(featuresPath, file), 'utf-8');
-    const frontmatter = parseFeatureSpecFrontmatter(content);
+    const loaded = loadFeatureSpecContent(featuresPath, file.slice(0, -'.md'.length));
+    if (!loaded) continue;
+    const spec = loaded.specContent;
+    const frontmatter = parseFeatureSpecFrontmatter(typeof spec === 'string' ? spec : spec.main);
     if (!frontmatter) continue;
+    const bodies = typeof spec === 'string' ? [spec] : [spec.main, ...Object.values(spec.slices)];
     const modules = new Set<string>();
-    for (const line of content.split('\n')) {
+    for (const line of bodies.flatMap((body) => body.split('\n'))) {
       const id = matchReqHeading(line)?.id;
       if (id === undefined) continue;
       const module = reqIdToPrefix(id).toLowerCase();
