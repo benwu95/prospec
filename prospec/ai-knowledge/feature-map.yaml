@@ -27,7 +27,7 @@ features:
       - templates
     req_prefixes:
       - DSGN
-    status: active
+    status: deprecated
   - feature: drift-detection
     modules:
       - cli

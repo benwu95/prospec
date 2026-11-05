@@ -1,14 +1,51 @@
 ---
 feature: design-phase
-status: active
-last_updated: 2026-11-04
-story_count: 4
-req_count: 11
+status: deprecated
+last_updated: 2026-11-05
+story_count: 0
+req_count: 0
 ---
 
 # Design Integration
 
 ## Who & Why
+
+This feature is deprecated. The design station — the `prospec-design` skill, its Generate/Extract modes, the platform adapters and the design-spec/interaction-spec formats — is retired. UI changes now declare a Design Source in the proposal, plan, tasks and implement carry it, tasks schedule a visual regression test, and verify grades design conformance (REQ-TEMPLATES-270–272 in sdd-workflow). The preserved definitions below document historical behavior.
+
+## User Stories & Behavior Specifications
+
+No active stories or requirements remain for this feature.
+
+## Edge Cases
+
+Historical edge cases are retained under Deprecated Requirements.
+
+## Success Criteria
+
+The retirement contract and its replacement are specified by REQ-TEMPLATES-270–273 in sdd-workflow; historical criteria below describe the retired feature.
+
+## Maintenance Rules
+
+1. **Replace-in-Place**: MODIFIED requirements are replaced directly with their latest state
+2. **Functional Grouping**: New requirements are inserted into the corresponding functional group
+3. **No Inline Provenance**: Historical traceability lives only in the Change History
+4. **Deprecation over Deletion**: Removed requirements are moved to the Deprecated section
+
+## Deprecated Requirements
+
+- **REQ-TEMPLATES-138**: `_status-lifecycle.md` Makes Design's Position Explicit _(removed 2026-11-05)_
+- **REQ-DSGN-009**: Implement Skill Design Awareness _(removed 2026-11-05)_
+- **REQ-DSGN-008**: Platform Adapter -- HTML _(removed 2026-11-05)_
+- **REQ-DSGN-007**: Platform Adapter -- Penpot _(removed 2026-11-05)_
+- **REQ-DSGN-006**: Platform Adapter -- Figma _(removed 2026-11-05)_
+- **REQ-DSGN-004**: Platform Adapter -- pencil.dev _(removed 2026-11-05)_
+- **REQ-DSGN-005**: Proposal UI Scope Field _(removed 2026-11-05)_
+- **REQ-TEMPLATES-164**: Design Skill Delegates the Structure Check _(removed 2026-11-05)_
+- **REQ-DSGN-003**: prospec-design Skill Dual Modes _(removed 2026-11-05)_
+- **REQ-DSGN-002**: Interaction Spec Format _(removed 2026-11-05)_
+- **REQ-DSGN-001**: Design Spec Format _(removed 2026-11-05)_
+
+### Historical Context
 
 **Who it serves**: Frontend developers, full-stack developers, UI/UX designers
 
@@ -16,9 +53,9 @@ req_count: 11
 
 **Why it matters**: Generate Mode lets teams without design tools produce structured specs from the proposal; Extract Mode lets teams with design tools reverse-extract them into an AI-readable format. Both modes ensure the AI no longer blindly guesses the UI.
 
-## User Stories & Behavior Specifications
+### Historical User Stories & Behavior Specifications
 
-### US-001: Produce Design Specs from Proposal (Generate Mode) [P0]
+### Retired Story US-001: Produce Design Specs from Proposal (Generate Mode) [P0]
 
 As a frontend developer,
 I want the Design Phase to automatically produce visual specs and interaction specs from the proposal,
@@ -29,21 +66,25 @@ so that when the AI implements the UI it has precise design references instead o
 - WHEN design-spec.md is produced THEN it includes Visual Identity, Components, Responsive Strategy
 - WHEN interaction-spec.md is produced THEN it includes States, Transitions, Flow sequences
 
-#### REQ-DSGN-001: Design Spec Format
+#### ~~REQ-DSGN-001: Design Spec Format~~
 `design-spec-format.hbs` defines the platform-agnostic visual design spec structure.
 
 - WHEN referencing design-spec-format, THEN includes Visual Identity (colors, fonts, spacing), Components (layout, states, tokens), Responsive Strategy (breakpoints)
 - WHEN writing design spec, THEN no platform-specific references (use tokens, not hardcoded values)
 - WHEN an agent needs precise visual values, THEN it reads the source specified by the platform adapter, including an HTML prototype when applicable, rather than requiring MCP for every platform
 
-#### REQ-DSGN-002: Interaction Spec Format
+**Removal reason:** The design station is retired; UI changes declare a Design Source in the proposal (REQ-TEMPLATES-270, sdd-workflow). This definition records historical behavior only.
+
+#### ~~REQ-DSGN-002: Interaction Spec Format~~
 `interaction-spec-format.hbs` defines the platform-agnostic interaction spec, using the Interaction DSL draft syntax.
 
 **Scenarios:**
 - WHEN referencing interaction-spec-format, THEN includes Screen/Component definitions (States, Transitions), Flow sequences (trigger -> action)
 - WHEN DSL syntax used, THEN annotated as draft-1
 
-#### REQ-DSGN-003: prospec-design Skill Dual Modes
+**Removal reason:** The design station is retired; UI changes declare a Design Source in the proposal (REQ-TEMPLATES-270, sdd-workflow). This definition records historical behavior only.
+
+#### ~~REQ-DSGN-003: prospec-design Skill Dual Modes~~
 `prospec-design.hbs` defines the Design Phase workflow, supporting both Generate and Extract modes (Extract reverse-extracts visual/interaction specs from a design tool). The input=code behavior-layer backfill has been split out into the standalone skill `prospec-backfill-spec` (for its behavior see sdd-workflow US-22).
 
 **Scenarios:**
@@ -54,13 +95,17 @@ so that when the AI implements the UI it has precise design references instead o
 - WHEN Phase 3 executes, THEN use platform adapter from .prospec.yaml
 - WHEN Phase 4 verification, THEN verify via screenshot or structural comparison
 
-#### REQ-TEMPLATES-164: Design Skill Delegates the Structure Check
+**Removal reason:** The design station is retired; UI changes declare a Design Source in the proposal (REQ-TEMPLATES-270, sdd-workflow). This definition records historical behavior only.
+
+#### ~~REQ-TEMPLATES-164: Design Skill Delegates the Structure Check~~
 `/prospec-design`'s Phase 4 check splits into a machine half and a judgment half. The **structural verdict** — the required sections (Visual Identity, Components, Responsive Strategy) present, and zero `[NEEDS CLARIFICATION]` markers remaining, with line locations when any do — comes from `prospec validate design-spec`. The **component-coverage** check stays the skill's: extracting the component list from the proposal's UI-scope prose is semantic work, so the skill derives that list itself and compares it against the spec's component entries. Visual and interaction design judgment is unchanged.
 - WHEN Phase 4 runs, THEN it invokes `prospec validate design-spec` for the structural verdict and no longer judges the section thresholds itself (its prose only describes what the CLI checks)
 - WHEN the component-coverage step runs, THEN it is explicitly labelled judgment: the skill extracts the component list from proposal prose and compares it with the reported spec entries
 - WHEN the structural findings are compared against the pre-delegation wording, THEN the finding categories are equivalent (contract-asserted)
 
-#### REQ-DSGN-005: Proposal UI Scope Field
+**Removal reason:** The design station is retired; UI changes declare a Design Source in the proposal (REQ-TEMPLATES-270, sdd-workflow). This definition records historical behavior only.
+
+#### ~~REQ-DSGN-005: Proposal UI Scope Field~~
 `proposal-format.hbs` includes an optional UI Scope section (full/partial/none).
 
 **Scenarios:**
@@ -69,7 +114,10 @@ so that when the AI implements the UI it has precise design references instead o
 - WHEN ui_scope is none, THEN pure backend change, skip Design Phase
 - WHEN proposal lacks UI Scope, THEN legacy proposals unaffected
 
-### US-002: Extract Specs from Design Tools (Extract Mode) [P1]
+
+**Removal reason:** The design station is retired; UI changes declare a Design Source in the proposal (REQ-TEMPLATES-270, sdd-workflow). This definition records historical behavior only.
+
+### Retired Story US-002: Extract Specs from Design Tools (Extract Mode) [P1]
 
 As a developer already using Figma or pencil.dev,
 I want the Design Phase to reverse-extract structured design specs from the design tool,
@@ -82,7 +130,7 @@ so that the AI can directly read precise design parameters for implementation.
 
 _(Extract Mode behavior spec is already covered by REQ-DSGN-003)_
 
-### US-003: Platform Adapters [P1]
+### Retired Story US-003: Platform Adapters [P1]
 
 As a developer using different design tools,
 I want the Design Phase to support multiple design tools through platform adapters,
@@ -92,32 +140,39 @@ so that I can integrate seamlessly with Prospec using tools I am familiar with.
 - WHEN `design.platform: pencil` THEN use the pencil adapter (MCP)
 - WHEN `design.platform: figma` THEN use html-to-figma MCP
 - WHEN design.platform is not set THEN default to the html adapter
-
-#### REQ-DSGN-004: Platform Adapter -- pencil.dev
+#### ~~REQ-DSGN-004: Platform Adapter -- pencil.dev~~
 - WHEN Design Phase, THEN use batch_design() for components, set_variables() for tokens
 - WHEN Implement Phase, THEN use batch_get() + get_screenshot() for precise details
 - WHEN Verify Phase, THEN use get_screenshot() + search_all_unique_properties()
 - WHEN documenting design variables, THEN the adapter recommends their use without promising that all components are consistent
 
-#### REQ-DSGN-006: Platform Adapter -- Figma
+**Removal reason:** The design station is retired; UI changes declare a Design Source in the proposal (REQ-TEMPLATES-270, sdd-workflow). This definition records historical behavior only.
+
+#### ~~REQ-DSGN-006: Platform Adapter -- Figma~~
 **Scenarios:**
 - WHEN Design Phase, THEN produce HTML prototype, push via html-to-figma MCP
 - WHEN Implement Phase, THEN read Figma node details (fills, strokes, auto-layout)
 - WHEN Verify Phase, THEN compare Figma node properties with implementation
 
-#### REQ-DSGN-007: Platform Adapter -- Penpot
+**Removal reason:** The design station is retired; UI changes declare a Design Source in the proposal (REQ-TEMPLATES-270, sdd-workflow). This definition records historical behavior only.
+
+#### ~~REQ-DSGN-007: Platform Adapter -- Penpot~~
 **Scenarios:**
 - WHEN Design Phase, THEN use Penpot API to create components
 - WHEN Implement Phase, THEN export designs to readable format
 - WHEN Verify Phase, THEN API structural comparison
 
-#### REQ-DSGN-008: Platform Adapter -- HTML
+**Removal reason:** The design station is retired; UI changes declare a Design Source in the proposal (REQ-TEMPLATES-270, sdd-workflow). This definition records historical behavior only.
+
+#### ~~REQ-DSGN-008: Platform Adapter -- HTML~~
 The HTML platform adapter uses a zero-dependency prototype/ directory.
 - WHEN Design Phase, THEN produce prototype/ directory (index.html, styles.css, pages)
 - WHEN Implement Phase, THEN read CSS custom properties and HTML structure
 - WHEN Verify Phase, THEN DOM structure and CSS property comparison
 
-#### REQ-DSGN-009: Implement Skill Design Awareness
+**Removal reason:** The design station is retired; UI changes declare a Design Source in the proposal (REQ-TEMPLATES-270, sdd-workflow). This definition records historical behavior only.
+
+#### ~~REQ-DSGN-009: Implement Skill Design Awareness~~
 `prospec-implement.hbs` adds design awareness to UI tasks.
 
 **Scenarios:**
@@ -125,9 +180,11 @@ The HTML platform adapter uses a zero-dependency prototype/ directory.
 - WHEN Phase 3 executes, THEN first read design values via adapter MCP, then implement
 - WHEN no design-spec.md, THEN warn (UI task lacks design spec)
 
----
 
-## US-004: Design's Position in the SDD Lifecycle [P2]
+
+**Removal reason:** The design station is retired; UI changes declare a Design Source in the proposal (REQ-TEMPLATES-270, sdd-workflow). This definition records historical behavior only.
+
+### Retired Story US-004: Design's Position in the SDD Lifecycle [P2]
 
 As an agent resuming interrupted work or running verify,
 I want design's lifecycle position to be made explicit,
@@ -136,11 +193,12 @@ so that I can determine when design applies and when it does not, instead of gue
 **Acceptance Scenarios:**
 - WHEN consulting `_status-lifecycle.md`, THEN it states explicitly: design has no status, applies only when `ui_scope != none`, and sits between plan and tasks
 - WHEN `ui_scope: none`, THEN design does not run, verify V6 is `not-applicable`, and the lifecycle is identical to one that never ran design
-
-#### REQ-TEMPLATES-138: `_status-lifecycle.md` Makes Design's Position Explicit
+#### ~~REQ-TEMPLATES-138: `_status-lifecycle.md` Makes Design's Position Explicit~~
 `_status-lifecycle.md` (plus the shipped `init/status-lifecycle.md.hbs`, the two copies kept consistent) adds a "Stations without a status transition" section, recording design (`ui_scope != none`, between plan and tasks, no status), review, and learn, so that resume logic locates position by workflow order rather than by status.
 
-## Edge Cases
+**Removal reason:** The design station is retired; UI changes declare a Design Source in the proposal (REQ-TEMPLATES-270, sdd-workflow). This definition records historical behavior only.
+
+### Historical Edge Cases
 
 - `.prospec.yaml` has no `design.platform`: default to the html adapter
 - Extract Mode encounters an ambiguous design intent: mark [NEEDS CLARIFICATION]
@@ -149,28 +207,18 @@ so that I can determine when design applies and when it does not, instead of gue
 - Legacy proposal without a UI Scope: backward compatible
 - Design tool MCP connection fails: prompt to check the MCP configuration
 
-## Success Criteria
+### Historical Success Criteria
 
 - **SC-1**: The design-spec.md produced by Generate Mode contains complete Visual Identity, Components, Responsive Strategy
 - **SC-2**: Extract Mode can extract structured specs from pencil.dev and Figma
 - **SC-3**: Each of the 4 adapters covers operational guidance across the three phases Design/Implement/Verify
 - **SC-4**: When implementing UI tasks, precise design parameters can be read through the adapter MCP
 
-## Maintenance Rules
-
-1. **Replace-in-Place**: MODIFIED requirements are replaced directly with their latest state
-2. **Functional Grouping**: New requirements are inserted into the corresponding functional group
-3. **No Inline Provenance**: Historical traceability lives only in the Change History
-4. **Deprecation over Deletion**: Removed requirements are moved to the Deprecated section
-
-## Deprecated Requirements
-
-_(None)_
-
 ## Change History
 
 | Date | Change | Impact | Stories/REQs |
 |------|--------|--------|-------------|
+| 2026-11-05 | replace-design-station | REMOVED REQ-DSGN-001; REMOVED REQ-DSGN-002; REMOVED REQ-DSGN-003; REMOVED REQ-TEMPLATES-164; REMOVED REQ-DSGN-005; REMOVED REQ-DSGN-004; REMOVED REQ-DSGN-006; REMOVED REQ-DSGN-007; REMOVED REQ-DSGN-008; REMOVED REQ-DSGN-009; REMOVED REQ-TEMPLATES-138 | REQ-DSGN-001, REQ-DSGN-002, REQ-DSGN-003, REQ-TEMPLATES-164, REQ-DSGN-005, REQ-DSGN-004, REQ-DSGN-006, REQ-DSGN-007, REQ-DSGN-008, REQ-DSGN-009, REQ-TEMPLATES-138 |
 | 2026-11-04 | reconcile-feature-ownership | MODIFIED REQ-DSGN-008 | REQ-DSGN-008 |
 | 2026-11-02 | backfill-doc-drift-design-phase | MODIFIED REQ-DSGN-001 | REQ-DSGN-001 |
 | 2026-09-29 | audit-shipped-skill-claims | MODIFIED REQ-DSGN-001; MODIFIED REQ-DSGN-004 | REQ-DSGN-001, REQ-DSGN-004 |
