@@ -355,7 +355,7 @@ budget-counted WARN. The CLI:
   entry, so it stays red until a fresh S/A is earned. That combination is NOT archivable: say so in the report and resolve the WARN/FAIL
   items until a re-run reaches S/A. Reading `status: verified` as a pass here archives a change
   whose latest verify graded B/C/D;
-- applies the `scale: backfill` grade-input policy (below) from `metadata.scale` + the
+- applies the proven-backfill policy (backfill reference) from `metadata.scale` + the
   `backfill-draft.md` provenance check;
 - with `--dimensions`, appends the judgment evidence to `verify.md` under a dated, graded heading and
   names that path. Evidence never enters `metadata.yaml`, so cite `verify.md` rather than inline prose.

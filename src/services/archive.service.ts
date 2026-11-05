@@ -14,7 +14,7 @@ import { ensureDir, atomicWrite } from '../lib/fs-utils.js';
 import { readConfig, resolveBasePaths, resolveMaxStationRetries } from '../lib/config.js';
 import { parseYaml, stringifyYaml } from '../lib/yaml-utils.js';
 import { parseTaskLine } from '../lib/task-markers.js';
-import { isArchivedSpec, isSafeResourceName, loadModuleMap, loadFeatureSpecContent, resolveContainedTarget } from '../lib/knowledge-reader.js';
+import { isArchivedSpec, isSafeResourceName, loadModuleMap, loadFeatureSpecContent, readFeatureSpec, resolveContainedTarget } from '../lib/knowledge-reader.js';
 import { reqIdToPrefix } from '../lib/drift-sources.js';
 import { findUnsyncedModules } from '../lib/knowledge-sync.js';
 import { evaluateArchiveEntryGate } from '../lib/archive-gate.js';
@@ -904,7 +904,8 @@ async function scanActiveFeatures(featuresPath: string): Promise<ProductFeature[
   if (!fs.existsSync(featuresPath)) return [];
   const features: ProductFeature[] = [];
   for (const file of await listFeatureSpecFiles(featuresPath)) {
-    const content = await fs.promises.readFile(path.join(featuresPath, file), 'utf-8');
+    const content = readFeatureSpec(featuresPath, file.slice(0, -'.md'.length));
+    if (content === null) continue;
     const frontmatter = parseFeatureSpecFrontmatter(content);
     if (frontmatter === null || frontmatter.status !== 'active') continue;
     const slug = file.slice(0, -'.md'.length);
@@ -1369,8 +1370,8 @@ export async function syncFeatureMap(
   // Mirror the reader/collector through the SHARED lister: archived specs excluded,
   // and an unsafe slug skipped (loadFeatureMap would drop it on read-back — never
   // emit an entry the reader discards, and never let a slug with YAML-special chars
-  // into the index). product.md indexes the same directory through the same call,
-  // so the two indexes cannot disagree by construction rather than by coincidence.
+  // into the index). product.md indexes the same directory through the same call and
+  // the same contained reader, so the two indexes cannot disagree by construction.
   const files = await listFeatureSpecFiles(featuresPath);
   const features: FeatureEntry[] = [];
   for (const file of files) {

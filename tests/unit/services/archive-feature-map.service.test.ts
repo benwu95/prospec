@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { mkdtempSync, mkdirSync, rmSync, writeFileSync, readFileSync, existsSync, symlinkSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { syncFeatureMap } from '../../../src/services/archive.service.js';
+import { generateProductSpec, syncFeatureMap } from '../../../src/services/archive.service.js';
 import { FeatureMapSchema } from '../../../src/types/feature-map.js';
 import { parseYaml } from '../../../src/lib/yaml-utils.js';
 import type { ModuleMap } from '../../../src/types/module-map.js';
@@ -128,6 +128,22 @@ describe('syncFeatureMap (REQ-SERVICES-029)', () => {
     await expect(syncFeatureMap(featuresPath(), mapPath(), MMAP)).resolves.toBe(mapPath());
 
     expect(readMap().features[0]?.modules).toEqual(['lib']);
+  });
+
+  it('excludes a mother spec whose symlink escapes the features directory from both indexes', async () => {
+    writeSpec('alpha', '#### REQ-LIB-001: Inside\n');
+    const outside = path.join(tmp, 'escaped.md');
+    writeFileSync(outside, '---\nfeature: escaped\nstatus: active\n---\n\n#### REQ-SERVICES-001: Outside\n');
+    symlinkSync(outside, path.join(featuresPath(), 'escaped.md'));
+    const productPath = path.join(tmp, 'prospec/specs/product.md');
+
+    await syncFeatureMap(featuresPath(), mapPath(), MMAP);
+    await generateProductSpec(featuresPath(), productPath, 'p');
+
+    expect(readMap().features.map((f) => f.feature)).toEqual(['alpha']);
+    const product = readFileSync(productPath, 'utf8');
+    expect(product).toContain('alpha');
+    expect(product).not.toContain('escaped');
   });
 
   it('preserves raw heading policy in slices: struck excluded, closed fenced headings included', async () => {

@@ -18,7 +18,7 @@ import {
   isReviewCloseEntry,
   isReviewRoundCountsEntry,
 } from '../../../src/lib/change-metadata.js';
-import { MetadataValidationError, YamlParseError } from '../../../src/types/errors.js';
+import { MetadataValidationError, PrerequisiteError, YamlParseError } from '../../../src/types/errors.js';
 import { planningFlawsStreak, reduceEscalationHistory } from '../../../src/lib/escalation.js';
 
 vi.mock('node:fs', async () => {
@@ -119,6 +119,18 @@ describe('metadata preservation through existing writers', () => {
     })()).rejects.toThrow(/alias/i);
     expect(vol.readFileSync(PATH, 'utf8')).toBe(original);
     expect(doc.toString()).toBe(before);
+  });
+
+  it.each([
+    ['rebinds to an earlier reused anchor', 'earlier_note: &rp keep-me\n'],
+    ['dangles', ''],
+  ])('refuses a whole-subtree replacement whose retained alias %s', async (_name, earlier) => {
+    const original = VALID + earlier + 'review_provenance: &rp {digest: old, date: d}\nnote: *rp\n';
+    seed(original);
+    const { doc } = readChangeMetadata(PATH, 'add-widget');
+    doc.set('review_provenance', doc.createNode({ digest: 'new', date: 'd2' }));
+    await expect(writeChangeMetadataDoc(PATH, doc, 'add-widget')).rejects.toThrow(PrerequisiteError);
+    expect(vol.readFileSync(PATH, 'utf8')).toBe(original);
   });
 
   it.each([

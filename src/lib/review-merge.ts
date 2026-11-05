@@ -133,13 +133,16 @@ function decodeReproCell(cell: string): string | undefined {
 
 /** Parse the cumulative table out of an existing review.md (empty file → []).
  *  Tolerates the legacy hand-written shapes: a missing ID / Summary / Repro / Origin
- *  column simply leaves that field unset. */
-export function parseReviewRows(content: string): ReviewRow[] {
+ *  column simply leaves that field unset. Malformed repro data is refused, unless
+ *  `lenient` (read-only consumers such as `learn yield`, which never read repro)
+ *  reads it as absent. */
+export function parseReviewRows(content: string, options: { lenient?: boolean } = {}): ReviewRow[] {
   const table = findTable(content.split('\n'), FINDINGS_TABLE);
   if (!table) return [];
   const headers = table.headers.map((h) => h.toLowerCase());
   const columnFor = headers.map((h) => COLUMN_ALIASES[h]);
-  if (columnFor.filter((key) => key === 'repro').length > 1) {
+  const repeatedRepro = columnFor.filter((key) => key === 'repro').length > 1;
+  if (repeatedRepro && !options.lenient) {
     throw new PrerequisiteError(
       'review.md carries repeated or mixed Repro / Repro (JSON) columns',
       'Restore the last CLI-written review.md or keep exactly one repro column',
@@ -162,7 +165,15 @@ export function parseReviewRows(content: string): ReviewRow[] {
           const n = parseInt(cell.trim(), 10);
           if (!Number.isNaN(n) && n > 0) row.origin_round = n;
         }
-        else if (key === 'repro') row.repro = encodedRepro ? decodeReproCell(cell) : cell || undefined;
+        else if (key === 'repro') {
+          if (repeatedRepro) return;
+          if (!encodedRepro) row.repro = cell || undefined;
+          else if (!options.lenient) row.repro = decodeReproCell(cell);
+          else {
+            try { row.repro = decodeReproCell(cell); }
+            catch { delete row.repro; }
+          }
+        }
         else if (key === 'id') row.id = cell || undefined;
         else if (key !== 'evidence') row[key] = cell;
       });
@@ -179,9 +190,9 @@ export function parseReviewRows(content: string): ReviewRow[] {
  * reports, and a quoted findings table would otherwise be the first table the
  * search finds.
  */
-export function parseReviewDocument(content: string): { before: string; rows: ReviewRow[] } {
+export function parseReviewDocument(content: string, options: { lenient?: boolean } = {}): { before: string; rows: ReviewRow[] } {
   const { before, blocks } = splitEvidenceSection(content);
-  const rows = parseReviewRows(before);
+  const rows = parseReviewRows(before, options);
   for (const row of rows) {
     const block = row.id === undefined ? undefined : blocks.get(row.id);
     if (block) row.evidence = block.body;

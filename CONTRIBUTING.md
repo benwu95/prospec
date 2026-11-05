@@ -60,7 +60,7 @@ Never lower it to make a probe pass — that lets an older binary without those 
 # Watch mode (recompile on change)
 pnpm run dev
 
-# Run all tests (9560 total)
+# Run all tests (9574 total)
 pnpm test
 
 # Run tests in watch mode
@@ -96,10 +96,10 @@ pnpm knowledge:check
 
 Passed and skipped counts depend on the host environment; consult the test run or CI report for execution results. Static counts below describe the test inventory.
 
-**Test Coverage**: 9560 total tests across 4 categories:
-- Unit tests (types + lib + services + cli): 6844 tests
+**Test Coverage**: 9574 total tests across 4 categories:
+- Unit tests (types + lib + services + cli): 6856 tests
 - Contract tests (CLI output + Skill format): 2173 tests
-- Integration tests: 283 tests
+- Integration tests: 285 tests
 - E2E tests: 260 tests
 
 The suite includes a real `init` + `agent sync` generation contract (`tests/integration/skill-contract.test.ts`) asserting agent-specific reference paths, no dangling references, canonical convention docs, `base_dir`-relative spec paths, and `.agents` convergence.

@@ -115,6 +115,7 @@ The frozen check registry keeps its unsorted literal assertion and its skipped-n
 - WHEN any rule claims pre-existing-code applicability, THEN require scale backfill, backfill-draft.md, complete unique known Constitution rule coverage and a nonempty statement for each claimed debt; refuse invalid claims before writing.
 - WHEN a claim has a raw FAIL/WARN solely for unchanged code debt and its current artifact obligations pass, THEN omit only that rule from the effective floor and its debt-only warning budget, keeping its raw result, statement and machine ledger in verify.md; the grader is responsible for that scope judgment.
 - WHEN a rule is unclassified, applies to current artifacts, is mixed in scope, or remains not-adjudicated, THEN it is not exempted by the debt policy; applicable machine and judgment rule results retain their floor.
+- WHEN a grader rule result is WARN or FAIL for a rule whose inventory severity is MAY, THEN it sets no per-rule floor: a MAY violation is an informational note that does not affect the grade, at every scale.
 - WHEN an aggregate constitution FAIL is supplied, THEN it remains grade-bearing, including through legacy flags; a debt-only structured aggregate PASS must still satisfy every applicable floor and the independent constitution-severity floor.
 - WHEN the change is a proven backfill, THEN preserve actual tests FAIL, baseline gaps, the original task not-applicable policy and the in-session grade cap; tests use test-provenance rather than a dimension-wide grade exclusion.
 

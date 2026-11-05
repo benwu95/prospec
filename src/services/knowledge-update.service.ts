@@ -365,8 +365,11 @@ ${renderTemplate('knowledge/_index-auto-block.hbs', templateContext).trimEnd()}
   } else {
     finalContent = renderTemplate('knowledge/index.md.hbs', templateContext);
   }
-  const hasLoadingStrategy = withoutFencedBlocks(finalContent.split(/\r?\n/), { htmlComments: true }).some(line =>
-    /^ {0,3}##[ \t]+Progressive Knowledge Loading Strategy(?:[ \t]+#+)?[ \t]*$/.test(line));
+  // The canonical heading is the CLI-matched marker (ATX or setext).
+  const visible = withoutFencedBlocks(finalContent.split(/\r?\n/), { htmlComments: true });
+  const hasLoadingStrategy = visible.some((line, i) =>
+    /^ {0,3}##[ \t]+Progressive Knowledge Loading Strategy(?:[ \t]+#+)?[ \t]*$/.test(line)
+    || (/^ {0,3}Progressive Knowledge Loading Strategy[ \t]*$/.test(line) && /^ {0,3}-+[ \t]*$/.test(visible[i + 1] ?? '')));
   if (!hasLoadingStrategy) {
     const strategy = renderTemplate('knowledge/index.md.hbs', { ...templateContext, loading_rules_only: true }).trimEnd();
     finalContent += `${finalContent.endsWith('\n') ? '\n' : '\n\n'}${strategy}\n`;
@@ -390,6 +393,18 @@ export async function updateModuleMap(
   changes: { added: string[]; removed: string[] },
   moduleMapPath: string,
 ): Promise<GeneratedFile | null> {
+  return (await prepareModuleMapUpdate(changes, moduleMapPath)?.()) ?? null;
+}
+
+/**
+ * Judge a Module Map update without writing it: refusals (unsupported data)
+ * throw here, and the returned commit publishes the reconciled document.
+ * Null when there is no map or nothing would change.
+ */
+function prepareModuleMapUpdate(
+  changes: { added: string[]; removed: string[] },
+  moduleMapPath: string,
+): (() => Promise<GeneratedFile>) | null {
   // Graceful skip if module-map.yaml doesn't exist (or cannot be read inside its own directory)
   const content = readContainedText(moduleMapPath, path.dirname(moduleMapPath));
   const target = resolveContainedTarget(moduleMapPath, path.dirname(moduleMapPath));
@@ -431,12 +446,11 @@ export async function updateModuleMap(
   // round-trip drops every comment and reflows untouched descriptions, so the
   // merge goes through the yaml Document (same path writeConfig uses).
   const doc = parseYamlDocument(content, moduleMapPath);
-  mergeIntoDocument(doc, moduleMap as unknown as Record<string, unknown>, { preserveModuleMap: true });
-  await atomicWrite(target.path, stringifyYamlDocument(doc));
-
-  return {
-    path: moduleMapPath,
-    action: 'updated',
+  mergeIntoDocument(doc, moduleMap as unknown as Record<string, unknown>, { preserveModuleMap: true, sourcePath: moduleMapPath });
+  const serialized = stringifyYamlDocument(doc);
+  return async () => {
+    await atomicWrite(target.path, serialized);
+    return { path: moduleMapPath, action: 'updated' };
   };
 }
 
@@ -550,13 +564,20 @@ export async function execute(
       return entry.modules;
     };
 
-    const addedSynced = new Set<string>();
+    const addedModules = added.map(modulesToSync);
+    // Module-map.yaml gains only modules actually synced (feature-prefix-resolved
+    // modules are already known, so the update no-ops on them; a genuinely new
+    // module-prefix module is added). Judged here so its refusal precedes every write.
+    const addedSynced = [...new Set(addedModules.flat())];
+    const commitModuleMap = addedSynced.length > 0
+      ? prepareModuleMapUpdate({ added: addedSynced, removed: [] }, moduleMapPath)
+      : null;
 
     // Process ADDED modules — a genuinely new module gets a skeleton README
     // for the skill to fill; an ADDED entry resolving to an existing module
     // (its README already exists) becomes readme-pending judgment work.
-    for (const entry of added) {
-      for (const mod of modulesToSync(entry)) {
+    for (const modules of addedModules) {
+      for (const mod of modules) {
         const paths = modulePathMap.get(mod) ?? [`src/${mod}/**`];
         const file = await updateModuleReadme(mod, paths, baseOpts);
         if (file) {
@@ -565,7 +586,6 @@ export async function execute(
         } else if (!result.readmePending.includes(mod) && !result.created.includes(mod)) {
           result.readmePending.push(mod);
         }
-        addedSynced.add(mod);
       }
     }
 
@@ -593,16 +613,7 @@ export async function execute(
       }
     }
 
-    // Update module-map.yaml — only modules actually synced (feature-prefix-resolved
-    // modules are already known, so updateModuleMap no-ops on them; a genuinely new
-    // module-prefix module is added as before).
-    const uniqueAdded = [...addedSynced];
-    if (uniqueAdded.length > 0) {
-      const mapFile = await updateModuleMap({ added: uniqueAdded, removed: [] }, moduleMapPath);
-      if (mapFile) {
-        result.generatedFiles.push(mapFile);
-      }
-    }
+    if (commitModuleMap) result.generatedFiles.push(await commitModuleMap());
   } else if (manualModules.length > 0) {
     // --- Manual Mode --- (create-only: an existing README is judgment work)
     preflightReadmes(manualModules, false);
@@ -634,7 +645,7 @@ export async function execute(
       const { moduleMap: migrated, changed } = backfillCuratedFromIndex(existingIndex, moduleMap);
       if (changed) {
         const doc = parseYamlDocument(mapContent, moduleMapPath);
-        mergeIntoDocument(doc, migrated as unknown as Record<string, unknown>, { preserveModuleMap: true });
+        mergeIntoDocument(doc, migrated as unknown as Record<string, unknown>, { preserveModuleMap: true, sourcePath: moduleMapPath });
         await atomicWrite(mapPath, stringifyYamlDocument(doc));
       }
     } catch (error) {

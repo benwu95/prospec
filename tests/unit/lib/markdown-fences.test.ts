@@ -30,6 +30,11 @@ describe('withoutFencedBlocks', () => {
     expect(withoutFencedBlocks(lines, { htmlComments: true })).toEqual(['before', '', '', '', '`<!--`', 'after', '`-->`', '\\<!--', 'visible escaped', '\\-->', '``<!-- ` -->``']);
   });
 
+  it('keeps text outside a comment span on the same line', () => {
+    expect(withoutFencedBlocks(['## Heading <!-- note -->', 'a <!-- x --> b', '<!-- open', 'hidden --> tail'], { htmlComments: true }))
+      .toEqual(['## Heading ', 'a  b', '', ' tail']);
+  });
+
   it('ignores fences inside comments and comment delimiters inside fences', () => {
     const lines = ['<!--', '```md', '-->', 'visible', '```md <!--', 'hidden', '```', 'also visible'];
     const masked = withoutFencedBlocks(lines, { htmlComments: true });

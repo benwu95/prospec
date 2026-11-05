@@ -76,7 +76,6 @@ describe('proven-backfill failure retention with real project-test and verificat
     expect(result.grade).toBe(expectedGrade);
     expect(result.statusAdvanced).toBe(expectedGrade === 'A');
     expect(result.dimensions.find((dimension) => dimension.name === 'tests')?.result).toBe(exitCode === 0 ? 'PASS' : 'FAIL');
-    expect(result.excludedFromGrade).toEqual([]);
     const after = readChangeMetadata(metadataPath, 'probe').metadata;
     expect(after.status).toBe(expectedGrade === 'A' ? 'verified' : 'implemented');
     expect(after.test_attempt).toEqual(before.test_attempt);
@@ -86,5 +85,21 @@ describe('proven-backfill failure retention with real project-test and verificat
     expect(evidence).toContain('"result": "FAIL"');
     expect(result.dimensions.find((dimension) => dimension.name === 'delta-spec-compliance')?.result).toBe('not-adjudicated');
     expect(evidence).toContain('empty requirement set');
+  });
+
+  it('never grades tests PASS for a proven backfill whose failing suite was never recorded', async () => {
+    const { cwd, put } = fixture(1);
+    put('judgments.json', JSON.stringify([
+      { name: 'delta-spec-compliance', result: 'PASS', graded_by: 'fresh-subagent' },
+      { name: 'constitution', result: 'PASS', graded_by: 'fresh-subagent', constitution_rules: [
+        { name: 'Legacy layering', result: 'PASS', statement: 'src/legacy.js is layered.' },
+        { name: 'Artifact integrity', result: 'PASS', statement: 'Current proposal records observable behavior.' },
+      ] },
+      { name: 'design', result: 'not-applicable', graded_by: 'fresh-subagent' },
+    ]));
+    const result = await verify({ cwd, change: 'probe', dimensionsPath: path.join(cwd, 'judgments.json'), warnings: [] });
+    expect(result.dimensions.find((dimension) => dimension.name === 'tests')?.result).toBe('not-adjudicated');
+    expect(result.warnings).toContainEqual(expect.stringContaining('tests: not-adjudicated'));
+    expect(result.grade).not.toBe('S');
   });
 });

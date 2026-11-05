@@ -88,7 +88,7 @@
         "{{knowledge_base_path}}/module-map.yaml"
       ],
       "mandatory": 1,
-      "mandatory_context_tokens": 4390
+      "mandatory_context_tokens": 4396
     },
     "prospec-learn": {
       "items": [
@@ -211,6 +211,6 @@
     "spec-graduation": 840,
     "tasks-format": 1467,
     "tasks-verifier-rubric": 1529,
-    "verify-backfill": 1196
+    "verify-backfill": 1203
   }
 }

@@ -72,6 +72,7 @@ function assertBackfill(content: string): void {
   ]);
   expect(tests).toMatch(/actually \*\*fails\*\* is a hard \*\*FAIL\*\*/);
   expect(tests).toMatch(/existing `test-provenance` adjudication.*actual `FAIL`.*never excluded/);
+  expect(tests).toMatch(/absent or stale runs are `not-adjudicated`.*never becomes PASS/);
   const fidelity = section(content, '### Dimension 2/5: Specification Compliance');
   expect(fidelity).toMatch(/unavailable.*`not-adjudicated`.*Real `FAIL` verdicts are strictly preserved/);
 }

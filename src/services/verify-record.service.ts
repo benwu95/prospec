@@ -37,7 +37,7 @@ import {
   EVIDENCE_MARKER_PREFIX,
   type EvidenceBlock,
 } from '../lib/delegated-evidence.js';
-import { assessCurrentDrift } from '../lib/drift-assessment.js';
+import { assessCurrentDrift, assessCurrentTestEvidence } from '../lib/drift-assessment.js';
 import { INDEX_INPUTS_HINT } from '../lib/drift-checker.js';
 import { adjudicateChangeCheck, mapCheckStatusToVerdict } from '../lib/change-gate.js';
 import { auditConstitution, assessConstitutionApplicability, type ConstitutionMachineLedgerEntry } from '../lib/constitution-audit.js';
@@ -97,8 +97,6 @@ export interface VerifyRecordResult {
   /** Whether the grade itself graduates (S/A) — lets the CLI tell "already
    *  verified" apart from "grade too low" without re-deriving the rule. */
   gradeGraduates: boolean;
-  /** Dimension-wide exclusions; rule applicability is assessed separately. */
-  excludedFromGrade: string[];
   /** Repo-relative `verify.md` path, when this run recorded verification evidence. */
   evidencePath?: string;
   testReuse?: TestEvidenceReuse;
@@ -399,7 +397,6 @@ export async function execute(options: VerifyRecordOptions): Promise<VerifyRecor
   const metadataPath = path.join(cwd, '.prospec', 'changes', changeName, 'metadata.yaml');
   const metadataInput = fs.readFileSync(metadataPath, 'utf8');
   const { doc, metadata } = readChangeMetadata(metadataPath, changeName);
-  const excludedFromGrade: string[] = [];
   const provenBackfill = isProvenBackfill(path.dirname(metadataPath), metadata.scale);
   const notApplicableMachine = provenBackfill ? ['task-completion'] : [];
   const backfillHonestyWarning = metadata.scale === 'backfill' && !provenBackfill
@@ -559,6 +556,11 @@ export async function execute(options: VerifyRecordOptions): Promise<VerifyRecor
   // Adjudicate current facts; a saved report is only an informational artifact.
   const assessment = await assessCurrentDrift(cwd);
   const { report } = assessment;
+  // test-provenance passes a proven backfill whose run is absent or stale; that
+  // exemption is not test evidence, so the tests dimension stays ungraded.
+  const backfillTests = provenBackfill ? await assessCurrentTestEvidence(cwd, changeName) : undefined;
+  const backfillTestsExempt = backfillTests?.decision.verdict === 'exempt'
+    && backfillTests.decision.exemption === 'proven-backfill' ? backfillTests.decision.reason : undefined;
 
   const constitutionRules = report.structural.constitution?.rules ?? [];
   const constitutionInput = judgmentInput.find((d) => d.name === 'constitution');
@@ -647,6 +649,10 @@ export async function execute(options: VerifyRecordOptions): Promise<VerifyRecor
     // absent from the report, or a change the engine never enumerated, is an
     // honest gap — `not-adjudicated`, with the reason spelled into the warning.
     const verdict = adjudicateChangeCheck(report, checkId as DriftCheckId, changeName);
+    if (name === 'tests' && verdict.status === 'pass' && backfillTestsExempt !== undefined) {
+      machineSkipReasons.set(name, `no current passing test run for this proven backfill: ${backfillTestsExempt}`);
+      return { name, result: 'not-adjudicated' as const, adjudicator: 'machine' as const };
+    }
     if (verdict.reason !== undefined) {
       machineSkipReasons.set(name, verdict.reason);
     }
@@ -691,7 +697,9 @@ export async function execute(options: VerifyRecordOptions): Promise<VerifyRecor
         }
       }
       for (const rule of graderConstitutionRules ?? []) {
-        if (informationalRules.has(rule.name) || !constitutionRules.some((known) => known.name === rule.name)) continue;
+        const known = constitutionRules.find((candidate) => candidate.name === rule.name);
+        // A MAY violation is an informational note that never affects the grade.
+        if (informationalRules.has(rule.name) || known === undefined || known.severity === 'MAY') continue;
         const floor = verdictRank(rule.result);
         if (floor > 0 && verdictRank(d.result) < floor) {
           throw new PrerequisiteError(
@@ -827,6 +835,7 @@ export async function execute(options: VerifyRecordOptions): Promise<VerifyRecor
     if (
       !inputsStable() ||
       !assessment.recheck() ||
+      (backfillTests !== undefined && !backfillTests.recheck()) ||
       (liveContextAssessment !== undefined && !liveContextAssessment.recheck()) ||
       (savedContextRecheck !== undefined && !savedContextRecheck()) ||
       fs.readFileSync(metadataPath, 'utf8') !== metadataInput
@@ -843,7 +852,7 @@ export async function execute(options: VerifyRecordOptions): Promise<VerifyRecor
     station: 'prospec-verify', dimensions, warnings,
     specs: { proposal: inputSnapshot.values.proposal ?? null, deltaSpec: inputSnapshot.values.deltaSpec ?? null, acceptance: metadata.acceptance ?? null },
     tasks: inputSnapshot.values.tasks ?? null,
-    assessment: canonicalDigest({ grade, excludedFromGrade, notApplicableMachine, constitutionAudit, reqAssessment,
+    assessment: canonicalDigest({ grade, notApplicableMachine, constitutionAudit, reqAssessment,
       review: adjudicateChangeCheck(report, 'review-provenance', changeName), delegation: delegationDigest,
       config: parsedConfig }),
     testEvidence: canonicalDigest({ attempt: metadata.test_attempt, provenance: metadata.test_provenance }),
@@ -988,7 +997,6 @@ export async function execute(options: VerifyRecordOptions): Promise<VerifyRecor
     statusAdvanced,
     premise: premise.assessment,
     gradeGraduates: gradeAdvancesStatus(grade),
-    excludedFromGrade,
     evidencePath,
     ...(testReuse ? { testReuse } : {}),
     coverageSummary: coverageSummaryStr,

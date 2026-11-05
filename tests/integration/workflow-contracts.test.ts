@@ -101,6 +101,7 @@ describe('per-change gates (REQ-LIB-071, REQ-SERVICES-102, REQ-TEMPLATES-131)', 
     write('.prospec/changes/bf/backfill-draft.md', '**Feature:** legacy\n**Story:** US-1\n');
     git('add', '.');
     git('commit', '-qm', 'backfill');
+    await check({ cwd: root, change: 'bf', recordTests: true });
     expect((await record('bf')).grade).toBe('A');
     const proven = await archive({ cwd: root, names: ['bf'], dryRun: true });
     expect(proven.refused).toEqual([]);

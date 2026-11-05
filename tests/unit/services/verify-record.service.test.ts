@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { vol } from 'memfs';
 import * as fs from 'node:fs';
 import { execute } from '../../../src/services/verify-record.service.js';
-import { assessCurrentDrift } from '../../../src/lib/drift-assessment.js';
+import { assessCurrentDrift, assessCurrentTestEvidence } from '../../../src/lib/drift-assessment.js';
 import { PrerequisiteError } from '../../../src/types/errors.js';
 import type { QualityDimension } from '../../../src/types/change.js';
 import { computeAcceptanceDigest } from '../../../src/types/change.js';
@@ -86,7 +86,6 @@ describe('verify-record — selective backfill debt', () => {
     const result = await runDebt();
     expect(result.grade).toBe('A');
     expect(result.statusAdvanced).toBe(true);
-    expect(result.excludedFromGrade).toEqual([]);
     const evidence = vol.readFileSync('/repo/.prospec/changes/add-widget/verify.md', 'utf8') as string;
     expect(evidence).toContain('"applicability": "pre-existing-code"');
     expect(evidence).toContain('"result": "FAIL"');
@@ -147,6 +146,7 @@ vi.mock('node:fs', async () => {
 const live = vi.hoisted(() => ({ recheck: true, report: {} as unknown }));
 vi.mock('../../../src/lib/drift-assessment.js', () => ({
   assessCurrentDrift: vi.fn(async () => ({ report: live.report, snapshot: { digest: 'current', clean: true }, recheck: () => live.recheck })),
+  assessCurrentTestEvidence: vi.fn(async () => ({ facts: {}, decision: { verdict: 'pass', attemptId: 'run' }, recheck: () => live.recheck })),
 }));
 
 const liveContext = vi.hoisted(() => ({
@@ -427,7 +427,6 @@ describe('verify-record service', () => {
       judgmentDimensions: judgment({ constitution: 'FAIL' }),
       warnings: [],
     });
-    expect(result.excludedFromGrade).toEqual([]);
     expect(result.grade).toBe('C');
     expect(result.statusAdvanced).toBe(false);
     const written = vol.readFileSync(META, 'utf-8') as string;
@@ -458,6 +457,20 @@ describe('verify-record service', () => {
     expect(twoWarns.grade).toBe('B');
   });
 
+  it('grades a proven backfill whose test run is only exempted as not-adjudicated, never PASS', async () => {
+    seed({ scale: 'backfill', draft: true, reportJson: report({ tp: 'pass' }) });
+    vi.mocked(assessCurrentTestEvidence).mockResolvedValueOnce({
+      facts: {} as never,
+      decision: { verdict: 'exempt', exemption: 'proven-backfill', reason: 'no test run recorded' },
+      recheck: () => true,
+    });
+    const result = await execute({ cwd: CWD, judgmentDimensions: judgment(), warnings: [] });
+    expect(result.dimensions.find((d) => d.name === 'tests')?.result).toBe('not-adjudicated');
+    expect(result.warnings).toContainEqual(expect.stringMatching(/tests: not-adjudicated.*no test run recorded/));
+    expect(result.grade).toBe('A');
+    expect(vi.mocked(assessCurrentTestEvidence)).toHaveBeenCalledWith(CWD, 'add-widget');
+  });
+
   it('proven backfill: an in-session Constitution grade still caps S at A', async () => {
     seed({ scale: 'backfill', draft: true });
     const dims: QualityDimension[] = [
@@ -466,7 +479,6 @@ describe('verify-record service', () => {
       { name: 'design', result: 'not-applicable', graded_by: 'fresh-subagent' },
     ];
     const result = await execute({ cwd: CWD, judgmentDimensions: dims, warnings: [], date: '2026-08-22' });
-    expect(result.excludedFromGrade).toEqual([]);
     expect(result.grade).toBe('A');
     expect(result.selfVerifiedCap).toBeDefined();
     expect(result.selfVerifiedCap!.dimensions).toEqual(['constitution']);
@@ -476,7 +488,6 @@ describe('verify-record service', () => {
   it('unproven scale:backfill grades as standard and records the honesty WARN', async () => {
     seed({ scale: 'backfill', reportJson: report({ tp: 'fail' }) });
     const result = await execute({ cwd: CWD, judgmentDimensions: judgment(), warnings: [] });
-    expect(result.excludedFromGrade).toEqual([]);
     expect(result.grade).toBe('C');
     expect(result.warnings.join(' ')).toContain('graded as standard');
   });
@@ -953,6 +964,38 @@ describe('verify-record — constitution audit integration (REQ-SERVICES-113)', 
     const result = await execute({ cwd: CWD, dimensionsPath: dimsPath, judgmentDimensions: [], warnings: [] });
     expect(result.grade).toBe('A');
     expect(result.statusAdvanced).toBe(true);
+  });
+
+  it.each([
+    ['MAY', true],
+    ['SHOULD', false],
+  ] as const)('applies the per-rule floor to a standard-scale %s violation only when it is grade-bearing', async (severity, accepted) => {
+    seed({ reportJson: constitutionReport({ extraRules: [{ name: 'Optional Style', severity, has_verify_hint: true, line: 30 }] }) });
+    const dimsPath = '/repo/dimensions.json';
+    vol.writeFileSync(
+      dimsPath,
+      JSON.stringify([
+        { name: 'delta-spec-compliance', result: 'PASS', graded_by: 'fresh-subagent' },
+        {
+          name: 'constitution',
+          result: 'PASS',
+          graded_by: 'fresh-subagent',
+          constitution_rules: [
+            { name: 'Language Policy', result: 'PASS', statement: 'Follows conventions' },
+            { name: 'INVEST Criteria', result: 'PASS', statement: 'Follows INVEST' },
+            { name: 'Optional Style', result: 'WARN', statement: 'Advisory deviation' },
+          ],
+        },
+        { name: 'design', result: 'not-applicable', graded_by: 'fresh-subagent' },
+      ]),
+    );
+
+    const attempt = execute({ cwd: CWD, dimensionsPath: dimsPath, judgmentDimensions: [], warnings: [] });
+    if (accepted) await expect(attempt).resolves.toMatchObject({ grade: 'A', statusAdvanced: true });
+    else {
+      await expect(attempt).rejects.toThrow(/applicable rule "Optional Style" reports "WARN"/);
+      expect(vol.readFileSync(META, 'utf-8')).toContain('status: implemented');
+    }
   });
 
   it('refuses before write when grader entry flips machine verdict', async () => {
