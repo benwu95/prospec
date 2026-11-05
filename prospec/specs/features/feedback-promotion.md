@@ -1,7 +1,7 @@
 ---
 feature: feedback-promotion
 status: active
-last_updated: 2026-10-20
+last_updated: 2026-11-05
 story_count: 6
 req_count: 28
 ---
@@ -72,6 +72,7 @@ _(None)_
 
 | Date | Change | Impact | Stories/REQs |
 |------|--------|--------|--------------|
+| 2026-11-05 | replace-design-station | MODIFIED REQ-TESTS-024 | REQ-TESTS-024 |
 | 2026-10-20 | extend-review-criteria | ADDED REQ-TEMPLATES-254; ADDED REQ-TESTS-141; MODIFIED REQ-TESTS-100 | US-6, REQ-TEMPLATES-254, REQ-TESTS-141, REQ-TESTS-100 |
 | 2026-10-11 | unify-review-lenses | ADDED REQ-TYPES-114; MODIFIED REQ-LIB-065; MODIFIED REQ-TEMPLATES-204; MODIFIED REQ-TEMPLATES-072; MODIFIED REQ-TESTS-100 | REQ-TYPES-114, REQ-LIB-065, REQ-TEMPLATES-204, REQ-TEMPLATES-072, REQ-TESTS-100 |
 | 2026-10-10 | remove-stale-spec-claims | MODIFIED REQ-TYPES-024; MODIFIED REQ-TESTS-024 | REQ-TYPES-024, REQ-TESTS-024 |

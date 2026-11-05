@@ -1,17 +1,16 @@
 # AI Skills and the Workflow
 [繁體中文](./workflow.zh-TW.md) • [Documentation](../README.md)
 
-Prospec generates 17 Skills — 15 guide AI through the full SDD lifecycle, plus two periodic finishers: `prospec-quickstart` (onboarding) and `prospec-upgrade` (version upgrade):
+Prospec generates 16 Skills — 14 guide AI through the full SDD lifecycle, plus two periodic finishers: `prospec-quickstart` (onboarding) and `prospec-upgrade` (version upgrade):
 
 | Skill | Canonical Skill | Description |
 |-------|---------------|-------------|
 | **Explore** | `prospec-explore` | Think partner for requirement clarification; researches existing approaches before a technical direction is chosen |
 | **New Story** | `prospec-new-story` | Create structured change story |
-| **Design** | `prospec-design` | Generate visual + interaction specs (Generate/Extract modes) |
 | **Plan** | `prospec-plan` | Generate implementation plan + delta-spec |
 | **Tasks** | `prospec-tasks` | Break down into executable tasks |
 | **Fast-Forward** | `prospec-ff` | Generate story → plan → tasks in one go |
-| **Implement** | `prospec-implement` | Implement tasks one-by-one with MCP-first design reading |
+| **Implement** | `prospec-implement` | Implement tasks one-by-one; a UI change reads its declared Design Source with the host's tools |
 | **Review** | `prospec-review` | Adversarial review → fix loop; verifier-confirmed criticals auto-fixed, spec-aware lens |
 | **Verify** | `prospec-verify` | 5+1 dimension audit with quality grade (S/A/B/C/D); prompts commit at S/A |
 | **Archive** | `prospec-archive` | Archive changes + Spec Sync + Knowledge sync Entry Gate |

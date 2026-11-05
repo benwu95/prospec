@@ -41,8 +41,6 @@ your-project/
 │   ├── changes/
 │   │   └── {change-name}/
 │   │       ├── proposal.md        # User Story + 驗收標準
-│   │       ├── design-spec.md     # 視覺規格（可選，UI 變更時）
-│   │       ├── interaction-spec.md # 互動規格（可選）
 │   │       ├── plan.md            # 實作計劃
 │   │       ├── tasks.md           # 任務拆解（checkbox 格式）
 │   │       ├── delta-spec.md      # Patch Spec（ADDED/MODIFIED/REMOVED）
@@ -51,7 +49,6 @@ your-project/
 ├── .claude/skills/            # Claude Code 的 Skills（每個 skill 一個目錄）
 │   ├── prospec-explore/
 │   ├── prospec-new-story/
-│   ├── prospec-design/
 │   ├── prospec-plan/
 │   ├── prospec-tasks/
 │   ├── prospec-ff/
@@ -274,7 +271,7 @@ Review 維持 artifact→metadata，verify 維持 metadata→evidence 的寫入�
     - 於 `warn:` 列出各變更未解的 `quality_log` WARN（每個 skill 最後一筆仍為 WARN 者；plan 簽核記錄不算作最後一筆）——讓各站的 Entry Gate 不必自行翻閱 log 即可浮現先前的警告。
     - 以 `action:` 指出下一站的 canonical Skill 身分——`invoke skill prospec-<name>`，依執行中 host 載入 skill 的方式載入。身分不依賴部署根目錄，因此即使專案未設定 agent，只要路由指出下一站就會印出。
     - 以 `fallback:` 印出解析後的 skill 檔案路徑——host 沒有 skill 機制、或該機制當下不可用時改讀此檔。`next` 為 null 或未設定 agent 時不輸出，且絕不寫死 skills 目錄。`status` 本身不宣稱任何 host 能力：該走哪一條由各 host 在生成的 entry config「Station Transition Protocol」中宣告。
-    - 以 `read:` 列出下一站的 reference 地圖——該站會抵達的每個載入點、要讀的部署路徑、用途，以及 `status` 無法判斷的條件提示。依變更已知的 scale 與 UI scope 過濾，並以 `fallback:` 同一個已設定 host 解析路徑；`next` 為 null 或未設定 agent 時不輸出，未帶 reference 的站則為空集合。站點指令抵達不代表其 references 已抵達。
+    - 以 `read:` 列出下一站的 reference 地圖——該站會抵達的每個載入點、要讀的部署路徑、用途，以及 `status` 無法判斷的條件提示。依變更已知的 scale 過濾，並以 `fallback:` 同一個已設定 host 解析路徑；`next` 為 null 或未設定 agent 時不輸出，未帶 reference 的站則為空集合。站點指令抵達不代表其 references 已抵達。
     - `--json` 將整份 status 報告（含各變更的 `nextSkill`、`unresolvedWarnings` 與 `nextReferenceMap`）輸出至 stdout，供機器讀取。
     - 無任何進行中變更時，讀取 `prospec-report.json` 並回報其**狀態**：`--auto-draft` 會起草的 finding 數量，或該報告無法解析、或是對著不同的程式碼產生的（以 `change_digest` 比對）。無法信任的報告會如實回報，絕不當成「沒有漂移」。
     - 當站點恢復迴圈（verify below-bar、plan verifier flaws、tasks verifier flaws）達到 `workflow.max_station_retries`（預設 3）時，`status` 會路由至 `next: null` 並帶穩定代碼 `ESCALATE_TO_HUMAN`，印出 HALT 指引與失敗摘要，不再無限循環回原站。
@@ -443,7 +440,7 @@ Review 維持 artifact→metadata，verify 維持 metadata→evidence 的寫入�
   - **重點條列**：已知 canonical IDs 與明確 aliases 共用統計；未知或混合標籤保留 custom 分組。每個 change 對每個執行過的 lens 只算一次 invocation，confirmed findings 逐筆計數。Rows-only proxy 或 declared runs 不足時維持 `keep`。Declared runs 足夠後，必跑的 correctness、security、spec-architecture 達零產出或低 yield 條件時，建議 `review` 準則、執行與歸因；退休需明確變更必跑政策。Conditional/custom 保留零產出 `retire` 優先於低 yield `review` 的順序。Archive bytes 與 finding identities 不變。手動改壞的 repro 欄位視為缺少，不會中止掃描。
 
 - **`prospec validate <kind> [target] [--change <name>]`**
-  - **核心用途**：機械式校驗工件結構完整性（支援 `proposal`、`slug`、`promote-scaffold`、`backfill-draft`、`design-spec`、`module-readme`、`candidates` 等）。`module-readme` 會依 canonical Markdown convention 校驗指定模組的 README。`candidates` 以 schema 校驗變更的 `candidates/option-*.json` 與 `decision.json`，並印出指標表（依 module map `depends_on` 計算的 `direction_violations`、`touched_modules`、`estimated_lines`、`unknown_references`）。校驗失敗時 exit 1。
+  - **核心用途**：機械式校驗工件結構完整性（支援 `proposal`、`slug`、`promote-scaffold`、`backfill-draft`、`module-readme`、`candidates` 等）。`module-readme` 會依 canonical Markdown convention 校驗指定模組的 README。`candidates` 以 schema 校驗變更的 `candidates/option-*.json` 與 `decision.json`，並印出指標表（依 module map `depends_on` 計算的 `direction_violations`、`touched_modules`、`estimated_lines`、`unknown_references`）。校驗失敗時 exit 1。
 
 > [!IMPORTANT]
 > **確定性執行層**：上述變更管理命令即為工作流的確定性執行層（issue #107）。Skills（`prospec-new-story`、`prospec-ff` 等）的所有 scaffold、狀態轉換與記錄均透過呼叫 CLI 完成，不再由 LLM 自行產出格式易錯的產物；若 CLI 缺失或版本低於探針門檻時，各 Skill 會自動停止（STOP）。這些命令亦完全支援手動與 CI/CD 腳本呼叫。
@@ -597,7 +594,7 @@ Review、`implemented`、`test-provenance` 與 verify 共用測試閘門。通�
 
 誠實規則：料源不可用時檢項降級為 `skipped` 並附明確原因 —— 絕不偽裝 PASS；語意層的 spec↔code 一致性仍屬 `prospec-review`（報告恆標 `not-checked`）。`prospec-verify` 在開發期消費同一份報告，開發者與 CI 閘門看到的永遠是同一份事實，且零 token。
 
-**verify 由誰裁決** —— 在 verify 站，這份報告不是參考而是裁決。任務完成率、Knowledge、測試三個維度**由本引擎裁決**：verify 逐字採用各檢項狀態、不得改判，因此這三個判定在無 LLM 參與下即可重現。沒有機械 oracle 的兩個維度——delta-spec 合規與設計一致性——維持機率判斷，並在 **fresh context**（未寫過這段程式的獨立審查者）中評定；Constitution 稽核則對半拆分：嚴重度與規則清冊取自機器清冊，違反與否仍是人／LLM 的判斷。引擎無法執行時，機械維度標為 `not-adjudicated`（絕不 PASS），且 grade S 不可達。
+**verify 由誰裁決** —— 在 verify 站，這份報告不是參考而是裁決。任務完成率、Knowledge、測試三個維度**由本引擎裁決**：verify 逐字採用各檢項狀態、不得改判，因此這三個判定在無 LLM 參與下即可重現。沒有機械 oracle 的兩個維度——delta-spec 合規與設計符合度——維持機率判斷，並在 **fresh context**（未寫過這段程式的獨立審查者）中評定；Constitution 稽核則對半拆分：嚴重度與規則清冊取自機器清冊，違反與否仍是人／LLM 的判斷。引擎無法執行時，機械維度標為 `not-adjudicated`（絕不 PASS），且 grade S 不可達。
 
 #### 調整 `knowledge-size` 預算
 
@@ -637,8 +634,8 @@ src/
 ├── services/     — 業務邏輯（33 個 service）
 ├── lib/          — 純工具函式（config、fs、logger 等）
 ├── types/        — Zod schema + TypeScript 型別
-└── templates/    — Handlebars 範本（83 個 .hbs 檔案）
-    └── skills/   — 17 個 Skill 範本 + 32 個 reference 範本
+└── templates/    — Handlebars 範本（76 個 .hbs 檔案）
+    └── skills/   — 16 個 Skill 範本 + 26 個 reference 範本
 ```
 
 ### Tech Stack

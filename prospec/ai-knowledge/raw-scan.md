@@ -63,8 +63,6 @@
       references/
     prospec-backfill-spec/
       references/
-    prospec-design/
-      references/
     prospec-explore/
     prospec-ff/
       references/
@@ -96,8 +94,6 @@
     prospec-archive/
       references/
     prospec-backfill-spec/
-      references/
-    prospec-design/
       references/
     prospec-explore/
     prospec-ff/
@@ -299,9 +295,9 @@ tests/
 > alphabetically first.
 
 - `tests/fixtures/` — 622 files: `.md`, `.yaml`, `.json`, `.txt`
-- `prospec/` — 400 files: `.md`, `(no extension)`, `.yaml`
-- `.agents/` — 74 files: `.md`
-- `.claude/` — 74 files: `.md`
+- `prospec/` — 401 files: `.md`, `(no extension)`, `.yaml`
+- `.agents/` — 67 files: `.md`
+- `.claude/` — 67 files: `.md`
 - `planning/` — 10 files: `.md`
 - `docs/guides/` — 6 files: `.md`
 - `docs/concepts/` — 4 files: `.md`
@@ -312,5 +308,5 @@ tests/
 
 | Metric | Value |
 |--------|-------|
-| Total files | 1929 |
+| Total files | 1909 |
 | Directory Tree depth | 10 |

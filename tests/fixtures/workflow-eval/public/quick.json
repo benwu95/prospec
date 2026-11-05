@@ -3,7 +3,7 @@
   "id": "quick",
   "setup": "quick",
   "entry_skill": "prospec-ff",
-  "task": "Continue planning change x using the supplied workflow instructions. The user has confirmed the name and quick scale. This is planning only; stop at the implementation handoff. The requirement is a documentation spelling correction; there is no UI scope. Use independent verifier delegation when required; do not invent reports if delegation is unavailable.",
+  "task": "Continue planning change x using the supplied workflow instructions. The user has confirmed the name and quick scale. This is planning only; stop at the implementation handoff. The requirement is a documentation spelling correction; it is not a UI change. Use independent verifier delegation when required; do not invent reports if delegation is unavailable.",
   "files": {
     ".prospec.yaml": "version: \"1.0\"\nproject:\n  name: workflow-fixture\n",
     ".prospec/changes/x/metadata.yaml": "name: x\ncreated_at: \"2026-09-05\"\nstatus: story\nscale: quick\nrelated_modules: [fixture]\n",

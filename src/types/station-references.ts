@@ -17,7 +17,6 @@
  * template engine in.
  */
 import type { ChangeScale } from './change.js';
-import type { UiScope } from './status.js';
 
 /**
  * When a station reads a load point.
@@ -80,8 +79,6 @@ export interface StationReferenceUse {
   loading: ReferenceLoadKind;
   /** Scales this load point applies to; absent means every scale. */
   scales?: readonly ChangeScale[];
-  /** UI scopes this load point applies to; absent means every UI scope. */
-  uiScopes?: readonly UiScope[];
   /** A runtime condition no caller can decide, kept as visible guidance. */
   conditionHint?: string;
 }
@@ -290,97 +287,6 @@ export const STATION_REFERENCES: Readonly<Record<string, StationReferenceEntry>>
           { uses: ['phase-4-plan-format', 'phase-4-candidate-evaluation'], joiner: ' and ', tail: ' at Phase 4' },
           { uses: ['phase-5-delta-spec-format'], joiner: ' and ', tail: ' at Phase 5' },
           { uses: ['phase-6-plan-verifier-rubric'], joiner: ' and ', tail: ' at Phase 6' },
-        ],
-      },
-    ],
-  },
-  'prospec-design': {
-    files: [
-      { templateName: 'design-spec-format.hbs', outputName: 'design-spec-format.md', title: 'Design Spec Format' },
-      { templateName: 'interaction-spec-format.hbs', outputName: 'interaction-spec-format.md', title: 'Interaction Spec Format' },
-      { templateName: 'adapter-pencil.hbs', outputName: 'adapter-pencil.md', title: 'Platform Adapter: pencil.dev' },
-      { templateName: 'adapter-figma.hbs', outputName: 'adapter-figma.md', title: 'Platform Adapter: Figma' },
-      { templateName: 'adapter-penpot.hbs', outputName: 'adapter-penpot.md', title: 'Platform Adapter: Penpot' },
-      { templateName: 'adapter-html.hbs', outputName: 'adapter-html.md', title: 'Platform Adapter: HTML' },
-    ],
-    uses: [
-      {
-        id: 'startup-design-spec-format',
-        phase: 'Startup Loading',
-        site: 'Startup Loading',
-        target: { kind: 'reference', reference: 'design-spec-format.md' },
-        purpose: 'the design-spec.md format',
-        loading: 'startup-mandatory',
-      },
-      {
-        id: 'startup-interaction-spec-format',
-        phase: 'Startup Loading',
-        site: 'Startup Loading',
-        target: { kind: 'reference', reference: 'interaction-spec-format.md' },
-        purpose: 'the interaction-spec.md format',
-        loading: 'startup-mandatory',
-      },
-      {
-        id: 'startup-adapter-pencil',
-        phase: 'Startup Loading',
-        site: 'Startup Loading',
-        target: { kind: 'reference', reference: 'adapter-pencil.md' },
-        purpose: 'the pencil.dev MCP surface this station reads design data through',
-        loading: 'startup-dynamic',
-        conditionHint: '`design.platform` is pencil',
-      },
-      {
-        id: 'startup-adapter-figma',
-        phase: 'Startup Loading',
-        site: 'Startup Loading',
-        target: { kind: 'reference', reference: 'adapter-figma.md' },
-        purpose: 'the Figma MCP surface this station reads design data through',
-        loading: 'startup-dynamic',
-        conditionHint: '`design.platform` is figma',
-      },
-      {
-        id: 'startup-adapter-penpot',
-        phase: 'Startup Loading',
-        site: 'Startup Loading',
-        target: { kind: 'reference', reference: 'adapter-penpot.md' },
-        purpose: 'the Penpot MCP surface this station reads design data through',
-        loading: 'startup-dynamic',
-        conditionHint: '`design.platform` is penpot',
-      },
-      {
-        id: 'startup-adapter-html',
-        phase: 'Startup Loading',
-        site: 'Startup Loading',
-        target: { kind: 'reference', reference: 'adapter-html.md' },
-        purpose: 'the HTML adapter, the zero-dependency fallback',
-        loading: 'startup-dynamic',
-        conditionHint: '`design.platform` is html, or unset',
-      },
-    ],
-    slots: [
-      {
-        id: 'startup-design-spec-format',
-        site: 'Startup Loading',
-        prefix: '**MANDATORY** — Read ',
-        suffix: ' for design-spec.md format',
-        groups: [{ uses: ['startup-design-spec-format'], joiner: '', tail: '' }],
-      },
-      {
-        id: 'startup-interaction-spec-format',
-        site: 'Startup Loading',
-        prefix: '**MANDATORY** — Read ',
-        suffix: ' for interaction-spec.md format',
-        groups: [{ uses: ['startup-interaction-spec-format'], joiner: '', tail: '' }],
-      },
-      {
-        id: 'startup-adapters',
-        site: 'Startup Loading',
-        groupSeparator: '\n',
-        groups: [
-          { lead: '   - pencil → ', uses: ['startup-adapter-pencil'], joiner: '', tail: '' },
-          { lead: '   - figma → ', uses: ['startup-adapter-figma'], joiner: '', tail: '' },
-          { lead: '   - penpot → ', uses: ['startup-adapter-penpot'], joiner: '', tail: '' },
-          { lead: '   - html → ', uses: ['startup-adapter-html'], joiner: '', tail: '' },
         ],
       },
     ],
@@ -838,13 +744,12 @@ export const STATION_REFERENCES: Readonly<Record<string, StationReferenceEntry>>
       },
       {
         id: 'v6-delegation-protocol',
-        phase: 'Verification 6 (Conditional): Design Consistency',
-        site: 'Core Workflow > Verification 6 (Conditional): Design Consistency — `[judgment]`, fresh context required',
+        phase: 'Verification 6 (Conditional): Design Conformance',
+        site: 'Core Workflow > Verification 6 (Conditional): Design Conformance — `[judgment]`, fresh context required',
         target: { kind: 'reference', reference: 'delegation-protocol.md' },
         purpose: 'the delegation ticket and receipt for the design grader',
         loading: 'in-phase',
-        uiScopes: ['full', 'partial'],
-        conditionHint: 'design-spec.md exists',
+        conditionHint: 'proposal.md declares a Design Source other than `none`',
       },
       {
         id: 'record-cascade-protocol',

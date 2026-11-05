@@ -382,7 +382,6 @@ describe('VALIDATE_KINDS', () => {
       'slug',
       'backfill-draft',
       'promote-scaffold',
-      'design-spec',
       'module-readme',
       'candidates',
     ]);

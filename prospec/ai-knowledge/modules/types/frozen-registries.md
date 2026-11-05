@@ -9,9 +9,9 @@
 | `change.ts` (registry half) | `CHANGE_STATUSES` / `CHANGE_SCALES`; `SCALE_FORBIDDEN_ARTIFACTS` and `PROVENANCE_AUDITED_STATUSES`/`isProvenanceAudited` — the lifecycle doc's artifact matrix and audit scope, executable; `GATE`/`DIMENSION_RESULTS`, `VERIFY_GRADES`, `DIMENSION_GRADED_BY` (judgment grading context: `fresh-subagent`/`in-session`); `CANDIDATE_IDS` / `PLAN_DECISION_OPTIONS` (the candidates plus `hybrid`) |
 | `drift-report.ts` | `DRIFT_CHECK_IDS` (23, frozen) + the Constitution rule inventory; `knowledge_health.modules[]` carries additive optional keys — `last_sub_module_commit`, `last_verified` and `freshness`, the basis `stale` is reproduced from (omitted, never null-filled) |
 | `mcp.ts` | `MCP_RESOURCE_URIS` (8) + `MCP_TOOL_NAMES` (3), frozen append-only |
-| `skill.ts` | `SKILL_DEFINITIONS` (17 skills, each ≥3 collision-free triggers), `AGENT_CONFIGS` (4 agents, each declaring `HarnessCapabilities`, `AgentRenderFlags` — including the closed `SKILL_CONTENT_LIFECYCLES` three-state — and a closed `InvocationProfile`), `intersectCapabilities`, `mergeGroupRenderFlags`, `renderFlagContext`, `mergeGroupInvocationGuidance` |
+| `skill.ts` | `SKILL_DEFINITIONS` (16 skills, each ≥3 collision-free triggers), `AGENT_CONFIGS` (4 agents, each declaring `HarnessCapabilities`, `AgentRenderFlags` — including the closed `SKILL_CONTENT_LIFECYCLES` three-state — and a closed `InvocationProfile`), `intersectCapabilities`, `mergeGroupRenderFlags`, `renderFlagContext`, `mergeGroupInvocationGuidance` |
 | `station.ts` | `VERIFY_DIMENSIONS` (+ its machine/judgment split), `VALIDATE_KINDS` — the judgment↔mechanics boundary, `candidates` appended as a complete verdict — and `RELAYED_FIELD_MAX_CHARS`, the ceilings on what a delegated reviewer/grader RELAYS back (`evidence` is deliberately absent from the set: it goes to the artifact, never into a return payload). Adding a relayed field obliges a row in `delegated-evidence-format.hbs`, whose values `agent sync` injects — a contract test derives the expected rows from this constant's keys |
-| `status.ts` | `SDD_STATIONS` order, incl. the `knowledge-update` station, the no-status design station, and the `promote` backfill entry; `STATION_SKILLS`; `WORKFLOW_REASON_CODES` (append-only, matched by value — `AWAITING_HUMAN_PLAN_SIGNOFF` and `PLAN_VERIFIER_PENDING` follow `ESCALATE_TO_HUMAN`, then `KNOWLEDGE_INPUT_INVALID`) and `HUMAN_HALT_CODES` (those three halts) |
+| `status.ts` | `SDD_STATIONS` order, incl. the `knowledge-update` station and the `promote` backfill entry; `STATION_SKILLS`; `WORKFLOW_REASON_CODES` (matched by value; appended, never reordered or renamed, and a code leaves only with the route that emits it, as a breaking change — `AWAITING_HUMAN_PLAN_SIGNOFF` and `PLAN_VERIFIER_PENDING` follow `ESCALATE_TO_HUMAN`, then `KNOWLEDGE_INPUT_INVALID`) and `HUMAN_HALT_CODES` (those three halts) |
 | `conventions.ts` | `CORE_CONVENTIONS` (the L1 set), `INIT_DOC_REGISTRY` |
 | `config.ts` (closed half) | `KNOWLEDGE_SIZE_RULES` (`satisfies`-closed per `KnowledgeSizeKind`), `KNOWLEDGE_STRATEGIES` |
 
@@ -19,7 +19,7 @@
 
 - `SCALE_FORBIDDEN_ARTIFACTS` / `forbiddenArtifacts` / `PROVENANCE_AUDITED_STATUSES` / `isProvenanceAudited` — per-scale artifact contract; provenance audit scope
 - `DRIFT_CHECK_IDS` — the 23 frozen drift-check ids
-- `SKILL_DEFINITIONS` / `AGENT_CONFIGS` / `InvocationProfile` / `mergeGroupInvocationGuidance` — 17 skills + 4 agents (typed `Record<ValidAgent, …>`); host invocation data is rendered in frozen agent order, deduplicated per agent, and never changes the bare canonical Skill identity
+- `SKILL_DEFINITIONS` / `AGENT_CONFIGS` / `InvocationProfile` / `mergeGroupInvocationGuidance` — 16 skills + 4 agents (typed `Record<ValidAgent, …>`); host invocation data is rendered in frozen agent order, deduplicated per agent, and never changes the bare canonical Skill identity
 - `VERIFY_DIMENSIONS` / `VALIDATE_KINDS` — the 5+1 dimension registry; validate kinds
 - `SDD_STATIONS` / `STATION_SKILLS` — station order and the skill each station routes to
 - `MCP_RESOURCE_URIS` / `MCP_TOOL_NAMES` — the frozen MCP surface

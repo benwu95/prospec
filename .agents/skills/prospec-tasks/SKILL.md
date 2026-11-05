@@ -38,8 +38,7 @@ nondeterministic serialization this contract exists to remove.
 2. [STABLE] **MANDATORY** — Read [`references/tasks-format.md`](references/tasks-format.md) for tasks.md format
 3. [DYNAMIC] Read `.prospec/changes/[name]/plan.md` — parse implementation steps
 4. [DYNAMIC] Read `.prospec/changes/[name]/delta-spec.md` — parse file changes and specifications
-5. [DYNAMIC] Read `.prospec/changes/[name]/design-spec.md` (if exists) — identify UI components for task decomposition
-6. [DYNAMIC] Read related module `README.md` from `prospec/ai-knowledge/modules/` (and any `{sub-module}.md` it links) — confirm architecture layers and dependency directions for task ordering
+5. [DYNAMIC] Read related module `README.md` from `prospec/ai-knowledge/modules/` (and any `{sub-module}.md` it links) — confirm architecture layers and dependency directions for task ordering
 
 ## Entry Gate
 
@@ -82,7 +81,7 @@ Task format: `- [ ] [description]`. A `~{lines} lines` estimate and a `[P]` para
 - Verifiable with clear completion criteria
 - Right-sized (ideal 15-25 tasks, 20-100 lines each)
 - Dependency direction: follow project conventions (lower layers first)
-- UI tasks (when `design-spec.md` exists): reference component names and annotate with adapter MCP measurement instructions
+- UI changes (Design Source in plan.md; quick: proposal.md): UI tasks cite the source — for `none`, the UI structure from plan.md, or stated here without a plan — plus a visual regression test task in the project's suite, run by `test_command` and recorded by `prospec check --record-tests`
 
 > **Phase 3 Gate** — proceed when:
 > - [ ] tasks written to `tasks.md`, grouped by architecture layer per the project's conventions (see [`references/tasks-format.md`](references/tasks-format.md))

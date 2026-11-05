@@ -163,7 +163,7 @@ related_modules:
   });
 });
 
-describe('validate backfill-draft / design-spec', () => {
+describe('validate backfill-draft', () => {
   it('reports structural facts for a draft via the change default path', async () => {
     vol.fromJSON({
       [`${CHANGE_DIR}/backfill-draft.md`]:
@@ -177,21 +177,10 @@ describe('validate backfill-draft / design-spec', () => {
     expect(result.findings.some((f) => /50%|abort/.test(f.message))).toBe(false);
   });
 
-  it('fails a design spec with a missing section or remaining NC marker', async () => {
-    vol.fromJSON({
-      '/repo/spec.md': '## Visual Identity\n## Components\n[NEEDS CLARIFICATION: x]\n',
-    });
-    const result = await execute({ kind: 'design-spec', target: 'spec.md', cwd: CWD });
-    expect(result.ok).toBe(false);
-    const messages = result.findings.map((f) => f.message).join(' ');
-    expect(messages).toContain('Responsive Strategy');
-    expect(messages).toContain('[NEEDS CLARIFICATION]');
-  });
-
   it('errors clearly when the target file is missing', async () => {
     vol.fromJSON({ [`${CHANGE_DIR}/metadata.yaml`]: 'name: promote-widget\n' });
     await expect(
-      execute({ kind: 'design-spec', change: 'promote-widget', cwd: CWD }),
+      execute({ kind: 'backfill-draft', change: 'promote-widget', cwd: CWD }),
     ).rejects.toThrow(/target not found/);
   });
 });

@@ -1,9 +1,9 @@
 ---
 feature: sdd-workflow
 status: active
-last_updated: 2026-11-04
+last_updated: 2026-11-05
 story_count: 57
-req_count: 390
+req_count: 394
 ---
 
 # SDD Workflow
@@ -14,7 +14,7 @@ req_count: 390
 
 **Problem it solves**: In software development, requirements are scattered, specs drift, changes go untracked, and Knowledge decouples from implementation. Without a structured flow, AI Agent output quality is unstable, and a project accumulates technical debt over time with no way to verify it.
 
-**Why it matters**: The SDD Workflow is Prospec's core value proposition — through the station sequence Story → Plan → Tasks → Implement → Knowledge Update → Review → Verify → Archive, with Design between Plan and Tasks when UI scope requires it, every change gets complete spec tracking, quality gates, and knowledge sedimentation. The spec is a Living Spec, and Knowledge is kept in sync as the project evolves, forming a positive flywheel.
+**Why it matters**: The SDD Workflow is Prospec's core value proposition — through the station sequence Story → Plan → Tasks → Implement → Knowledge Update → Review → Verify → Archive, every change gets complete spec tracking, quality gates, and knowledge sedimentation. The spec is a Living Spec, and Knowledge is kept in sync as the project evolves, forming a positive flywheel.
 
 ---
 
@@ -28,6 +28,7 @@ req_count: 390
 - [US-55: Direction Choices Are Grounded in Bounded External Research](./sdd-workflow/us-55.md)
 - [US-56: Adversarial Loops Converge Because Each Decision Point Carries Its Discipline](./sdd-workflow/us-56.md)
 - [US-57: Stations Cite Graduated Requirements, Hand the CLI Artifact-Language Text and Read Whole Gate Output](./sdd-workflow/us-57.md)
+- [US-58: UI Changes Declare a Design Source and Are Verified Visually](./sdd-workflow/us-58.md)
 
 - [US-49: Preserve an Abandoned Attempt and Explain a Retry](./sdd-workflow/us-49.md)
 
@@ -64,9 +65,6 @@ req_count: 390
 
 ---
 
-
-
-
 ## Edge Cases
 
 - Touches a third-party lib but Context7 is unavailable: skip silently + a one-line informational (dependency-layer knowledge, US-21)
@@ -78,13 +76,12 @@ req_count: 390
 - More than 30 tasks: suggest splitting the Story or merging
 - Feature Spec does not exist during Feature Spec Sync: create a new file
 - Verify with no Feature Spec: skip the consistency check
-- Design Skill with no design.platform setting: default to the html adapter
-- Extract Mode with ambiguous design intent: mark [NEEDS CLARIFICATION]
-- UI task with no design-spec.md: Implement Skill warns
+- A Design Source the host cannot read: implement asks the user for a readable source; verify discloses it and grade S is unreachable
+- UI change in a project with no visual test framework: tasks still schedules the visual regression test task; choosing the framework is part of it
 
 ## Success Criteria
 
-- **SC-001**: All applicable SDD stations (story → plan → design when required → tasks → implement → knowledge-update → review → verify → archive) produce correctly formatted artifacts
+- **SC-001**: All applicable SDD stations (story → plan → tasks → implement → knowledge-update → review → verify → archive) produce correctly formatted artifacts
 - **SC-002**: The Feature Spec Change History accumulates an audit trail in which every row names the change that produced it, and product.md automatically reflects the latest feature map
 - **SC-003**: Supports 5+ concurrent change stories without confusion
 - **SC-004**: Prospec can be used for its own development (self-host), validating the tool's practicality
@@ -111,6 +108,7 @@ req_count: 390
 
 | Date | Change | Impact | Stories/REQs |
 |------|--------|--------|--------------|
+| 2026-11-05 | replace-design-station | ADDED REQ-TEMPLATES-270; ADDED REQ-TEMPLATES-271; ADDED REQ-TEMPLATES-272; ADDED REQ-TEMPLATES-273; MODIFIED REQ-CHNG-011; MODIFIED REQ-TEMPLATES-192; MODIFIED REQ-TEMPLATES-097; MODIFIED REQ-TESTS-028; MODIFIED REQ-TEMPLATES-211; MODIFIED REQ-TEMPLATES-133; MODIFIED REQ-TESTS-044; MODIFIED REQ-TYPES-064; MODIFIED REQ-TYPES-070; MODIFIED REQ-LIB-035; MODIFIED REQ-SERVICES-070; MODIFIED REQ-TESTS-058; MODIFIED REQ-SERVICES-111; MODIFIED REQ-CLI-031; MODIFIED REQ-TEMPLATES-228; MODIFIED REQ-TESTS-113; MODIFIED REQ-LIB-087; MODIFIED REQ-TESTS-124; MODIFIED REQ-TYPES-106; MODIFIED REQ-TEMPLATES-034 | REQ-TEMPLATES-270, REQ-TEMPLATES-271, REQ-TEMPLATES-272, REQ-TEMPLATES-273, REQ-CHNG-011, REQ-TEMPLATES-192, REQ-TEMPLATES-097, REQ-TESTS-028, REQ-TEMPLATES-211, REQ-TEMPLATES-133, REQ-TESTS-044, REQ-TYPES-064, REQ-TYPES-070, REQ-LIB-035, REQ-SERVICES-070, REQ-TESTS-058, REQ-SERVICES-111, REQ-CLI-031, REQ-TEMPLATES-228, REQ-TESTS-113, REQ-LIB-087, REQ-TESTS-124, REQ-TYPES-106, REQ-TEMPLATES-034 |
 | 2026-11-04 | reconcile-feature-ownership | MODIFIED REQ-SPECS-001; MODIFIED REQ-CLI-034; REMOVED REQ-TEMPLATES-050; REMOVED REQ-TEMPLATES-051; REMOVED REQ-TEMPLATES-052; REMOVED REQ-TEMPLATES-053; REMOVED REQ-TEMPLATES-057; REMOVED REQ-TEMPLATES-058 | REQ-SPECS-001, REQ-CLI-034, REQ-TEMPLATES-050, REQ-TEMPLATES-051, REQ-TEMPLATES-052, REQ-TEMPLATES-053, REQ-TEMPLATES-057, REQ-TEMPLATES-058 |
 | 2026-11-04 | preserve-artifact-roundtrips | MODIFIED REQ-TYPES-064; MODIFIED REQ-LIB-031; MODIFIED REQ-TESTS-055; MODIFIED REQ-LIB-081; MODIFIED REQ-LIB-050; MODIFIED REQ-CLI-028; MODIFIED REQ-TEMPLATES-067; MODIFIED REQ-TEMPLATES-150; MODIFIED REQ-TESTS-082 | REQ-TYPES-064, REQ-LIB-031, REQ-TESTS-055, REQ-LIB-081, REQ-LIB-050, REQ-CLI-028, REQ-TEMPLATES-067, REQ-TEMPLATES-150, REQ-TESTS-082 |
 | 2026-11-03 | retain-failing-verdicts | ADDED REQ-TYPES-117; ADDED REQ-LIB-109; ADDED REQ-TESTS-147; MODIFIED REQ-TYPES-102; MODIFIED REQ-TEMPLATES-116; MODIFIED REQ-SERVICES-113; MODIFIED REQ-SERVICES-117; MODIFIED REQ-CLI-029; MODIFIED REQ-CHNG-004; MODIFIED REQ-SERVICES-126 | REQ-TYPES-117, REQ-LIB-109, REQ-TESTS-147, REQ-TYPES-102, REQ-TEMPLATES-116, REQ-SERVICES-113, REQ-SERVICES-117, REQ-CLI-029, REQ-CHNG-004, REQ-SERVICES-126 |

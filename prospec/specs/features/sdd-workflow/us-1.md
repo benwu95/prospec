@@ -267,7 +267,7 @@ so that I can implement step by step, track progress, and estimate effort.
 `/prospec-tasks` decomposes into a tasks.md grouped by architecture layer. Its plan.md prerequisite is scale-conditional: the `prospec change tasks` CLI reads the light-scale artifact registry instead of assuming every change has a plan.
 - WHEN plan.md valid, THEN tasks.md groups by architecture layer
 - WHEN parallelizable, THEN `[P]` may be added; its presence does not gate completion
-- WHEN design-spec.md exists, THEN UI tasks annotated for MCP design reading
+- WHEN the proposal declares a `## Design Source`, THEN tasks.md carries the UI tasks and the visual regression test task REQ-TEMPLATES-271 requires
 - WHEN `scale: quick`, THEN the plan.md prerequisite is skipped and tasks are decomposed from proposal.md, advancing `story → tasks`
 - WHEN `scale: backfill`, THEN the station refuses: backfill records existing code and its contract forbids tasks.md
 
@@ -428,7 +428,7 @@ The services module provides Tastemaker delivery generation for autonomous casca
 The template library includes skill references for cascading execution, circuit breakers, and project test runner adapters.
 - WHEN skills consult cascading references on demand, THEN `cascade-protocol.md`, `circuit-breaker.md`, and `project-test-runner.md` provide clear, verifiable rules for autonomous execution, runaway prevention, and ecosystem adaptation
 - WHEN `cascade-protocol.md` states the plan → tasks transition gate, THEN it requires a recorded Architecture Verifier PASS or advisory WARN on five orthogonal dimensions; a Break-Glass grant alone permits one new attempt under REQ-SERVICES-126 and does not satisfy the verifier gate
-- WHEN `cascade-protocol.md` renders its Station Transition Gates table, THEN every station named is a member of `SDD_STATIONS`, `design` and `promote` have rows, `awaiting_signoff` does not appear, and the verify row states that a B/C/D grade is routed back to verify by `prospec status`
+- WHEN `cascade-protocol.md` renders its Station Transition Gates table, THEN every station named is a member of `SDD_STATIONS`, `promote` has a row, `awaiting_signoff` does not appear, and the verify row states that a B/C/D grade is routed back to verify by `prospec status`
 - WHEN `cascade-protocol.md` lists scale-driven paths, THEN a `Scale: Backfill` trajectory `promote → knowledge-update → review → verify → Tastemaker sign-off` is present alongside quick/standard/full
 - WHEN cascading and breaker references describe their mechanisms, THEN they state station instructions and stopping conditions without promising model reliability or a monetary cost bound
 - WHEN cascade or breaker references present escalation exits, THEN they echo the CLI decision under REQ-TEMPLATES-244 and do not prescribe another round or self-authorized bypass

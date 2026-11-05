@@ -10,13 +10,11 @@ import {
   validateSlug,
   validateBackfillDraft,
   validatePromoteScaffold,
-  validateDesignSpec,
   validateCandidates,
   coverageGap,
   type ValidationFinding,
   type BackfillDraftFacts,
   type CandidateMetricsFacts,
-  type DesignSpecFacts,
   type TrustZoneProbe,
 } from '../lib/artifact-validators.js';
 import { readChangeMetadata } from '../lib/change-metadata.js';
@@ -42,9 +40,9 @@ import { resolveChange } from './change-resolver.js';
 
 export interface ValidateOptions {
   kind: ValidateKind;
-  /** slug/module-readme: the name itself; backfill-draft / design-spec: an explicit file path. */
+  /** slug/module-readme: the name itself; backfill-draft: an explicit file path. */
   target?: string;
-  /** Change providing default artifact paths (backfill/promote/design kinds). */
+  /** Change providing default artifact paths (backfill/promote kinds). */
   change?: string;
   cwd?: string;
   quiet?: boolean;
@@ -56,15 +54,15 @@ export interface ValidateResult {
   ok: boolean;
   findings: ValidationFinding[];
   /** Structural facts for the subset kinds — the skill's judgment inputs. */
-  facts?: PremiseAssessment | BackfillDraftFacts | DesignSpecFacts | ModuleReadmeFormatFacts | CandidateMetricsFacts;
+  facts?: PremiseAssessment | BackfillDraftFacts | ModuleReadmeFormatFacts | CandidateMetricsFacts;
 }
 
 /**
  * `prospec validate <kind>` — machine verdicts for the artifact checks the
  * skills used to narrate by hand. `slug` / `promote-scaffold` are complete
- * verdicts; `backfill-draft` / `design-spec` report the structural subset
- * (sections, headers, raw NC facts) and the skill applies the semantic rules
- * (>50% denominator + heuristic-WHY exemption, component-set coverage) on top.
+ * verdicts; `backfill-draft` reports the structural subset (sections, headers,
+ * raw NC facts) and the skill applies the semantic rules (>50% denominator +
+ * heuristic-WHY exemption) on top.
  */
 export async function execute(options: ValidateOptions): Promise<ValidateResult> {
   const cwd = options.cwd ?? process.cwd();
@@ -186,9 +184,8 @@ export async function execute(options: ValidateOptions): Promise<ValidateResult>
     };
   }
 
-  // backfill-draft / design-spec: explicit path, or the change's default artifact.
-  const defaultFile =
-    options.kind === 'backfill-draft' ? 'backfill-draft.md' : 'design-spec.md';
+  // backfill-draft: explicit path, or the change's default artifact.
+  const defaultFile = 'backfill-draft.md';
   let targetPath = options.target;
   if (!targetPath) {
     const changeName = await resolveChange(
@@ -207,17 +204,11 @@ export async function execute(options: ValidateOptions): Promise<ValidateResult>
     );
   }
   const content = fs.readFileSync(absolute, 'utf-8');
-  const report =
-    options.kind === 'backfill-draft'
-      ? validateBackfillDraft(content)
-      : validateDesignSpec(content);
-  const findings = [...report.findings];
-  if (options.kind === 'backfill-draft') {
-    // WHAT-layer coverage scoping: features the map declares but no Feature
-    // Spec covers yet. Both sets are machine-available, so the set difference
-    // is the CLI's; which gap to backfill next stays the skill's call.
-    findings.push(...(await collectCoverageGapFindings(cwd)));
-  }
+  const report = validateBackfillDraft(content);
+  // WHAT-layer coverage scoping: features the map declares but no Feature
+  // Spec covers yet. Both sets are machine-available, so the set difference
+  // is the CLI's; which gap to backfill next stays the skill's call.
+  const findings = [...report.findings, ...(await collectCoverageGapFindings(cwd))];
   return {
     kind: options.kind,
     target: targetPath,

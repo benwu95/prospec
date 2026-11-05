@@ -4,14 +4,14 @@ import { EscalationReportSchema } from '../../src/types/cascade.js';
 import { validateConfig } from '../../src/lib/config.js';
 
 describe('frozen registries append-only (T16, REQ-TYPES-070, REQ-TYPES-086, REQ-TYPES-101)', () => {
-  it('WORKFLOW_REASON_CODES contains ESCALATE_TO_HUMAN and preserves frozen order (append-only)', () => {
-    // The reason codes are consumed by automations — order and values are frozen.
-    // ESCALATE_TO_HUMAN was appended to the routing section.
+  it('WORKFLOW_REASON_CODES contains ESCALATE_TO_HUMAN and preserves the order of its surviving codes', () => {
+    // The reason codes are consumed by automations — matched by value, never
+    // reordered or renamed. DESIGN_REQUIRED left with the design route (#456),
+    // a declared breaking change; every surviving code keeps its value and order.
     const expectedRoutingCodes = [
       'LIFECYCLE_NEXT',
       'QUICK_SKIPS_PLAN',
       'PROMOTION_INCOMPLETE',
-      'DESIGN_REQUIRED',
       'PLAN_VERIFIER_FAILED',
       'TASKS_VERIFIER_FAILED',
       'REVIEW_PENDING',

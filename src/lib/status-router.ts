@@ -34,9 +34,8 @@ import { applicableGrant, escalationDecision } from './escalation.js';
  *   brownfield code pre-exists and plan/tasks are absent by design. Before it
  *   reaches `implemented` the promotion is unfinished, so the route is the
  *   `promote` station — never plan or tasks, which refuse that scale.
- * - design / review own no status transition: design sits between plan and
- *   tasks (only when proposal.md declares ui_scope full/partial), review
- *   between implemented and verified (done-ness read from review_provenance).
+ * - review owns no status transition: it sits between implemented and
+ *   verified (done-ness read from review_provenance).
  * - verify sets `verified` only at grade S/A — B/C/D leaves the status at
  *   `implemented`, so the router points back at verify with the fix reason. An
  *   already-`verified` change re-verified to B/C/D keeps its status (forward-only)
@@ -79,8 +78,6 @@ export interface RouteContext {
   history: ChangeRouteFacts['escalationHistory'];
   /** The plan sign-off pause applies: enabled, and the scale's contract has a plan. */
   pauseApplies: boolean;
-  /** Design hangs off the plan station: ui_scope full/partial under a scale with a plan. */
-  designApplies: boolean;
 }
 
 /** One routing decision. `label` is its human reading of `when`, drawn on the routing diagram. */
@@ -212,7 +209,7 @@ const PLAN_BRANCH: RouteBranch = {
   statuses: ['plan'],
   rules: [
     // The plan verifier's recorded FLAWS (result FAIL) outranks every forward
-    // edge, design included: a plan that failed its own audit is revised before
+    // edge: a plan that failed its own audit is revised before
     // anything is built on it. Superseded only by a later PASS or Break-Glass
     // WARN — the service applies that reading, the router just trusts the fact.
     {
@@ -282,26 +279,12 @@ const PLAN_BRANCH: RouteBranch = {
             `no plan verifier report to sign (only a Break-Glass override)? ${PLAN_VERSION_SIGNOFF_REMEDIES}`,
           ],
     },
-    // Reachable under a scale with no plan only via a manual `change status plan`;
-    // `designApplies` keys on the scale registry so design is never routed there.
-    {
-      id: 'design-required',
-      label: 'design applies (scale has a plan,<br>UI scope full/partial), no design spec?',
-      when: (c) => c.designApplies && !c.facts.hasDesignSpec,
-      code: 'DESIGN_REQUIRED',
-      next: 'design',
-      gates: () => ['design-spec.md + interaction-spec.md produced'],
-      reasons: (c) => [
-        `proposal ui_scope: ${c.facts.uiScope} — design sits between plan and tasks (owns no status transition; placed by workflow order)`,
-      ],
-    },
     {
       id: 'plan-next', label: 'otherwise', when: OTHERWISE, code: 'LIFECYCLE_NEXT', next: 'tasks',
       gates: () => ['tasks.md created'],
       reasons: (c) => [
         'status `plan` — next station per lifecycle order',
         ...(c.pauseApplies ? ['plan sign-off recorded — the pause is released'] : []),
-        ...(c.designApplies && c.facts.hasDesignSpec ? ['design-spec.md present — the design station has already run'] : []),
       ],
     },
   ],
@@ -519,7 +502,6 @@ export function routeWith(table: RoutingTable, facts: ChangeRouteFacts): ChangeR
     forbidden,
     history: facts.escalationHistory,
     pauseApplies: facts.pauseAtPlan && !forbidden.includes('plan.md'),
-    designApplies: (facts.uiScope === 'full' || facts.uiScope === 'partial') && !forbidden.includes('plan.md'),
   };
 
   const base = {

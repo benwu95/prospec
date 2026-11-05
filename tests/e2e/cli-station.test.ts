@@ -166,22 +166,17 @@ describe('CLI E2E — station commands', () => {
         );
       });
 
-      it('prints a UI-scoped route without inventing a decision it cannot make', async () => {
+      it('routes a UI change from plan to tasks; a Design Source names no station of its own', async () => {
         const changeDir = await initChange('ui-change');
         await fs.promises.writeFile(
           path.join(changeDir, 'proposal.md'),
           // a user-observed Premise: the AI-proposed default pause is not this test's subject
-          withVerifiedPremise('# p\n\n## UI Scope\n\n**Scope:** full\n', 'user-observation'),
+          withVerifiedPremise('# p\n\n## Design Source\n\nhttps://design.example/frame/1\n', 'user-observation'),
         );
         await runCli(['change', 'status', 'plan']);
         const change = await mapOf('ui-change');
-        expect(change.next).toBe('design');
-        const conditions = (change.nextReferenceMap ?? [])
-          .map((row) => row.conditionHint)
-          .filter((hint): hint is string => hint !== undefined);
-        // The platform adapters are a runtime choice; they are shown WITH their
-        // condition rather than silently narrowed to one.
-        expect(conditions.some((hint) => hint.includes('design.platform'))).toBe(true);
+        expect(change.next).toBe('tasks');
+        expect((change.nextReferenceMap ?? []).map((row) => row.referencePath).join(' ')).not.toContain('prospec-design');
       });
 
       it('fabricates no path when the project configures no agent', async () => {
@@ -933,6 +928,25 @@ quality_log:
       const bad = await runCli(['validate', 'slug', 'a/../b']);
       expect(bad.exitCode).toBe(1);
       expect(bad.stdout).toContain('FAIL');
+    });
+
+    it('validate refuses the retired design-spec kind at the parser', async () => {
+      await initChange();
+      const retired = await runCli(['validate', 'design-spec']);
+      expect(retired.exitCode).not.toBe(0);
+      expect(retired.stderr).toMatch(/design-spec/);
+      expect((await runCli(['validate', '--help'])).stdout).not.toContain('design-spec');
+    });
+
+    it('agent sync removes a previously deployed prospec-design skill directory', async () => {
+      await initChange();
+      const stale = path.join(tmpDir, '.claude', 'skills', 'prospec-design');
+      await fs.promises.mkdir(stale, { recursive: true });
+      await fs.promises.writeFile(path.join(stale, 'SKILL.md'), '# stale\n');
+      const sync = await runCli(['agent', 'sync']);
+      expect(sync.exitCode).toBe(0);
+      expect(fs.existsSync(stale)).toBe(false);
+      expect(fs.existsSync(path.join(tmpDir, '.claude', 'skills', 'prospec-plan', 'SKILL.md'))).toBe(true);
     });
 
     it('archive finalize --dry-run writes NOTHING (parent/child flag shadowing)', async () => {

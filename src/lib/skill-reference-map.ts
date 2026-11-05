@@ -7,7 +7,7 @@
  */
 import type { ChangeScale } from '../types/change.js';
 import { TemplateError } from '../types/errors.js';
-import type { StationReferenceMapRow, UiScope } from '../types/status.js';
+import type { StationReferenceMapRow } from '../types/status.js';
 import {
   STATION_REFERENCES,
   type StationReferenceFile,
@@ -17,8 +17,6 @@ import {
 /** What the caller knows about the change the map is being projected for. */
 export interface ReferenceApplicability {
   scale: ChangeScale;
-  /** null when the proposal declares no `## UI Scope` — unknown, not `none`. */
-  uiScope: UiScope | null;
 }
 
 export interface StatusReferenceOptions extends ReferenceApplicability {
@@ -41,32 +39,11 @@ export function projectStationDeployment(skillName: string): StationReferenceFil
 }
 
 /**
- * Whether a load point applies to a change. A declared predicate excludes only
- * on a KNOWN fact: an undeclared UI scope leaves the load point in, because
- * "not stated" is not "none" (see `undecidedCondition` for how that surfaces).
+ * Whether a load point applies to a change. Only the scale is decided here; any
+ * other runtime condition stays visible as the load point's `conditionHint`.
  */
 export function isUseApplicable(use: StationReferenceUse, facts: ReferenceApplicability): boolean {
-  if (use.scales !== undefined && !use.scales.includes(facts.scale)) return false;
-  if (use.uiScopes !== undefined && facts.uiScope !== null && !use.uiScopes.includes(facts.uiScope)) return false;
-  return true;
-}
-
-/**
- * The condition a caller could not decide, phrased for display — the UI
- * predicate that stayed unresolved because the change declares no UI scope.
- * Undefined when every declared predicate was decided.
- */
-export function undecidedCondition(use: StationReferenceUse, uiScope: UiScope | null): string | undefined {
-  if (use.uiScopes === undefined || uiScope !== null) return undefined;
-  return `UI scope is not declared — applies when it is ${use.uiScopes.join(' or ')}`;
-}
-
-/** Join the registry's own condition with one the projection could not decide. */
-function conditionOf(use: StationReferenceUse, uiScope: UiScope | null): string | undefined {
-  const hints = [use.conditionHint, undecidedCondition(use, uiScope)].filter(
-    (hint): hint is string => hint !== undefined,
-  );
-  return hints.length > 0 ? hints.join('; ') : undefined;
+  return use.scales === undefined || use.scales.includes(facts.scale);
 }
 
 /**
@@ -83,13 +60,12 @@ export function projectStatusReferenceMap(
     if (!isUseApplicable(use, options)) continue;
     const referencePath = resolveTarget(use, skillName, options.skillPath, options.knowledgeBasePath);
     if (referencePath === undefined) continue;
-    const condition = conditionOf(use, options.uiScope);
     rows.push({
       phase: use.phase,
       referencePath,
       purpose: use.purpose,
       loading: use.loading,
-      ...(condition === undefined ? {} : { conditionHint: condition }),
+      ...(use.conditionHint === undefined ? {} : { conditionHint: use.conditionHint }),
     });
   }
   return rows;

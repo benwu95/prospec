@@ -16,7 +16,7 @@ import { PAUSE_AT_ENV_VAR, PAUSE_AT_NONE } from './config.js';
 
 /**
  * Workflow stations in canonical SDD order. Wider than `CHANGE_STATUSES`:
- * design, review (and the periodic learn, which is not a linear station) own
+ * review (and the periodic learn, which is not a linear station) owns
  * no `status` transition, so resume logic places them by this order — never
  * by `status` alone.
  *
@@ -33,7 +33,6 @@ import { PAUSE_AT_ENV_VAR, PAUSE_AT_NONE } from './config.js';
 export const SDD_STATIONS = [
   'story',
   'plan',
-  'design',
   'tasks',
   'promote',
   'implement',
@@ -49,7 +48,6 @@ export type SddStation = (typeof SDD_STATIONS)[number];
 export const STATION_SKILLS: Record<SddStation, string> = {
   story: 'prospec-new-story',
   plan: 'prospec-plan',
-  design: 'prospec-design',
   tasks: 'prospec-tasks',
   promote: 'prospec-promote-backfill',
   implement: 'prospec-implement',
@@ -85,15 +83,16 @@ export function normalizeStationName(input: string): SddStation | null {
 /**
  * Stable reason codes shared by the router (`ChangeRoute.code` — why a change was
  * placed where it was) and the archive Entry Gate (`WorkflowReason.code` — why a
- * target was refused). Frozen: an automation matches on these, never on the prose
- * beside them. Route codes come first, gate codes second.
+ * target was refused). An automation matches on these by value, never on the prose
+ * beside them: codes are appended, never reordered or renamed, and a code leaves
+ * only together with the route that emits it, as a breaking change. Route codes
+ * come first, gate codes second.
  */
 export const WORKFLOW_REASON_CODES = [
   // routing
   'LIFECYCLE_NEXT',
   'QUICK_SKIPS_PLAN',
   'PROMOTION_INCOMPLETE',
-  'DESIGN_REQUIRED',
   'PLAN_VERIFIER_FAILED',
   'TASKS_VERIFIER_FAILED',
   'REVIEW_PENDING',
@@ -155,10 +154,6 @@ export function formatWorkflowReason(reason: WorkflowReason): string {
   return `${reason.code}: ${reason.message} — ${reason.remediation}`;
 }
 
-/** proposal.md `## UI Scope` values (design engages only on full/partial). */
-export const UI_SCOPES = ['full', 'partial', 'none'] as const;
-export type UiScope = (typeof UI_SCOPES)[number];
-
 /**
  * One unresolved WARN surfaced from a change's `quality_log`: a single warning
  * string from the latest entry, per skill, whose `result` is `WARN` — a plan
@@ -186,10 +181,6 @@ export interface ChangeRouteFacts {
   /** Resolved scale — an absent metadata `scale` reads as `standard`. */
   scale: ChangeScale;
   hasTasks: boolean;
-  hasDesignSpec: boolean;
-  /** null when proposal.md declares no `## UI Scope` (the deterministic
-   *  reading for routing: only an explicit full/partial engages design). */
-  uiScope: UiScope | null;
   codeTasksTotal: number;
   codeTasksDone: number;
   hasReviewProvenance: boolean;
@@ -283,7 +274,7 @@ export interface ChangeRoute {
    *  hardcoded skills directory. Filled by the service; the router leaves it unset. */
   nextSkillPath?: string;
   /** The next station's reference map, filtered to this change's known scale and
-   *  UI scope and resolved against the same agent deployment `nextSkillPath` uses.
+   *  resolved against the same agent deployment `nextSkillPath` uses.
    *  Additive and display-only: absent when `next` is null, when no agent
    *  is configured, and empty when the next station deploys no references. */
   nextReferenceMap?: StationReferenceMapRow[];

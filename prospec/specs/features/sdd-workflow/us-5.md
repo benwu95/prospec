@@ -7,9 +7,9 @@ so that quality is assured before archiving.
 **Acceptance Scenarios:**
 - WHEN running `/prospec-verify` THEN compare Feature Spec requirements against ai-knowledge descriptions, and assess Spec Health
 - WHEN each applicable requirement is assessed THEN show its PASS/WARN/FAIL or justified not-applicable verdict with checkable evidence; missing judgments are listed as not-adjudicated
-- WHEN `ui_scope != none` and design-spec.md exists THEN additionally run design consistency verification
+- WHEN the proposal declares a Design Source other than `none` THEN additionally grade the implementation's conformance to that source; with `none` or no Design Source the design dimension is not-applicable
 - WHEN a dimension has a mechanical oracle (task completion, Knowledge, tests) THEN its verdict is the `prospec check` engine's current assessment, adopted verbatim; saved reports are display artifacts — the agent interprets and narrates it but never re-grades it
-- WHEN a dimension has no mechanical oracle (delta-spec compliance, design consistency) THEN it is graded in fresh context by a reviewer that does not share the implementation's context, and a harness that cannot provide independent grading must disclose in-session grading and its mechanical cap below S
+- WHEN a dimension has no mechanical oracle (delta-spec compliance, design conformance) THEN it is graded in fresh context by a reviewer that does not share the implementation's context, and a harness that cannot provide independent grading must disclose in-session grading and its mechanical cap below S
 - WHEN preparing the final verification THEN finish all effective-input edits, including Knowledge and count sync, before recording tests and grading; a later content-equivalent commit preserves the resulting evidence
 - WHEN required live input observations cannot be proven THEN verify recording refuses before writing
 - WHEN a machine check cannot run THEN its dimension is reported `not-adjudicated` (never PASS), grade S becomes unreachable, and that WARN counts against grade A's budget like any other
@@ -25,7 +25,6 @@ Verification 4/5 adopts the repository-wide `knowledge-health` verdict. Freshnes
 - WHEN reporting the result, THEN cite `structural.knowledge_health` and name modules needing Knowledge review, updates or confirmation before final validation
 - WHEN a permanent Feature Spec lags an un-archived change, THEN informational only (graduates at /prospec-archive) — not drift, does not affect grade
 - WHEN an already-archived capability regresses or Feature Spec Health (Density/Freshness/Consistency) degrades, THEN informational signal for the developer, not grade-blocking
-- WHEN ui_scope != none + design-spec.md exists, THEN execute design consistency check
 
 #### REQ-TEMPLATES-045: Verify Knowledge Staleness Detection
 Verify cites the engine's Knowledge freshness and coverage facts. Knowledge inputs are prepared at the implement exit as described by REQ-TEMPLATES-129; verify does not synchronize Knowledge itself.

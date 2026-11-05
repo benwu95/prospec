@@ -640,17 +640,16 @@ export type LessonInput = z.infer<typeof LessonInputSchema>;
 
 /**
  * Artifact kinds `prospec validate` grades. `slug`, `promote-scaffold`,
- * `module-readme` and `candidates` are complete machine verdicts; `backfill-draft` and `design-spec` report the
+ * `module-readme` and `candidates` are complete machine verdicts; `backfill-draft` reports the
  * structural subset only (sections, headers, NEEDS-CLARIFICATION count and
- * locations) — ratio-exemption classification and component-set extraction are
- * semantic judgment and stay in the skill.
+ * locations) — ratio-exemption classification is semantic judgment and stays in
+ * the skill.
  */
 export const VALIDATE_KINDS = [
   'proposal',
   'slug',
   'backfill-draft',
   'promote-scaffold',
-  'design-spec',
   'module-readme',
   'candidates',
 ] as const;

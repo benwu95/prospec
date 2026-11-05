@@ -29,9 +29,9 @@ story → plan → tasks → implemented → verified → archived
 
 ## Station order
 
-The stations `prospec status` routes between, in canonical order. Stations differ from metadata statuses: `design` and `promote` own no status transition of their own — design sits between plan and tasks (only when `proposal.md` declares `ui_scope` full/partial), and `promote` is the backfill entry that lands at `implemented`.
+The stations `prospec status` routes between, in canonical order. Stations differ from metadata statuses: `promote` owns no status transition of its own — it is the backfill entry that lands at `implemented`.
 
-`story → plan → design → tasks → promote → implement → knowledge-update → review → verify → archive`
+`story → plan → tasks → promote → implement → knowledge-update → review → verify → archive`
 
 (The periodic `prospec-learn` is not a linear station and is absent from this order.)
 
@@ -77,7 +77,6 @@ New scaffolds declare `premise_version: 1` and a pending Premise in proposal.md.
 
 Some workflow stations participate in the SDD order but own **no** `status` transition — they operate on the working tree and leave `status` to the stations above. Resume logic must place them by workflow order, not by `status`:
 
-- **`prospec-design`** — engages **only when `proposal.md` has `ui_scope != none`**; sits **between `plan` and `tasks`** (it consumes the proposal/plan and produces `design-spec.md`/`interaction-spec.md` for tasks to decompose). For a backend/CLI change (`ui_scope: none`) it does not run at all, and `prospec-verify`'s design dimension (6) is `not-applicable` — the lifecycle is identical to a change that never invoked design. Under `scale: quick` the router does not suggest design (quick skips `plan`); run `prospec-design` manually.
 - **`prospec-review`** — sits **between `implemented` and `verified`** (adversarial review before verify; the review/verify division of labour is stated once, in `prospec-verify`'s Key Difference section); records `review_provenance` but does not change `status`. Every `prospec review merge` requires the same fresh green `test_attempt` (or the same explicit `tests: not-adjudicated` exemptions) before merging findings: a test refusal exits non-zero with the remediation, and the third distinct failed attempt it observes trips `persistent_test_failure` (`ESCALATE_TO_HUMAN`). It also re-runs **after** `verified` when a post-verify edit staled that baseline — owning no status, it needs no transition to be re-enterable, and its Entry Gate status item is a floor.
 - **`prospec-knowledge-update`** — sits **between `implement` and `review`** (Recipe-First sync of affected-module READMEs and `module-map.yaml` `last_verified` / `source_digest`; owns no status transition — status remains `implemented`). The implement exit runs it before the final test record (`scale: backfill`: the promote-backfill exit), so `prospec status` routes an unreviewed `implemented` change here only when a knowledge-sync gap remains; after `verified` it is the backstop for Knowledge that went stale again. A knowledge-sync gap it cannot repair — an absent scope declaration, a non-canonical REQ id, an unreadable `module-map.yaml`, a `related_modules` name the map does not register and no ADDED REQ introduces as a new module — routes an unreviewed `implemented` change or a `verified` one to `next: null` with `code: KNOWLEDGE_INPUT_INVALID` instead, each reason naming its repair.
 - **`prospec-learn`** — periodic; promotes lessons, owns no `status`.

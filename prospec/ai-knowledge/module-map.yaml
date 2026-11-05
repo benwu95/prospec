@@ -64,8 +64,8 @@ modules:
       - MCP 契約
       - 模組分類
     rationale: Leaf module with zero internal deps — all others import from here
-    last_verified: 2026-11-04T11:58:12.858Z
-    source_digest: source-v1:53058724bcc11a93e272a8205b96a80df7dc22a7ee5d95650473d90288cb53d2
+    last_verified: 2026-11-05T07:44:07.574Z
+    source_digest: source-v1:b349eee29b19b56be785aa7b5c8820eb49c5156f430cde92a88b91301d64026e
   - name: lib
     description: Shared stateless utilities — config, file I/O, Handlebars
       rendering, scanning, token estimation and cost arithmetic, the zero-LLM
@@ -143,8 +143,8 @@ modules:
       - 漂移檢查
       - 知識讀取
     rationale: Foundational infrastructure shared across services and benchmark scripts
-    last_verified: 2026-11-05T03:54:43.116Z
-    source_digest: source-v1:d49a4d40e0e3dbcc5fd5827d98eec4c6b3c8c470fc699bf4ec306d8de6f9b646
+    last_verified: 2026-11-05T07:18:38.738Z
+    source_digest: source-v1:ad108d28888e0de6440571602971dc6c233b27a549f85e87da4310e6c985930d
   - name: services
     description: Business logic — one `execute()` service per command — including
       shared-output agent invocation-guidance rendering — init / quickstart /
@@ -208,8 +208,8 @@ modules:
       - 漂移檢查
       - 真相層
     rationale: Isolates business logic from I/O layer, enables testability
-    last_verified: 2026-11-05T03:54:43.116Z
-    source_digest: source-v1:2eb31d2a880f486dd1ebc2c01cb5bbf68f737110d7e50776d57d573b0643e387
+    last_verified: 2026-11-05T07:18:38.738Z
+    source_digest: source-v1:4740b47a695756ac01c3454732cfd10864917482396f76732ec2677ba08f9ad0
   - name: cli
     description: Thin CLI entry — 19 top-level Commander commands + shared
       formatters that parse → call one service → format output; the cli-first
@@ -254,12 +254,12 @@ modules:
       - 終端
       - entry point
     rationale: "Thin I/O layer: no business logic, delegates to services"
-    last_verified: 2026-11-05T03:54:43.116Z
-    source_digest: source-v1:e107fe1e7a9aa4c377bf62609e2185af6fc8e95da05058e6294154cb3eb0029d
+    last_verified: 2026-11-05T07:18:38.738Z
+    source_digest: source-v1:a9a0245d0733f8b4b4a1eef04d46043518c194d45355ba03c3e7014aed3cf885
   - name: templates
-    description: Handlebars template library — 17 skills + host-labelled invocation
-      entry guidance, 12 shared partials, 32 references, 1 agent-config, 5
-      change, 15 init/knowledge (83 `.hbs` templates) — the source of every
+    description: Handlebars template library — 16 skills + host-labelled invocation
+      entry guidance, 12 shared partials, 26 references, 1 agent-config, 5
+      change, 15 init/knowledge (76 `.hbs` templates) — the source of every
       generated skill, README, and index; every skill delegates its
       deterministic steps to the CLI behind the shared `_cli-probe` partial.
       Terminal-history guidance uses CLI-reported roots and identities with
@@ -312,11 +312,11 @@ modules:
       - 複雜度適配
       - CI 閘門
     rationale: Pure resources — no logic, consumed by lib/template.ts
-    last_verified: 2026-11-05T04:11:15.810Z
-    source_digest: source-v1:7b2a3b57eb488e9cca60af74693d94c06153d49ecf429eddd28ac089e881dce5
+    last_verified: 2026-11-05T09:02:10.717Z
+    source_digest: source-v1:d47370cd8d502e685edf9e6e8b4e2e6e52fbd22a171f8162fbc45c07f58a959c
   - name: tests
-    description: 4-layer test suite — 349 files, 9,574 tests (unit 6856 + contract
-      2173 + integration 285 + e2e 260). Validates every module — format and
+    description: 4-layer test suite — 349 files, 9,477 tests (unit 6832 + contract
+      2098 + integration 285 + e2e 262). Validates every module — format and
       public-document contracts, the cli-first probe + station-command
       contracts, the drift engine, retained workflow/startup guards, and the MCP
       protocol over in-memory transport. Real-worktree history fixtures cover
@@ -362,5 +362,5 @@ modules:
       - 驗證
       - vitest
     rationale: Quality gate — validates all layers with pyramid coverage
-    last_verified: 2026-11-05T04:11:15.810Z
-    source_digest: source-v1:0d26fd9a9997dec1480dd932270ec85c91c386db3eeb9b30ea4ba7a7ef3bd349
+    last_verified: 2026-11-05T09:02:10.717Z
+    source_digest: source-v1:0fef4df8f260c7dd2b8d39a6f7c573a80f7c6ea4275b685a65715315fbcc0b53

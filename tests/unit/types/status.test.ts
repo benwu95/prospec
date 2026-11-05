@@ -6,7 +6,6 @@ import {
   normalizeStationName,
   SDD_STATIONS,
   STATION_SKILLS,
-  UI_SCOPES,
   type ChangeRoute,
   type StationReferenceMapRow,
 } from '../../../src/types/status.js';
@@ -22,7 +21,6 @@ describe('SDD_STATIONS (REQ-TYPES-070)', () => {
     expect(SDD_STATIONS).toEqual([
       'story',
       'plan',
-      'design',
       'tasks',
       'promote',
       'implement',
@@ -62,9 +60,6 @@ describe('SDD_STATIONS (REQ-TYPES-070)', () => {
     expect(STATION_SKILLS['knowledge-update']).toBe('prospec-knowledge-update');
   });
 
-  it('declares the three ui_scope values design engages on', () => {
-    expect(UI_SCOPES).toEqual(['full', 'partial', 'none']);
-  });
 });
 
 /**

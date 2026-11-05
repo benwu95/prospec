@@ -405,9 +405,9 @@ export interface AgentConfig extends AgentRenderFlags, InvocationProfileMember {
 }
 
 /**
- * Predefined Skill definitions (17 Skills total; prospec-quickstart and
+ * Predefined Skill definitions (16 Skills total; prospec-quickstart and
  * prospec-upgrade are excludeFromEntryConfig — deployed as a SKILL.md but not
- * listed in the entry config, so 15 appear in AGENTS.md).
+ * listed in the entry config, so 14 appear in AGENTS.md).
  */
 export const SKILL_DEFINITIONS: SkillConfig[] = [
   {
@@ -429,16 +429,9 @@ export const SKILL_DEFINITIONS: SkillConfig[] = [
     name: 'prospec-plan',
     description: 'Plan Implementation - Convert User Story into technical implementation plan (plan.md) and change specification (delta-spec.md) — the SDD plan station, not ad-hoc architecture discussion.',
     triggers: ['plan', 'architecture', 'technical plan'],
-    exclude: ['ad-hoc architecture discussion', 'UI design'],
+    exclude: ['ad-hoc architecture discussion'],
     type: 'Planning',
     cliDependency: 'prospec change plan',
-  },
-  {
-    name: 'prospec-design',
-    description: 'Design Phase - Generate visual and interaction specs from proposal (Generate Mode) or extract specs from existing design tools (Extract Mode). Supports pencil/Figma/Penpot/HTML platforms. UI scope only — not architecture design (that is the plan station).',
-    triggers: ['UI spec', 'generate design', 'extract design'],
-    exclude: ['architecture design', 'API design'],
-    type: 'Planning',
   },
   {
     name: 'prospec-tasks',
@@ -472,7 +465,7 @@ export const SKILL_DEFINITIONS: SkillConfig[] = [
   },
   {
     name: 'prospec-verify',
-    description: 'Verify Implementation - Run 5+1 dimension audit (tasks, spec compliance, constitution, knowledge-implementation consistency, tests, design consistency) and assign quality grade (S/A/B/C/D) — the SDD gate before archive, not a plain test run.',
+    description: 'Verify Implementation - Run 5+1 dimension audit (tasks, spec compliance, constitution, knowledge-implementation consistency, tests, design conformance) and assign quality grade (S/A/B/C/D) — the SDD gate before archive, not a plain test run.',
     triggers: ['verify', 'audit', 'quality check'],
     exclude: ['running tests only', 'generic QA'],
     type: 'Execution',
@@ -502,7 +495,7 @@ export const SKILL_DEFINITIONS: SkillConfig[] = [
     name: 'prospec-backfill-spec',
     description: 'Backfill Spec - Reverse-extract a behavioral Feature Spec draft from existing brownfield code (source = code, not a design tool) for features/capabilities with no spec coverage. Records behavior, never intent; stages a draft for human verify-and-promote and never writes the trust zone.',
     triggers: ['backfill spec', 'spec from code', 'brownfield', 'document existing code'],
-    exclude: ['design-tool extraction', 'writing new requirements'],
+    exclude: ['writing new requirements'],
     type: 'Lifecycle',
   },
   {

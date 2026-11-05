@@ -32,11 +32,6 @@ Detects installed AI CLI tools and generates their entry configs and SDD Skill f
 Scans source code into modular, layered project memory (per-module README, root index, module map) and updates it incrementally — only the modules a change touched. The progressive L0–L3 loading model is what keeps agent context small.
 → [features/ai-knowledge.md](features/ai-knowledge.md)
 
-### design-phase
-
-Produces visual and interaction specs from a proposal (Generate Mode) or extracts them from Figma, pencil, and Penpot (Extract Mode). Platform adapters give an agent exact colors, spacing, and states instead of guesses.
-→ [features/design-phase.md](features/design-phase.md)
-
 ### drift-detection
 
 `prospec check` — a deterministic, zero-LLM audit of spec ↔ code ↔ knowledge consistency (REQ references, file paths, dependency direction, knowledge freshness, task completion). `--strict` gates CI; an unavailable source is reported as an honest skip, never a false pass.

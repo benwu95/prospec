@@ -62,14 +62,6 @@ Plan Implementation - Convert User Story into technical implementation plan (pla
 **Triggers**: plan, architecture, technical plan, 規劃, 架構規劃, 技術規劃
 **References**: `.agents/skills/prospec-plan/references/`
 
-### prospec-design
-
-Design Phase - Generate visual and interaction specs from proposal (Generate Mode) or extract specs from existing design tools (Extract Mode). Supports pencil/Figma/Penpot/HTML platforms. UI scope only — not architecture design (that is the plan station).
-
-**Type**: Planning
-**Triggers**: UI spec, generate design, extract design, 設計, UI 規格, 產生設計, 萃取設計, 介面設計
-**References**: `.agents/skills/prospec-design/references/`
-
 ### prospec-tasks
 
 Break Down Tasks - Decompose implementation plan into an actionable task checklist (tasks.md) — the SDD station after plan, not a generic todo tool.
@@ -104,7 +96,7 @@ Adversarial Code Review → Fix Loop - Between implement and verify, an independ
 
 ### prospec-verify
 
-Verify Implementation - Run 5+1 dimension audit (tasks, spec compliance, constitution, knowledge-implementation consistency, tests, design consistency) and assign quality grade (S/A/B/C/D) — the SDD gate before archive, not a plain test run.
+Verify Implementation - Run 5+1 dimension audit (tasks, spec compliance, constitution, knowledge-implementation consistency, tests, design conformance) and assign quality grade (S/A/B/C/D) — the SDD gate before archive, not a plain test run.
 
 **Type**: Execution
 **Triggers**: verify, audit, quality check, 驗證, 稽核, 品質檢查, 評級

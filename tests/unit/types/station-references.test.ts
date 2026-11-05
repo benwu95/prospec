@@ -80,7 +80,6 @@ describe('STATION_REFERENCES contract (REQ-TYPES-099)', () => {
       ['has no site', { ...valid, uses: [{ ...use, site: ' ' }] }],
       ['has no phase', { ...valid, uses: [{ ...use, phase: ' ' }] }],
       ['names unknown scale', { ...valid, uses: [{ ...use, scales: ['huge'] as never }] }],
-      ['names unknown UI scope', { ...valid, uses: [{ ...use, uiScopes: ['maybe'] as never }] }],
       ['unknown loading kind', { ...valid, uses: [{ ...use, loading: 'someday' as never }] }],
       ['points at undeclared', { ...valid, uses: [{ ...use, target: { kind: 'reference', reference: 'y.md' } as const }] }],
       ['has no load point', { files: [file], uses: [], slots: [] }],
@@ -222,7 +221,6 @@ describe('startup-mandatory stays the legacy metric boundary (REQ-TESTS-116)', (
   it('marks exactly the stations whose Startup Loading carries a MANDATORY read', () => {
     const marked = Object.keys(STATION_REFERENCES).filter((skill) => mandatory(skill).length > 0).sort();
     expect(marked).toEqual([
-      'prospec-design',
       'prospec-implement',
       'prospec-learn',
       'prospec-new-story',

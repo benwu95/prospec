@@ -4,7 +4,7 @@ As a developer using Prospec,
 I want `specs/` to be a living behavioral spec that accumulates automatically with each archive, with proposal.md fully expressing User Scenarios and acceptance criteria,
 so that the spec truly becomes the Single Source of Truth for SDD.
 
-Feature Spec slicing preserves requirement IDs and relationships while reducing loaded context without losing read/write behavior. UI scope follows REQ-DSGN-005 in the [canonical Design feature](../design-phase.md).
+Feature Spec slicing preserves requirement IDs and relationships while reducing loaded context without losing read/write behavior.
 
 **Acceptance Scenarios:**
 - WHEN creating a Feature Spec THEN it includes Who & Why, User Stories & Behavior Specs (REQ ID + WHEN/THEN), Edge Cases, Change History
@@ -80,19 +80,9 @@ The Knowledge Quality Gate has different check items per Skill.
 
 ---
 
-## US-9: Design Phase [P1]
+### Retired Story US-9: Design Phase
 
-As a developer using Prospec,
-I want to produce visual and interaction specs from a proposal (Generate), or reverse-extract specs from a design tool (Extract),
-so that the design spec becomes a precise basis for implementation.
-
-**Acceptance Scenarios:**
-- WHEN there is no design-spec.md and no design-tool design THEN Generate Mode
-- WHEN there is a design-spec.md or a design-tool design THEN Extract Mode
-- WHEN complete THEN produce design-spec.md + interaction-spec.md
-- WHEN implementing a UI task THEN MCP-First reading of precise design values
-
-Behavior contracts are owned by [design-phase](../design-phase.md): US-001 / REQ-DSGN-001, REQ-DSGN-002, REQ-DSGN-003 and REQ-DSGN-005 for the two spec formats, mode detection and UI scope; US-002 for Extract intent; US-003 / REQ-DSGN-004, REQ-DSGN-006, REQ-DSGN-007, REQ-DSGN-008 and REQ-DSGN-009 for platform adapters and implementation awareness; US-004 / REQ-TEMPLATES-138 for lifecycle integration.
+Retired 2026-11-05 together with the design station; its definitions remain in the deprecated [design-phase](../design-phase.md) feature. UI changes now follow US-58 in [us-58](./us-58.md).
 
 ---
 

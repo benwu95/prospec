@@ -22,7 +22,7 @@
   var zh = {
     // ---- document / chrome ----
     'doc.title': 'Prospec — 讓 AI coding agent 共用並接續專案開發',
-    'doc.desc': '把規格、專案規則與變更歷史留在程式碼旁，讓 AI coding agent 共用可接續的 story → plan → design → tasks → implement → knowledge update → review → verify → archive 流程。Skills 指引判斷；CLI 執行確定性步驟。',
+    'doc.desc': '把規格、專案規則與變更歷史留在程式碼旁，讓 AI coding agent 共用可接續的 story → plan → tasks → implement → knowledge update → review → verify → archive 流程。Skills 指引判斷；CLI 執行確定性步驟。',
     'ui.skip': '跳至內容',
     'ui.langAria': '切換語言 / Switch language',
 
@@ -46,8 +46,8 @@
     'hero.lbl2': '// 啟動任何 git repository —— 新專案或既有專案皆可',
     'hero.ctaPrimary': '從你的專案開始 <span class="arr" aria-hidden="true">→</span>',
     'hero.ctaGhost': '在 GitHub 上查看',
-    'hero.facts.tests': '共 <b>9,574</b> 個測試',
-    'hero.facts.skills': '<b>17</b> 個 Skills',
+    'hero.facts.tests': '共 <b>9,477</b> 個測試',
+    'hero.facts.skills': '<b>16</b> 個 Skills',
     'hero.facts.principles': '可設定的 <b>Constitution</b>',
     'hero.facts.mcp': '唯讀 <b>MCP</b> server',
     'hero.agents': '不綁定 agent —— 支援 <b>Claude Code</b>、<b>Codex</b>、<b>Copilot</b> 與 <b>Antigravity</b>。',
@@ -77,7 +77,7 @@
     'v2.c1.p': '獨立的架構與任務驗證者會在實作前檢查分層、影響範圍、重用、REQ 可追溯性、任務順序與 TDD 閉環。',
     'v2.c2.k': '執行',
     'v2.c2.h': '有閘門且可續跑',
-    'v2.c2.p': '<code>prospec status</code> 指出下一站；確定性指令拒絕非法轉換。Design 是條件式階段，Knowledge Update 是正式站點。',
+    'v2.c2.p': '<code>prospec status</code> 指出下一站；確定性指令拒絕非法轉換。Knowledge Update 是正式站點。',
     'v2.c3.k': '品質',
     'v2.c3.h': '留下審查與驗證證據',
     'v2.c3.p': 'Drift 會產生有界的後續修正，review loop 具備 circuit breaker，Verify 記錄 provenance，而 Archive 會在寫入 trust zone 前檢查落地忠實度。',
@@ -104,13 +104,13 @@
     'why.r7.c': '教訓無法跨 session 留存。',
     'why.r7.a': '<code>prospec-learn</code> 把反覆出現的修正 —— 僅在人工核可後 —— 晉升為版控的團隊規則。',
     'why.r8.c': '從設計到程式碼之間缺了一座橋。',
-    'why.r8.a': '<code>prospec-design</code> 生成視覺 + 互動規格，並整合 Figma / Penpot 的 MCP 工具。',
+    'why.r8.a': 'proposal 以 <code>## Design Source</code> 宣告 UI 的來源；tasks 排入視覺回歸測試，verify 依該來源評估實作。',
 
     // ---- how it works ----
     'how.eyebrow': '§02 · 運作原理',
     'how.h2': '一條線性流程。兩條回饋迴圈，餵入下一次變更。',
     'how.lede': '變更依序經過有操作說明的站點。規格、規則與進度留在專案裡，下一位 agent 讀取脈絡後，就能從 <code>prospec status</code> 指出的站點接續工作。',
-    'how.diagramAria': 'Prospec 生命週期的流程圖。線性管線依序執行 Explore、Story、Plan、Design（UI 工作才需要）、Tasks、Implement、Knowledge Update、Review、Verify 與 Archive；Learn 則定期執行。Knowledge Update 餵入 AI Knowledge，Archive 讓 Feature Specs 畢業，Learn 餵入 Constitution 與 Playbook。三項資產都會作為 context 迴流到下一次變更的 Plan。',
+    'how.diagramAria': 'Prospec 生命週期的流程圖。線性管線依序執行 Explore、Story、Plan、Tasks、Implement、Knowledge Update、Review、Verify 與 Archive；Learn 則定期執行。Knowledge Update 餵入 AI Knowledge，Archive 讓 Feature Specs 畢業，Learn 餵入 Constitution 與 Playbook。三項資產都會作為 context 迴流到下一次變更的 Plan。',
     'how.dg.cap1': '單一變更 —— EXPLORE 到 ARCHIVE',
     'how.dg.periodic': '定期執行',
     'how.dg.cap2': '每次變更持續累積',
@@ -119,7 +119,7 @@
     'how.dg.store3': '規則持續累積',
     'how.dg.cap3': '↺  下一次變更從更豐富的基準起步',
     'how.hint': '金色階段 —— <b>Knowledge Update · Review · Verify · Archive · Learn</b> —— 把證據轉成專案記憶。金色箭頭代表迴圈：每次變更的成果都會餵入下一次。<span class="aside">在窄螢幕上可左右捲動圖表。</span>',
-    'how.compound': '<b>相稱於規模：</b>Design 只在 UI 工作需要；<code>quick</code> 變更會跳過 Plan（<code>story → tasks</code>），可由 Draft-First 自主選擇、interactive 模式確認，或 auto-draft 指派。Proven backfill 依序經過 <code>backfill → Promote → Knowledge Sync → final Verify → archive</code>；proven backfill 的 code review 是 optional。Forward-change scales 保留 TDD、對抗式審查與 Constitution 稽核。Knowledge Update 在 review 之前執行，已記錄的審查與測試證據已涵蓋它。',
+    'how.compound': '<b>相稱於規模：</b><code>quick</code> 變更會跳過 Plan（<code>story → tasks</code>），可由 Draft-First 自主選擇、interactive 模式確認，或 auto-draft 指派。Proven backfill 依序經過 <code>backfill → Promote → Knowledge Sync → final Verify → archive</code>；proven backfill 的 code review 是 optional。Forward-change scales 保留 TDD、對抗式審查與 Constitution 稽核。Knowledge Update 在 review 之前執行，已記錄的審查與測試證據已涵蓋它。',
     'how.principlesAria': '六大核心原則',
     'how.p1': '<b>按需載入知識</b>先讀索引，再取用所需細節',
     'how.p2': '<b>Spec is Source of Truth</b>寫程式碼前先記錄在規格中',
@@ -213,12 +213,11 @@
 
     // ---- skills index ----
     'skills.eyebrow': '§07 · 指令索引',
-    'skills.h2': '17 個 Skills，生成到你的 repo 裡。',
+    'skills.h2': '16 個 Skills，生成到你的 repo 裡。',
     'skills.lede': '你不必逐一執行這些 —— 用自然語言描述變更，agent 就會驅動迴圈（想自己逐步驅動也可以）。日常你最常用到的是 explore、implement、review、verify 與 archive。它們以 Markdown adapter 部署到你使用的任何 agent —— 並透過自然語言關鍵字觸發，包括你的母語。',
-    'skills.summary': '17 個 Skills 依 registry 順序呈現：Planning 6、Execution 3、Knowledge bootstrap 1、Lifecycle &amp; brownfield 5、Finishers 2。<span class="aside">展開完整索引。</span>',
+    'skills.summary': '16 個 Skills 依 registry 順序呈現：Planning 5、Execution 3、Knowledge bootstrap 1、Lifecycle &amp; brownfield 5、Finishers 2。<span class="aside">展開完整索引。</span>',
     'skills.explore': '釐清需求的思考夥伴',
     'skills.newStory': '建立結構化的變更 story',
-    'skills.design': '視覺 + 互動規格（生成 / 萃取）',
     'skills.plan': '實作計劃 + delta-spec',
     'skills.tasks': '有序、可勾選的任務清單',
     'skills.ff': 'Story → plan → tasks 一次完成',

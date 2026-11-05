@@ -52,8 +52,6 @@ const DIMENSIONS = {
   pauseAtPlan: [false, true],
   planSignedOff: [false, true],
   planChangedSinceVerifier: [false, true],
-  uiScope: [null, 'full', 'partial', 'none'],
-  hasDesignSpec: [false, true],
   lastTasksVerifierResult: [null, 'FAIL', 'PASS'],
   tasksFlawsStreak: [0, 2, 3],
   tasksShape: [[false, 0, 0], [true, 0, 0], [true, 3, 0], [true, 3, 1], [true, 2, 2]],
@@ -79,7 +77,7 @@ const SHARED_DIMENSIONS: Dimension[] = ['extras', 'maxStationRetries'];
 /** The facts each status's branch reads — the grid enumerates these exhaustively. */
 const BRANCH_DIMENSIONS: Record<ChangeStatus, Dimension[]> = {
   story: [],
-  plan: ['lastPlanVerifierResult', 'planFlawsStreak', 'pauseAtPlan', 'planSignedOff', 'planChangedSinceVerifier', 'uiScope', 'hasDesignSpec'],
+  plan: ['lastPlanVerifierResult', 'planFlawsStreak', 'pauseAtPlan', 'planSignedOff', 'planChangedSinceVerifier'],
   tasks: ['lastTasksVerifierResult', 'tasksFlawsStreak', 'tasksShape'],
   implemented: ['hasReviewProvenance', 'lastVerifyGrade', 'verifyBelowBarStreak', 'knowledgeSyncReasons'],
   verified: ['lastVerifyGrade', 'verifyBelowBarStreak', 'knowledgeSyncReasons'],
@@ -117,8 +115,6 @@ function build(
     hasTasks,
     codeTasksTotal,
     codeTasksDone,
-    hasDesignSpec: value('hasDesignSpec'),
-    uiScope: value('uiScope'),
     hasReviewProvenance: value('hasReviewProvenance'),
     lastVerifyGrade: value('lastVerifyGrade'),
     lastPlanVerifierResult: value('lastPlanVerifierResult'),

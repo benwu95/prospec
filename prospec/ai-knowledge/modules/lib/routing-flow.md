@@ -20,8 +20,7 @@ flowchart TD
   b1r1 -->|No| b1r2{"sign-off pause applies (enabled, scale has a plan),<br>no verifier result?"} -->|Yes| b1r2L["PLAN_VERIFIER_PENDING<br>next: plan"]
   b1r2 -->|No| b1r3{"pause applies, not signed off,<br>plan changed since verifier?"} -->|Yes| b1r3L["PLAN_VERIFIER_PENDING<br>next: plan"]
   b1r3 -->|No| b1r4{"pause applies, not signed off?"} -->|Yes| b1r4L["AWAITING_HUMAN_PLAN_SIGNOFF<br>next: null"]
-  b1r4 -->|No| b1r5{"design applies (scale has a plan,<br>UI scope full/partial), no design spec?"} -->|Yes| b1r5L["DESIGN_REQUIRED<br>next: design"]
-  b1r5 -->|No| b1r6L["LIFECYCLE_NEXT<br>next: tasks"]
+  b1r4 -->|No| b1r5L["LIFECYCLE_NEXT<br>next: tasks"]
   %% ═══ tasks ═══
   S -->|tasks| b2r0{"tasks verifier FAIL,<br>no escalation history,<br>streak ≥ max retries?"} -->|Yes| b2r0L["ESCALATE_TO_HUMAN<br>next: null"]
   b2r0 -->|No| b2r1{"tasks verifier FAIL?"} -->|Yes| b2r1L["TASKS_VERIFIER_FAILED<br>next: tasks"]
@@ -45,9 +44,9 @@ flowchart TD
   classDef readyNode fill:#7ED321,color:#fff,stroke:#5CA018
   classDef stateNode fill:#F5A623,color:#fff,stroke:#D4871A
   classDef successNode fill:#417505,color:#fff,stroke:#2E5204
-  class g0,g1,g2,g3,S,b0r0,b1r0,b1r1,b1r2,b1r3,b1r4,b1r5,b2r0,b2r1,b3r0,b3r1,b3r2,b3r3,b3r4,b4r0,b4r1,b4r2,b4r3 decisionNode
+  class g0,g1,g2,g3,S,b0r0,b1r0,b1r1,b1r2,b1r3,b1r4,b2r0,b2r1,b3r0,b3r1,b3r2,b3r3,b3r4,b4r0,b4r1,b4r2,b4r3 decisionNode
   class g2L,b1r0L,b1r4L,b2r0L,b3r0L,b3r3L,b4r0L,b4r2L readyNode
-  class g0L,g1L,g3L,b0r0L,b0r1L,b1r1L,b1r2L,b1r3L,b1r5L,b1r6L,b2r1L,b2r2L,b3r1L,b3r2L,b3r4L,b3r5L,b4r1L,b4r3L,b4r4L stateNode
+  class g0L,g1L,g3L,b0r0L,b0r1L,b1r1L,b1r2L,b1r3L,b1r5L,b2r1L,b2r2L,b3r1L,b3r2L,b3r4L,b3r5L,b4r1L,b4r3L,b4r4L stateNode
   class b5r0L successNode
 ```
 <!-- routing-flow:end -->
