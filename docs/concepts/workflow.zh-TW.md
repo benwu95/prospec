@@ -1,17 +1,16 @@
 # AI Skills 與工作流程
 [English](./workflow.md) • [文件](../README.zh-TW.md)
 
-Prospec 生成 17 個 Skills —— 15 個涵蓋完整 SDD 生命週期，外加兩個週期性收尾：`prospec-quickstart`（啟動）與 `prospec-upgrade`（版本升級）：
+Prospec 生成 16 個 Skills —— 14 個涵蓋完整 SDD 生命週期，外加兩個週期性收尾：`prospec-quickstart`（啟動）與 `prospec-upgrade`（版本升級）：
 
 | Skill | Canonical Skill | 說明 |
 |-------|---------------|------|
 | **探索** | `prospec-explore` | 思考夥伴，協助釐清需求；選定技術方向前查找既有做法 |
 | **新需求** | `prospec-new-story` | 建立結構化的變更需求 |
-| **設計** | `prospec-design` | 生成視覺 + 互動規格（Generate/Extract 雙模式） |
 | **計劃** | `prospec-plan` | 生成實作計劃 + delta-spec |
 | **任務** | `prospec-tasks` | 拆分為可執行的任務 |
 | **快速前進** | `prospec-ff` | 一次生成 story → plan → tasks |
-| **實作** | `prospec-implement` | 逐項實作任務，MCP 優先讀取設計資料 |
+| **實作** | `prospec-implement` | 逐項實作任務；UI 變更以 host 的工具讀取其宣告的 Design Source |
 | **審查** | `prospec-review` | 對抗式審查 → fix 迴圈；經驗證確認的 critical 自動修，帶 spec-aware lens |
 | **驗證** | `prospec-verify` | 5+1 維度稽核，含品質等級（S/A/B/C/D）；達 S/A 後提示 commit |
 | **歸檔** | `prospec-archive` | 歸檔變更 + Spec Sync + Knowledge 同步 Entry Gate |

@@ -124,7 +124,7 @@ describe('routeWith refuses a table without a decision', () => {
 
 describe('route arrays are owned by the caller', () => {
   const base: ChangeRouteFacts = {
-    name: 'c', status: 'plan', scale: 'standard', hasTasks: false, hasDesignSpec: false, uiScope: null,
+    name: 'c', status: 'plan', scale: 'standard', hasTasks: false,
     codeTasksTotal: 0, codeTasksDone: 0, hasReviewProvenance: false, lastVerifyGrade: null,
     lastPlanVerifierResult: null, lastTasksVerifierResult: null, knowledgeSyncReasons: [],
     verifyBelowBarStreak: 0, planFlawsStreak: 0, tasksFlawsStreak: 0, maxStationRetries: 3,

@@ -55,12 +55,6 @@ skill_triggers:
     - 規劃
     - 架構規劃
     - 技術規劃
-  prospec-design:
-    - 設計
-    - UI 規格
-    - 產生設計
-    - 萃取設計
-    - 介面設計
   prospec-tasks:
     - 拆解
     - 任務

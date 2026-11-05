@@ -17,11 +17,10 @@ import { isSafeResourceName } from './knowledge-reader.js';
  * contents / git state and passes them in.
  *
  * Honest boundary (delta-spec REQ-CLI-031): `slug` and `promote-scaffold` are
- * complete machine verdicts. `backfill-draft` and `design-spec` report the
- * STRUCTURAL SUBSET — sections, route headers, raw `[NEEDS CLARIFICATION]`
- * count and locations. The >50% guardrail's story-level denominator and
- * heuristic-WHY exemption, and design component-set extraction from proposal
- * prose, are semantic judgment: the skill applies them over these facts.
+ * complete machine verdicts. `backfill-draft` reports the STRUCTURAL SUBSET —
+ * sections, route headers, raw `[NEEDS CLARIFICATION]` count and locations. The
+ * >50% guardrail's story-level denominator and heuristic-WHY exemption are
+ * semantic judgment: the skill applies them over these facts.
  */
 
 export interface ValidationFinding {
@@ -192,55 +191,6 @@ export function validatePromoteScaffold(inputs: PromoteScaffoldInputs): Validati
     }
   }
   return { ok: findings.every((f) => f.level !== 'FAIL'), findings };
-}
-
-// --- validate design-spec (structural subset) ---
-
-export const DESIGN_SPEC_REQUIRED_SECTIONS = [
-  'Visual Identity',
-  'Components',
-  'Responsive Strategy',
-] as const;
-
-export interface DesignSpecFacts {
-  missingSections: string[];
-  ncMarkers: NcMarker[];
-}
-
-export interface DesignSpecReport extends ValidationVerdict {
-  facts: DesignSpecFacts;
-}
-
-/**
- * Structure check: the required sections exist as headings and no
- * `[NEEDS CLARIFICATION]` markers remain. Component-coverage (proposal UI
- * scope ↔ spec entries) needs the component list extracted from proposal
- * prose — judgment, applied by the skill over this report.
- */
-export function validateDesignSpec(content: string): DesignSpecReport {
-  const missingSections = DESIGN_SPEC_REQUIRED_SECTIONS.filter(
-    (section) => !new RegExp(`^#{1,4}\\s+.*${section}`, 'im').test(content),
-  );
-  const ncMarkers = collectNcMarkers(content);
-  const findings: ValidationFinding[] = [
-    ...missingSections.map((s) => ({
-      level: 'FAIL' as const,
-      message: `required section missing: ${s}`,
-    })),
-    ...(ncMarkers.length > 0
-      ? [
-          {
-            level: 'FAIL' as const,
-            message: `${ncMarkers.length} unresolved [NEEDS CLARIFICATION] marker(s) remain`,
-          },
-        ]
-      : []),
-  ];
-  return {
-    ok: findings.length === 0,
-    findings,
-    facts: { missingSections, ncMarkers },
-  };
 }
 
 // --- feature-map coverage set difference (backfill Phase 4 scoping) ---

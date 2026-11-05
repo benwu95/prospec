@@ -1,7 +1,7 @@
 {
   "version": 1,
   "captured_from_commit": "9d3f42d0771602228d727289a59a496fe1a06344",
-  "note": "Pre-migration inventory for the station reference map change. Captured by rendering every supported host through the THEN-CURRENT agent-sync owner (services/agent-sync.service.ts getSkillReferences + renderTemplate) in an isolated temp project, never from the new STATION_REFERENCES registry. `slot_text` additionally freezes, per rendered map slot, the exact prose that slot must reproduce: each string was verified to occur VERBATIM in the pre-migration deployed SKILL.md at the commit recorded above (`git show <commit>:.claude/skills/<skill>/SKILL.md` re-checks any row). Frozen on purpose: it is the independent expectation the registry-derived projections are compared against, so it is never regenerated from the code it guards. Re-captured 2026-09-27 on top of 527520f by the change isolate-detect-preserve-delegates (issue #280; REQ-TESTS-119 and REQ-TEMPLATES-232 as modified there): the one deliberate addition is `delegation-protocol.md`, the single definition of the Physical Receipt protocol and the delegation ticket flow, deployed to prospec-review, prospec-verify, prospec-plan, prospec-tasks and prospec-ff on every host and cited at each station's delegation site (verify: 2/5, dimension 6 and the Record sink). Every other row, `slot_text` and `mandatory_policies` included, stays the frozen independent expectation and was left byte-identical; `captured_from_commit` still names the pre-migration commit those frozen rows can be re-checked against, while the `delegation-protocol.md` rows exist only from base 527520f plus the change isolate-detect-preserve-delegates onward. Re-captured 2026-10-06 by the change bound-human-decisions (issue #334; REQ-TEMPLATES-247): the one deliberate addition is `human-decision.md`, the shared human-decision presentation contract with the plan sign-off material by scale and the delegation boundary, deployed to prospec-plan, prospec-ff and prospec-new-story on every host and cited at plan Phase 8, ff Phase 3 and new-story Phase 3.5. Every other row stays byte-identical.",
+  "note": "Pre-migration inventory for the station reference map change. Captured by rendering every supported host through the THEN-CURRENT agent-sync owner (services/agent-sync.service.ts getSkillReferences + renderTemplate) in an isolated temp project, never from the new STATION_REFERENCES registry. `slot_text` additionally freezes, per rendered map slot, the exact prose that slot must reproduce: each string was verified to occur VERBATIM in the pre-migration deployed SKILL.md at the commit recorded above (`git show <commit>:.claude/skills/<skill>/SKILL.md` re-checks any row). Frozen on purpose: it is the independent expectation the registry-derived projections are compared against, so it is never regenerated from the code it guards. Re-captured 2026-09-27 on top of 527520f by the change isolate-detect-preserve-delegates (issue #280; REQ-TESTS-119 and REQ-TEMPLATES-232 as modified there): the one deliberate addition is `delegation-protocol.md`, the single definition of the Physical Receipt protocol and the delegation ticket flow, deployed to prospec-review, prospec-verify, prospec-plan, prospec-tasks and prospec-ff on every host and cited at each station's delegation site (verify: 2/5, dimension 6 and the Record sink). Every other row, `slot_text` and `mandatory_policies` included, stays the frozen independent expectation and was left byte-identical; `captured_from_commit` still names the pre-migration commit those frozen rows can be re-checked against, while the `delegation-protocol.md` rows exist only from base 527520f plus the change isolate-detect-preserve-delegates onward. Re-captured 2026-10-06 by the change bound-human-decisions (issue #334; REQ-TEMPLATES-247): the one deliberate addition is `human-decision.md`, the shared human-decision presentation contract with the plan sign-off material by scale and the delegation boundary, deployed to prospec-plan, prospec-ff and prospec-new-story on every host and cited at plan Phase 8, ff Phase 3 and new-story Phase 3.5. Every other row stays byte-identical. Re-captured 2026-11-05 on base e23a91c7 by the change replace-design-station (issue #456): the design station is retired, so its six deployed references (the four platform adapters, `design-spec-format.md`, `interaction-spec-format.md`), its prose sites and its three slots are removed on every host, and the verify Verification 6 site heading reads `Design Conformance`; `mandatory_policies` follows the regenerated workflow-eval policies. Every other row stays byte-identical.",
   "hosts": {
     "claude": {
       "skill_path": ".claude/skills",
@@ -15,14 +15,6 @@
         ],
         "prospec-backfill-spec": [
           "feature-boundary-criteria.md"
-        ],
-        "prospec-design": [
-          "adapter-figma.md",
-          "adapter-html.md",
-          "adapter-pencil.md",
-          "adapter-penpot.md",
-          "design-spec-format.md",
-          "interaction-spec-format.md"
         ],
         "prospec-explore": [],
         "prospec-ff": [
@@ -104,14 +96,6 @@
         "prospec-backfill-spec": [
           "feature-boundary-criteria.md"
         ],
-        "prospec-design": [
-          "adapter-figma.md",
-          "adapter-html.md",
-          "adapter-pencil.md",
-          "adapter-penpot.md",
-          "design-spec-format.md",
-          "interaction-spec-format.md"
-        ],
         "prospec-explore": [],
         "prospec-ff": [
           "cascade-protocol.md",
@@ -192,14 +176,6 @@
         "prospec-backfill-spec": [
           "feature-boundary-criteria.md"
         ],
-        "prospec-design": [
-          "adapter-figma.md",
-          "adapter-html.md",
-          "adapter-pencil.md",
-          "adapter-penpot.md",
-          "design-spec-format.md",
-          "interaction-spec-format.md"
-        ],
         "prospec-explore": [],
         "prospec-ff": [
           "cascade-protocol.md",
@@ -279,14 +255,6 @@
         ],
         "prospec-backfill-spec": [
           "feature-boundary-criteria.md"
-        ],
-        "prospec-design": [
-          "adapter-figma.md",
-          "adapter-html.md",
-          "adapter-pencil.md",
-          "adapter-penpot.md",
-          "design-spec-format.md",
-          "interaction-spec-format.md"
         ],
         "prospec-explore": [],
         "prospec-ff": [
@@ -381,16 +349,6 @@
     "prospec-backfill-spec": {
       "Core Workflow > Phase 1: Triangulate the sources, then cluster by feature (vertical slice)": [
         "feature-boundary-criteria.md"
-      ]
-    },
-    "prospec-design": {
-      "Startup Loading": [
-        "design-spec-format.md",
-        "interaction-spec-format.md",
-        "adapter-pencil.md",
-        "adapter-figma.md",
-        "adapter-penpot.md",
-        "adapter-html.md"
       ]
     },
     "prospec-explore": {},
@@ -579,7 +537,7 @@
         "verify-backfill.md",
         "debug-recovery-format.md"
       ],
-      "Core Workflow > Verification 6 (Conditional): Design Consistency — `[judgment]`, fresh context required": [
+      "Core Workflow > Verification 6 (Conditional): Design Conformance — `[judgment]`, fresh context required": [
         "delegation-protocol.md"
       ],
       "Record & Status Update (CLI-executed)": [
@@ -594,7 +552,7 @@
   "mandatory_policies": {
     "ceilings": {
       "quick": 16575,
-      "standard-ui": 15380,
+      "standard-ui": 16426,
       "proven-backfill": 23826,
       "equivalent-commit": 12794,
       "reverify-c": 15678,
@@ -643,15 +601,9 @@
         "audit": "Derived mechanically from each routed station's Startup Loading MANDATORY items in the shipped snapshot, then reviewed for this change; it is an inventory of what the instructions require, never of what a run happened to read.",
         "roots": [
           {
-            "station": "design",
+            "station": "tasks",
             "paths": [
               ".agents/skills/prospec-ff/SKILL.md"
-            ]
-          },
-          {
-            "station": "design",
-            "paths": [
-              ".agents/skills/prospec-design/SKILL.md"
             ]
           },
           {
@@ -659,20 +611,26 @@
             "paths": [
               ".agents/skills/prospec-tasks/SKILL.md"
             ]
+          },
+          {
+            "station": "implement",
+            "paths": [
+              ".agents/skills/prospec-implement/SKILL.md"
+            ]
           }
         ],
         "dependencies": {
-          ".agents/skills/prospec-design/SKILL.md": [
-            ".agents/skills/prospec-design/references/design-spec-format.md",
-            ".agents/skills/prospec-design/references/interaction-spec-format.md"
-          ],
-          ".agents/skills/prospec-design/references/design-spec-format.md": [],
-          ".agents/skills/prospec-design/references/interaction-spec-format.md": [],
           ".agents/skills/prospec-ff/SKILL.md": [],
+          ".agents/skills/prospec-implement/SKILL.md": [
+            ".agents/skills/prospec-implement/references/implementation-guide.md",
+            "prospec/ai-knowledge/_conventions.md"
+          ],
+          ".agents/skills/prospec-implement/references/implementation-guide.md": [],
           ".agents/skills/prospec-tasks/SKILL.md": [
             ".agents/skills/prospec-tasks/references/tasks-format.md"
           ],
-          ".agents/skills/prospec-tasks/references/tasks-format.md": []
+          ".agents/skills/prospec-tasks/references/tasks-format.md": [],
+          "prospec/ai-knowledge/_conventions.md": []
         }
       },
       "proven-backfill": {
@@ -813,9 +771,6 @@
     "prospec-new-story/startup-proposal-format": "**MANDATORY** — Read [`references/proposal-format.md`](references/proposal-format.md) for proposal.md format specification",
     "prospec-new-story/startup-metadata-format": "Read [`references/metadata-format.md`](references/metadata-format.md) on demand for metadata.yaml FIELD SEMANTICS only — the file itself is CLI-written (`prospec change story` / `change scale` / `change log`), never hand-serialized",
     "prospec-plan/startup-phase-map": "Format references are read **per phase on demand**, NOT as Startup Loading items (keeps the stable prefix lean): [`references/plan-format.md`](references/plan-format.md) and [`references/candidate-evaluation.md`](references/candidate-evaluation.md) at Phase 4, [`references/delta-spec-format.md`](references/delta-spec-format.md) at Phase 5, [`references/plan-verifier-rubric.md`](references/plan-verifier-rubric.md) at Phase 6. Read each when entering its phase; do not preload them into the stable prefix.",
-    "prospec-design/startup-design-spec-format": "**MANDATORY** — Read [`references/design-spec-format.md`](references/design-spec-format.md) for design-spec.md format",
-    "prospec-design/startup-interaction-spec-format": "**MANDATORY** — Read [`references/interaction-spec-format.md`](references/interaction-spec-format.md) for interaction-spec.md format",
-    "prospec-design/startup-adapters": "   - pencil → [`references/adapter-pencil.md`](references/adapter-pencil.md)\n   - figma → [`references/adapter-figma.md`](references/adapter-figma.md)\n   - penpot → [`references/adapter-penpot.md`](references/adapter-penpot.md)\n   - html → [`references/adapter-html.md`](references/adapter-html.md)",
     "prospec-tasks/startup-tasks-format": "**MANDATORY** — Read [`references/tasks-format.md`](references/tasks-format.md) for tasks.md format",
     "prospec-ff/startup-phase-map": "Format references are read **per phase on demand**, NOT as Startup Loading items (keeps the stable prefix lean): [`references/proposal-format.md`](references/proposal-format.md) + [`references/metadata-format.md`](references/metadata-format.md) at Phase 2, [`references/plan-format.md`](references/plan-format.md) + [`references/delta-spec-format.md`](references/delta-spec-format.md) + [`references/plan-verifier-rubric.md`](references/plan-verifier-rubric.md) at Phase 3, [`references/tasks-format.md`](references/tasks-format.md) + [`references/tasks-verifier-rubric.md`](references/tasks-verifier-rubric.md) at Phase 4, [`references/cascade-protocol.md`](references/cascade-protocol.md) + [`references/circuit-breaker.md`](references/circuit-breaker.md) + [`references/project-test-runner.md`](references/project-test-runner.md) for cascading execution. Read each when entering its phase; do not preload them into the stable prefix.",
     "prospec-ff/phase-5-cascade-list": "Read [`references/cascade-protocol.md`](references/cascade-protocol.md), [`references/circuit-breaker.md`](references/circuit-breaker.md), and [`references/project-test-runner.md`](references/project-test-runner.md) on demand:",

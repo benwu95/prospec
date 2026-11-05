@@ -65,6 +65,15 @@ describe('computeGrade', () => {
     expect(computeGrade(oneNotAdjudicated, ['w1', 'w2', 'w3'])).toBe('B');
   });
 
+  // REQ-TEMPLATES-272: a design grader that could not obtain the Design Source or
+  // the rendered screens records not-adjudicated — never PASS, so S is unreachable.
+  it('a not-adjudicated design dimension keeps the grade below S', () => {
+    const designUnobtainable = allPass.map((d) => (d.name === 'design' ? dim(d.name, 'not-adjudicated') : d));
+    expect(computeGrade(designUnobtainable, [])).toBe('A');
+    const designPassed = allPass.map((d) => (d.name === 'design' ? dim(d.name, 'PASS') : d));
+    expect(computeGrade(designPassed, [])).toBe('S');
+  });
+
   it('a WARN dimension with no warning string still consumes the budget', () => {
     const warnDims = allPass.map((d, i) => (i < 3 ? dim(d.name, 'WARN') : d));
     expect(computeGrade(warnDims, [])).toBe('B');

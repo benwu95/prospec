@@ -68,7 +68,6 @@ Prefer to drive each step yourself? Run them explicitly:
 prospec-explore                   # (optional) clarify the requirement first
 prospec-new-story add-my-feature  # capture it as a structured story
 prospec-plan                      # design the implementation (a `quick`-scale change skips this)
-prospec-design                    # (optional after Plan) UI / interaction specs
 prospec-tasks                     # break the plan into an ordered task checklist
 #   ↑ collapse story → plan → tasks in one pass with: prospec-ff add-my-feature
 prospec-implement                 # implement task-by-task (no commit yet)

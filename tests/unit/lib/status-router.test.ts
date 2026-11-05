@@ -17,7 +17,7 @@ import { CHANGE_SCALES, CHANGE_STATUSES } from '../../../src/types/change.js';
 /**
  * The router is the executable copy of `_status-lifecycle.md` — every edge,
  * the quick skip, the backfill entry, and the no-status-transition stations
- * (design/review) are pinned here so a lifecycle edit that misses the router
+ * (review) are pinned here so a lifecycle edit that misses the router
  * (or vice versa) turns red.
  */
 
@@ -38,8 +38,6 @@ function facts(overrides: Partial<ChangeRouteFacts> = {}): ChangeRouteFacts {
     status: 'story',
     scale: 'standard',
     hasTasks: false,
-    hasDesignSpec: false,
-    uiScope: null,
     codeTasksTotal: 0,
     codeTasksDone: 0,
     hasReviewProvenance: false,
@@ -85,28 +83,11 @@ describe('status-router — lifecycle edges', () => {
     expect(route.blockingGates.join(' ')).not.toContain('plan.md');
   });
 
-  it('plan → tasks when no ui_scope is declared', () => {
+  it('plan → tasks with code LIFECYCLE_NEXT', () => {
     const route = routeChange(facts({ status: 'plan' }));
     expect(route.current).toBe('plan');
     expect(route.next).toBe('tasks');
-  });
-
-  it('plan → tasks when ui_scope is none', () => {
-    expect(routeChange(facts({ status: 'plan', uiScope: 'none' })).next).toBe('tasks');
-  });
-
-  for (const uiScope of ['full', 'partial'] as const) {
-    it(`plan → design when ui_scope is ${uiScope} and design-spec.md is absent`, () => {
-      const route = routeChange(facts({ status: 'plan', uiScope }));
-      expect(route.next).toBe('design');
-      expect(route.reasons.join(' ')).toContain('owns no status transition');
-    });
-  }
-
-  it('plan → tasks when ui_scope is full but design-spec.md already exists', () => {
-    const route = routeChange(facts({ status: 'plan', uiScope: 'full', hasDesignSpec: true }));
-    expect(route.next).toBe('tasks');
-    expect(route.reasons.join(' ')).toContain('design station has already run');
+    expect(route.code).toBe('LIFECYCLE_NEXT');
   });
 
   it('tasks → implement with the checkbox completion gate', () => {
@@ -285,8 +266,8 @@ describe('status-router — lifecycle edges', () => {
     });
   }
 
-  it('plan with a recorded verifier FAIL routes back to plan, ahead of design', () => {
-    const route = routeChange(facts({ status: 'plan', lastPlanVerifierResult: 'FAIL', uiScope: 'full' }));
+  it('plan with a recorded verifier FAIL routes back to plan, ahead of tasks', () => {
+    const route = routeChange(facts({ status: 'plan', lastPlanVerifierResult: 'FAIL' }));
     expect(route.next).toBe('plan');
     expect(route.code).toBe('PLAN_VERIFIER_FAILED');
     expect(route.blockingGates.join(' ')).toContain('--verifier-report');
@@ -687,11 +668,11 @@ describe('status-router — opt-in plan sign-off pause (REQ-LIB-087)', () => {
     expect(routeChange(atPlan({ lastPlanVerifierResult: 'FAIL', planFlawsStreak: 3 })).code).toBe('ESCALATE_TO_HUMAN');
   });
 
-  it('the pause precedes design; after the sign-off design inserts as before', () => {
-    expect(routeChange(atPlan({ uiScope: 'full' })).code).toBe('AWAITING_HUMAN_PLAN_SIGNOFF');
-    const signed = routeChange(atPlan({ uiScope: 'full', planSignedOff: true }));
-    expect(signed.next).toBe('design');
-    expect(signed.code).toBe('DESIGN_REQUIRED');
+  it('the pause precedes tasks; after the sign-off the route continues to tasks', () => {
+    expect(routeChange(atPlan()).code).toBe('AWAITING_HUMAN_PLAN_SIGNOFF');
+    const signed = routeChange(atPlan({ planSignedOff: true }));
+    expect(signed.next).toBe('tasks');
+    expect(signed.code).toBe('LIFECYCLE_NEXT');
   });
 
   it('never applies outside status plan', () => {
@@ -850,30 +831,6 @@ describe('status-router — full status × scale matrix stays lifecycle-consiste
     };
     for (const scale of CHANGE_SCALES) {
       expect(routeChange(facts({ status: 'story', scale })).next).toBe(expected[scale]);
-    }
-  });
-
-  // Review F4 ruling (documented in _status-lifecycle.md): the router does not
-  // suggest design under `scale: quick` — quick legally skips `plan`, the
-  // station design hangs off; a quick UI change runs /prospec-design manually.
-  // Every status, not just the two the ruling was written against: `plan` is
-  // reachable under quick via a manual `change status plan`, and design hangs off
-  // the plan station that quick's contract removes.
-  it.each(['story', 'plan', 'tasks'] as const)(
-    'quick with a declared ui_scope never routes to design (at %s)',
-    (status) => {
-      const expected = { story: 'tasks', plan: 'tasks', tasks: 'implement' } as const;
-      for (const uiScope of ['full', 'partial'] as const) {
-        const route = routeChange(facts({ status, scale: 'quick', uiScope }));
-        expect(route.next).not.toBe('design');
-        expect(route.next).toBe(expected[status]);
-      }
-    },
-  );
-
-  it('still routes standard and full to design when a ui_scope is declared', () => {
-    for (const scale of ['standard', 'full'] as const) {
-      expect(routeChange(facts({ status: 'plan', scale, uiScope: 'full' })).next).toBe('design');
     }
   });
 });

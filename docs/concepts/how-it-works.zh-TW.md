@@ -5,7 +5,7 @@ Prospec 跑一條線性流程，外包兩條回饋迴圈，讓它**越用越好*
 
 ```mermaid
 flowchart TD
-    E([探索<br/>Explore]) --> S([需求<br/>Story]) --> P([計劃<br/>Plan]) --> D(["設計（UI 工作可選）<br/>Design"]) --> T([任務<br/>Tasks]) --> I([實作<br/>Implement]) --> KU([更新知識<br/>Knowledge Update]) --> R([審查<br/>Review]) --> V([驗證<br/>Verify]) -- Entry Gate --> A([歸檔<br/>Archive]) -- 定期 --> L([學習<br/>Learn])
+    E([探索<br/>Explore]) --> S([需求<br/>Story]) --> P([計劃<br/>Plan]) --> T([任務<br/>Tasks]) --> I([實作<br/>Implement]) --> KU([更新知識<br/>Knowledge Update]) --> R([審查<br/>Review]) --> V([驗證<br/>Verify]) -- Entry Gate --> A([歸檔<br/>Archive]) -- 定期 --> L([學習<br/>Learn])
 
     V -. quality_log .-> L
     R -. findings .-> L
@@ -27,7 +27,7 @@ flowchart TD
 
 每次 **Archive** 都讓 **AI Knowledge** 更完善（隨每個變更累積），而反覆出現的教訓 —— review findings、跨階段 `quality_log`、session corrections —— 經**人工核可**晉升為持續累積的團隊規則（`Constitution` + `_playbook`）。所以下一次變更不從零開始，而是從更完整、更聰明的基準起步。
 
-圖中顯示標準路徑。流程同時是 **scale-aware** 的：Design 只在 UI scope 為 `full` 或 `partial` 時執行；`quick` 變更完全跳過 Plan（`story → tasks`），可由 Draft-First 自主選擇、interactive 模式由人類確認，或 `prospec change auto-draft` 指派；Brownfield backfill 則從 `prospec-promote-backfill` 進入 Verify，不重跑標準 planning path。Archive-time gates 仍是 backstop —— 見[相稱流程](./workflow.zh-TW.md#相稱流程scale)與[回填流程](../guides/backfill.zh-TW.md#backfill把既有程式碼納進信任區)。
+圖中顯示標準路徑。流程同時是 **scale-aware** 的：`quick` 變更完全跳過 Plan（`story → tasks`），可由 Draft-First 自主選擇、interactive 模式由人類確認，或 `prospec change auto-draft` 指派；Brownfield backfill 則從 `prospec-promote-backfill` 進入 Verify，不重跑標準 planning path。Archive-time gates 仍是 backstop —— 見[相稱流程](./workflow.zh-TW.md#相稱流程scale)與[回填流程](../guides/backfill.zh-TW.md#backfill把既有程式碼納進信任區)。
 
 ## Skill 與 CLI 協同模式：判斷面與確定性執行
 
@@ -67,7 +67,7 @@ Skills 與 CLI 之間的互動遵循嚴格的職責分工：
   同樣的 repo 狀態產出同樣的位元組；閘門以單一 change 為對象裁決，sibling change 缺少的證據不會擋住目標。
 - **Skill 指示（程序性）** — Skills 指示 agent 遵循的站點閘門、receipt 要求與停止條件。它們約束「會遵循
   指示的 agent」；對不遵循的，只有 CLI 自己的拒絕能約束。
-- **模型判斷（有界）** — REQ 意圖對照程式碼（verify 2/5）、對抗式審查的搜尋、design 一致性，以及
+- **模型判斷（有界）** — REQ 意圖對照程式碼（verify 2/5）、對抗式審查的搜尋、UI 變更與其 Design Source 的設計符合度，以及
   `quick` 變更的 Knowledge 影響檢查——該 scale 沒有 delta-spec，其 spec 影響是對照實際 diff 判斷的。
   這一層的品質取決於你路由到的模型層級。Prospec 選擇量測而非假設——有界的固定情境評估與其記錄的限制
   見 [`scripts/workflow-eval/README.md`](../../scripts/workflow-eval/README.md)——所以請把「閘門通過」讀作

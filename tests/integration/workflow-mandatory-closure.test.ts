@@ -88,7 +88,9 @@ function declaredMandatory(skillPath: string, instructions: Record<string, strin
 // within its bound). Measured quick 16_510 → 16_575, proven-backfill 23_610 → 23_826, stale-delta
 // 13_101 → 13_232; ceilings raised, not earned: 16_516 → 16_575, 23_694 → 23_826, 13_156 → 13_232.
 const CEILING_ANCHORS: Record<string, number> = {
-  quick: 16_575, 'standard-ui': 15_380, 'proven-backfill': 23_826, 'equivalent-commit': 12_794,
+  // standard-ui 15_380 → 16_426 (replace-design-station): the retired design route became tasks → implement,
+  // the quick route; set by the route change, not by instruction growth.
+  quick: 16_575, 'standard-ui': 16_426, 'proven-backfill': 23_826, 'equivalent-commit': 12_794,
   'reverify-c': 15_678, 'missing-receipt': 6_807, 'stale-delta': 13_232, 'multi-change': 12_794,
 };
 

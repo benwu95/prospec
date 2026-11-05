@@ -44,7 +44,6 @@ import {
   type DriftSignal,
   ROUTE_TARGET_SKILLS,
   type StatusReport,
-  type UiScope,
   type UnresolvedWarning,
 } from '../types/status.js';
 
@@ -156,7 +155,6 @@ export async function execute(options: StatusOptions = {}): Promise<StatusReport
           if (skillRoot !== null) {
             route.nextReferenceMap = projectStatusReferenceMap(ROUTE_TARGET_SKILLS[route.next], {
               scale: facts.scale,
-              uiScope: facts.uiScope,
               skillPath: skillRoot,
               ...(knowledgeBasePath === null ? {} : { knowledgeBasePath }),
             });
@@ -267,8 +265,6 @@ async function collectFacts(
     status: metadata.status,
     scale,
     hasTasks: fs.existsSync(path.join(changeDir, 'tasks.md')),
-    hasDesignSpec: fs.existsSync(path.join(changeDir, 'design-spec.md')),
-    uiScope: parseUiScope(await readFileIfExists(path.join(changeDir, 'proposal.md'))),
     codeTasksTotal: codeTasks.length,
     codeTasksDone: codeTasks.filter((t) => t.checked).length,
     hasReviewProvenance: metadata.review_provenance !== undefined,
@@ -343,25 +339,6 @@ function unresolvedWarnings(
     }
   }
   return out;
-}
-
-/**
- * Extract the `**Scope:**` value under proposal.md's `## UI Scope` heading.
- * Absent section (or no recognizable value) → null: for deterministic routing
- * only an explicit full/partial engages the design station — the design
- * skill's "assume full and confirm" fallback is interactive, not a routing
- * fact.
- */
-function parseUiScope(proposalText: string): UiScope | null {
-  const heading = /^##\s+UI Scope\s*$/m.exec(proposalText);
-  if (!heading) return null;
-  const section = proposalText.slice(heading.index + heading[0].length);
-  const nextHeading = /^##\s+/m.exec(section);
-  const body = nextHeading ? section.slice(0, nextHeading.index) : section;
-  // End-anchored: the proposal-format placeholder line `**Scope:** full |
-  // partial | none` must not parse as a chosen `full`.
-  const value = /^\*\*Scope:\*\*\s*(full|partial|none)\s*$/im.exec(body)?.[1];
-  return value === undefined ? null : (value.toLowerCase() as UiScope);
 }
 
 /** Latest recorded `prospec-verify` grade, null when none. */

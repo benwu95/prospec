@@ -3,7 +3,6 @@ import {
   validateSlug,
   validateBackfillDraft,
   validatePromoteScaffold,
-  validateDesignSpec,
   collectNcMarkers,
   coverageGap,
   validateCandidates,
@@ -133,37 +132,6 @@ describe('validatePromoteScaffold', () => {
     expect(verdict.findings[0]!.level).toBe('INFO');
     expect(verdict.findings[0]!.message).toContain('could not be verified');
     expect(verdict.findings[0]!.message).toContain('index.lock held');
-  });
-});
-
-describe('validateDesignSpec', () => {
-  const spec = [
-    '# Design Spec',
-    '',
-    '## Visual Identity',
-    'palette…',
-    '## Components',
-    'button…',
-    '## Responsive Strategy',
-    'breakpoints…',
-  ].join('\n');
-
-  it('passes when required sections exist and no NC markers remain', () => {
-    const report = validateDesignSpec(spec);
-    expect(report.ok).toBe(true);
-    expect(report.facts.missingSections).toEqual([]);
-  });
-
-  it('fails on a missing required section, naming it', () => {
-    const report = validateDesignSpec(spec.replace('## Responsive Strategy', '## Layout'));
-    expect(report.ok).toBe(false);
-    expect(report.facts.missingSections).toEqual(['Responsive Strategy']);
-  });
-
-  it('fails while any NC marker remains, reporting its location', () => {
-    const report = validateDesignSpec(`${spec}\n[NEEDS CLARIFICATION: hover state]`);
-    expect(report.ok).toBe(false);
-    expect(report.facts.ncMarkers).toHaveLength(1);
   });
 });
 

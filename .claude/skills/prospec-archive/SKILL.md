@@ -80,9 +80,8 @@ For each change to archive:
 1. Read `proposal.md` — extract User Story and acceptance criteria (and the Spec Impact section for a quick change that has one)
 2. Read `delta-spec.md` — extract REQ IDs and affected modules (quick: absent — use the Spec Impact section and diff-derived modules from the Entry Gate)
 3. Read `tasks.md` — calculate completion rate over **code tasks only** (kind schema: tasks-format reference). Unchecked code tasks → **warn and list them** before archiving; unchecked `[M]` manual tasks → reminder only, never blocking. (`scale: backfill` has no tasks.md — skip this step.)
-4. Check for `design-spec.md` and `interaction-spec.md` — if present, note design artifacts in summary
-5. Assemble the **Review & Verify** section from `metadata.yaml` `quality_log` (WARN/FAIL digest), `review.md` (critical/major counts + a short findings excerpt), and the verify report (grade + dimensions) — use the same evidence in Phase 4.5 Harvest. When a source is absent, state it plainly (`Unverified`, `no review round`); **never fabricate** a grade or counts. Format: `references/archive-format.md` §6
-6. Generate `summary.md` following `references/archive-format.md` specification — it MUST carry the `## Review & Verify` section from step 5
+4. Assemble the **Review & Verify** section from `metadata.yaml` `quality_log` (WARN/FAIL digest), `review.md` (critical/major counts + a short findings excerpt), and the verify report (grade + dimensions) — use the same evidence in Phase 4.5 Harvest. When a source is absent, state it plainly (`Unverified`, `no review round`); **never fabricate** a grade or counts. Format: `references/archive-format.md` §6
+5. Generate `summary.md` following `references/archive-format.md` specification — it MUST carry the `## Review & Verify` section from step 4
 
 > **Phase 2 Gate** — proceed when:
 > - [ ] `summary.md` generated per `references/archive-format.md` for each target change

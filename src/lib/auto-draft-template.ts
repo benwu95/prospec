@@ -36,8 +36,8 @@ export interface AutoDraftProposalOptions {
  *
  * The proposal is markdown, so the template interpolates raw (escaping would
  * corrupt it) — which means a value carrying newlines is not confined to its
- * bullet. A `detail` holding `\n## UI Scope\n**Scope:** full` forges a heading
- * `status`'s `parseUiScope` then reads as this change's routing fact. A drift
+ * bullet. A `detail` holding `\n## Design Source\nhttps://…` forges a heading
+ * that would declare the drift fix a UI change to every station. A drift
  * finding's detail is a one-line description by contract; this makes it one.
  */
 const oneLine = (value: string): string => value.replace(/\s*[\r\n]+\s*/g, ' ').trim();

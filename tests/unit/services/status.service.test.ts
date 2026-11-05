@@ -184,45 +184,20 @@ describe('status.service — routing in-flight changes', () => {
     expect(lf).toMatchObject({ codeTasksTotal: 2, codeTasksDone: 1 });
   });
 
-  it('inserts the design station when proposal.md declares ui_scope full at plan', async () => {
+  it.each([
+    ['a Design Source', '# Proposal\n\n## Design Source\n\nhttps://design.example/frame/1\n'],
+    ['a legacy UI Scope', '# Proposal\n\n## UI Scope\n\n**Scope:** full\n'],
+  ])('routes plan → tasks when proposal.md declares %s', async (_label, proposal) => {
     vol.fromJSON({
       [`${CWD}/.prospec/changes/add-ui/metadata.yaml`]: metadataYaml({
         name: 'add-ui',
         status: 'plan',
       }),
-      [`${CWD}/.prospec/changes/add-ui/proposal.md`]:
-        '# Proposal\n\n## UI Scope\n\n**Scope:** full\n',
-    });
-    const report = await execute({ cwd: CWD });
-    expect(report.changes[0]?.next).toBe('design');
-  });
-
-  it('treats the unfilled proposal-format placeholder as no declared ui_scope', async () => {
-    vol.fromJSON({
-      [`${CWD}/.prospec/changes/add-y/metadata.yaml`]: metadataYaml({
-        name: 'add-y',
-        status: 'plan',
-      }),
-      // The literal placeholder snippet from the proposal-format reference —
-      // no value was chosen, so design must NOT engage.
-      [`${CWD}/.prospec/changes/add-y/proposal.md`]:
-        '# Proposal\n\n## UI Scope\n\n**Scope:** full | partial | none\n',
+      [`${CWD}/.prospec/changes/add-ui/proposal.md`]: proposal,
     });
     const report = await execute({ cwd: CWD });
     expect(report.changes[0]?.next).toBe('tasks');
-  });
-
-  it('does not read a Scope line outside the UI Scope section', async () => {
-    vol.fromJSON({
-      [`${CWD}/.prospec/changes/add-x/metadata.yaml`]: metadataYaml({
-        name: 'add-x',
-        status: 'plan',
-      }),
-      [`${CWD}/.prospec/changes/add-x/proposal.md`]:
-        '# Proposal\n\n## UI Scope\n\nnothing declared here\n\n## Notes\n\n**Scope:** full\n',
-    });
-    const report = await execute({ cwd: CWD });
-    expect(report.changes[0]?.next).toBe('tasks');
+    expect(report.changes[0]?.code).toBe('LIFECYCLE_NEXT');
   });
 
   it('routes implemented → verify when review_provenance exists, with the last verify grade', async () => {
@@ -921,7 +896,7 @@ describe('status.service — actionable skill path (REQ-SERVICES-092)', () => {
  * no station to route to or no agent to resolve a path against.
  */
 describe('status.service — next-station reference map (REQ-SERVICES-111)', () => {
-  const project = (options: { agents?: string; status: string; scale?: string; uiScope?: string }) => {
+  const project = (options: { agents?: string; status: string; scale?: string }) => {
     const files: Record<string, string> = {
       [`${CWD}/.prospec.yaml`]: `project:\n  name: test\n${options.agents ?? ''}`,
       [`${CWD}/.prospec/changes/add-auth/metadata.yaml`]: metadataYaml({
@@ -930,9 +905,6 @@ describe('status.service — next-station reference map (REQ-SERVICES-111)', () 
         scale: options.scale,
       }),
     };
-    if (options.uiScope !== undefined) {
-      files[`${CWD}/.prospec/changes/add-auth/proposal.md`] = `# p\n\n## UI Scope\n\n**Scope:** ${options.uiScope}\n`;
-    }
     vol.fromJSON(files);
   };
 
@@ -1049,12 +1021,6 @@ describe('status.service — next-station reference map (REQ-SERVICES-111)', () 
     expect(standardPhases.length).toBeLessThan(backfillPhases.length);
   });
 
-  it.each(['full', 'partial', 'none'] as const)('keeps routing semantics for UI scope %s', async (uiScope) => {
-    project({ agents: 'agents:\n  - claude\n', status: 'plan', uiScope });
-    const route = (await execute({ cwd: CWD })).changes[0]!;
-    expect(route.next).toBe(uiScope === 'none' ? 'tasks' : 'design');
-    expect(Array.isArray(route.nextReferenceMap)).toBe(true);
-  });
 });
 
 describe('status.service — the map costs the status path no renderer', () => {

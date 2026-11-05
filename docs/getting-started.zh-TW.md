@@ -68,7 +68,6 @@ npx github:benwu95/prospec <command>
 prospec-explore                   # （可選）先釐清需求
 prospec-new-story add-my-feature  # 把需求記錄成結構化 story
 prospec-plan                      # 設計實作（`quick` scale 的變更會跳過）
-prospec-design                    # （Plan 之後可選）UI / 互動規格
 prospec-tasks                     # 把計劃拆成有序的任務清單
 #   ↑ 用 prospec-ff add-my-feature 一次收合 story → plan → tasks
 prospec-implement                 # 逐項實作（先不 commit）

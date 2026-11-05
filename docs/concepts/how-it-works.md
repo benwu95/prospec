@@ -5,7 +5,7 @@ Prospec runs one linear flow, wrapped in two feedback loops that make it **compo
 
 ```mermaid
 flowchart TD
-    E([Explore]) --> S([Story]) --> P([Plan]) --> D(["Design (optional for UI work)"]) --> T([Tasks]) --> I([Implement]) --> KU([Knowledge Update]) --> R([Review]) --> V([Verify]) -- Entry Gate --> A([Archive]) -- periodic --> L([Learn])
+    E([Explore]) --> S([Story]) --> P([Plan]) --> T([Tasks]) --> I([Implement]) --> KU([Knowledge Update]) --> R([Review]) --> V([Verify]) -- Entry Gate --> A([Archive]) -- periodic --> L([Learn])
 
     V -. quality_log .-> L
     R -. findings .-> L
@@ -27,7 +27,7 @@ flowchart TD
 
 Every **Archive** enriches **AI Knowledge** (more complete with each change), and recurring lessons — review findings, the cross-stage `quality_log`, session corrections — promote, **only with human approval**, into an accumulating body of team rules (`Constitution` + `_playbook`). So the next change doesn't start from scratch; it starts from a richer, smarter baseline.
 
-The diagram shows the standard path. It is also **scale-aware**: Design runs only when UI scope is `full` or `partial`; a `quick` change skips Plan entirely (`story → tasks`), whether selected autonomously in Draft-First, confirmed by the human in interactive mode, or assigned by `prospec change auto-draft`; and brownfield backfill enters through `prospec-promote-backfill` before Verify rather than replaying the standard planning path. Archive-time gates remain the backstop — see [Right-Sized Process](./workflow.md#right-sized-process-scale) and [Backfill](../guides/backfill.md#backfill-bringing-brownfield-code-into-the-trust-zone).
+The diagram shows the standard path. It is also **scale-aware**: a `quick` change skips Plan entirely (`story → tasks`), whether selected autonomously in Draft-First, confirmed by the human in interactive mode, or assigned by `prospec change auto-draft`; and brownfield backfill enters through `prospec-promote-backfill` before Verify rather than replaying the standard planning path. Archive-time gates remain the backstop — see [Right-Sized Process](./workflow.md#right-sized-process-scale) and [Backfill](../guides/backfill.md#backfill-bringing-brownfield-code-into-the-trust-zone).
 
 ## Skill ↔ CLI Cooperation Model
 
@@ -70,7 +70,7 @@ Three different things back the workflow's promises, and they are not interchang
   Skills instruct an agent to follow. They bind an agent that follows its instructions; only the
   CLI's own refusals bind one that does not.
 - **Model judgment (bounded)** — REQ intent versus code (verify 2/5), the adversarial review search,
-  design consistency, and a `quick` change's Knowledge-impact review, whose spec impact is judged
+  design conformance to a UI change's declared Design Source, and a `quick` change's Knowledge-impact review, whose spec impact is judged
   against the actual diff because that scale has no delta-spec. Quality here follows the tier you
   route to. Prospec measures that rather than assuming it — the bounded, fixed-scenario evaluation
   and its recorded limits live in [`scripts/workflow-eval/README.md`](../../scripts/workflow-eval/README.md)

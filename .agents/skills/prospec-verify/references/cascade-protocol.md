@@ -27,7 +27,7 @@ The cascading workflow dynamically adapts its trajectory based on `metadata.scal
 
 On standard and full, the plan sign-off pause (by default for a verified `ai-proposed` Premise, or via `workflow.pause_at: [plan]`; `PROSPEC_PAUSE_AT` decides alone per run, empty or `none` = no pause) has `prospec status` hold the change for a human plan sign-off — NEVER set `PROSPEC_PAUSE_AT` to skip it without an explicit human instruction.
 
-A UI change (`proposal.md` `ui_scope` full/partial) inserts `design` between `plan` and `tasks` on the standard/full trajectory. Every next station above is what `prospec status` computes — the cascade consults it at each Step 5 [NEXT] and never keeps a route table of its own.
+Every next station above is what `prospec status` computes — the cascade consults it at each Step 5 [NEXT] and never keeps a route table of its own.
 
 ---
 
@@ -50,8 +50,7 @@ An autonomous transition to the next station occurs **only** when all preconditi
 | Current Station | Next Station | Transition Gate |
 |-----------------|--------------|-----------------|
 | **story** | `plan` — or `tasks` (`scale: quick`), or `promote` (`scale: backfill`) | `proposal.md` written with `## Stated Assumptions`; INVEST advisory check completed (recorded, never blocking). |
-| **plan** | `design` (proposal `ui_scope` full/partial) — otherwise `tasks` | Architecture Verifier PASS (or advisory WARN) on five orthogonal dimensions, recorded via `prospec change log --skill prospec-plan --verifier-report <file>` (a Break-Glass grant alone never satisfies the verifier gate); a recorded FLAWS keeps `prospec status` on plan until a later PASS/WARN; under the plan sign-off pause the change also needs a human sign-off that counts for its current plan. |
-| **design** | `tasks` | `design-spec.md` + `interaction-spec.md` produced. |
+| **plan** | `tasks` | Architecture Verifier PASS (or advisory WARN) on five orthogonal dimensions, recorded via `prospec change log --skill prospec-plan --verifier-report <file>` (a Break-Glass grant alone never satisfies the verifier gate); a recorded FLAWS keeps `prospec status` on plan until a later PASS/WARN; under the plan sign-off pause the change also needs a human sign-off that counts for its current plan. |
 | **tasks** | `implement` | Task Contract Verifier PASS (or advisory WARN) on bidirectional coverage, DAG layering and TDD closure, recorded via `prospec change log --skill prospec-tasks --verifier-report <file>`; a recorded FLAWS keeps `prospec status` on tasks until a later PASS/WARN. |
 | **promote** | `knowledge-update` (affected-module Knowledge unsynced) — otherwise `review` | Promotion scaffold complete (`prospec validate promote-scaffold`), Knowledge synced at its exit, and `status: implemented` set — the backfill entry. |
 | **implement** | `knowledge-update` (affected-module Knowledge unsynced) — otherwise `review` | 100% of code tasks checked off; Knowledge synced and stamped, then tests recorded and `prospec change status implemented` executed. |

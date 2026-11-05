@@ -1,6 +1,6 @@
 # Template Library
 
-> Handlebars template library — 83 `.hbs` files across skills, references, agent-configs, change, init/knowledge.
+> Handlebars template library — 76 `.hbs` files across skills, references, agent-configs, change, init/knowledge.
 <!-- prospec:module-readme-format 2026-09-01 -->
 
 <!-- prospec:auto-start -->
@@ -13,8 +13,8 @@
 | `knowledge/*.hbs` (6) | `module-readme`, `index.md` + `_index-auto-block`, `raw-scan.md` (incl. the `Directories Without Source Files` evidence block), `module-map.yaml`, `feature-map.yaml` |
 | `change/*.hbs` (5) | proposal / plan / delta-spec / tasks scaffolds, plus `auto-draft-proposal` (the drift-derived body `auto-draft.service` hands to `change-story.service`); metadata.yaml is serialized in `change-story.service`, not templated |
 | `init/*.hbs` (9) | `prospec.yaml`, readme, Constitution, conventions, status-lifecycle, `prospec-check.yml` CI drift gate |
-| `skills/prospec-*.hbs` (17) | Shipped SDD station skills (incl. `prospec-new-story`/`ff` baseline freeze instructions, `prospec-verify` fixed inputs / per-REQ compliance evidence) |
-| `skills/references/*.hbs` (32) | Reference documents (incl. `metadata-format`, `proposal-format`, `delegated-evidence-format`, `verify-backfill`, and `delegation-protocol` — the ONE Physical Receipt definition with the ticket flow, the human hand-off of a mutation, the no-ticket path, the threat model and the detection limits, deployed to review/verify/plan/tasks/ff with no capability branch, plus the review-only criteria selection and brief items: the same text on every host; the nine other delegating surfaces only point at their station's copy) |
+| `skills/prospec-*.hbs` (16) | Shipped SDD station skills (incl. `prospec-new-story`/`ff` baseline freeze instructions, `prospec-verify` fixed inputs / per-REQ compliance evidence) |
+| `skills/references/*.hbs` (26) | Reference documents (incl. `metadata-format`, `proposal-format`, `delegated-evidence-format`, `verify-backfill`, and `delegation-protocol` — the ONE Physical Receipt definition with the ticket flow, the human hand-off of a mutation, the no-ticket path, the threat model and the detection limits, deployed to review/verify/plan/tasks/ff with no capability branch, plus the review-only criteria selection and brief items: the same text on every host; the nine other delegating surfaces only point at their station's copy) |
 | `agent-configs/entry.md.hbs` (1) | Shared entry config; renders host-labelled explicit-invocation guidance from `invocation_guidance` while keeping `prospec-<name>` canonical and implicit discovery separate; registry shape follows `surfaces_skill_frontmatter`, and the Station Transition Protocol branches on `skill_lifecycle_persistent` (native invoke/re-invoke with a file fallback, or status-then-read) — the conservative branch is what an absent context renders. Station/checkpoint paths require `skill_path`; absent paths use sync/onboarding and status-resolved locations, and an empty invocation group renders onboarding instead of a host matrix |
 | `references/config-example.yaml.hbs` (1) | The complete annotated `.prospec.yaml` printed by `prospec config example` — top-level, not a per-skill reference |
 

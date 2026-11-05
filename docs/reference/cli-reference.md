@@ -42,8 +42,6 @@ your-project/
 │   ├── changes/
 │   │   └── {change-name}/
 │   │       ├── proposal.md        # User Story + acceptance criteria
-│   │       ├── design-spec.md     # Visual spec (optional, UI changes)
-│   │       ├── interaction-spec.md # Interaction spec (optional)
 │   │       ├── plan.md            # Implementation plan
 │   │       ├── tasks.md           # Task breakdown (checkbox format)
 │   │       ├── delta-spec.md      # Patch Spec (ADDED/MODIFIED/REMOVED)
@@ -52,7 +50,6 @@ your-project/
 ├── .claude/skills/            # Skills for Claude Code (one dir per skill)
 │   ├── prospec-explore/
 │   ├── prospec-new-story/
-│   ├── prospec-design/
 │   ├── prospec-plan/
 │   ├── prospec-tasks/
 │   ├── prospec-ff/
@@ -276,7 +273,7 @@ Review preserves artifact→metadata ordering; verify preserves metadata→evide
     - Lists each change's unresolved `quality_log` WARNs under `warn:` — the latest entry per skill still at WARN, a plan sign-off entry never counting as that latest entry — so a station's Entry Gate surfaces prior warnings without re-reading the log itself.
     - Names the next station's canonical Skill under `action:` — `invoke skill prospec-<name>`, loaded the way the running host loads skills. The identity is present for every route that names a next station, including one whose project configures no agent, because it does not depend on a deployment root.
     - Prints the resolved skill file under `fallback:` — the file to read when the host has no skill mechanism, or when that mechanism is unavailable. Absent when `next` is null or the project configures no agent; never a hardcoded skills directory. `status` states no host capability of its own: which route applies is declared per host in the generated entry config's Station Transition Protocol.
-    - Prints the next station's reference map under `read:` — each load point that station reaches, the deployed path to read, why, and any condition `status` cannot decide. Filtered by the change's known scale and UI scope, resolved under the same configured host the `fallback:` line names; absent when `next` is null or the project configures no agent, empty for a station that ships no reference. A station's instructions arriving never implies its references arrived.
+    - Prints the next station's reference map under `read:` — each load point that station reaches, the deployed path to read, why, and any condition `status` cannot decide. Filtered by the change's known scale, resolved under the same configured host the `fallback:` line names; absent when `next` is null or the project configures no agent, empty for a station that ships no reference. A station's instructions arriving never implies its references arrived.
     - `--json` emits the whole status report (including each change's `nextSkill`, `unresolvedWarnings` and `nextReferenceMap`) to stdout for machine consumption.
     - With nothing in flight, reads `prospec-report.json` and reports its STATE: how many findings `--auto-draft` would draft, or that the report is unreadable or was generated against different code (compared by `change_digest`). A report it cannot trust is reported as such, never as an absence of drift.
     - When a station recovery loop (verify below-bar, plan verifier flaws, tasks verifier flaws) reaches `workflow.max_station_retries` (default 3), `status` routes to `next: null` with stable code `ESCALATE_TO_HUMAN`, printing a HALT directive and failure summary rather than looping back.
@@ -446,7 +443,7 @@ Review preserves artifact→metadata ordering; verify preserves metadata→evide
   - **Key Details**: Known canonical IDs and explicit aliases share statistics; unknown or mixed labels retain custom grouping. Each change counts once per invoked lens; confirmed findings are counted individually. Rows-only proxy evidence and insufficient declared runs stay `keep`. With enough declared runs, zero yield or low yield sends must-run correctness, security and spec-architecture to `review` of criteria, execution and attribution; retirement requires an explicit must-run policy change. Conditional/custom lenses retain zero-yield `retire` before low-yield `review`. Archive bytes and finding identities are unchanged. A hand-edited, malformed repro cell reads as absent rather than aborting the scan.
 
 - **`prospec validate <kind> [target] [--change <name>]`**
-  - **Purpose**: Machine validation of artifact structural integrity (`proposal`, `slug`, `promote-scaffold`, `backfill-draft`, `design-spec`, `module-readme`, `candidates`). `module-readme` validates a module's README against its canonical Markdown convention. `candidates` validates a change's `candidates/option-*.json` and `decision.json` against their schemas and prints a metrics table (`direction_violations` against the module map's `depends_on`, `touched_modules`, `estimated_lines`, `unknown_references`). Exits 1 on failure.
+  - **Purpose**: Machine validation of artifact structural integrity (`proposal`, `slug`, `promote-scaffold`, `backfill-draft`, `module-readme`, `candidates`). `module-readme` validates a module's README against its canonical Markdown convention. `candidates` validates a change's `candidates/option-*.json` and `decision.json` against their schemas and prints a metrics table (`direction_violations` against the module map's `depends_on`, `touched_modules`, `estimated_lines`, `unknown_references`). Exits 1 on failure.
 
 > [!IMPORTANT]
 > **Deterministic Execution Layer**: These change management commands serve as the deterministic core of the workflow (issue #107). Skills (`prospec-new-story`, `prospec-ff`, etc.) delegate every scaffold, status transition, and audit record to the CLI rather than authoring raw bookkeeping artifacts. If the CLI binary is missing or below the version probe threshold, the Skill halts (STOP). All commands can also be run manually or scripted in CI/CD.
@@ -602,7 +599,7 @@ Review, `implemented`, `test-provenance` and verify share the same test gate. Ce
 
 Honesty rules: an unavailable source degrades the check to `skipped` with an explicit reason — never a fake PASS — and semantic spec↔code consistency stays with `prospec-review` (the report permanently marks it `not-checked`). `prospec-verify` consumes the same report at dev time, so the developer and the CI gate always see the same facts, token-free.
 
-**Who decides what at verify** — the report is not advisory there. `prospec-verify`'s task-completion, Knowledge and test dimensions are **adjudicated by this engine**: verify adopts each check's status verbatim and may not re-grade it, so those three verdicts are reproducible with no LLM involved. The dimensions with no mechanical oracle — delta-spec compliance and design consistency — stay probabilistic and are graded in **fresh context** (an independent reviewer that did not write the code), while the Constitution audit is split: severities and the rule list come from the machine inventory, judging a violation stays human/LLM work. When the engine cannot run, those machine dimensions are reported `not-adjudicated` (never PASS) and grade S becomes unreachable.
+**Who decides what at verify** — the report is not advisory there. `prospec-verify`'s task-completion, Knowledge and test dimensions are **adjudicated by this engine**: verify adopts each check's status verbatim and may not re-grade it, so those three verdicts are reproducible with no LLM involved. The dimensions with no mechanical oracle — delta-spec compliance and design conformance — stay probabilistic and are graded in **fresh context** (an independent reviewer that did not write the code), while the Constitution audit is split: severities and the rule list come from the machine inventory, judging a violation stays human/LLM work. When the engine cannot run, those machine dimensions are reported `not-adjudicated` (never PASS) and grade S becomes unreachable.
 
 #### Tuning the `knowledge-size` budgets
 
@@ -642,8 +639,8 @@ src/
 ├── services/     — Business logic (33 services)
 ├── lib/          — Pure utility functions (config, fs, logger, etc.)
 ├── types/        — Zod schemas + TypeScript types
-└── templates/    — Handlebars templates (83 .hbs files)
-    └── skills/   — 17 Skill templates + 32 reference templates
+└── templates/    — Handlebars templates (76 .hbs files)
+    └── skills/   — 16 Skill templates + 26 reference templates
 ```
 
 ### Tech Stack

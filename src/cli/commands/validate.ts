@@ -11,7 +11,6 @@ import { resolveLogLevel } from '../log-level.js';
  *   prospec validate slug user-profile
  *   prospec validate backfill-draft [path] [--change <name>]
  *   prospec validate promote-scaffold [--change <name>]
- *   prospec validate design-spec [path] [--change <name>]
  *   prospec validate module-readme <module>
  *   prospec validate candidates [--change <name>]
  *
@@ -20,7 +19,7 @@ import { resolveLogLevel } from '../log-level.js';
 export function registerValidateCommand(program: Command): void {
   program
     .command('validate')
-    .description('Machine verdicts for artifact structure (proposal / slug / backfill-draft / promote-scaffold / design-spec / module-readme / candidates)')
+    .description('Machine verdicts for artifact structure (proposal / slug / backfill-draft / promote-scaffold / module-readme / candidates)')
     .addArgument(new Argument('<kind>', 'Artifact kind').choices(VALIDATE_KINDS))
     .argument('[target]', 'Slug/module name, an explicit artifact path, or (proposal/candidates) a change name')
     .option('--json', 'Emit the structural verdict and facts as JSON')

@@ -99,14 +99,9 @@ Under `## Stated Assumptions`, list assumptions in `artifact_language`, includin
 
 `## Constitution Check`: record review against `prospec/CONSTITUTION.md` and any violations.
 
-### 10. UI Scope (Optional)
+### 10. Design Source (UI changes)
 
-Declare `## UI Scope` with `**Scope:** full | partial | none`, choosing one:
-- `full`: complete screens/pages, layout and interactions.
-- `partial`: changes to existing components.
-- `none`: CLI/backend only, no visual component.
-
-If omitted, design assumes full and confirms with the user; existing proposals are unaffected.
+A UI change declares `## Design Source`; a proposal without it is not a UI change. Name where the design comes from — a design tool link, a component library, an AI design tool artifact, a prototype path or screenshots — or write `none` when the UI starts from scratch. Name the source, not a required tool: later stations read it with the tools the host provides.
 
 ## File Length Guidelines
 

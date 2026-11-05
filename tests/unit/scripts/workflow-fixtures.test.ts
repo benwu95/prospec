@@ -15,7 +15,7 @@ const fixtures = resolve('tests/fixtures/workflow-eval');
 describe('versioned workflow fixtures', () => {
   it.each([
     ['quick', 'tasks', 'handoff'],
-    ['standard-ui', 'design', 'handoff'],
+    ['standard-ui', 'tasks', 'handoff'],
   ])('%s has independent, executable routing expectations', async (id, route, terminal) => {
     const scenario = ScenarioSchema.parse(JSON.parse(await readFile(join(fixtures, 'public', `${id}.json`), 'utf8')));
     const oracle = OracleSchema.parse(JSON.parse(await readFile(join(fixtures, 'private', `${id}.json`), 'utf8')));

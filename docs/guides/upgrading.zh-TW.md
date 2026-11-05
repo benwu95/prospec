@@ -41,6 +41,8 @@ prospec-upgrade                 # 步驟 2：AI Agent 依盤點報告遷移格�
 
 ## 升級至下一個版本（尚未發布）
 
+**Breaking：** design station 已退休。`prospec-design` skill、其 Generate／Extract 模式與 platform adapter、`prospec validate design-spec`、`DESIGN_REQUIRED` route code，以及 `prospec status` 路由中的 `design` station 皆已移除；`prospec agent sync` 會刪除已部署的 `prospec-design` skill 目錄。UI 變更改在 proposal 宣告可選的 `## Design Source`（設計工具連結、元件庫、AI 設計工具產物、prototype 路徑或截圖，或 `none`）；tasks 會排入由專案 `test_command` 執行的視覺回歸測試，verify 的 design 維度則以該來源評估實作。請移除 `skill_triggers`／`skill_exclusions` 中的 `prospec-design` 鍵、`.prospec.yaml` 中不再使用的 `design:` 區塊，以及 Constitution `stations:`、playbook `**Stations**` 或 `--station` 參數中的 `design`。進行中的變更保留原有檔案，但不再有任何 station 讀取 `design-spec.md`、`interaction-spec.md` 或 `## UI Scope`；請把設計來源移到 `## Design Source`；已有 `plan.md` 的變更，也要寫進該 plan 的 Technical Summary——standard 與 full scale 的 tasks 與 implement 從 `plan.md` 讀取 Design Source。
+
 **Breaking：** `prospec measure`、其本機 session report、offline report、context projection 模式，以及 repo 的 `measure:tokens` script 已退休。請移除 scripts 與文件中對這些入口的呼叫。既有 reports 與 session logs 保持原狀。共用 token estimation、workflow-evaluation 成本計算，以及 startup dependency guard（`scripts/measure-startup-modules.ts`）維持既有行為。
 
 完整 feature 退休時，deprecated Feature Specs 與退休 REQ 身分保留於原路徑。semantic graduation 將 feature 標為 `status: deprecated` 後，`prospec archive finalize` 可依完整 body 推導零計數，並刷新 product Feature Map；其他 status 維持正數變零拒收。若 product sync 被 declined，依回報原因修正後重跑 finalize；既有 curated feature-map entries 仍由 bootstrap no-clobber 保護。

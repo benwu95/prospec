@@ -9,7 +9,6 @@
  */
 import { REFERENCE_LOAD_KINDS, type StationReferenceEntry } from '../../src/types/station-references.js';
 import { CHANGE_SCALES } from '../../src/types/change.js';
-import { UI_SCOPES } from '../../src/types/status.js';
 
 export type StationReferenceRegistry = Readonly<Record<string, StationReferenceEntry>>;
 
@@ -45,9 +44,6 @@ export function validateStationReferences(
       if (use.phase.trim() === '') add(skill, `${use.id} has no phase`);
       for (const scale of use.scales ?? []) {
         if (!CHANGE_SCALES.includes(scale)) add(skill, `${use.id} names unknown scale ${scale}`);
-      }
-      for (const scope of use.uiScopes ?? []) {
-        if (!UI_SCOPES.includes(scope)) add(skill, `${use.id} names unknown UI scope ${scope}`);
       }
       if (use.target.kind !== 'reference') continue;
       if (!outputs.includes(use.target.reference)) {

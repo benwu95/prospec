@@ -9,7 +9,6 @@ import {
   projectStartupMandatory,
   projectStationDeployment,
   projectStatusReferenceMap,
-  undecidedCondition,
 } from '../../../src/lib/skill-reference-map.js';
 import {
   SKILL_DEFINITIONS,
@@ -18,7 +17,7 @@ import {
 } from '../../../src/types/skill.js';
 
 const status = (skill: string, overrides: Partial<Parameters<typeof projectStatusReferenceMap>[1]> = {}) =>
-  projectStatusReferenceMap(skill, { scale: 'standard', uiScope: null, skillPath: '.claude/skills', ...overrides });
+  projectStatusReferenceMap(skill, { scale: 'standard', skillPath: '.claude/skills', ...overrides });
 
 describe('deployment projection (REQ-TYPES-099)', () => {
   it('deploys each file once however many phases read it', () => {
@@ -95,34 +94,21 @@ describe('status projection (REQ-SERVICES-111)', () => {
     expect(row?.conditionHint).toMatch(/conditional lens/);
   });
 
-  it('treats an undeclared UI scope as unknown, not as none', () => {
+  it('decides only the scale predicate and keeps every other condition as a visible hint', () => {
     const use: StationReferenceUse = {
-      id: 'ui-only',
+      id: 'standard-only',
       phase: 'Phase 1',
       site: 'Phase 1',
       target: { kind: 'reference', reference: 'x.md' },
-      purpose: 'a UI-only read',
+      purpose: 'a scale-gated read',
       loading: 'in-phase',
-      uiScopes: ['full', 'partial'],
+      scales: ['standard', 'full'],
+      conditionHint: 'proposal.md declares a Design Source other than `none`',
     };
-    expect(isUseApplicable(use, { scale: 'standard', uiScope: 'none' })).toBe(false);
-    expect(isUseApplicable(use, { scale: 'standard', uiScope: 'full' })).toBe(true);
-    // null is "the proposal declared no UI Scope", which is not a decision.
-    expect(isUseApplicable(use, { scale: 'standard', uiScope: null })).toBe(true);
-  });
-
-  it('surfaces an undecidable UI predicate as a condition rather than dropping it', () => {
-    const use: StationReferenceUse = {
-      id: 'ui-only',
-      phase: 'Phase 1',
-      site: 'Phase 1',
-      target: { kind: 'reference', reference: 'x.md' },
-      purpose: 'a UI-only read',
-      loading: 'in-phase',
-      uiScopes: ['full', 'partial'],
-    };
-    expect(undecidedCondition(use, null)).toMatch(/UI scope/);
-    expect(undecidedCondition(use, 'full')).toBeUndefined();
+    expect(isUseApplicable(use, { scale: 'quick' })).toBe(false);
+    expect(isUseApplicable(use, { scale: 'standard' })).toBe(true);
+    const row = status('prospec-verify').find((r) => r.purpose.includes('design grader'));
+    expect(row?.conditionHint).toBe('proposal.md declares a Design Source other than `none`');
   });
 
   it('returns an empty map for a reference-free or unknown skill', () => {

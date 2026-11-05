@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { buildAutoDraftProposal } from '../../src/lib/auto-draft-template.js';
 
 /** The required sections of the canonical proposal format (its reference lists
- *  ten, of which `Open Questions` and `UI Scope` are marked optional). */
+ *  ten, of which `Open Questions` and `Design Source` are marked optional). */
 const REQUIRED_SECTIONS = [
   'Background',
   'User Stories',
@@ -40,12 +40,11 @@ describe('auto-draft proposal template contract', () => {
     }
   });
 
-  it('emits a UI Scope block `parseUiScope` can read', () => {
+  it('declares no Design Source — a drift fix is not a UI change (REQ-TEMPLATES-270)', () => {
     const body = buildAutoDraftProposal(base);
-    // status.service reads this to route the design station; a renamed heading
-    // or a missing value silently changes routing for every drafted change.
-    expect(body).toMatch(/^## UI Scope$/m);
-    expect(body).toMatch(/^\*\*Scope:\*\* (full|partial|none)$/m);
+    // Every station reads `## Design Source` to decide a UI change; a drafted
+    // drift fix carrying one would demand visual tests and a design grade.
+    expect(body).not.toMatch(/^## Design Source$/m);
   });
 
   it('names a module under Related Modules only when one was attributed', () => {
@@ -122,28 +121,25 @@ describe('auto-draft proposal template contract', () => {
   });
 
   it('confines report text to its bullet — a multi-line detail cannot forge structure', () => {
-    // `parseUiScope` takes the FIRST `## UI Scope` heading, so a finding whose
-    // detail carries one would decide this change's design routing.
+    // A `## Design Source` heading forged from a finding's detail would declare
+    // the drift fix a UI change to every station.
     const body = buildAutoDraftProposal({
       ...base,
       items: [
         {
-          detail: 'over budget\n\n## UI Scope\n\n**Scope:** full\n\nmore prose',
+          detail: 'over budget\n\n## Design Source\n\nhttps://design.example/frame/1\n\nmore prose',
           sourcePath: 'a.md\n## Related Modules\n- **injected**',
         },
       ],
       remedies: ['split it\n## Constitution Check\n- [x] forged'],
     });
 
-    // Exactly one of each heading the template itself emits.
-    expect(body.match(/^## UI Scope$/gm)).toHaveLength(1);
+    // No forged Design Source; exactly one of each heading the template emits.
+    expect(body).not.toMatch(/^## Design Source$/m);
     expect(body.match(/^## Related Modules$/gm)).toHaveLength(1);
     expect(body.match(/^## Constitution Check$/gm)).toHaveLength(1);
-    // And the scope the template declares is the one that survives.
-    const scope = body.slice(body.indexOf('## UI Scope')).match(/^\*\*Scope:\*\* (\w+)$/m);
-    expect(scope?.[1]).toBe('none');
     // The text is still there — collapsed onto its own line, not dropped.
-    expect(body).toContain('over budget ## UI Scope **Scope:** full more prose');
+    expect(body).toContain('over budget ## Design Source https://design.example/frame/1 more prose');
   });
 
   it('states the rewrite obligation only for a non-English artifact language', () => {

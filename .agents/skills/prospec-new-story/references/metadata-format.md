@@ -167,7 +167,7 @@ quality_log:
   `FAIL` / `not-applicable` / `not-adjudicated`. Any dimension that does not apply to the change is
   recorded `not-applicable` — never omitted and never `PASS`, so an unchecked dimension stays
   distinguishable from a passed one. This covers every skip reason, not just scale: no delta-spec
-  under `quick`, no tasks.md under `backfill`, the design dimension under `ui_scope: none`, and the
+  under `quick`, no tasks.md under `backfill`, the design dimension with no or a `none` Design Source, and the
   knowledge dimension when no Knowledge base exists. `not-adjudicated` is the **different** case
   where the dimension applies but its machine adjudicator could not run (drift engine unavailable, or
   its check `skipped`) — "no verdict", not "moot". Both are valid **only** here, never as the
