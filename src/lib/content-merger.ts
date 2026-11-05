@@ -13,7 +13,7 @@
  *   <!-- prospec:user-end -->
  */
 
-import { trimTrailingNewlines } from './markdown-fences.js';
+import { hasUnclosedFence, trimTrailingNewlines, withoutFencedBlocks } from './markdown-fences.js';
 import { AUTO_START, AUTO_END, USER_START, USER_END } from './content-markers.js';
 
 interface ContentSection {
@@ -160,22 +160,41 @@ export function mergeContent(
 // typo can't drift the regex out of sync). The markers contain no regex
 // metacharacters, so they need no escaping. Non-greedy body so each matches a
 // single block.
-const AUTO_BLOCK_RE = new RegExp(`${AUTO_START}[\\s\\S]*?${AUTO_END}`);
 const USER_BLOCK_RE = new RegExp(`${USER_START}[\\s\\S]*?${USER_END}`);
+
+/**
+ * The first auto block's [start, end) offsets. Markers count only as whole lines
+ * outside fenced code: prose that quotes a marker (in a code span or an example
+ * fence) must not open a block that swallows the authored text after it. An
+ * unclosed fence makes the mask untrustworthy, so it is ignored then.
+ */
+function findAutoBlock(content: string): { start: number; end: number } | null {
+  const lines = content.split('\n');
+  const scan = hasUnclosedFence(lines) ? lines : withoutFencedBlocks(lines);
+  let offset = 0;
+  let start: number | undefined;
+  for (const [i, line] of lines.entries()) {
+    const marker = scan[i]!.trim();
+    if (start === undefined && marker === AUTO_START) start = offset + line.indexOf(AUTO_START);
+    else if (start !== undefined && marker === AUTO_END) return { start, end: offset + line.indexOf(AUTO_END) + AUTO_END.length };
+    offset += line.length + 1;
+  }
+  return null;
+}
 
 /** True when `content` contains a prospec auto block. */
 export function hasAutoBlock(content: string): boolean {
-  return AUTO_BLOCK_RE.test(content);
+  return findAutoBlock(content) !== null;
 }
 
 /**
- * Replace the first auto block in `content` with `autoBlock`, in place. Uses a
- * function replacer so `$`-sequences (`$&`/`` $` ``/`$$`) in `autoBlock` are
- * inserted verbatim, not interpreted as replacement patterns. Single source for
- * the auto-block swap shared by mergeManagedDoc and knowledge-update.service.
+ * Replace the first auto block in `content` with `autoBlock`, in place, inserting
+ * `autoBlock` verbatim. Single source for the auto-block swap shared by
+ * mergeManagedDoc and knowledge-update.service.
  */
 export function replaceAutoBlock(content: string, autoBlock: string): string {
-  return content.replace(AUTO_BLOCK_RE, () => autoBlock);
+  const block = findAutoBlock(content);
+  return block ? content.slice(0, block.start) + autoBlock + content.slice(block.end) : content;
 }
 
 /**
@@ -206,9 +225,9 @@ export function mergeManagedDoc(generated: string, existing: string): string {
 
   // Managed file: surgically swap the auto block, preserve the rest.
   if (hasAutoBlock(existing)) {
-    const generatedAuto = generated.match(AUTO_BLOCK_RE);
+    const generatedAuto = findAutoBlock(generated);
     if (!generatedAuto) return generated;
-    return replaceAutoBlock(existing, generatedAuto[0]);
+    return replaceAutoBlock(existing, generated.slice(generatedAuto.start, generatedAuto.end));
   }
 
   // Unmanaged file: migrate the existing content into generated's user block.

@@ -64,7 +64,7 @@ export function registerArchiveCommand(program: Command): void {
   // graduated the REQs; `prospec archive <name>` itself runs before them.
   archive
     .command('finalize')
-    .description('Post-judgment archive step: copy the finalized summary into spec history and reconcile feature-spec counters')
+    .description('Post-judgment archive step: copy the finalized summary into spec history, reconcile feature-spec counters and refresh the product.md Feature Map')
     .argument('<name>', 'archived change name')
     .option('--bundle <identity>', 'Exact archiveIdentity returned by archive; must belong to this source project')
     .option('--dry-run', 'compute and print the planned mutations without writing anything')

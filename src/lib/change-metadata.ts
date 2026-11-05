@@ -1,6 +1,6 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
-import { isMap, isScalar, isSeq, visit, YAMLMap, type Document, type Node } from 'yaml';
+import { isMap, isScalar, isSeq, visit, YAMLMap, type Alias, type Document, type Node } from 'yaml';
 import {
   ChangeMetadataSchema,
   QualityLogEntrySchema,
@@ -69,7 +69,31 @@ export function readChangeMetadata(
   changeName: string,
 ): { doc: Document; metadata: ChangeMetadata } {
   const doc = parseYamlDocument(fs.readFileSync(metadataPath, 'utf-8'), metadataPath);
-  return { doc, metadata: assertValidChangeMetadata(doc.toJS(), changeName) };
+  const metadata = assertValidChangeMetadata(doc.toJS(), changeName);
+  const bindings = new Map<Alias, Node | undefined>();
+  visit(doc, { Alias(_key, alias) { bindings.set(alias, alias.resolve(doc)); } });
+  aliasBindings.set(doc, bindings);
+  return { doc, metadata };
+}
+
+/** Each read document's alias → anchored node, as authored. */
+const aliasBindings = new WeakMap<Document, Map<Alias, Node | undefined>>();
+
+/**
+ * A writer that replaces a CLI-owned subtree removes its anchors; an alias kept
+ * elsewhere would then bind to an earlier reused anchor name or dangle. Refuse
+ * either before publication rather than silently changing retained data.
+ */
+function assertRetainedAliases(doc: Document): void {
+  const authored = aliasBindings.get(doc);
+  visit(doc, { Alias(_key, alias) {
+    const target = alias.resolve(doc);
+    if (target !== undefined && (!authored?.has(alias) || authored.get(alias) === target)) return;
+    throw new PrerequisiteError(
+      `Metadata update would remove the target of retained YAML alias *${alias.source}`,
+      'Use independent extension values rather than aliases into CLI-replaced fields',
+    );
+  } });
 }
 
 /**
@@ -121,6 +145,7 @@ export async function writeChangeMetadataDoc(
   changeName: string,
   options: { beforeCommit?: () => void } = {},
 ): Promise<void> {
+  assertRetainedAliases(doc);
   assertValidChangeMetadata(doc.toJS(), changeName);
   let hasAliases = false;
   visit(doc, { Alias() { hasAliases = true; return visit.BREAK; } });

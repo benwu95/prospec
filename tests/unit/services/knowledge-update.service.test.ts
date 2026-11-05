@@ -498,6 +498,7 @@ ${INDEX_TABLE_SEPARATOR}
   it.each([
     { label: 'managed', before: '# Authored title\n<!-- prospec:auto-start -->\nold\n<!-- prospec:auto-end -->\n\n## Notes\nKeep exactly.\n', headings: 1 },
     { label: 'marker-less', before: '# Authored title\n\n## Notes\nKeep exactly.\n', headings: 1 },
+    { label: 'marker-less quoted-marker', before: '# Authored title\n\nNever edit inside `<!-- prospec:auto-start -->` blocks.\n\n## Notes\nKeep exactly.\n', headings: 1 },
     { label: 'fenced example', before: '# Authored title\n<!-- prospec:auto-start -->\nold\n<!-- prospec:auto-end -->\n\n```md\n## Progressive Knowledge Loading Strategy\nexample only\n```\n\n## Notes\nKeep exactly.\n', headings: 2 },
   ])('adds missing Loading Strategy while retaining $label static content, once', async ({ before, headings }) => {
     vol.fromJSON({ '/test/prospec/index.md': before });
@@ -539,8 +540,13 @@ ${INDEX_TABLE_SEPARATOR}
     expect(vol.readFileSync('/test/prospec/index.md', 'utf8')).toBe(after);
   });
 
-  it.each(['', ' ##'])('keeps an authored Loading Strategy%s unchanged', async (closing) => {
-    const strategy = `## Progressive Knowledge Loading Strategy${closing}\n\nAuthored policy.\n`;
+  it.each([
+    '## Progressive Knowledge Loading Strategy',
+    '## Progressive Knowledge Loading Strategy ##',
+    '## Progressive Knowledge Loading Strategy <!-- customized -->',
+    'Progressive Knowledge Loading Strategy\n--------------------------------------',
+  ])('keeps an authored Loading Strategy headed %j unchanged', async (heading) => {
+    const strategy = `${heading}\n\nAuthored policy.\n`;
     const before = `# Index\n<!-- prospec:auto-start -->\nold\n<!-- prospec:auto-end -->\n\n${strategy}\n## Notes\nKeep exactly.\n`;
     vol.fromJSON({ '/test/prospec/index.md': before });
     await updateIndex([{ name: 'auth', description: 'Auth', status: 'Active' }], {
@@ -548,7 +554,7 @@ ${INDEX_TABLE_SEPARATOR}
     });
     const after = vol.readFileSync('/test/prospec/index.md', 'utf8') as string;
     expect(after.endsWith(`${strategy}\n## Notes\nKeep exactly.\n`)).toBe(true);
-    expect(after.match(/^## Progressive Knowledge Loading Strategy/gm)).toHaveLength(1);
+    expect(after).not.toContain('| **L3** | Source code files |');
   });
 
   it('renders curated columns from module data instead of blanking them to — (REQ-KNOW-036)', async () => {

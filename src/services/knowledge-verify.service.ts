@@ -142,7 +142,7 @@ export async function execute(options: KnowledgeVerifyOptions): Promise<Knowledg
   }
 
   const doc = parseYamlDocument(content, moduleMapPath);
-  mergeIntoDocument(doc, moduleMap as unknown as Record<string, unknown>, { preserveModuleMap: true });
+  mergeIntoDocument(doc, moduleMap as unknown as Record<string, unknown>, { preserveModuleMap: true, sourcePath: moduleMapPath });
   await atomicWrite(target.path, stringifyYamlDocument(doc));
 
   return { moduleMapPath, verified, skipped, timestamp: now };

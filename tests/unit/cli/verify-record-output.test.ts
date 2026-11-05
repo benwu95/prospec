@@ -34,7 +34,6 @@ function baseResult(overrides: Partial<VerifyRecordResult> = {}): VerifyRecordRe
     warnings: [],
     statusAdvanced: true,
     gradeGraduates: true,
-    excludedFromGrade: [],
     ...overrides,
   };
 }
@@ -73,7 +72,6 @@ describe('verify-record-output', () => {
             { name: `judg${BEL}dim`, result: 'WARN', adjudicator: 'judgment' },
           ],
           warnings: [`warn${BEL}text`],
-          excludedFromGrade: [`excl${BEL}dim`],
         }),
         'normal',
       ),
@@ -83,7 +81,6 @@ describe('verify-record-output', () => {
     expect(out).toContain('machdim=PASS');
     expect(out).toContain('judgdim=WARN');
     expect(out).toContain('warntext');
-    expect(out).toContain('excldim');
   });
 
   it('prints the self-verification cap with its dimensions and remedy', () => {

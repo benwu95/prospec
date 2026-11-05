@@ -97,7 +97,7 @@ export async function scanArchivedReviews(
       const reviewPath = path.join(full, 'review.md');
       if (fs.existsSync(reviewPath)) {
         const content = await fs.promises.readFile(reviewPath, 'utf-8');
-        const { rows } = parseReviewDocument(content);
+        const { rows } = parseReviewDocument(content, { lenient: true });
         const { lenses } = parseReviewMetrics(content);
         // Extract date if folder starts with YYYY-MM-DD
         const dateMatch = item.name.match(/^(\d{4}-\d{2}-\d{2})-(.*)$/);

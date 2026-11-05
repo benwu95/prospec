@@ -1,7 +1,7 @@
 import { isDeepStrictEqual } from 'node:util';
 import { Document, parseDocument, stringify, isAlias, isMap, isNode, isPair, isScalar, isSeq, visit } from 'yaml';
 import type { DocumentOptions, Node, Pair, ParseOptions, SchemaOptions, ToStringOptions, YAMLMap, YAMLSeq } from 'yaml';
-import { YamlParseError } from '../types/errors.js';
+import { PrerequisiteError, YamlParseError } from '../types/errors.js';
 import { ModuleMapSchema } from '../types/module-map.js';
 import { collapseWhitespace } from './text-lines.js';
 
@@ -204,6 +204,38 @@ function reconcileMap(
   }
 }
 
+/** The first path where two plain-data values differ, or undefined when equal. */
+function firstDifference(a: unknown, b: unknown, at: string[] = []): string[] | undefined {
+  if (isDeepStrictEqual(a, b)) return undefined;
+  if (Array.isArray(a) && Array.isArray(b) && a.length === b.length) {
+    for (let i = 0; i < a.length; i++) {
+      const found = firstDifference(a[i], b[i], [...at, String(i)]);
+      if (found) return found;
+    }
+  }
+  if (isPlainObject(a) && isPlainObject(b)) {
+    for (const key of new Set([...Object.keys(a), ...Object.keys(b)])) {
+      const found = firstDifference(a[key], b[key], [...at, key]);
+      if (found) return found;
+    }
+  }
+  return at;
+}
+
+/**
+ * Refuse Module Map data a preserving write cannot carry verbatim: undeclared
+ * fields or values outside ModuleMapSchema would be stripped or coerced.
+ */
+export function assertWritableModuleMap(input: unknown, sourcePath = 'module-map.yaml'): void {
+  const parsed = ModuleMapSchema.safeParse(input);
+  if (parsed.success && isDeepStrictEqual(parsed.data, input)) return;
+  const field = parsed.success ? firstDifference(input, parsed.data) : parsed.error.issues[0]?.path.map(String);
+  throw new PrerequisiteError(
+    `Unsupported Module Map data in ${sourcePath} at \`${field?.join('.') || '(root)'}\`: writes require only fields and value types declared by ModuleMapSchema`,
+    'Remove or correct that field (or upgrade Prospec if a newer version declares it), then re-run the command',
+  );
+}
+
 /**
  * Apply a plain object to a Document in place, preserving comments and formatting
  * where the structure is unchanged. Falls back to replacing the whole contents
@@ -212,18 +244,12 @@ function reconcileMap(
 export function mergeIntoDocument(
   doc: Document,
   value: Record<string, unknown>,
-  options: { preserveModuleMap?: boolean } = {},
+  options: { preserveModuleMap?: boolean; sourcePath?: string } = {},
 ): void {
   if (options.preserveModuleMap) {
     const original = doc.toJS();
     if (isDeepStrictEqual(original, value)) return;
-    for (const input of [original, value]) {
-      const parsed = ModuleMapSchema.safeParse(input);
-      if (!parsed.success || !isDeepStrictEqual(parsed.data, input)) {
-        throw new YamlParseError('<document>',
-          'Unsupported Module Map data: writes require only fields and value types declared by ModuleMapSchema; check the Prospec version and module-map.yaml before writing');
-      }
-    }
+    for (const input of [original, value]) assertWritableModuleMap(input, options.sourcePath);
     materializeAliases(doc);
   }
   if (isMap(doc.contents)) {

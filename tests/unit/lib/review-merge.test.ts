@@ -122,6 +122,9 @@ describe('Repro JSON storage preserves legal commands (issue #444)', () => {
     const content = canonical(['Repro (JSON)'], [cell!]);
     expect(() => parseReviewRows(content)).toThrow(PrerequisiteError);
     expect(() => parseReviewDocument(content)).toThrow(PrerequisiteError);
+    const [row] = parseReviewDocument(content, { lenient: true }).rows;
+    expect(row).toMatchObject({ id: 'F-1', severity: 'major' });
+    expect(row).not.toHaveProperty('repro');
   });
 
   it.each([
@@ -134,6 +137,9 @@ describe('Repro JSON storage preserves legal commands (issue #444)', () => {
     const content = canonical(headers as string[], ['', '']);
     expect(() => parseReviewRows(content)).toThrow(PrerequisiteError);
     expect(() => parseReviewDocument(content)).toThrow(PrerequisiteError);
+    const [row] = parseReviewRows(content, { lenient: true });
+    expect(row).toMatchObject({ id: 'F-1', lens: 'correctness' });
+    expect(row).not.toHaveProperty('repro');
   });
 
   it('counts table escaping over JSON storage cells without counting quotes or tabs', () => {

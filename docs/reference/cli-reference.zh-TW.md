@@ -129,8 +129,8 @@ your-project/
   - **執行行為**：
     - 依據 `module-map.yaml` 重新生成 `prospec/index.md` 的 auto 區塊。
     - 只有 map 未設定的 curated 欄位才從舊 index 補入；明確的空陣列或空字串保持 authoritative，對應 cell 顯示 `—`。
-    - 保留 index auto block 外的 authored 內容，缺少 Loading Strategy 時才補建；既有 authored strategy 保持不變。fenced examples 或 HTML 註解內的標題不算既有章節，原始內容仍完整保留。沒有 markers 的既有 index 保留原文並新增受管 auto block。
-    - Module Map 變更保留存活 node 的註解、scalar style（含 folded scalar）、flow/block collection style 與 Prospec schema 已宣告且未修改的值。需寫入時遇到未宣告欄位或型別不符資料，會拒絕寫入並提示，原 map 不變；不支援任意 metadata 擴充或舊版寫回新版資料。curated migration 失敗時也會保留既有 index、略過重建並回報警告。no-op 保持原始 bytes。實際寫入允許空白與換行正規化；支援資料內的 anchor owner 變更或移除時，aliases 可物化以保留值。
+    - 保留 index auto block 外的 authored 內容，缺少 Loading Strategy 時才補建；既有 authored strategy 保持不變。以未翻譯的 `Progressive Knowledge Loading Strategy` h2 標題辨識既有章節（ATX 或 setext，可帶行尾 HTML 註解）；fenced examples 或 HTML 註解內的標題不算既有章節，原始內容仍完整保留。沒有 markers 的既有 index 保留原文並新增受管 auto block；只有 fenced code 之外、獨佔一行的 marker 才界定該 block，行內或範例中引用的 marker 不會吞掉 authored 內容。
+    - Module Map 變更保留存活 node 的註解、scalar style（含 folded scalar）、flow/block collection style 與 Prospec schema 已宣告且未修改的值。需寫入時遇到未宣告欄位或型別不符資料，會拒絕寫入並提示 map 路徑與第一個違規欄位路徑，原 map 不變；delta 模式的 `knowledge update` 在寫入任何 README 前就完成此判定；不支援任意 metadata 擴充或舊版寫回新版資料。curated migration 失敗時也會保留既有 index、略過重建並回報警告。no-op 保持原始 bytes。實際寫入允許空白與換行正規化；支援資料內的 anchor owner 變更或移除時，aliases 可物化以保留值。
     - 為全新模組建立 skeleton README；REMOVED 需求只把所屬模組列為 README-pending，不會棄用模組或從 module-map 移除。
     - 骨架 Key Files 使用 git index 成員，套用敏感檔案與設定的排除規則。沒有 index 成員時，先以 `git add` 加入新檔、刪除骨架，再重新執行。列檔失敗時保留空白 Key Files 並回報原因；修正後刪除骨架再重新執行。模組 paths 全被拒收時另發 warning，指向 `unsupported-module-path`。
     - 以 `--change` 執行時，若 `module-map.yaml` 存在卻無法讀取、解析或驗證，或解析到 knowledge root 之外，在分類與任何寫入之前拒收，指名該原因，而不是把每條 REQ 報成「不是模組」。
@@ -231,7 +231,7 @@ Entry Points、Dependencies、Config Files 沒有逐語言覆寫機制——未�
 | `prospec spec show <feature> [options]` | 唯讀且精確讀取 Feature Spec 的指定 REQ 或 Story 區段 |
 | `prospec constitution show --station <s> \| --rule <name>` | 唯讀讀取單一站的 Constitution 切片（依規則的 `stations:` 宣告）或單條規則；無法切片時 fail-open 到全文 |
 | `prospec archive <name...> [--dry-run]` | 封存 verified 變更：搬移目錄、生成摘要並機械式同步 Feature Spec |
-| `prospec archive finalize <name> [--bundle <identity>] [--dry-run]` | 歸檔後置完成步驟：複製 final summary 至歷史目錄並對帳 spec 計數 |
+| `prospec archive finalize <name> [--bundle <identity>] [--dry-run]` | 歸檔後置完成步驟：複製 final summary 至歷史目錄、對帳 spec 計數，並刷新 product Feature Map |
 | `prospec history paths [--json]` | 唯讀回報來源與 canonical history roots |
 | `prospec history import --from <project-root> [--dry-run] [--json]` | 複製匯入同專案 legacy 歷史並保留來源 |
 
@@ -373,7 +373,7 @@ Review 維持 artifact→metadata，verify 維持 metadata→evidence 的寫入�
   - **`--signoff <option>`**（僅限 `--skill prospec-plan`，且須有人類明確指示）：記錄人類的 plan 簽核——`scale: full` 簽候選方案，其他有 plan 的 scale 簽 `plan`（被審核的 plan 版本，不讀候選檔）。前置驗證在發布前拒絕不符合下列條件的輸入：該 scale 有 plan、最新 plan verifier 結果為 PASS/WARN、已記錄 plan verifier 報告（Break-Glass 記錄未稽核任何內容）且其標記的 plan.md＋delta-spec.md 版本就是目前版本。簽候選方案時另須 `candidates/decision.json` 通過 schema、option 等於其 `recommended_option` 與最新報告的 `audited_option`（要改選其他方案，須先修訂 plan 與 decision 並重新記錄 verifier），且整組候選通過 `prospec validate candidates`（因此非 hybrid 的 option 必有有效的 `candidates/<option>.json`）；`scale: full` 不接受 `plan`。接受後，候選方案會把 decision.json 的 `graded_by` 設為 `human`，並追加一筆帶 `signoff_option` 與 `signoff_plan_digest` 的 PASS 記錄；`--warning` 為人類備註。簽核在 decision 發布前與 metadata claim 內重驗 metadata、plan/delta、config 及 candidate 輸入，包含 rename 前的最後檢查。之後發現的衝突可能留下已發布的 decision，而 metadata 尚無簽核；路由仍以 `quality_log` 為權威。與 `--result`、`--verifier-report` 及組合式欄位互斥。
   - **發布失敗**：`METADATA_WRITE_FAILED` 與 `SIGNOFF_WRITE_FAILED` 以非零碼結束。Text 與 JSON 揭露相同的實際進度：`error.publication.metadata: { metadataPath, claimPath, metadata_published }` 與 `error.publication.signoff: { metadataPath, decisionPath?, decision_published, metadata_recorded }`（適用時才出現各項）。Metadata rename 成功後若 claim cleanup 失敗，仍回報 `metadata_published: true`，簽核亦為 `metadata_recorded: true`。已發布的 decision 保留，不執行 rollback 或自動重試；先檢查 `prospec status` 與目前輸入再重試。Abandon error 的 private-staging metadata 已發布不代表 terminal bundle 已發布；須保留外層 operation 的 paths 與 phase 判讀。
   - **共用 metadata 發布**：參與協定的 metadata Document writers 使用 target-adjacent exclusive claim。Claim 忙碌時立即拒絕並列出路徑，只有持有者才釋放自己的 claim。當機後須先確認 writer 已結束，再人工處理遺留 claim；不自動 unlock。簽核另檢查讀取輸入的新鮮度；共用 claim 不替其他 writers 增加 revision checks，也不構成跨檔 transaction。
-  - **Metadata 保留**：可擴充 metadata objects 保留 unknown values，涵蓋 escalation variants、accepted receipts 與 abandonment 子記錄。Modeled object 層的 own `__proto__` 會拒收；opaque unknown values 與 raw `test_policy` 不做遞迴檢查並保留原值。Retry links 維持封閉，fresh-evidence policy 驗證保持 strict。Append 不動其他 entries；same-round counts 保留 unknown nodes／comments 並清除省略的 modeled fields；若保留的 alias 指向將被取代的 node，則拒收 metadata update。freeze／amend 保留 baseline／history extras。新的 provenance、完整 test-attempt snapshot 或 terminal abandonment 會取代其 owned subtree，包含舊 extras。Document writer 保留未觸及註解；object writer 保留值，不保留 YAML 排版或註解。
+  - **Metadata 保留**：可擴充 metadata objects 保留 unknown values，涵蓋 escalation variants、accepted receipts 與 abandonment 子記錄。Modeled object 層的 own `__proto__` 會拒收；opaque unknown values 與 raw `test_policy` 不做遞迴檢查並保留原值。Retry links 維持封閉，fresh-evidence policy 驗證保持 strict。Append 不動其他 entries；same-round counts 保留 unknown nodes／comments 並清除省略的 modeled fields；若保留的 alias 指向將被取代的 node，則拒收 metadata update，所有取代 owned subtree 的 writer 皆適用。freeze／amend 保留 baseline／history extras。新的 provenance、完整 test-attempt snapshot 或 terminal abandonment 會取代其 owned subtree，包含舊 extras。Document writer 保留未觸及註解；object writer 保留值，不保留 YAML 排版或註解。
   - **閘門範圍**：此閘門是 **per-change**——sibling change 的過期證據不會擋住這一個。（以 `[CODE]` 標示 CLI 自有判定的是 `prospec status` 的路由理由行。）
 
 - **`prospec change progress [--complete <task>] [--change <name>]`**
@@ -419,7 +419,8 @@ Review 維持 artifact→metadata，verify 維持 metadata→evidence 的寫入�
   - **重點條列**：
     - 機械維度自讀 `prospec-report.json`，判斷維度由參數或 JSON 檔案傳入（`--dimensions`）。
     - 不論輸入形式（`--dimensions` 檔案或 `--dimension` 旗標），都在任何其他拒收之前結清 verify 委派：grader 票據尚未收件或已被拒收即拒絕並不寫入任何檔案；一般輸出必定帶一行 delegation 揭露。
-    - **Proven backfill debt**：具備 `scale: backfill` 與 `backfill-draft.md` 時，`constitution_rules[]` 只有 raw `FAIL`／`WARN` 規則可加上 `applicability: pre-existing-code`，並須以非空 `statement` 說明既有程式碼、非本次引入的理由與本次 artifacts 的合規證據。主張 debt 時須完整列出目前每條已知規則且各一次；unknown、duplicate 或 missing rules 一律拒絕。Current-artifact 或 mixed-scope 規則仍適用。只有合法 debt-rule floor 視為 informational；aggregate Constitution FAIL（含 legacy flags）、獨立 severity floors 與實際 tests FAIL 仍參與評級。Raw rules、machine ledger 與 statements 保留在 `verify.md`；CLI 驗證 payload 結構，不證明判斷的歷史真實性。Baseline gaps 保持 `not-adjudicated`，既有 grade caps 仍適用。
+    - **Constitution 規則下限**：`constitution_rules[]` 中每條 `WARN`／`FAIL` 都會成為 constitution 彙總判定的下限；inventory severity 為 `MAY` 的規則除外，MAY 違規只是 informational note，不影響評級。
+    - **Proven backfill debt**：具備 `scale: backfill` 與 `backfill-draft.md` 時，`constitution_rules[]` 只有 raw `FAIL`／`WARN` 規則可加上 `applicability: pre-existing-code`，並須以非空 `statement` 說明既有程式碼、非本次引入的理由與本次 artifacts 的合規證據。主張 debt 時須完整列出目前每條已知規則且各一次；unknown、duplicate 或 missing rules 一律拒絕。Current-artifact 或 mixed-scope 規則仍適用。只有合法 debt-rule floor 視為 informational；aggregate Constitution FAIL（含 legacy flags）、獨立 severity floors 與實際 tests FAIL 仍參與評級。test-provenance 僅豁免（缺少或過時）的測試紀錄記為 `tests: not-adjudicated`，不會是 PASS。Raw rules、machine ledger 與 statements 保留在 `verify.md`；CLI 驗證 payload 結構，不證明判斷的歷史真實性。Baseline gaps 保持 `not-adjudicated`，既有 grade caps 仍適用。
     - **上下文與逐 REQ 驗證**：當傳入 `--dimensions <file>` 且 `delta-spec-compliance` 包含 `context_id`、`items[]` 與 `scenario_findings[]` 時：
       - `verify record` 會透過共用的 `assessVerificationContext` 比對已保存的 `verify-context.json` 與當前重組事實，確認程式碼快照、規格內文、基準版本、提案與測試 attempt 身分在寫入前完全一致。任一項不符即拒絕記錄。
       - 逐一評定 delta-spec 中的每一項正式需求。缺交的 REQ 會由機器自動補為 `not-adjudicated`。
@@ -439,7 +440,7 @@ Review 維持 artifact→metadata，verify 維持 metadata→evidence 的寫入�
 
 - **`prospec learn yield [--consecutive-zero <n>] [--min-invocations <n>] [--min-yield <ratio>] [--corpus <dir>] [--json]`**
   - **核心用途**：從歷史封存的審查記錄中計算各審查鏡角（lens）的確認產出率統計與淘汰建議。
-  - **重點條列**：已知 canonical IDs 與明確 aliases 共用統計；未知或混合標籤保留 custom 分組。每個 change 對每個執行過的 lens 只算一次 invocation，confirmed findings 逐筆計數。Rows-only proxy 或 declared runs 不足時維持 `keep`。Declared runs 足夠後，必跑的 correctness、security、spec-architecture 達零產出或低 yield 條件時，建議 `review` 準則、執行與歸因；退休需明確變更必跑政策。Conditional/custom 保留零產出 `retire` 優先於低 yield `review` 的順序。Archive bytes 與 finding identities 不變。
+  - **重點條列**：已知 canonical IDs 與明確 aliases 共用統計；未知或混合標籤保留 custom 分組。每個 change 對每個執行過的 lens 只算一次 invocation，confirmed findings 逐筆計數。Rows-only proxy 或 declared runs 不足時維持 `keep`。Declared runs 足夠後，必跑的 correctness、security、spec-architecture 達零產出或低 yield 條件時，建議 `review` 準則、執行與歸因；退休需明確變更必跑政策。Conditional/custom 保留零產出 `retire` 優先於低 yield `review` 的順序。Archive bytes 與 finding identities 不變。手動改壞的 repro 欄位視為缺少，不會中止掃描。
 
 - **`prospec validate <kind> [target] [--change <name>]`**
   - **核心用途**：機械式校驗工件結構完整性（支援 `proposal`、`slug`、`promote-scaffold`、`backfill-draft`、`design-spec`、`module-readme`、`candidates` 等）。`module-readme` 會依 canonical Markdown convention 校驗指定模組的 README。`candidates` 以 schema 校驗變更的 `candidates/option-*.json` 與 `decision.json`，並印出指標表（依 module map `depends_on` 計算的 `direction_violations`、`touched_modules`、`estimated_lines`、`unknown_references`）。校驗失敗時 exit 1。

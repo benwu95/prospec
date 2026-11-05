@@ -408,6 +408,14 @@ describe('hasAutoBlock', () => {
     expect(hasAutoBlock('just text\nno markers')).toBe(false);
     expect(hasAutoBlock('<!-- prospec:auto-start -->\nunclosed')).toBe(false);
   });
+
+  it('ignores markers quoted inline or inside a fenced example', () => {
+    const quoted = 'Never edit `<!-- prospec:auto-start -->` blocks.\nAuthored.\n';
+    expect(hasAutoBlock(`${quoted}<!-- prospec:auto-end -->\n`)).toBe(false);
+    expect(hasAutoBlock('```md\n<!-- prospec:auto-start -->\nexample\n<!-- prospec:auto-end -->\n```\n')).toBe(false);
+    const block = '<!-- prospec:auto-start -->\nOLD\n<!-- prospec:auto-end -->';
+    expect(replaceAutoBlock(`${quoted}\n${block}\n`, block.replace('OLD', 'NEW'))).toBe(`${quoted}\n${block.replace('OLD', 'NEW')}\n`);
+  });
 });
 
 describe('replaceAutoBlock', () => {

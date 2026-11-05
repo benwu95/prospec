@@ -31,12 +31,6 @@ export function formatVerifyRecordOutput(
   if (result.coverageSummary !== undefined) {
     lines.push(`Requirements coverage: ${sanitizeTerminal(result.coverageSummary)}`);
   }
-  if (result.excludedFromGrade.length > 0) {
-    const excluded = result.excludedFromGrade.map((n) => sanitizeTerminal(n)).join(', ');
-    lines.push(
-      pc.dim(`Excluded from grade (scale policy, recorded as informational): ${excluded}`),
-    );
-  }
   // The self-verification grade cap: a separate signal from the WARN ledger, so
   // it is surfaced on its own line with the remedy the developer needs.
   if (result.selfVerifiedCap !== undefined) {

@@ -73,7 +73,8 @@ export function toInlineCodeSpan(raw: string): string {
  * CommonMark close rules matter here: the closer must use the same character,
  * be at least as long as the opener, and carry no info string — otherwise a
  * 4-backtick fence wrapping a 3-backtick example leaks its content.
- * With htmlComments, also mask lines touched by HTML comments outside fences.
+ * With htmlComments, also remove HTML comment spans outside fences; a line left
+ * with only whitespace is blanked.
  */
 export function withoutFencedBlocks(lines: string[], options: { htmlComments?: boolean } = {}): string[] {
   return scanFences(lines, options.htmlComments).masked;
@@ -150,18 +151,27 @@ function scanFences(lines: string[], maskHtmlComments = false): { masked: string
         if (end !== undefined) closingTick.set(index, end);
         nextTick.set(token[0], index);
       }
+      let kept = '';
+      let visibleFrom = 0;
       for (let index = 0; index < tokens.length; index++) {
         const token = tokens[index]!;
         if (htmlComment) {
-          if (token[0] === '-->') htmlComment = false;
+          if (token[0] === '-->') {
+            htmlComment = false;
+            visibleFrom = token.index + token[0].length;
+          }
         } else if (token[0] === '<!--' && !isEscapedAt(line, token.index)) {
+          kept += line.slice(visibleFrom, token.index);
           htmlComment = true;
           hidden = true;
         } else if (token[0].startsWith('`')) {
           index = closingTick.get(index) ?? index;
         }
       }
-      if (hidden) return '';
+      if (hidden) {
+        if (!htmlComment) kept += line.slice(visibleFrom);
+        return kept.trim() === '' ? '' : kept;
+      }
     }
     return line;
   });

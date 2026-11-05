@@ -8,7 +8,7 @@
 |------|---------|
 | `archive.service.ts` → `syncToFeatureSpecs` | Merges delta-spec ADDED/MODIFIED/REMOVED into `specs/features/*.md` (Replace-in-Place) and appends the Change History row to whichever file hosts the section — mother file or a registered slice |
 | `archive.service.ts` → `generateProductSpec` | Syncs `product.md`'s `## Feature Map` — the file's ONLY machine-owned region |
-| `archive.service.ts` → `syncFeatureMap` | Bootstraps `feature-map.yaml` once (no-clobber); shares `listFeatureSpecFiles` with product.md and loads registered readable slices through `loadFeatureSpecContent` |
+| `archive.service.ts` → `syncFeatureMap` | Bootstraps `feature-map.yaml` once (no-clobber); shares `listFeatureSpecFiles` and the contained reader with product.md (an escaping mother symlink is absent from both) and loads registered readable slices through `loadFeatureSpecContent` |
 | `archive.service.ts` → `executeFinalize` | Post-judgment: `_archived-history` copy + frontmatter counter reconciliation + product Feature Map refresh |
 
 ## Public API

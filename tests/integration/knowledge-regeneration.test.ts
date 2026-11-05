@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { mkdtempSync, mkdirSync, readFileSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdtempSync, mkdirSync, readFileSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { isScalar, isSeq, parseDocument } from 'yaml';
@@ -205,6 +205,17 @@ describe('authored Knowledge regeneration', () => {
       expect(read(cwd, MAP)).toBe(original);
     },
   );
+
+  it('refuses unsupported data in delta mode before writing any README', async () => {
+    const original = 'owner: platform-team\n' + AUTHORED_MAP;
+    const cwd = fixture(true, original);
+    put(cwd, 'delta-spec.md', '## ADDED Requirements\n\n### REQ-SEARCH-001: Search\n\nBody.\n');
+    await expect(update({ cwd, deltaSpecPath: path.join(cwd, 'delta-spec.md') }))
+      .rejects.toThrow(/Unsupported Module Map data in .*module-map\.yaml at `owner`/);
+    expect(existsSync(path.join(cwd, 'prospec/ai-knowledge/modules/search'))).toBe(false);
+    expect(read(cwd, MAP)).toBe(original);
+    expect(read(cwd, INDEX)).toBe(CURATED_INDEX);
+  });
 
   it('keeps unknown recursive data untouched during a no-op add/remove', async () => {
     const original = AUTHORED_MAP.replace('name: auth # auth identity', 'name: auth # auth identity\n    custom: &cycle {self: *cycle}');

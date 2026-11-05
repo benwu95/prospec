@@ -162,14 +162,14 @@ description, guessed paths). What remains is curation (judgment):
 
 #### 3d: prospec/index.md (CLI-generated — never hand-edit the auto block)
 
-On a project that curated in index.md, the first run **backfills** the curated content columns
-(Keywords/Aliases/Rationale/Description) into `module-map.yaml` (no-clobber) before regenerating.
+A project that curated in index.md has its first run **backfill** absent Aliases/Rationale/Description
+into `module-map.yaml` (explicit empties stay; failed migration warns, index kept).
 **Depends On** derives from `relationships.depends_on`; a module-map lacking it renders `—` until
 populated (re-run `prospec-knowledge-generate`).
 
 After the re-run, verify (read, don't write):
 - ADDED modules appear as Active
-- the Progressive Knowledge Loading Strategy section (outside the auto block) is intact
+- the Progressive Knowledge Loading Strategy section (outside the auto block) is intact under its untranslated heading
 
 #### 3e: Stamp Knowledge Freshness (`prospec knowledge verify`)
 

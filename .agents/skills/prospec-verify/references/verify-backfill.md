@@ -51,7 +51,7 @@ Proven backfill requires both `metadata.scale: backfill` and `.prospec/changes/[
 ### Dimension 5/5: Tests
 - **Test Absence Tolerance**: Missing brownfield unit tests are **informational**.
 - **Real Test Failures**: Any existing test in the test suite that actually **fails** is a hard **FAIL**.
-- **Applicability**: Use existing `test-provenance` adjudication for absent runs; actual `FAIL` is never excluded. Unknown or skipped never becomes PASS.
+- **Applicability**: Use existing `test-provenance` adjudication; actual `FAIL` is never excluded; absent or stale runs are `not-adjudicated`; unknown or skipped never becomes PASS.
 
 ---
 

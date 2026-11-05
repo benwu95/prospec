@@ -64,6 +64,13 @@ it.each(['abandoned', 'partial'])('excludes %s from finalize and both review cor
   expect(await scanArchivedReviews('/absent', ['/p/.prospec/abandoned'], '/p')).toEqual([]);
   expect(vol.toJSON()).toEqual(before);
 });
+it('reads a hand-edited Repro (JSON) cell as absent instead of aborting the corpus scan', async () => {
+  const review = '| ID | Location | Severity | Lens | Status | Summary | Repro (JSON) |\n|---|---|---|---|---|---|---|\n| F-1 | a.ts:1 | major | correctness | open | defect | pnpm test a |\n';
+  vol.fromJSON({ '/external/2026-01-01-edited/review.md': review });
+  const [entry] = await scanArchivedReviews('/absent', ['/external'], '/p');
+  expect(entry).toMatchObject({ changeName: 'edited', rows: [{ id: 'F-1', lens: 'correctness' }] });
+  expect(entry!.rows[0]).not.toHaveProperty('repro');
+});
 it('retains legacy corpus entries without modern metadata', async () => {
   vol.fromJSON({ '/external/2026-01-01-legacy/review.md': '# Review\n' });
   expect(await scanArchivedReviews('/absent', ['/external'], '/p')).toMatchObject([{ changeName: 'legacy' }]);
