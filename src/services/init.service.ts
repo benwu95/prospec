@@ -2,7 +2,7 @@ import * as path from 'node:path';
 import { checkbox, input, Separator } from '@inquirer/prompts';
 import { AlreadyExistsError, ConfigInvalid } from '../types/errors.js';
 import type { ProspecConfig } from '../types/config.js';
-import { baseDirIssue, DEFAULT_BASE_DIR, DEFAULT_ARTIFACT_LANGUAGE, VALID_AGENTS } from '../types/config.js';
+import { baseDirIssue, DEFAULT_BASE_DIR, DEFAULT_ARTIFACT_LANGUAGE, ProspecConfigSchema, VALID_AGENTS } from '../types/config.js';
 import { checkConfigPathTopology, writeConfig } from '../lib/config.js';
 import { fileExists, ensureDir, atomicWrite, readFileIfExists } from '../lib/fs-utils.js';
 import { mergeManagedDoc } from '../lib/content-merger.js';
@@ -22,6 +22,7 @@ import type { GitignoreBlockResult } from '../types/gitignore-block.js';
 import { shippedSkillLayout, skillPathsOf } from './agent-sync.service.js';
 import {
   AGENT_CONFIGS,
+  mergeGroupInvocationGuidance,
   mergeGroupRenderFlags,
   renderFlagContext,
   type AgentConfig,
@@ -43,8 +44,15 @@ export interface InitResult {
   artifactLanguage: string;
   trustZoneLanguage: string;
   createdFiles: string[];
+  phases: string[];
+  artifacts: InitArtifactOutcome[];
   /** The `.gitignore` managed-block result (REQ-SERVICES-130). */
   gitignore: GitignoreBlockResult;
+}
+
+export interface InitArtifactOutcome {
+  path: string;
+  status: 'created' | 'skipped' | 'merged';
 }
 
 /**
@@ -61,6 +69,8 @@ export interface InitResult {
 export async function execute(options: InitOptions): Promise<InitResult> {
   const cwd = options.cwd ?? process.cwd();
   const configPath = path.join(cwd, '.prospec.yaml');
+  const phases: string[] = [];
+  const artifactOutcomes: InitArtifactOutcome[] = [];
 
   // 1. Check existing config
   if (fileExists(configPath)) {
@@ -72,6 +82,7 @@ export async function execute(options: InitOptions): Promise<InitResult> {
 
   // 3. Detect agents
   const agentInfos = detectAgents();
+  phases.push('inspect-project');
 
   // 4. Resolve project name
   const projectName = options.name ?? path.basename(cwd);
@@ -155,7 +166,7 @@ export async function execute(options: InitOptions): Promise<InitResult> {
       name: projectName,
     },
     ...(hasTechStack(techStack)
-      ? { tech_stack: techStack }
+      ? { tech_stack: ProspecConfigSchema.shape.tech_stack.parse(techStack) }
       : {}),
     paths: { base_dir: baseDir },
     artifact_language: artifactLanguage,
@@ -168,6 +179,7 @@ export async function execute(options: InitOptions): Promise<InitResult> {
   const knowledgePath = path.join(cwd, baseDir, 'ai-knowledge');
   const modulesPath = path.join(knowledgePath, 'modules');
   const specsPath = path.join(cwd, baseDir, 'specs');
+  phases.push('resolve-configuration');
 
   // 9. Render ALL template contents up front. A render failure aborts before any
   // file is written, so init never leaves a partially-scaffolded project behind.
@@ -182,9 +194,10 @@ export async function execute(options: InitOptions): Promise<InitResult> {
       const { absPath, label } = resolveInitDocLocation(doc, config, cwd);
       return { path: absPath, content: renderInitDoc(doc, contexts), label };
     }),
-    { path: path.join(cwd, 'AGENTS.md'), content: renderTemplate('agent-configs/entry.md.hbs', { ...contexts.standard, ...agentsMdRenderFlags(selectedAgents), skills: [], constitution_path: `${baseDir}/CONSTITUTION.md`, knowledge_base_path: `${baseDir}/ai-knowledge` }), label: 'AGENTS.md', managed: true },
+    { path: path.join(cwd, 'AGENTS.md'), content: renderTemplate('agent-configs/entry.md.hbs', { ...contexts.standard, ...agentsMdContext(selectedAgents), skills: [], constitution_path: `${baseDir}/CONSTITUTION.md`, knowledge_base_path: `${baseDir}/ai-knowledge` }), label: 'AGENTS.md', managed: true },
     { path: path.join(specsPath, '.gitkeep'), content: '', label: `${baseDir}/specs/.gitkeep` },
   ];
+  phases.push('render-templates');
 
   // 10. Create directories (idempotent) and write each artifact. Curated
   // trust-zone docs use per-file skip-if-exists (cf. knowledge-init.service):
@@ -202,24 +215,34 @@ export async function execute(options: InitOptions): Promise<InitResult> {
   const writtenLabels: string[] = [];
   for (const artifact of artifacts) {
     if (artifact.managed) {
+      const existed = fileExists(artifact.path);
       const existing = await readFileIfExists(artifact.path);
       await atomicWrite(artifact.path, mergeManagedDoc(artifact.content, existing));
       writtenLabels.push(artifact.label);
+      artifactOutcomes.push({ path: artifact.label, status: existed ? 'merged' : 'created' });
       continue;
     }
-    if (fileExists(artifact.path)) continue;
+    if (fileExists(artifact.path)) {
+      artifactOutcomes.push({ path: artifact.label, status: 'skipped' });
+      continue;
+    }
     await atomicWrite(artifact.path, artifact.content);
     writtenLabels.push(artifact.label);
+    artifactOutcomes.push({ path: artifact.label, status: 'created' });
   }
+  phases.push('write-artifacts');
 
   // 10b. Maintain the .gitignore managed block before the completion marker, so a
   // failure here leaves init re-runnable like any other artifact write.
   const gitignore = await syncGitignoreBlock({ cwd, skillPaths: skillPathsOf(selectedAgents), ...shippedSkillLayout() });
+  phases.push('sync-gitignore');
 
   // 11. Write .prospec.yaml LAST — its presence is the "init completed" marker
   // the step-1 guard keys on, so a failure before here leaves a re-runnable state
   // rather than a half-initialized project that AlreadyExistsError would block.
   await writeConfig(config, cwd);
+  artifactOutcomes.push({ path: '.prospec.yaml', status: 'created' });
+  phases.push('write-config');
 
   const createdFiles = ['.prospec.yaml', ...writtenLabels];
 
@@ -231,12 +254,14 @@ export async function execute(options: InitOptions): Promise<InitResult> {
     artifactLanguage,
     trustZoneLanguage,
     createdFiles,
+    phases,
+    artifacts: artifactOutcomes,
     gitignore,
   };
 }
 
 /**
- * The render flags the provisional `AGENTS.md` is written from: merged over the
+ * The context the provisional `AGENTS.md` is written from: merged over the
  * selected agents that ACTUALLY write that file, through the one reducer
  * registry `agent sync` uses.
  *
@@ -245,11 +270,15 @@ export async function execute(options: InitOptions): Promise<InitResult> {
  * selected agent's view instead is the `configs[0]` desync this file's second
  * render exit would otherwise reintroduce (issue #134, issue #271).
  */
-function agentsMdRenderFlags(selectedAgents: string[]): Record<string, string | boolean> {
+function agentsMdContext(selectedAgents: string[]): Record<string, unknown> {
   const members = selectedAgents
     .map((agent) => (AGENT_CONFIGS as Record<string, AgentConfig | undefined>)[agent])
     .filter((config): config is AgentConfig => config?.configPath === 'AGENTS.md');
-  return renderFlagContext(mergeGroupRenderFlags(members));
+  return {
+    ...renderFlagContext(mergeGroupRenderFlags(members)),
+    invocation_guidance: mergeGroupInvocationGuidance(members),
+    skill_path: members[0]?.skillPath,
+  };
 }
 
 async function promptAgentSelection(agentInfos: AgentInfo[]): Promise<string[]> {

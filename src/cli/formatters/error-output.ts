@@ -48,14 +48,14 @@ function highlightCommands(text: string): string {
  * Sets process.exitCode = 1.
  *
  * Output format:
- *   ✗ [error message]
+ *   ✗ [code] [error message]
  *     → [suggestion with highlighted commands]
  */
 export function formatProspecError(error: ProspecError): void {
   process.exitCode = 1;
   // message/suggestion may embed file-derived content (parse errors, report
   // details) — strip control chars before they reach the terminal.
-  const msg = `${pc.red('✗')} ${sanitizeTerminal(error.message)}`;
+  const msg = `${pc.red('✗')} [${sanitizeTerminal(error.code)}] ${sanitizeTerminal(error.message)}`;
   const suggestion = `  ${pc.dim('→')} ${highlightCommands(sanitizeTerminal(error.suggestion))}`;
   process.stderr.write(msg + '\n' + suggestion + '\n');
   const publication = publicationOf(error);

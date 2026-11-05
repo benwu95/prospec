@@ -17,6 +17,8 @@ function makeResult(overrides: Partial<InitResult> = {}): InitResult {
     artifactLanguage: 'English',
     trustZoneLanguage: 'English',
     createdFiles: [],
+    phases: [],
+    artifacts: [],
     gitignore: { status: 'unchanged', warnings: [], suggestedLines: [] },
   };
   return { ...base, ...overrides };
@@ -36,6 +38,47 @@ afterEach(() => {
 });
 
 describe('formatInitOutput', () => {
+  it('adds actual phases and artifact outcomes only in verbose mode', () => {
+    const { out, spy } = captureStdout();
+    const result = makeResult({
+      phases: ['Detected project context', 'Published configuration'],
+      artifacts: [
+        { path: '.prospec.yaml', status: 'created' },
+        { path: 'prospec/CONSTITUTION.md', status: 'skipped' },
+        { path: 'AGENTS.md', status: 'merged' },
+      ],
+    });
+    formatInitOutput(result, 'normal');
+    const normal = out();
+    spy.mockClear();
+    formatInitOutput(result, 'verbose');
+    const verbose = out();
+    expect(verbose).toContain('Initialization details:');
+    expect(verbose).toContain('Detected project context');
+    expect(verbose).toContain('Published configuration');
+    expect(verbose).toContain('created: .prospec.yaml');
+    expect(verbose).toContain('skipped: prospec/CONSTITUTION.md');
+    expect(verbose).toContain('merged: AGENTS.md');
+    expect(normal).not.toContain('Initialization details:');
+    expect(normal).not.toContain('skipped:');
+    expect(normal).not.toContain('merged:');
+    expect(verbose).toContain(normal.trim());
+    spy.mockClear();
+    formatInitOutput(result, 'quiet');
+    expect(out()).toBe('');
+  });
+
+  it('sanitizes phase and artifact paths in verbose details', () => {
+    const { out } = captureStdout();
+    formatInitOutput(makeResult({
+      phases: ['phase\u0007'],
+      artifacts: [{ path: 'file\u0007', status: 'skipped' }],
+    }), 'verbose');
+    expect(out()).toContain('phase');
+    expect(out()).toContain('skipped: file');
+    expect(out()).not.toContain('\u0007');
+  });
+
   describe('quiet log level', () => {
     it('writes nothing and returns early', () => {
       const { out, spy } = captureStdout();

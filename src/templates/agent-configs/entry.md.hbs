@@ -50,6 +50,7 @@ Project glossary and domain terms: [`{{knowledge_base_path}}/_glossary.md`]({{kn
 
 Prospec Skills use bare `prospec-<name>` as their canonical identity. Use the host-specific guidance below only when you want to invoke a Skill explicitly; descriptions and trigger words continue to support implicit discovery.
 
+{{#if invocation_guidance}}
 ## Invoking a Prospec Skill
 
 | Host | Explicit invocation |
@@ -57,6 +58,9 @@ Prospec Skills use bare `prospec-<name>` as their canonical identity. Use the ho
 {{#each invocation_guidance}}
 | {{label}} | {{#if invocationPrefix}}`{{invocationPrefix}}prospec-<name>`{{else}}{{invocationInstruction}} `prospec-<name>`{{/if}} |
 {{/each}}
+{{else}}
+No agent selected for this project reads `AGENTS.md`. To use one, add it to `agents` in `.prospec.yaml` and run `prospec agent sync` to deploy its Skills; `prospec status` then resolves station Skill and reference locations.
+{{/if}}
 
 {{#if surfaces_skill_frontmatter}}
 Each Skill's description and trigger words are surfaced automatically from its `SKILL.md` frontmatter, so identify the matching bare `prospec-<name>` Skill.
@@ -91,17 +95,21 @@ the standalone executable before running any skill — never substitute manual s
 
 **Station Transition Protocol**: The SDD workflow advances through stations. On advancing to ANY new station — whether `prospec status` routed you there or you cascaded to it autonomously — run `prospec status` first: it names the station's canonical `prospec-<name>` Skill, its reference map, and the resolved skill file as a separate fallback. Load that station's instructions BEFORE taking any station action:
 
+{{#if skill_path}}
 {{#if skill_lifecycle_persistent}}
 - Invoke — or re-invoke — the named Skill through this host's own skill mechanism, on every transition and re-entry. When that mechanism is unavailable, read the fallback file under `{{skill_path}}/` instead.
 {{else}}
 - Read the named station's `SKILL.md` — the fallback path under `{{skill_path}}/` — on every transition and re-entry.
+{{/if}}
+{{else}}
+- To use an agent that reads `AGENTS.md`, add it to `agents` in `.prospec.yaml` and run `prospec agent sync`; then run `prospec status` and read the named station's `SKILL.md` at the resolved location on every transition and re-entry.
 {{/if}}
 
 Then read that station's references at the phases it names; loading a station never means its references arrived. If {{#if skill_lifecycle_persistent}}neither route yields{{else}}that read does not yield{{/if}} the station's instructions, STOP and name what is missing — never act on remembered rules, and never skip an entry gate or a receipt. Accumulated context is no substitute: a long session's diffs and logs dilute the initial instructions.
 
 **Evidence Recording Order**: Recording evidence is the last mutation: every planned edit to the evidence snapshot's inputs lands before the final test record and review baseline; an edit afterward reopens them.
 
-**Checkpoint Correction Capture Protocol**: At natural reflection points — at session end, or before archiving a change — review the developer corrections you received this session and record each *generalizable* one via `prospec learn upsert` (a cross-cutting architecture, type-contract, testing, or security rule — never a one-off mock or business-string tweak; the deciding heuristic lives in the `prospec-learn` Skill's promotion-format reference under `{{skill_path}}/`, which you read with your file-reading tool rather than guessing from memory), naming its modules from `{{knowledge_base_path}}/module-map.yaml` and terms from `{{knowledge_base_path}}/_glossary.md`, with the `description` in the language the correction was given. Stay silent — do not interrupt the conversation or ask a blocking question — and surface a single line only when the command reports a promotion suggestion. Keep this ledger write a separate concern; never fold it into a feature commit.
+**Checkpoint Correction Capture Protocol**: At natural reflection points — at session end, or before archiving a change — review the developer corrections you received this session and record each *generalizable* one via `prospec learn upsert` (a cross-cutting architecture, type-contract, testing, or security rule — never a one-off mock or business-string tweak; the deciding heuristic lives in the `prospec-learn` Skill's promotion-format reference {{#if skill_path}}under `{{skill_path}}/`{{else}}in the configured host's Skill deployment (run `prospec agent sync` first; `prospec status` locates the active station's Skill and references){{/if}}, which you read with your file-reading tool rather than guessing from memory), naming its modules from `{{knowledge_base_path}}/module-map.yaml` and terms from `{{knowledge_base_path}}/_glossary.md`, with the `description` in the language the correction was given. Stay silent — do not interrupt the conversation or ask a blocking question — and surface a single line only when the command reports a promotion suggestion. Keep this ledger write a separate concern; never fold it into a feature commit.
 
 1. **Before starting**: Read the Constitution to understand project principles
 2. **Understand the structure**: Consult the AI Knowledge Index to grasp the module architecture

@@ -90,6 +90,8 @@ Raw scan 與新模組 README 骨架現在列出 git index 成員。掃描或建�
 
 commit 時間欄位改由每個 path group 各自的 `git log -1` 回答。專案根模組的 `last_src_commit` 也會隨重新蓋章的 commit 前進；這些欄位只供報告，新鮮度仍以 digest 判定。
 
+專案命令現在會在 stderr 警告 `.prospec.yaml` 中的未知欄位名稱（見[設定參考](../reference/configuration.zh-TW.md)）。舊版 `prospec init` 寫入的設定可能含有 `tech_stack.source`；`prospec upgrade` 會連同其他巢狀位置的未知欄位一起移除，升級後即不再警告。最外層的額外欄位會保留，警告會持續到你更名或移除為止。
+
 ## 升級至 2.10.0
 
 先更新 binary，再執行 `prospec upgrade`：同步後的 Skills 要求 CLI 2.10.0 以上，支援以 source digest 判定 Knowledge 新鮮度，以及在 review 前同步 Knowledge。

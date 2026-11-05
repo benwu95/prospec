@@ -27,7 +27,7 @@ const sync = (gitignore?: GitignoreBlockResult): AgentSyncFullResult => ({
 const FORMATTERS: Array<[string, (g: GitignoreBlockResult, level: LogLevel) => void]> = [
   ['init', (gitignore, level) => formatInitOutput({
     projectName: 'demo', techStack: {} as TechStackResult, agentInfos: [], selectedAgents: [],
-    artifactLanguage: 'English', trustZoneLanguage: 'English', createdFiles: [], gitignore,
+    artifactLanguage: 'English', trustZoneLanguage: 'English', createdFiles: [], phases: [], artifacts: [], gitignore,
   } satisfies InitResult, level)],
   ['agent sync', (gitignore, level) => formatAgentSyncOutput(sync(gitignore), level)],
   ['quickstart', (gitignore, level) => formatQuickstartOutput({ steps: [], agentSync: sync(), gitignore, nextStep: 'prospec-quickstart' }, level)],

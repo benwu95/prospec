@@ -55,6 +55,8 @@ npx github:benwu95/prospec <command>
 
 Run `prospec quickstart` in the project, then `prospec-quickstart` inside your AI agent, as shown in [step 2 of the README Quickstart](../README.md#2-bootstrap-your-project). What the two commands expand to on a greenfield or brownfield project is detailed at the end of step 3 below.
 
+`prospec quickstart` runs `prospec init` followed by `prospec agent sync`. To run them separately, first use `init` to create the project skeleton and select your AI agents, then use `agent sync` to generate their instructions and Skills: Claude Code uses `CLAUDE.md` and `.claude/skills/`; Codex, GitHub Copilot and Antigravity use `AGENTS.md` and `.agents/skills/`.
+
 ## 3. Run your first change (inside your AI agent)
 
 Describe the change in plain language and the agent drives the gated SDD cascade; [step 3 of the README Quickstart](../README.md#3-run-your-first-change-inside-your-ai-agent) shows what that run looks like. The cascade's pause rules are in [AI Skills and the Workflow](./concepts/workflow.md#cascade-and-pauses).
