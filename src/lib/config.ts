@@ -385,7 +385,8 @@ export function resolveConfigPath(cwd?: string): string {
  *   out-of-range paths.base_dir, a knowledge.base_path other than the fixed
  *   Knowledge directory) or an artifact directory beside
  *   the file is a symlink or not a directory
- * - Warns on unknown fields but does not block (passthrough schema)
+ * - Preserves root unknown fields and strips nested unknown fields without output;
+ *   CLI advisory diagnostics are handled by config-diagnostics.service
  */
 export interface ReadConfigOptions {
   /**

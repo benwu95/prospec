@@ -77,6 +77,8 @@ your-project/
 
 Every command except `--version`, `--help`, `help`, `print-template` and `config` requires git and a project directory (the `--cwd` target when given) inside a git work tree; elsewhere it exits 1 before acting and names the remedy (see [Upgrading](../guides/upgrading.md)).
 
+The shared error format shows an error code, a description and a suggested fix on stderr; the command exits with a nonzero status. Commands that support `--json` keep their existing JSON formats and error handling. Unknown configuration fields produce warnings on stderr, even with `--quiet`, but do not stop the command by themselves. With `--json`, these extra warning messages are omitted. See the [Configuration Reference](./configuration.md) for which fields are checked and how unknown fields are handled.
+
 ### Infrastructure Commands
 
 | Command | Description |
@@ -111,7 +113,8 @@ Every command except `--version`, `--help`, `help`, `print-template` and `config
 
 - **`prospec init [options]`**
   - **Purpose**: Initialize Prospec project structure and baseline configuration.
-  - **Behavior**: Also maintains the `.gitignore` managed block (see [The `.gitignore` managed block](#the-gitignore-managed-block)).
+  - **Behavior**: Creates the project skeleton and an initial `AGENTS.md`. Next, run `prospec agent sync` to generate instructions and Skills for the selected agents: `CLAUDE.md` and `.claude/skills/` for Claude Code; `AGENTS.md` and `.agents/skills/` for Codex, GitHub Copilot and Antigravity. `prospec quickstart` runs both commands in order. `init` also maintains the `.gitignore` managed block (see [The `.gitignore` managed block](#the-gitignore-managed-block)).
+  - **Output**: By default, shows the result summary and next steps. `--verbose` also lists completed steps and each file's result: `created` for a new file, `skipped` for an existing file kept as-is, or `merged` for a file processed by the merge operation. A `merged` file may have identical content afterward. `--quiet` writes nothing to stdout; warnings still appear on stderr. These output details apply to `init`; other commands have their own verbose output.
   - **Options**: `--language <lang>` (sets the change-artifact language, default English), `--trust-zone-language <lang>` (sets the trust-zone language and skips its prompt; interactive init asks only when the artifact language is non-English, defaulting to it; CI mode without the flag stays English), `--name <name>`, `--agents <list>`.
 
 - **`prospec knowledge init [--depth <n>] [--dry-run] [--raw-scan-only]`**

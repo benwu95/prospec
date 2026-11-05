@@ -5,6 +5,11 @@ import { z } from 'zod';
  */
 export type LogLevel = 'quiet' | 'normal' | 'verbose';
 
+export interface ConfigDiagnostic {
+  path: string[];
+  suggestion?: string;
+}
+
 /**
  * ProspecConfig schema — validates .prospec.yaml
  *

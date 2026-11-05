@@ -8,6 +8,7 @@ import { input } from '@inquirer/prompts';
 import type { ConstitutionRule } from '../../../src/types/constitution.js';
 import { INIT_DOC_REGISTRY } from '../../../src/types/conventions.js';
 import { AGENT_CONFIGS } from '../../../src/types/skill.js';
+import { parseYaml } from '../../../src/lib/yaml-utils.js';
 
 vi.mock('node:fs', async () => {
   const memfs = await import('memfs');
@@ -107,6 +108,9 @@ describe('init.service', () => {
     });
 
     expect(result.techStack.language).toBe('typescript');
+    expect(result.techStack.source).toBe('auto-detected');
+    const persisted = parseYaml<{ tech_stack: unknown }>(fs.readFileSync('/project/.prospec.yaml', 'utf8'));
+    expect(persisted.tech_stack).toEqual({ language: 'typescript', package_manager: 'npm' });
   });
 
   it('should use project directory name when no name is provided', async () => {
@@ -632,6 +636,21 @@ describe('init provisional AGENTS.md capability (REQ-TEMPLATES-233)', () => {
     const context = await entryContext(['codex', 'copilot', 'antigravity']);
     expect(context.skill_lifecycle).toBe('unknown');
     expect(context.skill_lifecycle_persistent).toBe(false);
+  });
+
+  it('provides invocation guidance and registry path for the actual output group', async () => {
+    const context = await entryContext(['claude', 'codex', 'copilot']);
+    expect(context.skill_path).toBe(AGENT_CONFIGS.codex.skillPath);
+    expect(context.invocation_guidance).toEqual([
+      { agent: 'codex', label: 'Codex', invocationPrefix: '$' },
+      { agent: 'copilot', label: 'GitHub Copilot', invocationPrefix: '/' },
+    ]);
+  });
+
+  it('leaves invocation and path unclaimed without an output group', async () => {
+    const context = await entryContext(['claude']);
+    expect(context.invocation_guidance).toEqual([]);
+    expect(context.skill_path).toBeUndefined();
   });
 
   it('claims nothing when no selected agent writes AGENTS.md', async () => {

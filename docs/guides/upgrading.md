@@ -90,6 +90,8 @@ Module paths in `module-map.yaml` now reach git through one rule. A path without
 
 Commit-time fields come from `git log -1` per path group. A project-root module's `last_src_commit` also moves with the commit that re-stamps it; these fields are reported only, and freshness stays judged by digest.
 
+Project commands now warn on stderr about unknown field names in `.prospec.yaml` (see the [Configuration Reference](../reference/configuration.md)). A configuration written by an earlier `prospec init` may contain `tech_stack.source`; `prospec upgrade` removes it together with any other unknown nested field, so the warning stops after the upgrade. Extra top-level fields are kept, and their warning remains until you rename or remove them.
+
 ## Upgrade to 2.10.0
 
 Update the binary before running `prospec upgrade`: the synced Skills require CLI 2.10.0 or later for source-digest freshness and Knowledge sync before review.

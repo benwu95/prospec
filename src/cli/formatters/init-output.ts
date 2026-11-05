@@ -20,7 +20,7 @@ import { formatGitignoreStatus, writeGitignoreWarnings } from './gitignore-outpu
  * 5. Next steps suggestion (dim → with cyan command)
  *
  * @param result - The initialization result from init service
- * @param logLevel - Controls output verbosity (quiet shows nothing on stdout, normal/verbose show same output)
+ * @param logLevel - Controls output verbosity; verbose adds actual workflow details.
  */
 export function formatInitOutput(
   result: InitResult,
@@ -80,6 +80,16 @@ export function formatInitOutput(
     lines.push(
       `${pc.dim('→')} After syncing, you can add ${pc.cyan(sanitizeTerminal(result.artifactLanguage))} trigger words via ${pc.cyan('skill_triggers')} in .prospec.yaml (agent sync will show a tip)`,
     );
+  }
+
+  if (logLevel === 'verbose') {
+    lines.push('', 'Initialization details:');
+    for (const phase of result.phases) {
+      lines.push(`  ${pc.dim('⎿')} ${sanitizeTerminal(phase)}`);
+    }
+    for (const artifact of result.artifacts) {
+      lines.push(`  ${artifact.status}: ${sanitizeTerminal(artifact.path)}`);
+    }
   }
 
   // Output all lines

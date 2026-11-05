@@ -3,6 +3,12 @@
 
 Configure Prospec through `.prospec.yaml` in the project root. The tables below cover every supported field; only `project.name` is required. Defaults describe runtime behavior when a field is omitted, not the example values written by setup commands. `prospec config example` prints the complete annotated YAML reference; see [Infrastructure Commands](./cli-reference.md#infrastructure-commands) for command usage.
 
+Project commands warn about undefined field names at the top level of the configuration and inside `project`, `tech_stack`, `paths`, `test_evidence`, `knowledge`, `knowledge.token_budget` and `workflow`. These warnings alone do not stop a command. Extra top-level fields are accepted and preserved; undefined nested fields are removed from the parsed configuration. The checks do not inspect user-defined names in `skill_triggers` or `skill_exclusions`, the contents of `test_timeout_ms`, `pause_at` or `always_escalate`, or anything inside an undefined field.
+
+Each warning names the full field path without displaying its value. For a possible typo, Prospec suggests a supported name in the same configuration section only when it is the single closest match and needs at most two character insertions, deletions or substitutions (case-sensitive Levenshtein distance ≤2). Ties and larger differences produce no suggestion. The check itself does not rename fields or rewrite the YAML file; after the warnings it suggests renaming or removing the fields. `prospec upgrade` rewrites the configuration and removes unknown nested fields, while extra top-level fields are kept.
+
+After a command passes its required startup checks, it checks field names once in the configuration for its target directory. Warnings appear on stderr, even with `--quiet`; `--json` omits these extra messages, and MCP keeps stdout for its protocol. `init`, `config example`, `print-template`, help and version do not check for unknown fields; `quickstart` checks when a configuration already exists. If the file cannot be read or its YAML cannot be parsed, the warning check is skipped and the command handles the error as usual. This check only examines field names; configuration validity and filesystem paths remain subject to the command's existing checks. Calling `readConfig` or `validateConfig` directly does not print warnings.
+
 ## Project and paths
 
 | Field | Type | Default / required | Description |

@@ -180,6 +180,26 @@ describe('createProgram', () => {
 });
 
 describe('preAction config guard', () => {
+  it('diagnoses the MCP target config on stderr without writing to stdout', async () => {
+    vol.fromJSON({
+      '/other/proj/.prospec.yaml': 'project:\n  name: target\n  naem: private\n',
+      '.prospec.yaml': 'project:\n  name: launch\nlaunch_extra: private\n',
+    }, process.cwd());
+    const err = vi.spyOn(process.stderr, 'write').mockImplementation(() => true);
+    const out = vi.spyOn(process.stdout, 'write').mockImplementation(() => true);
+    try {
+      await freshProgram().parseAsync(['node', 'prospec', 'mcp', 'serve', '--cwd', '/other/proj']);
+      const stderr = err.mock.calls.map(([chunk]) => String(chunk)).join('');
+      expect(stderr).toContain('project.naem');
+      expect(stderr).not.toContain('launch_extra');
+      expect(stderr).not.toContain('private');
+      expect(out).not.toHaveBeenCalled();
+    } finally {
+      err.mockRestore();
+      out.mockRestore();
+    }
+  });
+
   // L64 if#0: an init command short-circuits the guard (no .prospec.yaml read).
   it('skips the .prospec.yaml check for INIT_COMMANDS (init)', async () => {
     // No .prospec.yaml seeded — if the guard ran it would throw.

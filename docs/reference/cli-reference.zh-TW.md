@@ -76,6 +76,8 @@ your-project/
 
 除了 `--version`、`--help`、`help`、`print-template` 與 `config`，每個指令都需要 git，且專案目錄（有指定 `--cwd` 時為該目錄）必須位於 git work tree 內；否則會在執行前以結束碼 1 結束並指出補救方式（見[升級指南](../guides/upgrading.zh-TW.md)）。
 
+共用錯誤格式會在 stderr 顯示錯誤代碼、原因與建議處理方式，命令以非零結束碼結束。支援 `--json` 的命令維持原有的 JSON 格式與錯誤處理。設定中有未定義的欄位時，stderr 會顯示警告，使用 `--quiet` 時也一樣，但不會只因這項警告就中止命令；使用 `--json` 時則不另外輸出這些警告文字。哪些欄位會被檢查，以及未知欄位如何處理，見[設定參考](./configuration.zh-TW.md)。
+
 ### 基礎設施命令
 
 | 命令 | 說明 |
@@ -110,7 +112,8 @@ your-project/
 
 - **`prospec init [options]`**
   - **核心用途**：初始化 Prospec 專案結構。
-  - **執行行為**：同時維護 `.gitignore` 受管區塊（見 [`.gitignore` 受管區塊](#gitignore-受管區塊)）。
+  - **執行行為**：建立專案骨架與初版 `AGENTS.md`。接著執行 `prospec agent sync`，依選擇的 AI Agent 產生操作指引與 Skills：Claude Code 使用 `CLAUDE.md` 與 `.claude/skills/`；Codex、GitHub Copilot 與 Antigravity 使用 `AGENTS.md` 與 `.agents/skills/`。`prospec quickstart` 會依序執行這兩個命令。`init` 也會維護 `.gitignore` 受管區塊（見 [`.gitignore` 受管區塊](#gitignore-受管區塊)）。
+  - **輸出**：預設顯示結果摘要與下一步。`--verbose` 另外列出完成的步驟，以及每個檔案的處理結果：`created` 表示新建，`skipped` 表示保留既有檔案，`merged` 表示已執行內容合併；合併後的內容可能與原本相同。`--quiet` 不輸出 stdout，警告仍顯示在 stderr。這些輸出細節適用於 `init`，其他命令各有自己的詳細輸出內容。
   - **選項**：`--language <lang>`（設定變更文件語言，預設英文）、`--trust-zone-language <lang>`（設定 trust zone 語言並跳過其提問；互動式 init 只在變更文件語言非英文時追問，預設同值；CI 模式未給 flag 維持英文）、`--name <name>`、`--agents <list>`。
 
 - **`prospec knowledge init [--depth <n>] [--dry-run] [--raw-scan-only]`**

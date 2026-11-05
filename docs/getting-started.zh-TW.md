@@ -55,6 +55,8 @@ npx github:benwu95/prospec <command>
 
 在專案中執行 `prospec quickstart`，再到 AI Agent 內執行 `prospec-quickstart`，步驟見 [README 快速上手的第 2 步](../README.zh-TW.md#2-建立專案骨架)。這兩個命令在 Greenfield 與 Brownfield 專案上實際展開的步驟，見下方第 3 步的最後。
 
+`prospec quickstart` 會依序執行 `prospec init` 與 `prospec agent sync`。若要分開執行，先用 `init` 建立專案骨架並選擇 AI Agent，再用 `agent sync` 產生對應的操作指引與 Skills：Claude Code 使用 `CLAUDE.md` 與 `.claude/skills/`；Codex、GitHub Copilot 與 Antigravity 使用 `AGENTS.md` 與 `.agents/skills/`。
+
 ## 3. 跑你的第一個變更（在 AI Agent 中）
 
 用自然語言描述你要的變更，Agent 就會跑完有閘門的 SDD cascade；實際的執行過程見 [README 快速上手的第 3 步](../README.zh-TW.md#3-跑你的第一個變更在-ai-agent-中)。 cascade 的暫停規則見 [AI Skills 與工作流程](./concepts/workflow.zh-TW.md#cascade-與暫停)。

@@ -3,6 +3,7 @@ import * as path from 'node:path';
 import { Command } from 'commander';
 import pc from 'picocolors';
 import { handleError } from './formatters/error-output.js';
+import { formatConfigDiagnostics } from './formatters/config-diagnostics-output.js';
 import { ConfigNotFound } from '../types/errors.js';
 import { registerInitCommand } from './commands/init.js';
 import { registerQuickstartCommand } from './commands/quickstart.js';
@@ -107,6 +108,11 @@ export function createProgram(): Command {
     const { requireGitWorkTree } = await import('../services/git-prerequisite.js');
     // An empty --cwd resolves to the current directory, as requireConfig's path.join reads it.
     requireGitWorkTree(targetCwd || process.cwd());
+
+    if (topLevelCommand(actionCommand).name() !== 'init' && !actionCommand.optsWithGlobals().json) {
+      const { execute } = await import('../services/config-diagnostics.service.js');
+      formatConfigDiagnostics(await execute({ cwd: targetCwd || process.cwd() }));
+    }
   });
 
   // Register subcommand groups

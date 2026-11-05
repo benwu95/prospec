@@ -3,6 +3,12 @@
 
 透過專案根目錄的 `.prospec.yaml` 設定 Prospec。下列表格涵蓋所有支援欄位，只有 `project.name` 必填。預設值表示省略欄位時的 runtime 行為，不代表初始化命令寫入的範例值。`prospec config example` 會輸出完整的 YAML 註解參考；命令用法見[基礎設施命令](./cli-reference.zh-TW.md#基礎設施命令)。
 
+專案命令會檢查設定最外層，以及 `project`、`tech_stack`、`paths`、`test_evidence`、`knowledge`、`knowledge.token_budget`、`workflow` 中未定義的欄位名稱，並顯示警告；不會只因這項警告就中止命令。最外層的額外欄位仍接受並保留，巢狀位置的未知欄位則會從解析後的設定移除。這項檢查不會檢查 `skill_triggers`、`skill_exclusions` 中自訂的名稱，也不會檢查 `test_timeout_ms`、`pause_at`、`always_escalate` 的值內部，或繼續檢查未知欄位底下的內容。
+
+每則警告會指出完整欄位路徑，不顯示設定值。若可能是拼字錯誤，Prospec 只會從同一設定區段中建議最接近、且沒有並列候選的合法名稱；拼字比較區分大小寫，最多允許兩次字元新增、刪除或替換（Levenshtein distance ≤2）。沒有符合條件的名稱時，只顯示未知欄位警告。這項檢查本身不會更名欄位或改寫 YAML 檔案；警告後會提示更名或移除這些欄位。`prospec upgrade` 會改寫設定並移除巢狀位置的未知欄位，最外層的額外欄位則保留。
+
+命令通過必要的執行前檢查後，會針對目標目錄的設定檢查一次欄位名稱。警告寫入 stderr，使用 `--quiet` 時也一樣；`--json` 不另外輸出這些警告文字，MCP 的 stdout 則留給通訊協定。`init`、`config example`、`print-template`、help 與 version 不檢查未知欄位；`quickstart` 會在設定已存在時檢查。無法讀取設定或解析 YAML 時，略過這項警告檢查，由命令照原本方式處理錯誤。這項檢查只查看欄位名稱，設定是否合法、檔案路徑是否正確，仍由命令原本的檢查負責；程式直接呼叫 `readConfig` 或 `validateConfig` 時不會印出警告。
+
 ## 專案與路徑
 
 | 欄位 | 型別 | 預設／必填 | 說明 |

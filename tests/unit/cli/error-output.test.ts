@@ -31,6 +31,14 @@ afterEach(() => {
 });
 
 describe('formatProspecError', () => {
+  it('includes the sanitized typed code alongside its message and suggestion', () => {
+    const err = new ProspecError(`bad${BEL} message`, `PROBE${BEL}_CODE`, 'retry');
+    const out = captureStderr(() => formatProspecError(err));
+
+    expect(out).toBe('✗ [PROBE_CODE] bad message\n  → retry\n');
+    expect(process.exitCode).toBe(1);
+  });
+
   it('writes the error message and suggestion to stderr', () => {
     const err = new ConfigNotFound('/repo/.prospec.yaml');
     const out = captureStderr(() => formatProspecError(err));
@@ -151,6 +159,16 @@ describe('formatGenericError', () => {
 });
 
 describe('handleError', () => {
+  it('retains the typed JSON error structure without human formatting', () => {
+    const err = new ProspecError(`bad${BEL} message`, 'PROBE_CODE', 'retry');
+    const out = captureStderr(() => handleError(err, false, true));
+    expect(JSON.parse(out)).toEqual({ error: {
+      code: 'PROBE_CODE', message: `bad${BEL} message`, suggestion: 'retry',
+    } });
+    expect(out.trim().split('\n')).toHaveLength(1);
+    expect(process.exitCode).toBe(1);
+  });
+
   it('dispatches ProspecError instances to the Prospec formatter', () => {
     const err = new ConfigNotFound('/x/.prospec.yaml');
     const out = captureStderr(() => handleError(err));
