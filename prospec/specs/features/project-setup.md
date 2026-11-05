@@ -1,7 +1,7 @@
 ---
 feature: project-setup
 status: active
-last_updated: 2026-11-02
+last_updated: 2026-11-05
 story_count: 20
 req_count: 55
 ---
@@ -67,6 +67,7 @@ req_count: 55
 
 | Date | Change | Impact | Stories/REQs |
 |------|--------|--------|-------------|
+| 2026-11-05 | align-setup-diagnostics | MODIFIED REQ-SETUP-002; MODIFIED REQ-SETUP-003 | REQ-SETUP-002, REQ-SETUP-003 |
 | 2026-11-02 | backfill-doc-drift-project-setup | MODIFIED REQ-SETUP-013; MODIFIED REQ-SETUP-016 | REQ-SETUP-013, REQ-SETUP-016 |
 | 2026-11-01 | list-index-project-files | MODIFIED REQ-SETUP-026 | REQ-SETUP-026 |
 | 2026-11-01 | confine-base-paths | MODIFIED REQ-SETUP-011; MODIFIED REQ-SETUP-012; MODIFIED REQ-LIB-030; MODIFIED REQ-SETUP-022; MODIFIED REQ-LIB-023; MODIFIED REQ-SERVICES-035; MODIFIED REQ-TESTS-037; MODIFIED REQ-SETUP-019 | REQ-SETUP-011, REQ-SETUP-012, REQ-LIB-030, REQ-SETUP-022, REQ-LIB-023, REQ-SERVICES-035, REQ-TESTS-037, REQ-SETUP-019 |
