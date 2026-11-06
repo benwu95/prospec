@@ -18,7 +18,6 @@ agents:
   - copilot
   - antigravity
 knowledge:
-  base_path: prospec/ai-knowledge
   generated_artifacts:
     - src/lib/bundled-templates.ts
   token_budget:
