@@ -39,7 +39,9 @@ prospec-upgrade                 # 步驟 2：AI Agent 依盤點報告遷移格�
 > - **舊版檔案清理**：若從早於 1.0 的舊版 Prospec 升級，完成升級同步後可手動清理不再使用的舊版檔案與目錄：`GEMINI.md`、`.gemini/skills/`、`.codex/skills/`、`.github/copilot-instructions.md` 與 `.github/instructions/`。
 > - **設定檔版本與觸發詞**：`.prospec.yaml` 的 `version` 會記錄專案上次升級的版本。新增 Skill 後若想單獨檢查或在地化觸發詞，只需直接執行 `prospec agent sync`，系統會明確列出缺少的條目供填補，完全無需重新建立設定檔。
 
-## 升級至下一個版本（尚未發布）
+## 升級至 2.11.0
+
+先更新 binary，再執行 `prospec upgrade`：同步後的 Skills 要求 CLI 2.11.0 以上，支援以 git index 決定 evidence 成員，以及移除 design station 後的流程。
 
 **Breaking：** design station 已退休。`prospec-design` skill、其 Generate／Extract 模式與 platform adapter、`prospec validate design-spec`、`DESIGN_REQUIRED` route code，以及 `prospec status` 路由中的 `design` station 皆已移除；`prospec agent sync` 會刪除已部署的 `prospec-design` skill 目錄。UI 變更改在 proposal 宣告可選的 `## Design Source`（設計工具連結、元件庫、AI 設計工具產物、prototype 路徑或截圖，或 `none`）；tasks 會排入由專案 `test_command` 執行的視覺回歸測試，verify 的 design 維度則以該來源評估實作。請移除 `skill_triggers`／`skill_exclusions` 中的 `prospec-design` 鍵、`.prospec.yaml` 中不再使用的 `design:` 區塊，以及 Constitution `stations:`、playbook `**Stations**` 或 `--station` 參數中的 `design`。進行中的變更保留原有檔案，但不再有任何 station 讀取 `design-spec.md`、`interaction-spec.md` 或 `## UI Scope`；請把設計來源移到 `## Design Source`；已有 `plan.md` 的變更，也要寫進該 plan 的 Technical Summary——standard 與 full scale 的 tasks 與 implement 從 `plan.md` 讀取 Design Source。
 

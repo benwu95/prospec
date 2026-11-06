@@ -191,8 +191,8 @@ describe('public docs git prerequisite', () => {
   );
 
   it.each([
-    ['docs/guides/upgrading.md', /^## Upgrade to the next release/],
-    ['docs/guides/upgrading.zh-TW.md', /^## 升級至下一個版本/],
+    ['docs/guides/upgrading.md', /^## Upgrade to 2\.11\.0$/],
+    ['docs/guides/upgrading.zh-TW.md', /^## 升級至 2\.11\.0$/],
   ])('%s names the refusal and the remedy for each cause', (page, heading) => {
     const section = sectionOf(page, heading);
     for (const cause of ['git was not found on PATH', 'is not inside a git work tree', 'git cannot run']) {
@@ -274,8 +274,8 @@ describe('public docs artifact path range', () => {
   });
 
   it.each([
-    ['docs/guides/upgrading.md', /^## Upgrade to the next release/],
-    ['docs/guides/upgrading.zh-TW.md', /^## 升級至下一個版本/],
+    ['docs/guides/upgrading.md', /^## Upgrade to 2\.11\.0$/],
+    ['docs/guides/upgrading.zh-TW.md', /^## 升級至 2\.11\.0$/],
   ])('%s names the breaking change and how to move an out-of-range directory', (page, heading) => {
     const lines = sectionOf(page, heading).split('\n');
     const start = lines.findIndex((l) => /^\*\*Breaking(:|：)\*\* `paths\.base_dir` (is now confined|現在限定)/.test(l));

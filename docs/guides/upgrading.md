@@ -39,7 +39,9 @@ prospec-upgrade                 # Step 2: AI agent migrates drifted doc formats,
 > - **Legacy File Cleanup**: If upgrading from an older pre-1.0 Prospec layout, remove the now-unused legacy files and directories after re-syncing: `GEMINI.md`, `.gemini/skills/`, `.codex/skills/`, `.github/copilot-instructions.md`, and `.github/instructions/`.
 > - **Configuration Version & Triggers**: `.prospec.yaml` `version` tracks the prospec version the project last upgraded to. If you ever need to localize triggers after adding a skill, simply run `prospec agent sync` — it explicitly reports missing `skill_triggers` entries so you fill only the gaps.
 
-## Upgrade to the next release (unreleased)
+## Upgrade to 2.11.0
+
+Update the binary before running `prospec upgrade`: the synced Skills require CLI 2.11.0 or later for git-index evidence membership and the workflow without a design station.
 
 **Breaking:** the design station is retired. The `prospec-design` skill, its Generate/Extract modes and platform adapters, `prospec validate design-spec`, the `DESIGN_REQUIRED` route code and the `design` station in `prospec status` routing are removed; `prospec agent sync` deletes the deployed `prospec-design` skill directory. A UI change now declares an optional `## Design Source` in its proposal (a design tool link, a component library, an AI design tool artifact, a prototype path or screenshots, or `none`); tasks add a visual regression test that the project's `test_command` runs, and verify's design dimension grades the implementation against that source. Remove `prospec-design` keys from `skill_triggers` / `skill_exclusions`, the unused `design:` block from `.prospec.yaml`, and `design` from any Constitution `stations:` list, playbook `**Stations**` line or `--station` argument. In-flight changes keep their files, but no station reads `design-spec.md`, `interaction-spec.md` or `## UI Scope` any more; move the design reference into `## Design Source`, and for a change that already has a `plan.md`, also record it in that plan's Technical Summary — at standard and full scale, tasks and implement read the Design Source from `plan.md`.
 

@@ -58,7 +58,7 @@ describe.each(stations)('%s index evidence preparation', (station, heading, acti
   });
 });
 
-it.each([['docs/guides/upgrading.md', '## Upgrade to the next release (unreleased)'], ['docs/guides/upgrading.zh-TW.md', '## 升級至下一個版本（尚未發布）']])('%s documents the membership migration and test limitation', (file, heading) => {
+it.each([['docs/guides/upgrading.md', '## Upgrade to 2.11.0'], ['docs/guides/upgrading.zh-TW.md', '## 升級至 2.11.0']])('%s documents the membership migration and test limitation', (file, heading) => {
   const text = readFileSync(file, 'utf8');
   const upgrade = section(text, heading);
   expect(upgrade).toContain('source-v1');
