@@ -144,7 +144,7 @@ modules:
       - 漂移檢查
       - 知識讀取
     rationale: Foundational infrastructure shared across services and benchmark scripts
-    last_verified: 2026-11-11T02:07:23.611Z
+    last_verified: 2026-11-18T07:00:17.047Z
     source_digest: source-v1:eca2fccfde6a0c90d3570424cac9be8f1c145eb174e23208463dff300e1c29c0
   - name: services
     description: Business logic — one `execute()` service per command — including
@@ -313,11 +313,11 @@ modules:
       - 複雜度適配
       - CI 閘門
     rationale: Pure resources — no logic, consumed by lib/template.ts
-    last_verified: 2026-11-11T02:58:20.006Z
-    source_digest: source-v1:e5938450904cf9151b0affff7730049e0f4646f9ac594b9368ef95942b574c7b
+    last_verified: 2026-11-18T07:00:17.047Z
+    source_digest: source-v1:698ff93132db06f44dcb80c3dae4921f1a7060c2da1b8ba113afd081f2d30146
   - name: tests
-    description: 4-layer test suite — 350 files, 9,620 tests (unit 6898 + contract
-      2133 + integration 327 + e2e 262). Validates every module — format and
+    description: 4-layer test suite — 350 files, 9,636 tests (unit 6898 + contract
+      2149 + integration 327 + e2e 262). Validates every module — format and
       public-document contracts, the cli-first probe + station-command
       contracts, the drift engine, retained workflow/startup guards, and the MCP
       protocol over in-memory transport. Real-worktree history fixtures cover
@@ -363,5 +363,5 @@ modules:
       - 驗證
       - vitest
     rationale: Quality gate — validates all layers with pyramid coverage
-    last_verified: 2026-11-11T02:58:20.006Z
-    source_digest: source-v1:a89bf0af1b1a0bc2af4ace27461d82e8a37688a793af53c052011742a1acd409
+    last_verified: 2026-11-18T07:52:15.751Z
+    source_digest: source-v1:b2fc9fc0f18ba1ccfda06fbf59e0dd9f947f87761f12a623f72eb0bae4c1459c

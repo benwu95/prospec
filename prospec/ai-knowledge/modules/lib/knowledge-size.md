@@ -28,7 +28,7 @@
 ## Ripple Effects
 
 - `RATCHET_REMEDY` is the only producer of the unresolvable fix text; `docs/reference/configuration*.md` describe it.
-- The skill-side cap on an over-budget file lives only in `prospec-knowledge-update`/`-generate`: `_knowledge-loading-rules.hbs` also renders into every downstream `index.md`, so it carries no ratchet procedure.
+- The skill-side ratchet rule lives only in `prospec-knowledge-update`/`-generate`: `_knowledge-loading-rules.hbs` also renders into every downstream `index.md`, so it carries no ratchet procedure.
 
 ## Pitfalls
 

@@ -121,7 +121,7 @@ If a module's README would exceed the ≤{{readme_max_lines}} line / ≤{{l2_per
 - **Layout**: `{{knowledge_base_path}}/modules/{module}/{sub-module}.md` — a sibling of `README.md`, kebab-case, same Recipe-First structure and same budget. A sub-module that still overflows is split again the same way.
 - **Link back**: add a `## Sub-Modules` section to the main README listing `[Sub Name](./{sub-module}.md) — one-line`; move the extracted detail into the sub-module file (do not duplicate it back).
 - **Not in `{{base_dir}}/index.md`**: sub-modules are an L2 sub-layer discovered via the main README only — do NOT add them to `{{base_dir}}/index.md` or `module-map.yaml` (keep L1 lean). If an area deserves an `{{base_dir}}/index.md` entry, make it a real top-level module instead.
-- **Over-budget under the ratchet** — with `knowledge.size_ratchet` set, an L1/L2 file over budget at the merge-base of `knowledge.size_ratchet.base` and HEAD may not end larger: offset any addition there (a `## Sub-Modules` link or a regenerated `index.md` too) by deleting duplication, shortening curated columns or extracting a sub-module; a new file must be within its budget. Self-check: `prospec check`'s `knowledge-size`.
+- **Over-budget under the ratchet** — with `knowledge.size_ratchet` set, an L1/L2 file may not end both over budget and larger than at the merge-base of `knowledge.size_ratchet.base` and HEAD in the same unit (tokens, and lines too for L2): offset growth that would break this (a `## Sub-Modules` link or a regenerated `index.md` too) by deleting duplication, shortening curated columns or extracting a sub-module; a new or renamed file must be within its budget. Self-check: `prospec check`'s `knowledge-size`.
 
 ### Step 5: Populate {{base_dir}}/index.md
 
@@ -220,5 +220,5 @@ Emit one line: `Met N/M | Unmet: <items> | Overall: PASS|WARN|FAIL | Next: <one-
 | raw-scan.md incomplete | List missing sections, suggest re-running `prospec knowledge init --raw-scan-only` (or full init) or manual completion |
 | Module README already exists | Do not mechanically re-render it; preserve marked extension sections and freeform user notes, and migrate format only with consent |
 | Strategy produces <2 modules | Fall back to `architecture` strategy |
-| Module README exceeds {{readme_max_lines}} lines | If a content-rich, independent sub-area exists → extract a sub-module (Step 4.5) and link it; otherwise trim Key Files and Public API, keeping Modification Guide and Pitfalls intact (under `knowledge.size_ratchet`, a file over budget at the merge-base follows Step 4.5's ratchet cap) |
+| Module README exceeds {{readme_max_lines}} lines | If a content-rich, independent sub-area exists → extract a sub-module (Step 4.5) and link it; otherwise trim Key Files and Public API, keeping Modification Guide and Pitfalls intact (under `knowledge.size_ratchet`, a file over budget follows Step 4.5's ratchet cap) |
 | Ambiguous project type | Ask user to clarify, or treat as hybrid |
