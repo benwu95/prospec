@@ -4553,6 +4553,16 @@ describe('Startup Loading cache-stable prefix ordering (REQ-TEMPLATES-080/081)',
   // retain-failing-verdicts: per-rule applicability expands the payload reference 3_202 → 3_246;
   // equivalent backfill guidance compaction reduces 1_265 → 1_196. Both ceiling anchors remain unchanged.
   // Review removes metadata-format's unconditional human-confirmation premise: 3_999 → 3_978.
+  // ratchet-knowledge-size: drift-report-format gained the size-ratchet fields and the shared
+  // knowledge-loading-rules partial names the ratchet, with equivalent prose compacted. Anchors unchanged.
+  // harden-knowledge-size-ratchet: the knowledge-update / knowledge-generate
+  // ratchet cap (REQ-TEMPLATES-275) and drift-report-format's skip scope plus its two restored
+  // qualifiers (REQ-TEMPLATES-274) — new prose compacted first, the rest could not be offset without
+  // dropping pinned guidance. Reference total 48_062 → 48_097 and cumulative 86_279 → 86_561
+  // stay under both ceilings; anchors unchanged.
+  // align-ratchet-rule-wording: the ratchet rule states the evaluator's per-unit condition and
+  // drift-report-format restores the qualifiers earlier compaction dropped, with no offsetting
+  // compaction. Reference total 48_201 → 48_276 and cumulative 86_561 → 86_591; anchors unchanged.
   const REFERENCE_CEILING_ANCHOR = 52_315;
   const CUMULATIVE_CEILING_ANCHOR = 91_150;
 
@@ -11917,5 +11927,154 @@ describe('workflow artifact preservation guidance', () => {
     expect(log).toContain('test_policy');
     expect(log).toContain('opaque');
     expect(log).toContain('snapshot');
+  });
+});
+
+// REQ-TEMPLATES-275 — with `knowledge.size_ratchet` set, the two knowledge skills state the
+// evaluator's condition: an L1/L2 file may not end both over budget and larger than at the
+// merge-base in the same unit, and a new or renamed file must be within its budget. The rule
+// lives in the skills only: `_knowledge-loading-rules` also renders into every downstream
+// index.md, where an added sentence would grow that L1 file.
+describe('knowledge skills keep an L1/L2 file from ending over budget and larger than at the merge-base (REQ-TEMPLATES-275)', () => {
+  const ratchetClauses = [
+    '`knowledge.size_ratchet`',
+    'merge-base of `knowledge.size_ratchet.base` and HEAD',
+    'may not end both over budget and larger than at the merge-base',
+    'in the same unit',
+    'lines too for L2',
+    '`## Sub-Modules` link',
+    '`index.md`',
+    'new or renamed',
+    'must be within its budget',
+    '`knowledge-size`',
+  ];
+  pinSectionRules([
+    {
+      name: 'knowledge-update ratchet cap',
+      template: 'prospec-knowledge-update',
+      heading: '### Phase 3:',
+      item: /Over-budget under the ratchet/,
+      clauses: ratchetClauses,
+      unique: true,
+    },
+    {
+      name: 'knowledge-update overflow row deferring to the ratchet cap',
+      template: 'prospec-knowledge-update',
+      heading: '## Error Handling',
+      item: /^\| README exceeds \d+ lines after update/,
+      clauses: ['`knowledge.size_ratchet`', 'a file over budget follows', "Phase 3a's ratchet cap"],
+    },
+    {
+      name: 'knowledge-update index regeneration deferring to the ratchet cap',
+      template: 'prospec-knowledge-update',
+      heading: '### Phase 3:',
+      item: /^- After curating, re-run/,
+      clauses: ["the regenerated `index.md` follows 3a's ratchet cap"],
+    },
+    {
+      name: 'knowledge-generate ratchet cap',
+      template: 'prospec-knowledge-generate',
+      heading: '### Step 4.5:',
+      item: /Over-budget under the ratchet/,
+      clauses: ratchetClauses,
+      unique: true,
+    },
+    {
+      name: 'knowledge-generate overflow row deferring to the ratchet cap',
+      template: 'prospec-knowledge-generate',
+      heading: '## Error Handling',
+      item: /^\| Module README exceeds \d+ lines/,
+      clauses: ['`knowledge.size_ratchet`', 'a file over budget follows', "Step 4.5's ratchet cap"],
+    },
+  ]);
+
+  // The loading-rules partial renders into every downstream index.md, an L1 file the ratchet
+  // fails once it ends over budget and larger than at the merge-base, so the shipped partial
+  // may not grow in any wording. Raising this
+  // anchor is an edit to this line that the PR must disclose.
+  const DOWNSTREAM_INDEX_TOKEN_ANCHOR = 819;
+  it('keeps the rendered downstream index.md, loading-rules partial included, within its anchored size', () => {
+    const index = renderTemplate('knowledge/index.md.hbs', { ...TEMPLATE_CONTEXT, modules: [], project_name: 'x' });
+    expect(index).toContain('Progressive Knowledge Loading Strategy');
+    expect(estimateTokens(index)).toBeLessThanOrEqual(DOWNSTREAM_INDEX_TOKEN_ANCHOR);
+  });
+});
+
+// REQ-TEMPLATES-274 — the drift report reference names what the ratchet skips and that the
+// unresolvable fix follows its cause; the two qualifiers dropped by ratchet-knowledge-size
+// are restored in their own sections.
+describe('drift-report-format covers the ratchet skips and keeps its qualifiers (REQ-TEMPLATES-274)', () => {
+  const ref = (): string => renderTemplate('skills/references/drift-report-format.hbs', TEMPLATE_CONTEXT);
+
+  it('says a path through a gitlink or symlink, or not a regular file, at the merge-base is skipped', () => {
+    const findings = flat(sectionOf(ref(), '## `structural.findings[]`'));
+    expect(findings).toMatch(/`ratchet_skipped`[^.]*gitlink or symlink[^.]*not a regular file/);
+    expect(findings).toMatch(/fix for its cause/);
+  });
+
+  it('separates an absent path from growth and says base_actual is measured without carriage returns', () => {
+    const findings = flat(sectionOf(ref(), '## `structural.findings[]`'));
+    expect(findings).toMatch(/absent at merge-base `base_commit` \(`base_actual: null`\)/);
+    expect(findings).toMatch(/`base_actual`[^.]*carriage returns removed/);
+  });
+
+  it('names ratchet_actual as the carriage-return-free current size compared with base_actual', () => {
+    const findings = flat(sectionOf(ref(), '## `structural.findings[]`'));
+    expect(findings).toMatch(/base_actual\?, ratchet_actual\?,/);
+    expect(findings).toMatch(/`ratchet_actual`[^.;]*carriage returns removed[^.;]*compared with `base_actual`/);
+  });
+
+  it('keeps the whole knowledge_health object optional, not just its coverage', () => {
+    expect(flat(sectionOf(ref(), '## `structural.knowledge_health`'))).toContain(
+      'The whole object is **optional** (absent without a module map)',
+    );
+  });
+
+  it('hangs the missing remedy on headroom only and says the unresolvable finding carries no knowledge_size', () => {
+    const findings = flat(sectionOf(ref(), '## `structural.findings[]`'));
+    expect(findings).toContain('`headroom` (which has no `remedy`)');
+    expect(findings).toMatch(/unresolvable ratchet[^.;]*carries no `knowledge_size`/);
+  });
+
+  it('keeps knowledge_size optional on a knowledge file finding, says what it is, and names the finding as warn', () => {
+    const findings = flat(sectionOf(ref(), '## `structural.findings[]`'));
+    expect(findings).toContain('each finding on a knowledge file also carries an optional `knowledge_size` object');
+    expect(findings).toContain('the structured facts behind its `detail` (additive, so a report without it still validates)');
+    expect(findings).toContain('Such a finding is `warn`');
+  });
+
+  it('restores the knowledge_health and constitution qualifiers in their own sections', () => {
+    expect(flat(sectionOf(ref(), '## `structural.knowledge_health`'))).toContain(
+      'Commit-time keys stay for continuity, never drive `stale`',
+    );
+    expect(flat(sectionOf(ref(), '## `structural.constitution`'))).toContain(
+      'Language Policy remain after subtracting the starter set',
+    );
+  });
+});
+
+// Wording the drift-report-format compaction dropped outside the ratchet's own REQ: the
+// language-policy-drift row's subject and its no-migration reason, what `last_verified` records,
+// and whose job semantic consistency is. Each assertion is scoped to the section that owns the
+// sentence.
+describe('drift-report-format keeps the subjects and qualifiers its compaction dropped', () => {
+  const ref = (): string => renderTemplate('skills/references/drift-report-format.hbs', TEMPLATE_CONTEXT);
+
+  it('names the Constitution as what language-policy-drift flags and why an English seed passes', () => {
+    const checks = flat(sectionOf(ref(), '### Key Check Interpretations'));
+    expect(checks).toContain('Flags a Constitution whose Language Policy Description no longer matches');
+    expect(checks).toContain('passes — nothing to migrate');
+  });
+
+  it('says last_verified is the confirmation time knowledge verify stamps', () => {
+    expect(flat(sectionOf(ref(), '## `structural.knowledge_health`'))).toContain(
+      '`last_verified`: the confirmation time `prospec knowledge verify` stamps',
+    );
+  });
+
+  it('says semantic consistency is prospec-review\'s job, never a pass from this report', () => {
+    const semantic = flat(sectionOf(ref(), '## `semantic` and `summary`'));
+    expect(semantic).toContain('semantic consistency is `prospec-review`');
+    expect(semantic).toContain('must never be presented as `pass` from this report');
   });
 });

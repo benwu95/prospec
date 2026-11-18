@@ -59,7 +59,7 @@ from the full init, never `--raw-scan-only`, so a first-ever run needs it.
 | **Demand** | Demand Conventions (lessons ledger, playbook, …) | When their topic is relevant — read in slices, never whole | ≤ 20000 tokens per file |
 | **L3** | Source code files | When Agent needs implementation details | No limit (read on demand) |
 
-> Every budget below L0 comes from `.prospec.yaml` `knowledge.token_budget` (this project's values; defaults when unset). Over-budget files WARN via `prospec check` `knowledge-size` (from 0.85 of the limit, a pressure signal), never a build breaker; each finding names its convergence path. L0 is agent-injected config, out of scope.
+> Budgets below L0 come from `.prospec.yaml` `knowledge.token_budget` (defaults when unset). Over-budget files WARN via `prospec check` `knowledge-size` (from 0.85 of budget); a growing over-budget L1/L2 file FAILs under `knowledge.size_ratchet`. Each finding names its convergence path. L0 is agent-injected config, out of scope.
 
 **Principles:**
 1. L0 answers "how to use skills" — L1 answers "where to look" and "what to do" — L2 answers "what it does" (Feature Spec) and "how to modify" (Module README) — L3 answers "how to write"
@@ -153,6 +153,7 @@ If a module's README would exceed the ≤100 line / ≤2000 token budget even af
 - **Layout**: `prospec/ai-knowledge/modules/{module}/{sub-module}.md` — a sibling of `README.md`, kebab-case, same Recipe-First structure and same budget. A sub-module that still overflows is split again the same way.
 - **Link back**: add a `## Sub-Modules` section to the main README listing `[Sub Name](./{sub-module}.md) — one-line`; move the extracted detail into the sub-module file (do not duplicate it back).
 - **Not in `prospec/index.md`**: sub-modules are an L2 sub-layer discovered via the main README only — do NOT add them to `prospec/index.md` or `module-map.yaml` (keep L1 lean). If an area deserves an `prospec/index.md` entry, make it a real top-level module instead.
+- **Over-budget under the ratchet** — with `knowledge.size_ratchet` set, an L1/L2 file may not end both over budget and larger than at the merge-base of `knowledge.size_ratchet.base` and HEAD in the same unit (tokens, and lines too for L2): offset growth that would break this (a `## Sub-Modules` link or a regenerated `index.md` too) by deleting duplication, shortening curated columns or extracting a sub-module; a new or renamed file must be within its budget. Self-check: `prospec check`'s `knowledge-size`.
 
 ### Step 5: Populate prospec/index.md
 
@@ -251,5 +252,5 @@ Emit one line: `Met N/M | Unmet: <items> | Overall: PASS|WARN|FAIL | Next: <one-
 | raw-scan.md incomplete | List missing sections, suggest re-running `prospec knowledge init --raw-scan-only` (or full init) or manual completion |
 | Module README already exists | Do not mechanically re-render it; preserve marked extension sections and freeform user notes, and migrate format only with consent |
 | Strategy produces <2 modules | Fall back to `architecture` strategy |
-| Module README exceeds 100 lines | If a content-rich, independent sub-area exists → extract a sub-module (Step 4.5) and link it; otherwise trim Key Files and Public API, keeping Modification Guide and Pitfalls intact |
+| Module README exceeds 100 lines | If a content-rich, independent sub-area exists → extract a sub-module (Step 4.5) and link it; otherwise trim Key Files and Public API, keeping Modification Guide and Pitfalls intact (under `knowledge.size_ratchet`, a file over budget follows Step 4.5's ratchet cap) |
 | Ambiguous project type | Ask user to clarify, or treat as hybrid |

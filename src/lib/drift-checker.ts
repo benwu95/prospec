@@ -1,7 +1,7 @@
 import { isProvenanceAudited, FINGERPRINT_VERSION, EVIDENCE_SCOPE, TEST_FINGERPRINT_VERSION, TEST_EVIDENCE_SCOPE, TestPolicySchema, type TestEvidenceIdentity, type TestEvidenceReuse } from '../types/change.js';
 import type { TestEvidenceDecision, TestEvidenceFacts } from '../types/station.js';
 import { assessDrops } from './landing-fidelity.js';
-import { KNOWLEDGE_SIZE_RULES, type KnowledgeSizeRule } from '../types/config.js';
+import { KNOWLEDGE_SIZE_RULES, overBudgetUnits, type KnowledgeSizeBudget, type KnowledgeSizeRule } from '../types/config.js';
 import {
   DRIFT_CHECK_IDS,
   DRIFT_REPORT_FILENAME,
@@ -26,6 +26,8 @@ import type {
   GitTimestampSource,
   ModuleTimestamps,
   ImportEdgeSource,
+  KnowledgeSizeItem,
+  KnowledgeSizeRatchetCause,
   KnowledgeSizeSource,
   LinkSource,
   McpReadmeCountSource,
@@ -752,9 +754,14 @@ export function evaluateMetadataCompleteness(src: MetadataCompletenessSource): C
  * one registry (`KNOWLEDGE_SIZE_RULES`), so which budget applies and what an
  * over-budget file should DO about it live together instead of in per-kind
  * branches; only a surface whose rule declares a `lineKey` is graded on lines.
- * WARN-class: the progressive-loading budget is a pressure signal against silent
- * regrowth, never a build breaker. L0 (agent-injected config) is out of scope. An
- * unavailable source (no knowledge base) skips, never a fabricated pass.
+ * WARN-class by default: the progressive-loading budget is a pressure signal. With
+ * `knowledge.size_ratchet` configured, an over-budget unit of a ratchet-governed
+ * kind (L1/L2) that grew past its merge-base size, or whose path is absent at the
+ * merge-base, fails instead (REQ-LIB-111) — existing debt stays a warn, new debt
+ * breaks the build — and a ratchet that cannot
+ * be resolved fails closed on `.prospec.yaml`, naming the fix for its cause. L0
+ * (agent-injected config) is out of scope. An unavailable source (no knowledge base)
+ * skips, never a fabricated pass.
  */
 export function evaluateKnowledgeSize(src: KnowledgeSizeSource): CheckOutcome {
   if (!src.available) {
@@ -764,31 +771,75 @@ export function evaluateKnowledgeSize(src: KnowledgeSizeSource): CheckOutcome {
   // The prose `detail` and the structured `knowledge_size` are two views of the
   // same fact — kept side by side so the `detail` wording stays byte-identical
   // (existing consumers/tests read it) while the formatter groups off the struct.
-  const warn = (source_path: string, detail: string, knowledge_size: KnowledgeSizeFinding): void => {
-    findings.push({ check: 'knowledge-size', severity: 'warn', source_path, detail, knowledge_size });
+  const push = (
+    severity: 'warn' | 'fail',
+    source_path: string,
+    detail: string,
+    knowledge_size: KnowledgeSizeFinding,
+  ): void => {
+    findings.push({ check: 'knowledge-size', severity, source_path, detail, knowledge_size });
+  };
+  const ratchet = src.ratchet;
+  if (ratchet?.status === 'unresolvable') {
+    // No `knowledge_size`: this finding measures no file (REQ-LIB-054).
+    const base = ratchet.base_ref === undefined ? '' : ` (base \`${ratchet.base_ref}\`)`;
+    findings.push({
+      check: 'knowledge-size',
+      severity: 'fail',
+      source_path: '.prospec.yaml',
+      detail: `knowledge.size_ratchet${base} cannot be resolved: ${ratchet.reason} — ${RATCHET_REMEDY[ratchet.cause]}`,
+    });
+  }
+  const overUnit = (
+    item: KnowledgeSizeItem,
+    rule: KnowledgeSizeRule,
+    unit: 'tokens' | 'lines',
+    budgetKey: keyof KnowledgeSizeBudget,
+    measured: string,
+  ): void => {
+    const budget = src.budget[budgetKey];
+    const actual = item[unit];
+    const facts: KnowledgeSizeFinding = {
+      surface: rule.label,
+      budget_key: budgetKey,
+      budget,
+      actual,
+      unit,
+      tier: 'over',
+      remedy: rule.remedy,
+    };
+    const over = `${rule.label} over ${unit === 'tokens' ? 'token' : 'line'} budget`;
+    const graded = ratchetGrade(ratchet, rule, item, unit, budget);
+    if (graded !== undefined) Object.assign(facts, graded.facts);
+    if (graded === undefined || !graded.grew || !('base_actual' in graded.facts)) {
+      push('warn', item.source_path, `${over}: ${measured} > ${budget} ${budgetKey} budget — ${rule.remedy}`, facts);
+      return;
+    }
+    const at = `at merge-base ${graded.facts.base_commit.slice(0, 12)}`;
+    // The compared size, when carriage returns made it differ from the reported one.
+    const lf = graded.facts.ratchet_actual !== undefined
+      ? ` (${graded.facts.ratchet_actual} ${unit} without carriage returns)`
+      : '';
+    // A path the merge-base lacks (new, or renamed) has no size to have grown from.
+    const detail =
+      graded.facts.base_actual === null
+        ? `${over} and absent ${at} (a new or renamed path): ${measured}${lf} > ${budget} ${budgetKey} budget — ${rule.remedy}`
+        : `${over} and grew past its merge-base size: ${measured}${lf} > ${budget} ${budgetKey} budget; ` +
+          `${graded.facts.base_actual} ${unit} ${at} — ${rule.remedy}`;
+    push('fail', item.source_path, detail, facts);
   };
   for (const item of src.items) {
     const rule: KnowledgeSizeRule = KNOWLEDGE_SIZE_RULES[item.kind];
     const tokenBudget = src.budget[rule.tokenKey];
-    if (item.tokens > tokenBudget) {
-      warn(
-        item.source_path,
-        `${rule.label} over token budget: ${item.tokens} tokens (${TOKEN_ESTIMATOR_LABEL}) ` +
-          `> ${tokenBudget} ${rule.tokenKey} budget — ${rule.remedy}`,
-        {
-          surface: rule.label,
-          budget_key: rule.tokenKey,
-          budget: tokenBudget,
-          actual: item.tokens,
-          unit: 'tokens',
-          tier: 'over',
-          remedy: rule.remedy,
-        },
-      );
+    // the same predicate the ratchet picked its merge-base targets with
+    const over = overBudgetUnits(item.kind, src.budget, item);
+    if (over.tokens) {
+      overUnit(item, rule, 'tokens', rule.tokenKey, `${item.tokens} tokens (${TOKEN_ESTIMATOR_LABEL})`);
     } else if (src.budget.headroom !== undefined) {
       const headroomThreshold = Math.floor(tokenBudget * src.budget.headroom);
       if (item.tokens > headroomThreshold) {
-        warn(
+        push(
+          'warn',
           item.source_path,
           `${rule.label} pressure signal: ${item.tokens} tokens (${TOKEN_ESTIMATOR_LABEL}) ` +
             `approaches ${tokenBudget} ${rule.tokenKey} budget (headroom ${src.budget.headroom})`,
@@ -804,22 +855,8 @@ export function evaluateKnowledgeSize(src: KnowledgeSizeSource): CheckOutcome {
       }
     }
     if (rule.lineKey === undefined) continue;
-    const lineBudget = src.budget[rule.lineKey];
-    if (item.lines > lineBudget) {
-      warn(
-        item.source_path,
-        `${rule.label} over line budget: ${item.lines} lines > ${lineBudget} ` +
-          `${rule.lineKey} budget — ${rule.remedy}`,
-        {
-          surface: rule.label,
-          budget_key: rule.lineKey,
-          budget: lineBudget,
-          actual: item.lines,
-          unit: 'lines',
-          tier: 'over',
-          remedy: rule.remedy,
-        },
-      );
+    if (over.lines) {
+      overUnit(item, rule, 'lines', rule.lineKey, `${item.lines} lines`);
     }
   }
   return outcome('knowledge-size', findings);
@@ -848,6 +885,60 @@ export function evaluateUnsupportedModulePaths(src: UnsupportedModulePathSource)
       : 'which the source digest and last_src_commit read nothing through'} — ${REFUSAL_WHY[p.reason]}. Rewrite: ${p.hint}.`,
   }));
   return outcome('unsupported-module-path', findings);
+}
+
+/** The fix an unresolvable ratchet names, by cause — so a mistyped base is not sent to
+ *  CI's checkout depth, nor a shallow clone to `.prospec.yaml`. `ref` cannot tell an
+ *  unknown ref from missing history or a failed read, so it names all three. */
+const RATCHET_REMEDY: Record<KnowledgeSizeRatchetCause, string> = {
+  config: 'correct `knowledge.size_ratchet.base`',
+  history: 'fetch the base ref with full history (CI: `actions/checkout` with `fetch-depth: 0`)',
+  ref:
+    'correct `knowledge.size_ratchet.base`, or fetch the base ref with full history ' +
+    '(CI: `actions/checkout` with `fetch-depth: 0`), then re-run',
+  environment: 're-run inside a git work tree whose objects git can read',
+};
+
+/**
+ * The ratchet's verdict on one over-budget unit: undefined when the ratchet does
+ * not apply (not configured, unresolvable, or a kind it does not govern), otherwise
+ * the structured facts to attach and whether the unit fails: measured without carriage
+ * returns it is still over `budget` and either grew past its equally normalized merge-base
+ * size or its path is absent at the merge-base (`null`) — new debt, whose detail says
+ * absent rather than grown. The normalized current size rides along as `ratchet_actual`
+ * whenever it differs from the raw measurement.
+ */
+function ratchetGrade(
+  ratchet: KnowledgeSizeSource['ratchet'],
+  rule: KnowledgeSizeRule,
+  item: KnowledgeSizeItem,
+  unit: 'tokens' | 'lines',
+  budget: number,
+):
+  | { grew: false; facts: { base_commit: string; ratchet_skipped: string } }
+  | { grew: boolean; facts: { base_commit: string; base_actual: number | null; ratchet_actual?: number } }
+  | undefined {
+  if (ratchet?.status !== 'resolved' || !rule.ratchet || item.ratchet === undefined) return undefined;
+  if ('skipped' in item.ratchet) {
+    return { grew: false, facts: { base_commit: ratchet.merge_base, ratchet_skipped: item.ratchet.skipped } };
+  }
+  const base = item.ratchet.base === null ? null : item.ratchet.base[unit];
+  // the merge-base text was measured without carriage returns, so compare it with the
+  // equally normalized current text — never with the reported (raw) measurement
+  const current = (item.lf_measure ?? item)[unit];
+  // Over budget only by its carriage returns, the same content checked out with LF has no
+  // finding at all — so the ratchet fails a unit only when its normalized size is over too.
+  const grew = current > budget && (base === null || current > base);
+  // the compared value travels with the finding only when it differs from the raw `actual`,
+  // so a reader can pair it with `base_actual` on one basis
+  return {
+    grew,
+    facts: {
+      base_commit: ratchet.merge_base,
+      base_actual: base,
+      ...(current === item[unit] ? {} : { ratchet_actual: current }),
+    },
+  };
 }
 
 /**

@@ -77,10 +77,19 @@ subject_skips? }`, adopted **verbatim**.
 `{ check, severity, source_path, line?, detail, knowledge_size? }`. Findings exist **only** for
 `warn`/`fail` outcomes (`pass`/`skipped` produce none). `severity` ∈ `warn` | `fail`. For
 `check: 'task-completion'`, each finding carries the `source_path` + `line` of one unchecked code
-task — use these, don't recount tasks.md. For `check: 'knowledge-size'`, each finding also carries an
-optional `knowledge_size` object — `{ surface, budget_key, budget, actual, unit, tier, remedy? }`, the
-structured facts behind its `detail` (additive, so a report without it still validates); `unit` ∈
-`tokens` | `lines`, `tier` ∈ `over` | `headroom`, `remedy` absent for `headroom`.
+task — use these, don't recount tasks.md. For `check: 'knowledge-size'`, each finding on a knowledge file
+also carries an optional `knowledge_size` object — `{ surface, budget_key, budget, actual, unit, tier, remedy?,
+base_commit?, base_actual?, ratchet_actual?, ratchet_skipped? }`, the structured facts behind its `detail`
+(additive, so a report without it still validates); `unit` ∈ `tokens` | `lines`, `tier` ∈ `over` |
+`headroom` (which has no `remedy`). Such a finding is `warn`; under `knowledge.size_ratchet`, an
+over-budget L1/L2 unit is `fail` when absent at merge-base `base_commit` (`base_actual: null`) or larger
+than there — `base_actual` and the compared current size
+both with carriage returns removed (that size must itself be over budget); `ratchet_actual`, the current
+size with carriage returns removed and compared with `base_actual`, appears when it differs from a CRLF
+`actual`; `ratchet_skipped` says why it went uncompared (its merge-base path is through a gitlink or
+symlink or not a regular file, it is or passes through a symlink in the working tree, or under
+`core.ignorecase` more than one index path matches it), and an unresolvable ratchet is a `fail` that
+carries no `knowledge_size`, sits on `.prospec.yaml` and names the fix for its cause.
 
 ## `structural.knowledge_health` (optional) — module freshness + coverage
 
@@ -93,15 +102,15 @@ structured facts behind its `detail` (additive, so a report without it still val
 }
 ```
 
-- Staleness is the boolean `stale` on **each element of `modules[]`**; there is **no** top-level
-  `stale[]` — filter: `knowledge_health.modules.filter(m => m.stale)`.
+- `stale` is a boolean per **`modules[]` element** (**no** top-level `stale[]`) — filter
+  `knowledge_health.modules.filter(m => m.stale)`.
 - `last_verified`: the confirmation time `prospec knowledge verify` stamps; **absent** when undeclared.
 - `freshness` `{ basis, recorded_digest?, current_digest?, reason? }` reproduces `stale` (true unless
   `basis` is `digest-match`). `basis` by precedence: `unverified` (no README or parsable `last_verified`),
   `no-digest` (no current-version `source_digest`), `unavailable` (`reason` says why), then
   `digest-match` / `digest-mismatch`. No README also yields a `coverage gap` finding.
-- The commit-time keys stay for continuity (`last_sub_module_commit` **absent** without sub-modules,
-  never null-filled), never drive `stale`, and are null/absent when commit times are unavailable (shallow, unborn HEAD).
+- Commit-time keys stay for continuity, never drive `stale`, and are null/absent without commit times
+  (shallow, unborn HEAD); `last_sub_module_commit` is **absent** without sub-modules, never null-filled.
 - `coverage` is `{ documented, total }` README counts. The whole object is **optional** (absent without
   a module map) → "no freshness facts", not all-fresh.
 

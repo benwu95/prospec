@@ -52,7 +52,7 @@ nondeterministic serialization this contract exists to remove.
 | **Demand** | Demand Conventions (lessons ledger, playbook, …) | When their topic is relevant — read in slices, never whole | ≤ 20000 tokens per file |
 | **L3** | Source code files | When Agent needs implementation details | No limit (read on demand) |
 
-> Every budget below L0 comes from `.prospec.yaml` `knowledge.token_budget` (this project's values; defaults when unset). Over-budget files WARN via `prospec check` `knowledge-size` (from 0.85 of the limit, a pressure signal), never a build breaker; each finding names its convergence path. L0 is agent-injected config, out of scope.
+> Budgets below L0 come from `.prospec.yaml` `knowledge.token_budget` (defaults when unset). Over-budget files WARN via `prospec check` `knowledge-size` (from 0.85 of budget); a growing over-budget L1/L2 file FAILs under `knowledge.size_ratchet`. Each finding names its convergence path. L0 is agent-injected config, out of scope.
 
 **Principles:**
 1. L0 answers "how to use skills" — L1 answers "where to look" and "what to do" — L2 answers "what it does" (Feature Spec) and "how to modify" (Module README) — L3 answers "how to write"
@@ -139,6 +139,7 @@ For README-PENDING modules (the CLI's judgment worklist):
 - **Refresh Modification Guide** — if implementation patterns changed, update guidance
 - **Refresh Ripple Effects** — if new dependencies were added, update impact list
 - **Maintain sub-modules** — if the module already has `## Sub-Modules` links, update the affected `{sub-module}.md` (and the link's one-liner) instead of cramming the detail back into the README. If the change pushes the README over budget and a content-rich, independent sub-area now exists, extract a new sub-module (`{module}/{sub-module}.md`) and add it to `## Sub-Modules` — do NOT add it to `prospec/index.md`.
+- **Over-budget under the ratchet** — with `knowledge.size_ratchet` set, an L1/L2 file may not end both over budget and larger than at the merge-base of `knowledge.size_ratchet.base` and HEAD in the same unit (tokens, and lines too for L2): offset growth that would break this (a `## Sub-Modules` link or a regenerated `index.md` too) by deleting duplication, shortening curated columns or extracting a sub-module; a new or renamed file must be within its budget. Self-check: `prospec check`'s `knowledge-size`.
 
 #### 3b: Module README.md (REMOVED)
 
@@ -157,7 +158,7 @@ description, guessed paths). What remains is curation (judgment):
 - Curate the ADDED entries: real `description`, `keywords`, `aliases`, `rationale`, `paths`, `relationships`
 - Update `keywords`/`aliases`/`rationale`/`description`/`relationships` for MODIFIED modules
 - Preserve each existing module's `category` (do NOT re-guess it); for an ADDED module, derive an ordered `category: [primary, …]` consistent with existing grouping and write it
-- After curating, re-run `prospec knowledge update --module <curated-modules>` so the index auto block regenerates from the curated map
+- After curating, re-run `prospec knowledge update --module <curated-modules>` so the index auto block regenerates from the curated map — the regenerated `index.md` follows 3a's ratchet cap
 - Skip if module-map.yaml doesn't exist
 
 #### 3d: prospec/index.md (CLI-generated — never hand-edit the auto block)
@@ -216,7 +217,7 @@ Emit one line: `Met N/M | Unmet: <items> | Overall: PASS|WARN|FAIL | Next: <one-
 | Module directory doesn't exist (MODIFIED) | Run `prospec knowledge update --module <name>` — manual mode scaffolds the skeleton; then fill it |
 | Auto/user marker conflict while editing | Prefer your new auto content, always preserve user sections |
 | Source scan returns 0 files | Generate minimal README with module name only, warn user |
-| README exceeds 100 lines after update | Trim Key Files and Public API; keep Modification Guide and Pitfalls |
+| README exceeds 100 lines after update | Trim Key Files and Public API; keep Modification Guide and Pitfalls (under `knowledge.size_ratchet`, a file over budget follows Phase 3a's ratchet cap) |
 
 ## Next-Step Handoff
 

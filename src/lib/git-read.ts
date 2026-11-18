@@ -11,6 +11,9 @@
  * reader also serves project listings with each consumer's environment policy;
  * submodule listings use the fixed environment because their cwd is another
  * repository.
+ * The knowledge-size ratchet's case-insensitive index listing uses `readIndexEntries`:
+ * it keeps the caller's repository selection and clears only `PATHSPEC_ENV`, so the
+ * `:(icase,literal)` magic stays intact.
  *
  * `GIT_READ_TIMEOUT_MS` and `failureLine` are shared beyond the delegation path; the
  * CLI entry's work-tree probe uses them, and this module imports only Node built-ins

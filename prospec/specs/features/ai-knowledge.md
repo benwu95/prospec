@@ -142,6 +142,7 @@ The test suite proves the Module README format contract at every boundary using 
 | 2026-10-29 | resolve-module-paths-via-git | MODIFIED REQ-LIB-029 | REQ-LIB-029 |
 | 2026-10-25 | judge-freshness-by-content-digest | MODIFIED REQ-TYPES-084 | REQ-TYPES-084 |
 | 2026-10-24 | sync-knowledge-before-evidence | MODIFIED REQ-TEMPLATES-207 | REQ-TEMPLATES-207 |
+| 2026-10-20 | ratchet-knowledge-size | MODIFIED REQ-TYPES-069 | REQ-TYPES-069 |
 | 2026-10-16 | correct-related-modules | MODIFIED REQ-TEMPLATES-162 | REQ-TEMPLATES-162 |
 | 2026-10-10 | correct-stale-content-claims | MODIFIED REQ-TEMPLATES-040 | REQ-TEMPLATES-040 |
 | 2026-10-09 | slim-readme-into-docs | MODIFIED REQ-CLI-050; MODIFIED REQ-TESTS-110 | REQ-CLI-050, REQ-TESTS-110 |

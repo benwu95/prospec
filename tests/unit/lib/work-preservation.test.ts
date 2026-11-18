@@ -10,7 +10,7 @@ vi.mock('node:fs', async (importOriginal) => {
   const actual = await importOriginal<typeof import('node:fs')>();
   return { ...actual, readFileSync: vi.fn(actual.readFileSync) };
 });
-vi.setConfig({ testTimeout: 30_000 });
+vi.setConfig({ testTimeout: 30_000, hookTimeout: 30_000 });
 let root: string;
 let sourceDir: string;
 let destination: string;

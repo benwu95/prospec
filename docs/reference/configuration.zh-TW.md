@@ -69,8 +69,11 @@
 | `knowledge.token_budget.spec_per_file` | number | `5000` | 每份 Feature Spec、spec slice 或 `product.md` 的 token 上限。 |
 | `knowledge.token_budget.demand_knowledge_per_file` | number | `10000` | 每個 load-on-demand Knowledge 檔案的 token 上限，例如 lessons ledger 或 playbook。 |
 | `knowledge.token_budget.headroom` | number | `0.85` | 開始觸發壓力訊號的預算比例；範圍為 `0`–`1`。 |
+| `knowledge.size_ratchet.base` | string | 未設定（ratchet 關閉） | 比較基準的 git ref，例如 `origin/main`。設定後，已超標且比 `git merge-base <base> HEAD` 時更大的 L1 或 L2 檔，`knowledge-size` 會回報 FAIL。 |
 
-`knowledge-size` 量測 agent 讀取的各個載入面。只覆寫需要調整的欄位，其餘沿用 shipped defaults。新初始化的專案沒有 `token_budget` 區塊。檔案超標產生 WARN，不會造成建置失敗，也不影響 `--strict` 的 exit code。
+`knowledge-size` 量測 agent 讀取的各個載入面。只覆寫需要調整的欄位，其餘沿用 shipped defaults。新初始化的專案沒有 `token_budget` 區塊。未設定 `size_ratchet` 時，檔案超標產生 WARN，不會造成建置失敗，也不影響 `--strict` 的 exit code。
+
+設定 `size_ratchet` 後，既有的超標仍是 WARN；但已超標的 L1/L2 檔若比 merge-base 時更大，或在 merge-base 沒有對應版本（例如改名、未被追蹤或被 ignore 的檔案），會回報 FAIL，`--strict` 以非零結束。finding 會寫出 merge-base commit；在 merge-base 沒有對應版本的檔案會寫成「在 merge-base 不存在」，而不是「變大」。行尾不影響是否判為變大：比較時兩邊都會先去掉 carriage return，所以 `core.autocrlf` 不會讓內容未變的檔案 FAIL，也不會掩蓋真正的成長；只因 carriage return 才超出預算的檔案維持 WARN。finding 的 `actual` 仍是檔案的原始大小；當拿來和 `base_actual` 比較、去掉 carriage return 的大小與它不同時（例如 CRLF 檔的 token 數），finding 會另帶這個值作為 `ratchet_actual`，`prospec check` 會把這兩個值並列印出。這項檢查需要完整的 git 歷史：CI 請以 `fetch-depth: 0` checkout；shallow clone、不存在的 ref 或格式錯誤的 `size_ratchet` 都會讓檢查失敗，而不是默默略過 ratchet；finding 的修正提示依原因而定：格式錯誤時修正 `size_ratchet.base`，shallow clone 時取得完整歷史，找不到 merge-base 時修正 base 或取得完整歷史後重跑，git 本身無法讀取時在可讀取的 git 工作樹內重跑。檔案若在工作樹中本身是 symlink 或路徑經過 symlink、在 merge-base 的路徑經過 submodule 或 symlink 或在那裡不是一般檔案，或在 `core.ignorecase` 為 true 時有多個 index 路徑不分大小寫與它相符，就不比較：維持 WARN，finding 的 `ratchet_skipped` 會說明原因。因此整個放在 submodule 裡的知識庫不會受 ratchet 管控。`core.ignorecase` 設為 true 時，只改大小寫的目錄會以 git 記錄的路徑比較。在本機若 base ref 已過時，請先 `git fetch`，否則會以較舊的 merge-base 比較。在 delegation snapshot 中，`origin/*` 指的是主 repo 的本機 branch，因此要改為在主 repo 更新 base branch（例如在主 repo 執行 `git fetch origin main:main`）。同一個 change 調高 `token_budget` 也能讓 FAIL 消失；這類調高必須依預算覆寫的規則明確揭露。
 
 每則 finding 會指出對應載入面的處理方式：縮減 L1 檔案或把細節移至所屬模組、抽出 L2 sub-module、將 Feature Spec 分割至 `specs/features/{feature}/`，或對治理檔案執行 `prospec-learn` 的 Staleness Sweep。封存變更會把正式化的 requirements 加入 Feature Specs；抽出的各 slice 仍適用相同的 `spec_per_file` 預算。
 

@@ -9,7 +9,7 @@ import { inventoryFileSource } from './project-files-adapters.js';
 import { probeGitWorkTree } from './git-prerequisite.js';
 import { parseYaml } from './yaml-utils.js';
 import { parseDocument, isMap, isScalar } from 'yaml';
-import { DEFAULT_BASE_DIR, DEFAULT_KNOWLEDGE_TOKEN_BUDGET, isShippedBudgetField, type ShippedBudgetField } from '../types/config.js';
+import { DEFAULT_BASE_DIR, DEFAULT_KNOWLEDGE_TOKEN_BUDGET, KNOWLEDGE_SIZE_RULES, isShippedBudgetField, overBudgetUnits, type ShippedBudgetField } from '../types/config.js';
 import { withoutFencedBlocks } from './markdown-fences.js';
 import { GIT_READ_TIMEOUT_MS, PATHSPEC_ENV, gitRead, gitReadOptional, gitReadRecords, fixedGitEnv, hiddenIndexShape, parseIndexRecord, readIndexEntries } from './git-read.js';
 import { moduleSourceDigest, type SourceDigestEntry } from './source-digest.js';
@@ -195,19 +195,44 @@ export interface McpReadmeCountSource {
   claims: McpReadmeCountClaim[];
 }
 
+/** What the size ratchet measured for one over-budget, ratchet-governed item:
+ *  its size at the merge-base (`null` = absent there), or why it was not ratcheted. */
+export type KnowledgeSizeItemRatchet =
+  | { base: { tokens: number; lines: number } | null }
+  | { skipped: string };
+
 export interface KnowledgeSizeItem {
   /** repo-relative path of the measured knowledge file */
   source_path: string;
   kind: KnowledgeSizeKind;
   tokens: number;
   lines: number;
+  /** present only while `knowledge.size_ratchet` is resolved, and only for an
+   *  over-budget item whose kind the ratchet governs */
+  ratchet?: KnowledgeSizeItemRatchet;
+  /** the file measured with every carriage return removed — present only when its text
+   *  holds one. The ratchet compares this with the equally normalized merge-base text, so
+   *  line endings never decide growth; `tokens`/`lines` stay the reported measurement. */
+  lf_measure?: { tokens: number; lines: number };
 }
+
+/** Why a configured ratchet could not be resolved — the evaluator picks the fix from it:
+ *  `config` a malformed `size_ratchet` value, `history` a shallow clone, `ref` no
+ *  merge-base (an unknown ref, no common ancestor, or a merge-base read that failed —
+ *  indistinguishable here), `environment` any other unreadable git fact. */
+export type KnowledgeSizeRatchetCause = 'config' | 'history' | 'ref' | 'environment';
+
+/** `knowledge.size_ratchet` as the collector resolved it (REQ-LIB-111); absent = not configured. */
+export type KnowledgeSizeRatchet =
+  | { status: 'resolved'; base_ref: string; merge_base: string }
+  | { status: 'unresolvable'; cause: KnowledgeSizeRatchetCause; base_ref?: string; reason: string };
 
 export interface KnowledgeSizeSource {
   available: boolean;
   reason?: string;
   budget: KnowledgeSizeBudget;
   items: KnowledgeSizeItem[];
+  ratchet?: KnowledgeSizeRatchet;
 }
 
 export interface BudgetOverride {
@@ -957,6 +982,10 @@ export function collectKnowledgeSize(
   knowledgePath: string,
   budget: KnowledgeSizeBudget,
   additionalCore: string[],
+  /** `knowledge.size_ratchet` as written (unvalidated); `undefined` = ratchet off */
+  ratchet: unknown,
+  /** the work-tree fact the caller already probed for its other git collectors */
+  inWorkTree: boolean,
 ): KnowledgeSizeSource {
   if (!existsSync(path.resolve(cwd, knowledgePath))) {
     return {
@@ -970,11 +999,13 @@ export function collectKnowledgeSize(
   const items: KnowledgeSizeItem[] = [];
   const measure = (relPath: string, kind: KnowledgeSizeKind, content: string | null): void => {
     if (content === null) return;
+    const lf = content.includes('\r') ? content.replace(/\r/g, '') : null;
     items.push({
       source_path: relPath.replace(/\\/g, '/'),
       kind,
       tokens: estimateTokens(content),
       lines: countLines(content),
+      ...(lf === null ? {} : { lf_measure: { tokens: estimateTokens(lf), lines: countLines(lf) } }),
     });
   };
 
@@ -1035,7 +1066,252 @@ export function collectKnowledgeSize(
     for (const item of collectAuthoredSkillItems(cwd)) items.push(item);
   }
 
-  return { available: true, budget, items };
+  if (ratchet === undefined) return { available: true, budget, items };
+  return { available: true, budget, items, ratchet: applySizeRatchet(cwd, ratchet, inWorkTree, items, budget) };
+}
+
+/** The only tree-entry modes whose blob is the file's own text. A symlink (120000)
+ *  stores its target, a tree (040000) or a gitlink (160000) is not a file at all —
+ *  `cat-file --filters` would print the tree or the commit object, not the content. */
+const REGULAR_BLOB_MODES: ReadonlySet<string> = new Set(['100644', '100755']);
+
+/** Validate the unvalidated `knowledge.size_ratchet` value (the schema accepts any
+ *  shape so a typo cannot fail every command that loads the config). */
+function ratchetBaseRef(value: unknown): { base: string } | { reason: string; base_ref?: string } {
+  if (value === null || typeof value !== 'object' || Array.isArray(value)) {
+    return { reason: '`knowledge.size_ratchet` must be a mapping with a `base` ref' };
+  }
+  const base = (value as { base?: unknown }).base;
+  if (base === undefined) return { reason: '`knowledge.size_ratchet.base` is missing' };
+  if (typeof base !== 'string') return { reason: '`knowledge.size_ratchet.base` must be a string' };
+  if (base.trim() === '') return { reason: '`knowledge.size_ratchet.base` is empty' };
+  // It reaches git's argv; a leading `-` would be parsed as an option.
+  if (base.startsWith('-')) {
+    return { reason: '`knowledge.size_ratchet.base` starts with `-`, which git would read as an option', base_ref: base };
+  }
+  return { base };
+}
+
+/** Whether any unit of the item (its raw measurement — the one its finding reports) is
+ *  over budget, by the same predicate the evaluator grades with. */
+function overAnyBudget(item: KnowledgeSizeItem, budget: KnowledgeSizeBudget): boolean {
+  const over = overBudgetUnits(item.kind, budget, item);
+  return over.tokens || over.lines;
+}
+
+/** Whether the file or ANY directory between `cwd` and it is a symlink. git stores a
+ *  symlinked directory as one link blob, so a path through it has no tree entry at
+ *  the merge-base — reading that as "absent" would fail an unchanged file. An
+ *  unreadable segment counts as a symlink: the ratchet then skips the file (it keeps
+ *  its warn) rather than guessing. */
+function symlinkOnPath(cwd: string, rel: string): boolean {
+  let current = cwd;
+  for (const segment of rel.split('/')) {
+    current = path.join(current, segment);
+    try {
+      if (lstatSync(current).isSymbolicLink()) return true;
+    } catch {
+      return true;
+    }
+  }
+  return false;
+}
+
+/** `ls-tree -z` records as path → mode. Only exact paths are looked up afterwards: for a
+ *  directory pathspec git may print its children instead of the directory itself. */
+function treeModes(listing: string): Map<string, string> {
+  const modes = new Map<string, string>();
+  for (const record of listing.split('\0')) {
+    const tab = record.indexOf('\t');
+    if (tab < 0) continue;
+    modes.set(record.slice(tab + 1), record.slice(0, record.indexOf(' ')));
+  }
+  return modes;
+}
+
+/**
+ * Map each path to the path git records it under, on a repository whose
+ * `core.ignorecase` is true: the working tree's spelling (a directory renamed only in
+ * case) is not the tree's, and `ls-tree` matches pathspecs case-sensitively. One
+ * case-insensitive index match is the path; more than one cannot be resolved; none
+ * (untracked) keeps the working-tree path. Returns null when the index read fails.
+ */
+function indexPathsIgnoringCase(cwd: string, paths: string[]): Map<string, string | { ambiguous: true }> | null {
+  // listPathspecs reads through readIndexEntries, which clears only the pathspec-mode
+  // variables (GIT_*_PATHSPECS would silently reinterpret the magic) and keeps the caller's
+  // repository selection (GIT_DIR, GIT_WORK_TREE, GIT_INDEX_FILE) like every other ratchet read.
+  const records = listPathspecs(cwd, paths.map((p) => `:(icase,literal)${p}`));
+  if (records === null) return null;
+  const byFolded = new Map<string, Set<string>>();
+  for (const record of records) {
+    const folded = record.toLowerCase();
+    byFolded.set(folded, (byFolded.get(folded) ?? new Set()).add(record));
+  }
+  const resolved = new Map<string, string | { ambiguous: true }>();
+  for (const p of paths) {
+    const matches = byFolded.get(p.toLowerCase());
+    if (matches === undefined) resolved.set(p, p);
+    else if (matches.size === 1) resolved.set(p, [...matches][0]!);
+    else resolved.set(p, { ambiguous: true });
+  }
+  return resolved;
+}
+
+/** Every proper ancestor of a project-relative path, outermost first. */
+function ancestorPaths(rel: string): string[] {
+  const segments = rel.split('/');
+  return segments.slice(0, -1).map((_, i) => segments.slice(0, i + 1).join('/'));
+}
+
+/**
+ * Resolve `knowledge.size_ratchet` (REQ-LIB-111): the merge-base of the configured
+ * ref and HEAD, and — for every over-budget item of a kind the ratchet governs —
+ * that item's size at the merge-base (`null` = absent there) or why it was not
+ * ratcheted. A path absent from the merge-base tree is new debt only when no
+ * ancestor of it is a gitlink or a symlink there: the tree does not hold what lies
+ * behind a link. Fails CLOSED: any unreadable fact makes the whole ratchet
+ * unresolvable and leaves every item unratcheted (PB-013) — the evaluator turns that
+ * into a fail on `.prospec.yaml`, never a silent warn. Items are annotated only once
+ * every read succeeded, so a half-measured source cannot reach the evaluator. Never
+ * throws: it runs inside an argument to `runChecks(...)`.
+ */
+function applySizeRatchet(
+  cwd: string,
+  value: unknown,
+  inWorkTree: boolean,
+  items: KnowledgeSizeItem[],
+  budget: KnowledgeSizeBudget,
+): KnowledgeSizeRatchet {
+  const parsed = ratchetBaseRef(value);
+  if ('reason' in parsed) {
+    return {
+      status: 'unresolvable',
+      cause: 'config',
+      ...(parsed.base_ref === undefined ? {} : { base_ref: parsed.base_ref }),
+      reason: parsed.reason,
+    };
+  }
+  const base_ref = parsed.base;
+  const unresolvable = (cause: KnowledgeSizeRatchetCause, reason: string): KnowledgeSizeRatchet => ({
+    status: 'unresolvable',
+    cause,
+    base_ref,
+    reason,
+  });
+  try {
+    if (!inWorkTree) return unresolvable('environment', 'not a git work tree');
+    // gitCapture drops an inherited GIT_LITERAL_PATHSPECS=1, which would read the `:(literal)`
+    // prefix below as part of the file name: every lookup would match nothing and fail unchanged files.
+    // Every ratchet git read is bounded by git-read's timeout: `cat-file --filters` runs
+    // smudge drivers (git-lfs can reach the network), and a hung read must fail the check
+    // closed rather than hang it.
+    const capture = (args: string[]): string | null => gitCapture(cwd, args, GIT_READ_TIMEOUT_MS);
+    // Unlike collectGitTimestamps' best-effort probe, a failed probe is not "not
+    // shallow" here: a gate cannot assume the history it compares against.
+    const shallow = capture(['rev-parse', '--is-shallow-repository'])?.trim();
+    if (shallow === undefined) {
+      return unresolvable('environment', 'the shallow-clone probe (`git rev-parse --is-shallow-repository`) failed');
+    }
+    if (shallow === 'true') return unresolvable('history', 'shallow git clone (commit history incomplete)');
+    const mergeBase = capture(['merge-base', base_ref, 'HEAD'])?.trim();
+    if (!mergeBase) {
+      return unresolvable('ref', `\`git merge-base ${base_ref} HEAD\` found no merge-base (unknown ref, or no common ancestor)`);
+    }
+    const at = `at merge-base ${mergeBase.slice(0, 12)}`;
+
+    const targets = items.filter((i) => KNOWLEDGE_SIZE_RULES[i.kind].ratchet && overAnyBudget(i, budget));
+    const measured = new Map<KnowledgeSizeItem, KnowledgeSizeItemRatchet>();
+    if (targets.length > 0) {
+      // Paths are project-relative, and so is git's output when it runs in the project
+      // directory — which is what keeps a project below the repository root right.
+      const ignoreCase = capture(['config', '--bool', '--default', 'false', 'core.ignorecase'])?.trim();
+      if (ignoreCase === undefined) return unresolvable('environment', 'the `core.ignorecase` probe failed');
+      const lookups = new Map<KnowledgeSizeItem, string>();
+      const measurable: KnowledgeSizeItem[] = [];
+      for (const item of targets) {
+        // A symlink's blob is its target path, not the content measured here; a
+        // symlinked parent directory hides the file from the merge-base tree.
+        if (symlinkOnPath(cwd, item.source_path)) measured.set(item, { skipped: 'symlink on its path in the working tree' });
+        else measurable.push(item);
+      }
+      const canonical =
+        ignoreCase === 'true' && measurable.length > 0
+          ? indexPathsIgnoringCase(cwd, measurable.map((i) => i.source_path))
+          : undefined;
+      if (canonical === null) return unresolvable('environment', `could not read the index paths for a case-insensitive lookup ${at}`);
+      for (const item of measurable) {
+        const lookup = canonical?.get(item.source_path) ?? item.source_path;
+        if (typeof lookup === 'string') lookups.set(item, lookup);
+        else measured.set(item, { skipped: 'more than one index path matches it case-insensitively' });
+      }
+
+      // Every pathspec is literal: a directory named `:x` is a path, never pathspec magic.
+      const literal = (paths: Iterable<string>): string[] => [...paths].map((p) => `:(literal)${p}`);
+      const listing = lookups.size > 0 ? capture(['ls-tree', '-z', mergeBase, '--', ...literal(lookups.values())]) : '';
+      if (listing === null) return unresolvable('environment', `could not list the knowledge files ${at}`);
+      const modes = treeModes(listing);
+      const missing = [...lookups].filter(([, lookup]) => !modes.has(lookup));
+      let ancestorModes = new Map<string, string>();
+      // The project directory and the repository directories above it, repository-relative:
+      // a link there hides every knowledge file, yet no project-relative ancestor names it.
+      let projectDirs: string[] = [];
+      let projectDirModes = new Map<string, string>();
+      if (missing.length > 0) {
+        const ancestors = [...new Set(missing.flatMap(([, lookup]) => ancestorPaths(lookup)))];
+        const ancestorListing = ancestors.length > 0 ? capture(['ls-tree', '-z', mergeBase, '--', ...literal(ancestors)]) : '';
+        if (ancestorListing === null) return unresolvable('environment', `could not list the ancestor directories ${at}`);
+        ancestorModes = treeModes(ancestorListing);
+        let prefix: string;
+        try {
+          prefix = gitProjectPrefix(cwd, { timeout: GIT_READ_TIMEOUT_MS }).replace(/\/$/, '');
+        } catch {
+          return unresolvable('environment', 'the project prefix probe (`git rev-parse --show-prefix`) failed');
+        }
+        if (prefix !== '') {
+          projectDirs = [...ancestorPaths(prefix), prefix];
+          // --full-tree reads the pathspecs and prints the paths from the repository root.
+          const projectListing = capture(['ls-tree', '-z', '--full-tree', mergeBase, '--', ...literal(projectDirs)]);
+          if (projectListing === null) return unresolvable('environment', `could not list the project directory ${at}`);
+          projectDirModes = treeModes(projectListing);
+        }
+      }
+      const isLink = (mode: string | undefined): boolean => mode === '160000' || mode === '120000';
+      const projectLink = projectDirs.find((d) => isLink(projectDirModes.get(d)));
+
+      for (const [item, lookup] of lookups) {
+        const mode = modes.get(lookup);
+        if (mode === undefined) {
+          const inner = ancestorPaths(lookup).find((a) => isLink(ancestorModes.get(a)));
+          const [link, linkMode] =
+            projectLink !== undefined ? [projectLink, projectDirModes.get(projectLink)] : [inner, inner && ancestorModes.get(inner)];
+          measured.set(
+            item,
+            link === undefined
+              ? { base: null }
+              : { skipped: `${link} is a ${linkMode === '160000' ? 'gitlink' : 'symlink'} at the merge-base` },
+          );
+        } else if (mode === '120000') {
+          measured.set(item, { skipped: 'symlink at the merge-base' });
+        } else if (!REGULAR_BLOB_MODES.has(mode)) {
+          measured.set(item, { skipped: `not a regular file at the merge-base (mode ${mode})` });
+        } else {
+          // --filters applies a checkout's smudge conversion (git-lfs and the like); carriage
+          // returns are then removed on both sides, so neither core.autocrlf direction reads
+          // an unchanged file as grown or hides real growth behind its line endings.
+          const blob = capture(['cat-file', '--filters', `${mergeBase}:./${lookup}`]);
+          if (blob === null) {
+            return unresolvable('environment', `could not read ${item.source_path} ${at} (failed or timed out)`);
+          }
+          const lf = blob.replace(/\r/g, '');
+          measured.set(item, { base: { tokens: estimateTokens(lf), lines: countLines(lf) } });
+        }
+      }
+    }
+    for (const [item, ratchet] of measured) item.ratchet = ratchet;
+    return { status: 'resolved', base_ref, merge_base: mergeBase };
+  } catch (err) {
+    return unresolvable('environment', `unexpected error: ${err instanceof Error ? err.message : String(err)}`);
+  }
 }
 
 /**
@@ -1637,7 +1913,7 @@ const GIT_CAPTURE_MAX_BUFFER = 256 * 1024 * 1024;
 
 /** Run git and capture stdout — null on failure, '' on empty success (the two
  *  must stay distinct: an empty diff is a valid state, a git failure is not). */
-function gitCapture(cwd: string, args: string[]): string | null {
+function gitCapture(cwd: string, args: string[], timeout?: number): string | null {
   // The pathspecs prospec builds carry their own magic; these variables would reread them.
   const env: NodeJS.ProcessEnv = { ...process.env };
   for (const name of PATHSPEC_ENV) delete env[name];
@@ -1648,6 +1924,7 @@ function gitCapture(cwd: string, args: string[]): string | null {
       stdio: 'pipe',
       encoding: 'utf-8',
       maxBuffer: GIT_CAPTURE_MAX_BUFFER,
+      ...(timeout === undefined ? {} : { timeout }),
     });
   } catch {
     return null;
@@ -2003,10 +2280,15 @@ function firstUnrepresented(dir: string, represented: ReadonlySet<string>): stri
 /** Porcelain v1 always emits repository-root paths; ls-files is cwd-relative.
  * Ordinary root projects need no extra subprocess. Nested/external-worktree
  * setups ask Git for the exact prefix, preserving embedded whitespace bytes.
+ * `options.timeout` bounds that probe; only the knowledge-size ratchet passes one.
  */
-export function gitProjectPrefix(cwd: string): string {
+export function gitProjectPrefix(cwd: string, options: { timeout?: number } = {}): string {
   if (existsSync(path.join(cwd, '.git')) && !process.env.GIT_DIR && !process.env.GIT_WORK_TREE) return '';
-  const raw = execFileSync('git', ['rev-parse', '--show-prefix'], { cwd, stdio: 'pipe' });
+  const raw = execFileSync('git', ['rev-parse', '--show-prefix'], {
+    cwd,
+    stdio: 'pipe',
+    ...(options.timeout === undefined ? {} : { timeout: options.timeout }),
+  });
   const text = raw.toString('utf8');
   if (!Buffer.from(text).equals(raw) || !text.endsWith('\n')) throw new Error('Git project prefix cannot be represented losslessly');
   return text.slice(0, -1);

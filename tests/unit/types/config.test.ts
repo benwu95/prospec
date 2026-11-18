@@ -11,9 +11,26 @@ import {
   isNormalizedProjectPath,
   isShippedBudgetField,
   knowledgeBasePathIssue,
+  overBudgetUnits,
   type KnowledgeSizeRule,
 } from '../../../src/types/config.js';
 import { TestPolicySchema } from '../../../src/types/change.js';
+
+describe('overBudgetUnits — the one over-budget predicate the ratchet collector and the evaluator share (REQ-LIB-111)', () => {
+  const budget = { ...DEFAULT_KNOWLEDGE_TOKEN_BUDGET, l2_per_module: 100, readme_max_lines: 10, l1_per_file: 100 };
+
+  it('grades tokens and lines independently against the kind\'s own budget keys', () => {
+    expect(overBudgetUnits('l2', budget, { tokens: 101, lines: 10 })).toEqual({ tokens: true, lines: false });
+    expect(overBudgetUnits('l2', budget, { tokens: 100, lines: 11 })).toEqual({ tokens: false, lines: true });
+    expect(overBudgetUnits('l2', budget, { tokens: 100, lines: 10 })).toEqual({ tokens: false, lines: false });
+  });
+
+  it('never grades lines for a kind whose rule declares no lineKey', () => {
+    expect((KNOWLEDGE_SIZE_RULES.l1 as KnowledgeSizeRule).lineKey).toBeUndefined();
+    expect(overBudgetUnits('l1', budget, { tokens: 100, lines: 10_000 })).toEqual({ tokens: false, lines: false });
+    expect(overBudgetUnits('l1', budget, { tokens: 101, lines: 0 })).toEqual({ tokens: true, lines: false });
+  });
+});
 
 describe('DEFAULT_KNOWLEDGE_TOKEN_BUDGET', () => {
   it('is the single source for the knowledge-size thresholds', () => {
@@ -100,6 +117,41 @@ describe('DEFAULT_KNOWLEDGE_TOKEN_BUDGET', () => {
   it('grades lines only where a rule declares a lineKey (only L2 has a line cap)', () => {
     const withLines = KNOWLEDGE_SIZE_KINDS.filter((k) => 'lineKey' in KNOWLEDGE_SIZE_RULES[k]);
     expect(withLines).toEqual(['l2']);
+  });
+
+  it('ratchets exactly the L1 and L2 surfaces (REQ-TYPES-077)', () => {
+    const ratcheted = KNOWLEDGE_SIZE_KINDS.filter((k) => KNOWLEDGE_SIZE_RULES[k].ratchet);
+    expect(ratcheted).toEqual(['l1', 'l2']);
+    for (const kind of KNOWLEDGE_SIZE_KINDS) {
+      expect(typeof KNOWLEDGE_SIZE_RULES[kind].ratchet, `${kind}.ratchet`).toBe('boolean');
+    }
+  });
+});
+
+describe('knowledge.size_ratchet (REQ-TYPES-118)', () => {
+  const parse = (size_ratchet: unknown) =>
+    ProspecConfigSchema.safeParse({ project: { name: 't' }, knowledge: { size_ratchet } });
+
+  it('keeps a well-formed ratchet as written', () => {
+    const parsed = parse({ base: 'origin/main' });
+    expect(parsed.success).toBe(true);
+    expect(parsed.data?.knowledge?.size_ratchet).toEqual({ base: 'origin/main' });
+  });
+
+  it.each([
+    ['a bare scalar', 'origin/main'],
+    ['an empty base', { base: '' }],
+    ['an option-like base', { base: '--output=x' }],
+    ['a numeric base', { base: 123 }],
+  ])('still validates the config for %s — the ratchet grades it, not the schema', (_label, value) => {
+    const parsed = parse(value);
+    expect(parsed.success).toBe(true);
+    expect(parsed.data?.knowledge?.size_ratchet).toEqual(value);
+  });
+
+  it('leaves the ratchet off when the key is absent', () => {
+    const parsed = ProspecConfigSchema.parse({ project: { name: 't' }, knowledge: {} });
+    expect(parsed.knowledge?.size_ratchet).toBeUndefined();
   });
 });
 

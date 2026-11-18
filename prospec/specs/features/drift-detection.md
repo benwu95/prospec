@@ -1,9 +1,9 @@
 ---
 feature: drift-detection
 status: active
-last_updated: 2026-11-03
-story_count: 25
-req_count: 96
+last_updated: 2026-11-18
+story_count: 26
+req_count: 101
 ---
 
 # Deterministic Drift Check
@@ -32,6 +32,7 @@ req_count: 96
 - [US-24: Canonical document drift detection](./drift-detection/us-24.md)
 - [US-25: Delta-spec landing fidelity](./drift-detection/us-25.md)
 - [US-26: Unique requirement identities](./drift-detection/us-26.md)
+- [US-27: knowledge-size ratchet fails growth of over-budget L1/L2 files](./drift-detection/us-27.md)
 
 ---
 
@@ -67,6 +68,10 @@ _(None)_
 
 | Date | Change | Impact | Stories/REQs |
 |------|--------|--------|--------------|
+| 2026-11-18 | align-ratchet-rule-wording | MODIFIED REQ-TEMPLATES-275; MODIFIED REQ-TEMPLATES-274 | REQ-TEMPLATES-275, REQ-TEMPLATES-274 |
+| 2026-11-11 | align-ratchet-output-basis | MODIFIED REQ-TYPES-083; MODIFIED REQ-TYPES-118; MODIFIED REQ-LIB-111; MODIFIED REQ-CLI-011; MODIFIED REQ-TEMPLATES-274; MODIFIED REQ-TESTS-148 | REQ-TYPES-083, REQ-TYPES-118, REQ-LIB-111, REQ-CLI-011, REQ-TEMPLATES-274, REQ-TESTS-148 |
+| 2026-11-10 | fix-ratchet-review-findings | MODIFIED REQ-LIB-111; MODIFIED REQ-TESTS-148 | REQ-LIB-111, REQ-TESTS-148 |
+| 2026-11-10 | harden-knowledge-size-ratchet | ADDED REQ-TEMPLATES-275; MODIFIED REQ-LIB-111; MODIFIED REQ-TESTS-148; MODIFIED REQ-TEMPLATES-274 | REQ-TEMPLATES-275, REQ-LIB-111, REQ-TESTS-148, REQ-TEMPLATES-274 |
 | 2026-11-04 | reconcile-feature-ownership | Relocate unchanged identity and complete behavior from drift-checks/US-1 to drift-detection/US-8; retain the source container as deprecated history | drift-checks/US-1/REQ-LIB-001 → drift-detection/US-8/REQ-LIB-001 |
 | 2026-11-04 | reconcile-feature-ownership | Relocate unchanged identity and complete behavior from drift-checks/US-3 to drift-detection/US-8; retain the source container as deprecated history | drift-checks/US-3/REQ-LIB-002 → drift-detection/US-8/REQ-LIB-002 |
 | 2026-11-04 | reconcile-feature-ownership | Relocate unchanged identity and complete behavior from drift-checks/US-4 to drift-detection/US-24; retain the source container as deprecated history | drift-checks/US-4/REQ-LIB-052 → drift-detection/US-24/REQ-LIB-052 |
@@ -83,6 +88,7 @@ _(None)_
 | 2026-10-26 | compute-digest-via-temp-index | MODIFIED REQ-LIB-015; MODIFIED REQ-LIB-070; MODIFIED REQ-TYPES-082 | REQ-LIB-015, REQ-LIB-070, REQ-TYPES-082 |
 | 2026-10-25 | judge-freshness-by-content-digest | MODIFIED REQ-LIB-015; MODIFIED REQ-LIB-039; MODIFIED REQ-LIB-070; MODIFIED REQ-TYPES-073; MODIFIED REQ-TESTS-112; MODIFIED REQ-TESTS-067 | REQ-LIB-015, REQ-LIB-039, REQ-LIB-070, REQ-TYPES-073, REQ-TESTS-112, REQ-TESTS-067 |
 | 2026-10-24 | hint-exclude-on-stale-evidence | MODIFIED REQ-CLI-052 | REQ-CLI-052 |
+| 2026-10-20 | ratchet-knowledge-size | ADDED REQ-TYPES-118; ADDED REQ-LIB-111; ADDED REQ-TEMPLATES-274; ADDED REQ-TESTS-148; MODIFIED REQ-TYPES-060; MODIFIED REQ-TYPES-077; MODIFIED REQ-LIB-027; MODIFIED REQ-SERVICES-065; MODIFIED REQ-TYPES-083; MODIFIED REQ-CLI-011; MODIFIED REQ-LIB-054 | REQ-TYPES-118, REQ-LIB-111, REQ-TEMPLATES-274, REQ-TESTS-148, REQ-TYPES-060, REQ-TYPES-077, REQ-LIB-027, REQ-SERVICES-065, REQ-TYPES-083, REQ-CLI-011, REQ-LIB-054 |
 | 2026-10-19 | accept-directory-symlink-inputs | MODIFIED REQ-LIB-024; MODIFIED REQ-LIB-033 | REQ-LIB-024, REQ-LIB-033 |
 | 2026-10-16 | correct-related-modules | MODIFIED REQ-SERVICES-093; MODIFIED REQ-TESTS-096 | REQ-SERVICES-093, REQ-TESTS-096 |
 | 2026-10-13 | reuse-knowledge-test-evidence | ADDED REQ-TYPES-115; ADDED REQ-TESTS-137; MODIFIED REQ-LIB-033; MODIFIED REQ-LIB-024; MODIFIED REQ-LIB-070; MODIFIED REQ-TYPES-095; MODIFIED REQ-CLI-052 | REQ-TYPES-115, REQ-TESTS-137, REQ-LIB-033, REQ-LIB-024, REQ-LIB-070, REQ-TYPES-095, REQ-CLI-052 |

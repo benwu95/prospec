@@ -57,6 +57,7 @@ import { whenThenBullets } from '../../../src/lib/landing-fidelity.js';
 import {
   KNOWLEDGE_SIZE_KINDS,
   KNOWLEDGE_SIZE_RULES,
+  overBudgetUnits,
   type KnowledgeSizeBudget,
   type KnowledgeSizeKind,
 } from '../../../src/types/config.js';
@@ -380,6 +381,268 @@ describe('evaluateKnowledgeSize — structured knowledge_size field (REQ-LIB-054
     expect(r.findings).toHaveLength(2);
     expect(r.findings.every((f) => f.knowledge_size !== undefined)).toBe(true);
     expect(r.findings.map((f) => f.knowledge_size!.unit).sort()).toEqual(['lines', 'tokens']);
+  });
+});
+
+// REQ-LIB-111 / REQ-TESTS-148 — the ratchet grades an over-budget L1/L2 unit that
+// grew past its merge-base size as fail; everything else keeps today's warn.
+describe('evaluateKnowledgeSize — size ratchet (REQ-LIB-111)', () => {
+  const SHA = 'c0ffee'.padEnd(40, '0');
+  const resolved = (items: KnowledgeSizeItem[]): KnowledgeSizeSource => ({
+    ...sizeSrc(items),
+    ratchet: { status: 'resolved', base_ref: 'origin/main', merge_base: SHA },
+  });
+  const INDEX = 'prospec/index.md';
+  const README = 'prospec/ai-knowledge/modules/x/README.md';
+  const only = (r: ReturnType<typeof evaluateKnowledgeSize>, unit: 'tokens' | 'lines' = 'tokens') =>
+    r.findings.find((f) => f.knowledge_size?.unit === unit)!;
+
+  it('fails an over-budget L1 file whose tokens grew past the merge-base, naming base, current and budget', () => {
+    const r = evaluateKnowledgeSize(resolved([
+      { source_path: INDEX, kind: 'l1', tokens: 2715, lines: 60, ratchet: { base: { tokens: 2600, lines: 60 } } },
+    ]));
+    expect(r.result.status).toBe('fail');
+    const f = only(r);
+    expect(f.severity).toBe('fail');
+    expect(f.detail).toContain('2715');
+    expect(f.detail).toContain('2600');
+    expect(f.detail).toContain('1500');
+    expect(f.detail).toContain(SHA.slice(0, 12));
+    expect(f.knowledge_size).toMatchObject({ tier: 'over', base_commit: SHA, base_actual: 2600 });
+    expect(f.knowledge_size!.ratchet_skipped).toBeUndefined();
+  });
+
+  it.each([
+    ['unchanged', 2715],
+    ['smaller now', 2800],
+  ])('keeps the warn finding when the file is %s', (_label, baseTokens) => {
+    const r = evaluateKnowledgeSize(resolved([
+      { source_path: INDEX, kind: 'l1', tokens: 2715, lines: 60, ratchet: { base: { tokens: baseTokens, lines: 60 } } },
+    ]));
+    expect(r.result.status).toBe('warn');
+    const f = only(r);
+    expect(f.severity).toBe('warn');
+    expect(f.knowledge_size).toMatchObject({ base_commit: SHA, base_actual: baseTokens });
+  });
+
+  it('keeps the warn detail byte-identical to an unratcheted run', () => {
+    const item = { source_path: INDEX, kind: 'l1' as const, tokens: 2715, lines: 60 };
+    const plain = evaluateKnowledgeSize(sizeSrc([item]));
+    const ratcheted = evaluateKnowledgeSize(resolved([{ ...item, ratchet: { base: { tokens: 2715, lines: 60 } } }]));
+    expect(only(ratcheted).detail).toBe(only(plain).detail);
+  });
+
+  // The evaluator grades with the same `overBudgetUnits` predicate the ratchet picks its
+  // merge-base targets with, so a unit exactly at its budget is neither graded nor targeted,
+  // and one unit over is both — the two can never leave a ratchet-governed unit ungraded.
+  it.each([
+    ['tokens', { tokens: 1500, lines: 60 }, { tokens: 1501, lines: 60 }],
+    ['lines', { tokens: 100, lines: 100 }, { tokens: 100, lines: 101 }],
+  ] as const)('grades %s exactly where overBudgetUnits says the unit is over', (unit, atBudget, overBudget) => {
+    const kind = unit === 'lines' ? ('l2' as const) : ('l1' as const);
+    const budget = { ...SIZE_BUDGET, l2_per_module: 1500, readme_max_lines: 100 };
+    const findingsFor = (size: { tokens: number; lines: number }) =>
+      evaluateKnowledgeSize({ ...sizeSrc([{ source_path: README, kind, ...size }]), budget }).findings
+        .filter((f) => f.knowledge_size?.tier === 'over' && f.knowledge_size.unit === unit);
+    expect(overBudgetUnits(kind, budget, atBudget)[unit]).toBe(false);
+    expect(findingsFor(atBudget)).toHaveLength(0);
+    expect(overBudgetUnits(kind, budget, overBudget)[unit]).toBe(true);
+    expect(findingsFor(overBudget)).toHaveLength(1);
+  });
+
+  // The carriage-return-free size the ratchet compared travels with the finding, so a reader
+  // (the check output, a --json consumer) can pair it with base_actual on one basis.
+  describe('ratchet_actual', () => {
+    const crlf = (base: { tokens: number; lines: number } | null) => ({
+      source_path: README, kind: 'l2' as const, tokens: 520, lines: 40,
+      lf_measure: { tokens: 500, lines: 40 }, ratchet: { base },
+    });
+
+    it('carries the compared size when carriage returns made it differ from actual', () => {
+      const f = only(evaluateKnowledgeSize(resolved([crlf({ tokens: 500, lines: 40 })])));
+      expect(f.severity).toBe('warn');
+      expect(f.knowledge_size).toMatchObject({ actual: 520, base_actual: 500, ratchet_actual: 500 });
+    });
+
+    it('names that same value in the fail detail', () => {
+      const f = only(evaluateKnowledgeSize(resolved([crlf({ tokens: 450, lines: 40 })])));
+      expect(f.severity).toBe('fail');
+      expect(f.knowledge_size!.ratchet_actual).toBe(500);
+      expect(f.detail).toContain('(500 tokens without carriage returns)');
+    });
+
+    it('is absent where nothing differs: no lf_measure, an equal unit, a skip, or no ratchet', () => {
+      const noCr = { source_path: README, kind: 'l2' as const, tokens: 520, lines: 40, ratchet: { base: { tokens: 500, lines: 40 } } };
+      const linesOnly = only(evaluateKnowledgeSize(resolved([{ ...crlf({ tokens: 500, lines: 40 }), lines: 140, lf_measure: { tokens: 500, lines: 140 } }])), 'lines');
+      const skipped = { ...crlf(null), ratchet: { skipped: 'symlink at the merge-base' } };
+      for (const f of [
+        only(evaluateKnowledgeSize(resolved([noCr]))),
+        linesOnly,
+        only(evaluateKnowledgeSize(resolved([skipped]))),
+        only(evaluateKnowledgeSize(sizeSrc([crlf({ tokens: 500, lines: 40 })]))),
+      ]) {
+        expect(f.knowledge_size).not.toHaveProperty('ratchet_actual');
+      }
+    });
+  });
+
+  it('fails a file absent at the merge-base, recording base_actual null', () => {
+    const r = evaluateKnowledgeSize(resolved([
+      { source_path: README, kind: 'l2', tokens: 500, lines: 40, ratchet: { base: null } },
+    ]));
+    const f = only(r);
+    expect(f.severity).toBe('fail');
+    expect(f.knowledge_size).toMatchObject({ base_commit: SHA, base_actual: null });
+  });
+
+  // A path absent at the merge-base (new, or renamed) has no size to have grown from, so its
+  // detail says the path is absent there; only a path that existed reads as grown.
+  it('says a path absent at the merge-base is absent there, never that it grew', () => {
+    const f = only(evaluateKnowledgeSize(resolved([
+      { source_path: README, kind: 'l2', tokens: 500, lines: 40, ratchet: { base: null } },
+    ])));
+    expect(f.detail).toContain('absent at merge-base');
+    expect(f.detail).toContain(SHA.slice(0, 12));
+    expect(f.detail).toContain('500');
+    expect(f.detail).not.toMatch(/grew/);
+  });
+
+  it('keeps the grew-past detail, with the merge-base value, for a path that existed and grew', () => {
+    const f = only(evaluateKnowledgeSize(resolved([
+      { source_path: INDEX, kind: 'l1', tokens: 2715, lines: 60, ratchet: { base: { tokens: 2600, lines: 60 } } },
+    ])));
+    expect(f.detail).toContain('grew past its merge-base size');
+    expect(f.detail).toContain('2600 tokens at merge-base');
+    expect(f.detail).not.toContain('absent');
+  });
+
+  it('fails a file that was within budget at the merge-base and is over it now', () => {
+    const r = evaluateKnowledgeSize(resolved([
+      { source_path: README, kind: 'l2', tokens: 450, lines: 40, ratchet: { base: { tokens: 380, lines: 40 } } },
+    ]));
+    expect(only(r).severity).toBe('fail');
+  });
+
+  it('grades tokens and lines independently', () => {
+    const r = evaluateKnowledgeSize(resolved([
+      { source_path: README, kind: 'l2', tokens: 450, lines: 120, ratchet: { base: { tokens: 460, lines: 110 } } },
+    ]));
+    expect(only(r, 'lines')).toMatchObject({ severity: 'fail' });
+    expect(only(r, 'lines').knowledge_size!.base_actual).toBe(110);
+    expect(only(r, 'tokens')).toMatchObject({ severity: 'warn' });
+    expect(only(r, 'tokens').knowledge_size!.base_actual).toBe(460);
+  });
+
+  it('keeps a symlinked file at warn and says why the ratchet did not apply', () => {
+    const r = evaluateKnowledgeSize(resolved([
+      { source_path: README, kind: 'l2', tokens: 500, lines: 40, ratchet: { skipped: 'symlink in the working tree' } },
+    ]));
+    const f = only(r);
+    expect(f.severity).toBe('warn');
+    expect(f.knowledge_size).toMatchObject({ base_commit: SHA, ratchet_skipped: 'symlink in the working tree' });
+    expect(f.knowledge_size!.base_actual).toBeUndefined();
+  });
+
+  it.each([
+    ['spec', 'prospec/specs/features/a.md'],
+    ['demand-knowledge', 'prospec/ai-knowledge/_lessons-ledger.md'],
+    ['skill', '.claude/skills/x/SKILL.md'],
+    ['reference', '.claude/skills/x/references/y.md'],
+  ] as const)('never fails a growing %s file', (kind, source_path) => {
+    // The item even carries a smaller merge-base size: only the rule's `ratchet`
+    // flag keeps it a warn (a growth-free fixture would prove nothing).
+    const r = evaluateKnowledgeSize(resolved([
+      { source_path, kind, tokens: 9999, lines: 1, ratchet: { base: { tokens: 10, lines: 1 } } },
+    ]));
+    expect(r.result.status).toBe('warn');
+    expect(r.findings.every((f) => f.severity === 'warn')).toBe(true);
+    expect(r.findings.every((f) => f.knowledge_size!.base_commit === undefined)).toBe(true);
+  });
+
+  it('leaves headroom findings untouched', () => {
+    const r = evaluateKnowledgeSize({
+      ...resolved([{ source_path: INDEX, kind: 'l1', tokens: 1400, lines: 60, ratchet: { base: null } }]),
+      budget: { ...SIZE_BUDGET, headroom: 0.85 },
+    });
+    expect(r.findings).toHaveLength(1);
+    expect(r.findings[0]!.severity).toBe('warn');
+    expect(r.findings[0]!.knowledge_size).toEqual(expect.not.objectContaining({ base_commit: expect.anything() }));
+  });
+
+  it('fails closed on an unresolvable ratchet: one .prospec.yaml finding with no knowledge_size, items stay plain warn (REQ-LIB-054)', () => {
+    const r = evaluateKnowledgeSize({
+      ...sizeSrc([{ source_path: INDEX, kind: 'l1', tokens: 2715, lines: 60 }]),
+      ratchet: { status: 'unresolvable', cause: 'history', base_ref: 'origin/main', reason: 'shallow git clone (commit history incomplete)' },
+    });
+    expect(r.result.status).toBe('fail');
+    const config = r.findings.find((f) => f.source_path === '.prospec.yaml')!;
+    expect(config.severity).toBe('fail');
+    expect(config.detail).toContain('origin/main');
+    expect(config.detail).toContain('shallow');
+    expect(config.knowledge_size).toBeUndefined();
+    const item = r.findings.find((f) => f.source_path === INDEX)!;
+    expect(item.severity).toBe('warn');
+    expect(item.knowledge_size).toEqual(expect.not.objectContaining({ base_commit: expect.anything() }));
+  });
+
+  // REQ-LIB-111 — the fix an unresolvable ratchet names follows its cause, so a
+  // mistyped base is never sent to CI's fetch-depth and a shallow clone is never
+  // told to edit `.prospec.yaml`.
+  describe('the fix an unresolvable ratchet names', () => {
+    const fixFor = (cause: 'config' | 'history' | 'ref' | 'environment'): string =>
+      evaluateKnowledgeSize({
+        ...sizeSrc([{ source_path: INDEX, kind: 'l1', tokens: 2715, lines: 60 }]),
+        ratchet: { status: 'unresolvable', cause, base_ref: 'origin/main', reason: 'the reason' },
+      }).findings.find((f) => f.source_path === '.prospec.yaml')!.detail;
+
+    it('names knowledge.size_ratchet.base, not fetch-depth, for a malformed value', () => {
+      const detail = fixFor('config');
+      expect(detail).toContain('the reason');
+      expect(detail).toContain('knowledge.size_ratchet.base');
+      expect(detail).not.toContain('fetch-depth');
+    });
+
+    it('names fetch-depth: 0, not the base, for a shallow clone', () => {
+      const detail = fixFor('history');
+      expect(detail).toContain('fetch-depth: 0');
+      expect(detail).not.toContain('knowledge.size_ratchet.base');
+    });
+
+    it('names both fixes and a re-run when no merge-base was found', () => {
+      const detail = fixFor('ref');
+      expect(detail).toContain('knowledge.size_ratchet.base');
+      expect(detail).toContain('fetch-depth: 0');
+      expect(detail).toMatch(/re-run/);
+    });
+
+    it('asks for a re-run inside a readable git work tree, without fetch-depth, for any other cause', () => {
+      const detail = fixFor('environment');
+      expect(detail).toMatch(/re-run[^.]*git work tree/);
+      expect(detail).not.toContain('fetch-depth');
+      expect(detail).not.toContain('knowledge.size_ratchet.base');
+    });
+  });
+
+  it('still skips when the knowledge base is absent, whatever the ratchet says', () => {
+    const r = evaluateKnowledgeSize({
+      available: false,
+      reason: 'source unavailable: knowledge base not found',
+      budget: SIZE_BUDGET,
+      items: [],
+      ratchet: { status: 'unresolvable', cause: 'environment', reason: 'not a git work tree' },
+    });
+    expect(r.result.status).toBe('skipped');
+    expect(r.findings).toHaveLength(0);
+  });
+
+  it('produces exactly the unratcheted findings when the ratchet is not configured', () => {
+    const items: KnowledgeSizeItem[] = [
+      { source_path: INDEX, kind: 'l1', tokens: 2715, lines: 60 },
+      { source_path: README, kind: 'l2', tokens: 450, lines: 120 },
+    ];
+    const r = evaluateKnowledgeSize(sizeSrc(items));
+    expect(r.findings.every((f) => f.severity === 'warn')).toBe(true);
+    expect(r.findings.every((f) => Object.keys(f.knowledge_size!).every((k) => !k.startsWith('base') && k !== 'ratchet_skipped'))).toBe(true);
   });
 });
 

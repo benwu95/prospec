@@ -11,7 +11,7 @@ import { parseYaml } from '../../../src/lib/yaml-utils.js';
 import { execute as stampKnowledge } from '../../../src/services/knowledge-verify.service.js';
 import { GIT_ID } from '../../helpers/git-fixture.js';
 
-vi.setConfig({ testTimeout: 30_000 });
+vi.setConfig({ testTimeout: 30_000, hookTimeout: 30_000 });
 let root: string;
 const git = (...args: string[]) => execFileSync('git', args, { cwd: root, stdio: 'pipe' });
 const put = (file: string, bytes: string | Buffer) => writeFileSync(path.join(root, file), bytes);

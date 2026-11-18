@@ -51,8 +51,8 @@ their language; write the artifacts in English.
      **Fix it before releasing**: sync + commit that module README so the notes can honestly claim
      a green check. Then confirm the fix didn't tip **`knowledge-size`** over the L2 per-module
      budget (this project overrides it to 2000 tokens in `.prospec.yaml`; the shipped default is
-     1000) — if it did, trim the README back under budget (net-neutral) rather than accept a new
-     WARN.
+     1000) — if it did, trim the README back (net-neutral): with `knowledge.size_ratchet` on, an
+     over-budget README that grew is a `knowledge-size` FAIL, not a WARN.
    - **`knowledge-size` budget WARN** that pre-exists and is deliberate (the SC-002 signal) may be
      reported as such, mirroring how 0.5.2 framed it — do not thrash the README to chase it away.
 
