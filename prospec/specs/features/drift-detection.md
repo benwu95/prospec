@@ -1,7 +1,7 @@
 ---
 feature: drift-detection
 status: active
-last_updated: 2026-11-11
+last_updated: 2026-11-18
 story_count: 26
 req_count: 101
 ---
@@ -68,6 +68,7 @@ _(None)_
 
 | Date | Change | Impact | Stories/REQs |
 |------|--------|--------|--------------|
+| 2026-11-18 | align-ratchet-rule-wording | MODIFIED REQ-TEMPLATES-275; MODIFIED REQ-TEMPLATES-274 | REQ-TEMPLATES-275, REQ-TEMPLATES-274 |
 | 2026-11-11 | align-ratchet-output-basis | MODIFIED REQ-TYPES-083; MODIFIED REQ-TYPES-118; MODIFIED REQ-LIB-111; MODIFIED REQ-CLI-011; MODIFIED REQ-TEMPLATES-274; MODIFIED REQ-TESTS-148 | REQ-TYPES-083, REQ-TYPES-118, REQ-LIB-111, REQ-CLI-011, REQ-TEMPLATES-274, REQ-TESTS-148 |
 | 2026-11-10 | fix-ratchet-review-findings | MODIFIED REQ-LIB-111; MODIFIED REQ-TESTS-148 | REQ-LIB-111, REQ-TESTS-148 |
 | 2026-11-10 | harden-knowledge-size-ratchet | ADDED REQ-TEMPLATES-275; MODIFIED REQ-LIB-111; MODIFIED REQ-TESTS-148; MODIFIED REQ-TEMPLATES-274 | REQ-TEMPLATES-275, REQ-LIB-111, REQ-TESTS-148, REQ-TEMPLATES-274 |
