@@ -6,11 +6,13 @@ import {
   classifyExecutable,
   defaultExecutableProbe,
   describeUnspawnable,
+  runArgv,
   runTestCommand,
   tokenizeCommand,
   unspawnableReason,
   type ExecutableProbe,
 } from '../../../src/lib/test-runner.js';
+import { defaultProcessProbe } from '../../../src/lib/process-tree.js';
 
 /**
  * REQ-LIB-033 — the one place the drift engine executes a project command.
@@ -47,20 +49,20 @@ describe('tokenizeCommand', () => {
 });
 
 describe('runTestCommand', () => {
-  it('reports exit code 0 for a passing command', () => {
-    const r = runTestCommand(os.tmpdir(), `${NODE} -e process.exit(0)`);
+  it('reports exit code 0 for a passing command', async () => {
+    const r = await runTestCommand(os.tmpdir(), `${NODE} -e process.exit(0)`);
     expect(r).toMatchObject({ exit_code: 0, timed_out: false });
     expect(r.command).toContain('-e');
   });
 
-  it('reports the non-zero exit code of a failing command (never throws)', () => {
-    const r = runTestCommand(os.tmpdir(), `${NODE} -e process.exit(3)`);
+  it('reports the non-zero exit code of a failing command (never throws)', async () => {
+    const r = await runTestCommand(os.tmpdir(), `${NODE} -e process.exit(3)`);
     expect(r).toMatchObject({ exit_code: 3, timed_out: false });
   });
 
-  it('reports a timeout without an exit code so no baseline is recorded', () => {
+  it('reports a timeout without an exit code so no baseline is recorded', async () => {
     // Busy-wait rather than sleep: the child must outlive the timeout window.
-    const r = runTestCommand(os.tmpdir(), `${NODE} -e while(true){}`, 300);
+    const r = await runTestCommand(os.tmpdir(), `${NODE} -e while(true){}`, 300);
     expect(r.timed_out).toBe(true);
     expect(r.exit_code).toBeNull();
     // the ACTUAL window, so a timeout report can never restate the default —
@@ -68,29 +70,82 @@ describe('runTestCommand', () => {
     expect(r.timeout_ms).toBe(300);
   });
 
-  it('carries the timeout it actually ran with on every path', () => {
-    expect(runTestCommand(os.tmpdir(), `${NODE} -e process.exit(0)`, 12_345).timeout_ms).toBe(12_345);
-    expect(runTestCommand(os.tmpdir(), 'definitely-not-an-installed-binary-xyz', 777).timeout_ms).toBe(777);
+  it('carries the timeout it actually ran with on every path', async () => {
+    expect((await runTestCommand(os.tmpdir(), `${NODE} -e process.exit(0)`, 12_345)).timeout_ms).toBe(12_345);
+    expect((await runTestCommand(os.tmpdir(), 'definitely-not-an-installed-binary-xyz', 777)).timeout_ms).toBe(777);
   });
 
-  it('reports an unrunnable command as an error, not a pass', () => {
-    const r = runTestCommand(os.tmpdir(), 'definitely-not-an-installed-binary-xyz');
+  it('reports an unrunnable command as an error, not a pass', async () => {
+    const r = await runTestCommand(os.tmpdir(), 'definitely-not-an-installed-binary-xyz');
     expect(r.exit_code).toBeNull();
     expect(r.error).toBeTruthy();
   });
 
-  it('refuses an empty command instead of spawning a shell', () => {
-    const r = runTestCommand(os.tmpdir(), '   ');
+  it('refuses an empty command instead of spawning a shell', async () => {
+    const r = await runTestCommand(os.tmpdir(), '   ');
     expect(r).toMatchObject({ exit_code: null, timed_out: false });
     expect(r.error).toContain('empty test command');
   });
 
-  it('does not interpret shell syntax — a pipeline is passed as literal argv', () => {
+  it('does not interpret shell syntax — a pipeline is passed as literal argv', async () => {
     // `node -e process.exit(0) | true` would exit 0 under a shell; without one,
     // the extra tokens reach node as arguments and it still exits 0 — the point
     // is that no shell is involved, so `|` is never a pipe.
-    const r = runTestCommand(os.tmpdir(), `${NODE} -e process.exit(7) | true`);
+    const r = await runTestCommand(os.tmpdir(), `${NODE} -e process.exit(7) | true`);
     expect(r.exit_code).toBe(7);
+  });
+});
+
+describe('runArgv and the runner\'s own verdicts (REQ-LIB-033, REQ-LIB-114)', () => {
+  it('passes an argv through untokenized, so an argument may contain spaces', async () => {
+    const r = await runArgv(os.tmpdir(), [NODE, '-e', 'process.exit(process.argv[1] === "a b" ? 5 : 6)', 'a b']);
+    expect(r).toMatchObject({ exit_code: 5, timed_out: false });
+    expect(r.command).toContain('a b');
+  });
+
+  it('refuses a shim through the same pre-spawn check runTestCommand uses', async () => {
+    const shim: ExecutableProbe = { platform: 'win32', pathDirs: ['C:\\tools\\bin'], cwd: null, exists: (c) => c === 'C:\\tools\\bin\\pnpm.cmd' };
+    const r = await runArgv(os.tmpdir(), ['pnpm', 'test'], 5_000, shim);
+    expect(r).toMatchObject({ exit_code: null, timed_out: false });
+    expect(r.error).toContain('Windows shim');
+  });
+
+  it('refuses an empty argv', async () => {
+    expect((await runArgv(os.tmpdir(), [])).error).toContain('empty test command');
+  });
+
+  // A group leader killed together with its group reports either the signal or the exit
+  // status of a child that died first; the verdict must not follow that report.
+  it.skipIf(process.platform === 'win32')('reports its own timeout every time, whatever the killed command reports', async () => {
+    const dir = mkdtempSync(path.join(os.tmpdir(), 'prospec-timeout-'));
+    try {
+      const script = path.join(dir, 'fork.sh');
+      writeFileSync(script, 'sleep 30 &\nsleep 30\n');
+      for (let i = 0; i < 8; i++) {
+        const r = await runTestCommand(dir, `/bin/sh ${script}`, 150);
+        expect(r).toMatchObject({ exit_code: null, timed_out: true, timeout_ms: 150 });
+        expect(r.interrupted_by).toBeUndefined();
+      }
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it.skipIf(process.platform === 'win32')('carries the signal that interrupted the runner, without an exit code or a timeout', async () => {
+    // Emitting the event runs the listeners without delivering a real signal to the worker.
+    expect(process.listenerCount('SIGHUP')).toBe(0);
+    const r = await runTestCommand(os.tmpdir(), `${NODE} -e setTimeout(()=>{},30000)`, 60_000, undefined, {
+      onSpawn: () => { process.emit('SIGHUP', 'SIGHUP'); },
+    });
+    expect(r).toMatchObject({ exit_code: null, timed_out: false, interrupted_by: 'SIGHUP' });
+    expect(process.listenerCount('SIGHUP')).toBe(0);
+  });
+
+  it('reports a rejected spawn hook as hook_error after killing the command', async () => {
+    const r = await runTestCommand(os.tmpdir(), `${NODE} -e setTimeout(()=>{},30000)`, 60_000, undefined, {
+      onSpawn: () => { throw new Error('turn lost'); },
+    });
+    expect(r).toMatchObject({ exit_code: null, timed_out: false, hook_error: 'turn lost' });
   });
 });
 
@@ -255,7 +310,9 @@ describe('describeUnspawnable', () => {
     expect(reason).not.toBeNull();
     expect(reason).toContain('C:\\tools\\bin\\pnpm.cmd');
     expect(reason).toContain('without a shell');
-    expect(reason).toContain('tech_stack.test_command');
+    // The fix holds for every entry that runs a command; the setting is named for the one entry that reads it.
+    expect(reason).toContain('run a shell-free invocation instead');
+    expect(reason).toContain('for `check --record-tests`, set it as `tech_stack.test_command`');
   });
 
   it('says nothing for a spawnable command', () => {
@@ -384,15 +441,15 @@ describe('runTestCommand pre-spawn refusal (platform-injected)', () => {
     exists: (c) => c === 'C:\\tools\\bin\\pnpm.cmd',
   };
 
-  it('refuses a shim without spawning, reporting the actionable reason', () => {
-    const r = runTestCommand(os.tmpdir(), 'pnpm test', 5_000, winShim);
+  it('refuses a shim without spawning, reporting the actionable reason', async () => {
+    const r = await runTestCommand(os.tmpdir(), 'pnpm test', 5_000, winShim);
     expect(r.exit_code).toBeNull();
     expect(r.timed_out).toBe(false);
     expect(r.error).toContain('Windows shim');
     expect(r.error).toContain('tech_stack.test_command');
   });
 
-  it('proves nothing was spawned — a shim command that WOULD have succeeded still returns no exit code', () => {
+  it('proves nothing was spawned — a shim command that WOULD have succeeded still returns no exit code', async () => {
     // `node -e process.exit(0)` is spawnable for real; under a probe that classifies
     // argv[0] as a shim the runner must refuse anyway, so a null exit code here can
     // only mean the spawn never happened.
@@ -400,29 +457,46 @@ describe('runTestCommand pre-spawn refusal (platform-injected)', () => {
       ...winShim,
       exists: (c) => c === 'C:\\tools\\bin\\node.cmd',
     };
-    const r = runTestCommand(os.tmpdir(), `node -e process.exit(0)`, 5_000, shimNode);
+    const r = await runTestCommand(os.tmpdir(), `node -e process.exit(0)`, 5_000, shimNode);
     expect(r.exit_code).toBeNull();
     expect(r.error).toContain('Windows shim');
   });
 
-  it('still spawns normally when the probe says the command is fine', () => {
+  it('still spawns normally when the probe says the command is fine', async () => {
     const posix: ExecutableProbe = {
       platform: 'linux',
       pathDirs: [],
       cwd: null,
       exists: () => false,
     };
-    const r = runTestCommand(os.tmpdir(), `${NODE} -e process.exit(4)`, 60_000, posix);
+    const r = await runTestCommand(os.tmpdir(), `${NODE} -e process.exit(4)`, 60_000, posix);
     expect(r).toMatchObject({ exit_code: 4, timed_out: false });
     expect(r.error).toBeUndefined();
+  });
+});
+
+describe('runArgv hooks (REQ-LIB-033)', () => {
+  it('runs the command with the environment a hook supplies', async () => {
+    const env = { ...process.env, PROSPEC_RUNNER_HOOK: 'handed' };
+    const script = 'process.exit(process.env.PROSPEC_RUNNER_HOOK === "handed" ? 0 : 7)';
+    expect((await runArgv(os.tmpdir(), [NODE, '-e', script], 60_000, undefined, { env })).exit_code).toBe(0);
+    expect((await runArgv(os.tmpdir(), [NODE, '-e', script], 60_000)).exit_code).toBe(7);
+  });
+
+  it('captures the spawned tree through the process probe a hook supplies', async () => {
+    const kinds: string[] = [];
+    const processProbe = { ...defaultProcessProbe(), platform: 'win32' };
+    const r = await runArgv(os.tmpdir(), [NODE, '-e', 'process.exit(0)'], 60_000, undefined, { processProbe, onSpawn: (tree) => { kinds.push(tree.kind); } });
+    expect(r.exit_code).toBe(0);
+    expect(kinds).toEqual(['process']);
   });
 });
 
 // Runs only on a real Windows host (the windows-smoke CI job) — the platform-injected
 // blocks above prove the decision and DO run everywhere; this one proves the reality.
 describe.runIf(process.platform === 'win32')('runTestCommand on a real Windows host', () => {
-  it('refuses a package-manager shim with the actionable reason instead of EINVAL', () => {
-    const r = runTestCommand(os.tmpdir(), 'pnpm test');
+  it('refuses a package-manager shim with the actionable reason instead of EINVAL', async () => {
+    const r = await runTestCommand(os.tmpdir(), 'pnpm test');
     expect(r.exit_code).toBeNull();
     expect(r.error).toContain('tech_stack.test_command');
     expect(r.error).not.toContain('EINVAL');
@@ -447,12 +521,12 @@ describe.runIf(process.platform === 'win32')('runTestCommand on a real Windows h
       rmSync(dir, { recursive: true, force: true });
     });
 
-    it('resolves a bare name through the spawn cwd, not only through PATH', () => {
+    it('resolves a bare name through the spawn cwd, not only through PATH', async () => {
       // `dir` is on nobody's PATH; only the cwd-first search can find the .exe.
       expect(classifyExecutable(BIN, defaultExecutableProbe(process.env, 'win32', dir))).toEqual({
         kind: 'spawnable',
       });
-      const r = runTestCommand(dir, `${BIN} -e process.exit(7)`);
+      const r = await runTestCommand(dir, `${BIN} -e process.exit(7)`);
       expect(r).toMatchObject({ exit_code: 7, timed_out: false });
       expect(r.error).toBeUndefined();
     });
@@ -462,13 +536,13 @@ describe.runIf(process.platform === 'win32')('runTestCommand on a real Windows h
     // against `process.cwd()` finds nothing in pass 1, finds the shim in pass 2, and the
     // runner refuses WITHOUT spawning. So a real exit code here can only mean this call's
     // `cwd` reached the classifier.
-    it('threads the spawn cwd into the default probe — a PATH shim must not win', () => {
+    it('threads the spawn cwd into the default probe — a PATH shim must not win', async () => {
       const shimDir = mkdtempSync(path.join(os.tmpdir(), 'prospec-probe-shim-'));
       writeFileSync(path.join(shimDir, `${BIN}.cmd`), '@echo off\r\nexit /b 3\r\n');
       const original = process.env.PATH;
       process.env.PATH = `${shimDir};${original ?? ''}`;
       try {
-        const r = runTestCommand(dir, `${BIN} -e process.exit(7)`);
+        const r = await runTestCommand(dir, `${BIN} -e process.exit(7)`);
         expect(r.error).toBeUndefined();
         expect(r.exit_code).toBe(7);
       } finally {
@@ -478,7 +552,7 @@ describe.runIf(process.platform === 'win32')('runTestCommand on a real Windows h
       }
     });
 
-    it('resolves a bare name through a quoted PATH entry', () => {
+    it('resolves a bare name through a quoted PATH entry', async () => {
       const original = process.env.PATH;
       process.env.PATH = `"${dir}";${original ?? ''}`;
       try {
@@ -487,7 +561,7 @@ describe.runIf(process.platform === 'win32')('runTestCommand on a real Windows h
         const probe = defaultExecutableProbe(process.env, 'win32', os.tmpdir());
         expect(probe.pathDirs).toContain(dir);
         expect(classifyExecutable(BIN, probe)).toEqual({ kind: 'spawnable' });
-        const r = runTestCommand(os.tmpdir(), `${BIN} -e process.exit(9)`);
+        const r = await runTestCommand(os.tmpdir(), `${BIN} -e process.exit(9)`);
         expect(r).toMatchObject({ exit_code: 9, timed_out: false });
         expect(r.error).toBeUndefined();
       } finally {

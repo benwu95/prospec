@@ -163,7 +163,7 @@
         "{{constitution_path}}"
       ],
       "mandatory": 0,
-      "mandatory_context_tokens": 10591
+      "mandatory_context_tokens": 10609
     }
   },
   "reference_ceiling_tokens": 52315,
@@ -185,7 +185,7 @@
     "plan-format": 2991,
     "plan-verifier-rubric": 2379,
     "product-spec-format": 1189,
-    "project-test-runner": 655,
+    "project-test-runner": 758,
     "promotion-format": 1765,
     "proposal-format": 1214,
     "review-format": 2483,

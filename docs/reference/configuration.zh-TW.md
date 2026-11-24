@@ -30,7 +30,9 @@
 | `tech_stack.framework` | string | 自動偵測，或未設定 | 覆寫偵測出的 framework。 |
 | `tech_stack.package_manager` | string | 自動偵測，或未設定 | 覆寫偵測出的 package manager。 |
 | `tech_stack.test_command` | string | 依專案設定與 manifests 解析 | `prospec check --record-tests` 執行的命令；解析順序與平台限制見下方。 |
-| `tech_stack.test_timeout_ms` | integer | `900000`（15 分鐘） | 該命令的執行時間上限，範圍 1～2147483647 毫秒。有可解析的 test command 且值不合法時，`--record-tests` 不執行測試，並記錄指出此鍵的 unprovable attempt。修改此值會使已記錄的測試證據過時，需重新執行 `--record-tests`。 |
+| `tech_stack.test_timeout_ms` | integer | `900000`（15 分鐘） | 該命令的執行時間上限，也適用於 `prospec exclusive` 執行的命令，範圍 1～2147483647 毫秒。有可解析的 test command 且值不合法時，`--record-tests` 不執行測試，並記錄指出此鍵的 unprovable attempt。修改此值會使已記錄的測試證據過時，需重新執行 `--record-tests`。 |
+| `tech_stack.test_queue_wait_ms` | integer | `60000`（1 分鐘） | `--record-tests` 或 `prospec exclusive` 等待 repository [測試佇列](./cli-reference.zh-TW.md#測試佇列)的時間上限，範圍 0～2147483647 毫秒；逾時以 exit code 75 結束且不執行任何命令，0 表示不等待。值不合法時在執行任何命令前拒絕。 |
+| `tech_stack.test_queue_lease_ms` | integer | `300000`（5 分鐘） | 等待中的號碼在最後一次輪詢後保留順位的時間，範圍 30000～2147483647 毫秒。在此期間內重新執行同一個命令可沿用原號碼。值不合法時在執行任何命令前拒絕。 |
 
 非空白的 `test_command` 優先。否則，若已設定 `package_manager` 且 `package.json` 宣告 test script，使用 `<package_manager> test`。若仍無可用命令，Prospec 會從 Rust、Python、Go、Node.js 或 Makefile manifests 偵測。無法取得命令時，test runner 回報 skip。
 
@@ -89,7 +91,7 @@ Skill 與 reference 預算隨 Prospec 版本提供：**每個 skill 為 12,500 t
 
 Opt-in 身分為 `test-inputs-v1`／`repository-inputs-without-knowledge-v1`，attempt 與 provenance 都包含 `test_policy: {version: 1, excluded_path: <專案相對路徑>}`。Policy、config bytes、解析後命令或任何保留輸入改變，證據即失效；缺少或未知身分必須真正重跑。
 
-Review 與 verification-context snapshots 仍包含 Knowledge。Knowledge 檢查、文件 review 與專案定義的 pre-merge CI 照常執行。明確指定 `--record-tests` 一律執行測試，較新的失敗或未完成 attempt 不能恢復舊 PASS。[CLI 證據參考](./cli-reference.zh-TW.md#審查與測試證據)說明認證、目標列舉與 verify 的重用閘門。
+Review 與 verification-context snapshots 仍包含 Knowledge。Knowledge 檢查、文件 review 與專案定義的 pre-merge CI 照常執行。明確指定 `--record-tests` 不會重用已認證的證據，較新的失敗或未完成 attempt 不能恢復舊 PASS。[CLI 證據參考](./cli-reference.zh-TW.md#審查與測試證據)說明認證、目標列舉與 verify 的重用閘門。
 
 ## Workflow
 

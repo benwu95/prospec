@@ -1,29 +1,22 @@
-import { spawnSync } from 'node:child_process';
 import { statSync } from 'node:fs';
 import path from 'node:path';
+import { runProcessTree, type ProcessProbe } from './process-tree.js';
+import type { ProcessTree } from '../types/test-queue.js';
 
 /**
- * Test-command runner for `check --record-tests` (REQ-LIB-033).
+ * Test-command runner for `check --record-tests` and `prospec exclusive` (REQ-LIB-033).
  *
- * The one place in the drift engine that executes a project command, and it is
- * reached ONLY from the flag-gated record path — the pure check path stays
- * read-only and deterministic. The command is tokenized on whitespace and run
- * WITHOUT a shell: shell syntax (pipes, `&&`, redirection, globs) is deliberately
- * unsupported rather than passed through, so a config value can never become a
- * shell injection vector.
+ * The one place that executes a project command, and it is reached ONLY from those two
+ * explicit entries — the pure check path stays read-only and deterministic. The command
+ * is run WITHOUT a shell: shell syntax (pipes, `&&`, redirection, globs) is deliberately
+ * unsupported rather than passed through, so a config value can never become a shell
+ * injection vector. Spawning, the timeout and the reach of its kill belong to the
+ * process-tree runner (REQ-LIB-114).
  */
 
 /** Default wall-clock cap for one test run. Generous enough for a real suite;
- *  bounded so a hanging suite cannot hang the CLI — enforced with SIGKILL, since
- *  a SIGTERM a wrapper script traps would leave the cap unenforced.
- *
- *  Deliberate exclusion: the kill targets the direct child only. `spawnSync`
- *  cannot detach a process group, so grandchildren a runner forked (test workers)
- *  may outlive the timeout. Bounding those needs an async spawn with
- *  `detached: true` — not done here, and not claimed. */
+ *  bounded so a hanging suite cannot hang the CLI. */
 export const DEFAULT_TEST_TIMEOUT_MS = 900_000;
-
-const TIMEOUT_KILL_SIGNAL = 'SIGKILL';
 
 export interface TestRunResult {
   /** The command as run (rejoined argv), recorded verbatim into metadata. */
@@ -37,8 +30,22 @@ export interface TestRunResult {
   /** The signal that ended the run, when one did — so a crash (SIGSEGV) or an
    *  OOM kill is never reported to the developer as a timeout. */
   signal?: string;
+  /** The signal the runner itself received; it killed the command's tree in answer. */
+  interrupted_by?: string;
   /** Set when the command could not be run at all (not found / not executable). */
   error?: string;
+  /** Set when the caller's spawn hook refused the run; the command's tree was killed. */
+  hook_error?: string;
+  /** Set by the test queue when its turn was gone: before the command was spawned
+   *  (`not-started`), or once it had been — the command was then killed (`lost`). */
+  queue_abort?: 'not-started' | 'lost';
+}
+
+/** What a caller that tracks the command's process tree passes through to the runner. */
+export interface RunHooks {
+  env?: NodeJS.ProcessEnv;
+  onSpawn?: (tree: ProcessTree) => void | Promise<void>;
+  processProbe?: ProcessProbe;
 }
 
 /** Split a command string into argv. Whitespace-only tokenization — quoting is
@@ -218,8 +225,8 @@ export function describeUnspawnable(bin: string, verdict: ExecutableVerdict): st
   return (
     `\`${bin}\` resolves to a Windows shim (${verdict.resolved}), and Node refuses to spawn ` +
     'a `.cmd`/`.bat` without a shell (CVE-2024-27980) — an absolute path to the shim is rejected ' +
-    'too, so set `tech_stack.test_command` to a shell-free invocation instead, e.g. ' +
-    '`node node_modules/vitest/vitest.mjs run`'
+    'too, so run a shell-free invocation instead, e.g. `node node_modules/vitest/vitest.mjs run` ' +
+    '(for `check --record-tests`, set it as `tech_stack.test_command`)'
   );
 }
 
@@ -237,13 +244,12 @@ export function unspawnableReason(command: string, probe: ExecutableProbe): stri
 }
 
 /**
- * Run the project's test command and report how it ended. Output is inherited by
- * the caller's stdio so a developer watching `--record-tests` sees the real suite
- * output; only the outcome is returned.
+ * Run an already-tokenized command and report how it ended. Output is inherited by the
+ * caller's stdio; only the outcome is returned.
  */
-export function runTestCommand(
+export async function runArgv(
   cwd: string,
-  command: string,
+  argv: readonly string[],
   timeoutMs: number = DEFAULT_TEST_TIMEOUT_MS,
   /** Injection seam for the platform probe — omitting it yields the real platform,
    *  so the pre-spawn refusal is provable from a POSIX host rather than only on
@@ -252,59 +258,60 @@ export function runTestCommand(
    *  below will actually get, so classifying against `process.cwd()` would model a
    *  different machine state than the one being run. */
   probe: ExecutableProbe = defaultExecutableProbe(process.env, process.platform, cwd),
-): TestRunResult {
-  const argv = tokenizeCommand(command);
-  const [bin, ...args] = argv;
+  hooks: RunHooks = {},
+): Promise<TestRunResult> {
+  const ranAs = argv.join(' ');
+  const [bin] = argv;
   if (bin === undefined) {
-    return { command, exit_code: null, timed_out: false, timeout_ms: timeoutMs, error: 'empty test command' };
+    return { command: ranAs, exit_code: null, timed_out: false, timeout_ms: timeoutMs, error: 'empty test command' };
   }
   // Refuse before spawning rather than letting Node's EINVAL surface as a mystery:
   // the same reason string the pure check path reports, so both paths agree.
   const unspawnable = describeUnspawnable(bin, classifyExecutable(bin, probe));
   if (unspawnable !== null) {
-    return { command: argv.join(' '), exit_code: null, timed_out: false, timeout_ms: timeoutMs, error: unspawnable };
+    return { command: ranAs, exit_code: null, timed_out: false, timeout_ms: timeoutMs, error: unspawnable };
   }
-  const res = spawnSync(bin, args, {
+  const res = await runProcessTree(argv, {
     cwd,
-    shell: false,
-    stdio: 'inherit',
-    timeout: timeoutMs,
-    killSignal: TIMEOUT_KILL_SIGNAL,
+    timeoutMs,
+    ...(hooks.env === undefined ? {} : { env: hooks.env }),
+    ...(hooks.onSpawn === undefined ? {} : { onSpawn: hooks.onSpawn }),
+    ...(hooks.processProbe === undefined ? {} : { probe: hooks.processProbe }),
   });
-  const ranAs = argv.join(' ');
-  // A timeout is identified by ETIMEDOUT or by the kill signal WE sent — any other
-  // terminating signal (SIGSEGV, an OOM SIGKILL from the kernel is indistinguishable
-  // and accepted, SIGINT from Ctrl-C) is reported as itself, not relabelled.
-  //
   // Whether a killed run leaves a signal at all is platform-shaped. POSIX reads it out of
   // the wait status whoever sent it (`WIFSIGNALED`/`WTERMSIG`), so a signal-terminated
   // child yields no exit code — while one that CATCHES the signal and exits normally does,
   // and is recorded like any run. Windows has no signal in the wait status: libuv
   // synthesizes one from an `exit_signal` it sets ONLY for a kill issued through
-  // `uv_process_kill` on this handle, so our own timeout kill still reports SIGKILL there,
-  // whereas a self-kill or third-party kill reports none and surfaces as
-  // `TerminateProcess`'s exit code — recorded, which is fail-closed, not a silent gap.
-  const isTimeout = (signal: string | null, message?: string): boolean =>
-    signal === TIMEOUT_KILL_SIGNAL || (message !== undefined && /ETIMEDOUT/.test(message));
-  if (res.error !== undefined) {
-    const timed_out = isTimeout(res.signal, res.error.message);
-    return {
-      command: ranAs,
-      exit_code: null,
-      timed_out,
-      timeout_ms: timeoutMs,
-      ...(res.signal === null ? {} : { signal: res.signal }),
-      error: res.error.message,
-    };
+  // `uv_process_kill` on this handle, whereas a self-kill or third-party kill reports none
+  // and surfaces as `TerminateProcess`'s exit code — recorded, which is fail-closed, not a
+  // silent gap. A timeout never depends on any of this: it is the runner's own verdict.
+  return {
+    command: ranAs,
+    exit_code: res.exit_code,
+    timed_out: res.timed_out,
+    timeout_ms: timeoutMs,
+    ...(res.signal === undefined ? {} : { signal: res.signal }),
+    ...(res.interrupted_by === undefined ? {} : { interrupted_by: res.interrupted_by }),
+    ...(res.error === undefined ? {} : { error: res.error }),
+    ...(res.hook_error === undefined ? {} : { hook_error: res.hook_error }),
+  };
+}
+
+/**
+ * Run the project's test command and report how it ended: the command is tokenized on
+ * whitespace and handed to `runArgv`.
+ */
+export async function runTestCommand(
+  cwd: string,
+  command: string,
+  timeoutMs: number = DEFAULT_TEST_TIMEOUT_MS,
+  probe: ExecutableProbe = defaultExecutableProbe(process.env, process.platform, cwd),
+  hooks: RunHooks = {},
+): Promise<TestRunResult> {
+  const argv = tokenizeCommand(command);
+  if (argv.length === 0) {
+    return { command, exit_code: null, timed_out: false, timeout_ms: timeoutMs, error: 'empty test command' };
   }
-  if (res.signal !== null) {
-    return {
-      command: ranAs,
-      exit_code: null,
-      timed_out: isTimeout(res.signal),
-      timeout_ms: timeoutMs,
-      signal: res.signal,
-    };
-  }
-  return { command: ranAs, exit_code: res.status, timed_out: false, timeout_ms: timeoutMs };
+  return runArgv(cwd, argv, timeoutMs, probe, hooks);
 }

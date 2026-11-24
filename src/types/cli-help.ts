@@ -23,6 +23,7 @@ export const HELP_ENRICHED_COMMANDS = [
   'learn playbook',
   'spec show',
   'constitution show',
+  'exclusive',
 ] as const;
 
 export type HelpEnrichedCommand = (typeof HELP_ENRICHED_COMMANDS)[number];
@@ -159,6 +160,13 @@ export const COMMAND_HELP_SPECS: Record<HelpEnrichedCommand, CommandHelpSpec> = 
     additionalExamples: ['prospec constitution show --rule "Language Policy"'],
     returns:
       'Prints the slice on stdout exactly as it appears in the file (read-only, no trailing newline added; terminal control bytes are stripped). When the file has no `## Principles`, no rule declares `stations:`, or no rule matches, it fails open: stdout is the whole file, stderr names the reason in one `WARN` line, and the exit is 0. A sliced run names on stderr how many undeclared rules it kept; every station run ends stderr with `tokens: slice <n> / full <m> (estimateTokens)` (`tokens: full <m>` on fail-open). An unknown station or rule name exits 1 listing the valid ones.',
+  },
+  exclusive: {
+    whenToUse:
+      'To run a full test suite outside `prospec check --record-tests` — a pre-commit CI-parity run, for example — without overlapping another full run in the same repository. It takes the same queue turn `--record-tests` takes, across every worktree. Not for recording test evidence (`prospec check --record-tests`) and not needed for running named test files.',
+    example: 'prospec exclusive -- pnpm run test:coverage',
+    returns:
+      'Runs the command without a shell (on Windows a `.cmd`/`.bat` shim such as `pnpm` is refused — pass a shell-free invocation), with inherited output, and exits with its exit code; a command that timed out (`tech_stack.test_timeout_ms`), was ended by a signal sent to it or could not be spawned exits 1 with the cause on stderr, and when prospec itself receives SIGINT, SIGTERM or SIGHUP it kills the command and exits 128 plus the signal number. When the turn is not granted within `tech_stack.test_queue_wait_ms` it exits 75 and runs nothing: stderr names the ticket, what is ahead and the ticket holding the turn — re-run the same command to keep the place. Writes no change metadata; its own messages go to stderr.',
   },
 };
 

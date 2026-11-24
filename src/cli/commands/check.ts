@@ -1,8 +1,10 @@
 import { Option, type Command } from 'commander';
 import { DIMENSION_GRADED_BY, type DimensionGradedBy } from '../../types/change.js';
 import { MetadataWriteError } from '../../types/errors.js';
+import { TEST_QUEUE_BUSY_EXIT_CODE } from '../../types/test-queue.js';
 import { formatCheckOutput } from '../formatters/check-output.js';
 import { handleError } from '../formatters/error-output.js';
+import { exitCodeForSignal, testQueueWaitLine } from '../formatters/test-queue-output.js';
 import type { GlobalOptions } from '../index.js';
 import { resolveLogLevel } from '../log-level.js';
 
@@ -69,8 +71,16 @@ export function registerCheckCommand(program: Command): void {
             gradedBy: options.gradedBy,
             autoDraft: options.autoDraft,
             autoDraftDryRun: options.autoDraftDryRun,
+            onQueueWait: (info) => console.error(testQueueWaitLine(info)),
           });
           formatCheckOutput(result, logLevel);
+          // A busy queue ran nothing, and an interrupted run ends the way a signal would
+          // have ended it: neither is the exit 0 of a recorded run.
+          if (result.kind === 'record-tests' && result.busy !== undefined) {
+            process.exitCode = TEST_QUEUE_BUSY_EXIT_CODE;
+          } else if (result.kind === 'record-tests' && result.interruptedBy !== undefined) {
+            process.exitCode = exitCodeForSignal(result.interruptedBy);
+          }
           if (options.strict && result.kind === 'report' && result.hasFail) {
             process.exitCode = 1;
           }

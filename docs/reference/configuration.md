@@ -30,7 +30,9 @@ Each `exclude` entry follows the module-path rule: without `*`, it is literal (i
 | `tech_stack.framework` | string | Auto-detected, or unset | Overrides the detected framework. |
 | `tech_stack.package_manager` | string | Auto-detected, or unset | Overrides the detected package manager. |
 | `tech_stack.test_command` | string | Resolved from project configuration and manifests | Command executed by `prospec check --record-tests`; resolution and platform restrictions follow below. |
-| `tech_stack.test_timeout_ms` | integer | `900000` (15 minutes) | Wall-clock cap for that command, from 1 to 2147483647 milliseconds. When a test command resolves, an invalid value makes `--record-tests` record an unprovable attempt naming the key, without running the suite. Changing the value makes recorded test evidence stale; re-run `--record-tests`. |
+| `tech_stack.test_timeout_ms` | integer | `900000` (15 minutes) | Wall-clock cap for that command, and for a command run by `prospec exclusive`, from 1 to 2147483647 milliseconds. When a test command resolves, an invalid value makes `--record-tests` record an unprovable attempt naming the key, without running the suite. Changing the value makes recorded test evidence stale; re-run `--record-tests`. |
+| `tech_stack.test_queue_wait_ms` | integer | `60000` (1 minute) | How long `--record-tests` or `prospec exclusive` waits for the repository [test queue](./cli-reference.md#test-queue) before exiting 75 without running anything, from 0 to 2147483647 milliseconds; 0 never waits. An invalid value is refused before anything runs. |
+| `tech_stack.test_queue_lease_ms` | integer | `300000` (5 minutes) | How long a waiting ticket keeps its place after its last poll, from 30000 to 2147483647 milliseconds. Re-running the same command within it resumes the ticket. An invalid value is refused before anything runs. |
 
 A nonblank `test_command` wins. Otherwise, a configured `package_manager` supplies `<package_manager> test` when `package.json` declares a test script. If that fallback does not apply, Prospec detects a command from Rust, Python, Go, Node.js or Makefile manifests. If no command is available, the test runner reports a skip.
 
@@ -89,7 +91,7 @@ Absent or `false` preserves the full input scope. With `true`, the excluded dire
 
 The opt-in identity is `test-inputs-v1` / `repository-inputs-without-knowledge-v1`, with `test_policy: {version: 1, excluded_path: <project-relative path>}` on both attempt and provenance. Changing the policy, config bytes, resolved command or any retained input invalidates the evidence; missing or unknown identities require a real run.
 
-Knowledge remains in review and verification-context snapshots. Knowledge checks, document review and project-defined pre-merge CI still apply. Explicit `--record-tests` always executes the suite, and a newer failed or unfinished attempt cannot revive an older PASS. The [CLI evidence reference](./cli-reference.md#review-and-test-evidence) explains certification, target enumeration and verify's reuse gate.
+Knowledge remains in review and verification-context snapshots. Knowledge checks, document review and project-defined pre-merge CI still apply. Explicit `--record-tests` never reuses certified evidence, and a newer failed or unfinished attempt cannot revive an older PASS. The [CLI evidence reference](./cli-reference.md#review-and-test-evidence) explains certification, target enumeration and verify's reuse gate.
 
 ## Workflow
 

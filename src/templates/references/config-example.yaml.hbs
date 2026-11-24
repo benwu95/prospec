@@ -28,11 +28,19 @@ tech_stack:
   # The example below is one such shell-free, shim-free invocation (Node's builtin
   # runner); on POSIX-only projects `pnpm test` also works.
   test_command: node --test
-  # Wall-clock cap for that run, in milliseconds. Defaults to 900000 (15 minutes);
-  # accepts an integer from 1 to 2147483647. When a test command resolves, an
-  # invalid value makes `--record-tests` record an unprovable attempt naming this
-  # key, without running the suite. Changing it makes recorded test evidence stale — re-run the record.
+  # Wall-clock cap for that run, and for a command run by `prospec exclusive`, in
+  # milliseconds. Defaults to 900000 (15 minutes); accepts an integer from 1 to
+  # 2147483647. When a test command resolves, an invalid value makes `--record-tests`
+  # record an unprovable attempt naming this key, without running the suite. Changing it
+  # makes recorded test evidence stale — re-run the record.
   test_timeout_ms: 900000
+  # How long a full-suite run waits for the repository test queue before it reports
+  # busy, in milliseconds. Defaults to 60000; accepts an integer from 0 to 2147483647
+  # (0 never waits). An invalid value is refused before anything runs.
+  test_queue_wait_ms: 60000
+  # How long a waiting ticket keeps its place after its last poll, in milliseconds.
+  # Defaults to 300000; accepts an integer from 30000 to 2147483647.
+  test_queue_lease_ms: 300000
 
 # Enable only when Knowledge is not an input to the project's tests.
 # Absent/false preserves full-scope evidence; true permits certified test reuse.

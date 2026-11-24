@@ -14,6 +14,7 @@ import {
   type DriftReport,
   type KnowledgeSizeFinding,
 } from '../../types/drift-report.js';
+import { testQueueBusyLines } from './test-queue-output.js';
 import { sanitizeTerminal } from './sanitize.js';
 import { formatTestEvidenceReuse } from './test-gate-output.js';
 
@@ -213,6 +214,11 @@ export function formatCheckOutput(
 /** A recorded run is reported by what happened, never as a verdict — the FAIL for
  *  a non-zero exit code belongs to the `test-provenance` check, not to this line. */
 function formatRecordTests(result: RecordTestsResult): void {
+  if (result.busy !== undefined) {
+    for (const line of testQueueBusyLines(result.busy)) console.log(line);
+    return;
+  }
+  if (result.warning !== undefined) console.log(`  ${pc.yellow('⚠')} ${sanitizeTerminal(result.warning)}`);
   const cmd = result.command === undefined ? '' : ` (\`${sanitizeTerminal(result.command)}\`)`;
   if (result.treeChangedDuringRun === true) {
     const reason = result.recorded && result.reason ? ` (${sanitizeTerminal(result.reason)})` : '';
