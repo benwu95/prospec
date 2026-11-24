@@ -28,7 +28,8 @@ AI co-authorship anywhere.
    as still in flight means this step is unfinished.
 2. **Both commits exist**, in order — the feature commit (boundary: `/prospec-verify` at grade S/A,
    folding implementation + review fixes + verify fixes + module READMEs + re-derived counts), then
-   the archive commit. `CONTRIBUTING.md` → §4 Commit specifies both.
+   the archive commit. `CONTRIBUTING.md` → §4 Commit specifies both. No `fixup!` / `squash!` /
+   `amend!` commit is pending on top of them — Step 1 and Step 5 check this.
 3. **Green locally**: `pnpm test`, `pnpm typecheck`, `pnpm lint`, `prospec check`, and
    `pnpm run counts:check` (CI gates this one; a stale factual count fails the PR). Capture the
    numbers — the body reports them.
@@ -48,9 +49,29 @@ AI co-authorship anywhere.
 
 ```bash
 prospec status                                    # in-flight changes (should be clean post-archive)
-git log --oneline main..HEAD                      # the two commits
-git diff --shortstat main..HEAD                   # file/line stats for the body
+git fetch origin main                             # local main may lag; compare against the remote
+git log --oneline origin/main..HEAD               # the two commits
+git diff --shortstat origin/main...HEAD           # file/line stats for the body
 ```
+
+Then run the **autosquash check** — it must print nothing:
+
+```bash
+git log --format='%h %s' origin/main..HEAD | grep -E '^[0-9a-f]+ (fixup|squash|amend)! '
+```
+
+This repo merges with merge commits, so GitHub never squashes these markers: one that reaches the
+merge stays on `main` for good. When the check prints anything, **stop** and hand the listed commits
+to the developer together with the squash steps for them to run:
+
+- `git rebase -i --autosquash --keep-base origin/main`, keeping the todo list as generated;
+- `git diff ORIG_HEAD HEAD` prints nothing — squashing moves changes between commits, never alters
+  the tree;
+- if the branch is already pushed, `git push --force-with-lease`;
+- a marker whose target commit is not in the range stays unsquashed — reword it into an ordinary
+  commit subject instead.
+
+Resume from this step only after the developer reports the squash done, and rerun the check.
 
 The issue number comes from the change's `metadata.yaml` `issue` field — the mechanical registration
 written at scaffold time by `prospec change story --issue "#NN"`:
@@ -92,6 +113,10 @@ gh pr create --base main --head <branch> \
 gh pr view --json number,title,url,body -q '.number, .url'
 gh pr checks                                       # CI green before asking for a merge
 ```
+
+Before reporting the PR ready to merge, `git fetch origin main` and rerun the Step 1 autosquash
+check; a hit stops here the same way. Review and CI fixes pushed after the PR opens (often as
+`git commit --fixup`) return to this step on every push.
 
 Report the PR URL. Confirm the body rendered (the issue link is a live reference, not literal text).
 
@@ -139,6 +164,8 @@ separate per Atomic Commits), add a short `## 附帶` section saying which commi
 - **NEVER** state a test count, coverage figure, check result or grade you did not actually observe.
 - **NEVER** invent the issue number — read it from `metadata.yaml` `issue`, or ask.
 - **NEVER** close the issue by hand; `Closes #NN` and the merge do it.
+- **NEVER** rewrite history yourself to clear the autosquash check — squashing and the force-push it
+  needs are the developer's to run.
 
 ## Notes
 

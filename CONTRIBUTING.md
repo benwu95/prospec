@@ -266,6 +266,14 @@ prose paragraphs; one concern per commit; **no AI co-authorship attribution**. T
   `src/templates/skills/references/metadata-format.hbs` → `` `issue` ``.
 - **Land the change as two commits** — the feature commit at `/prospec-verify` grade S/A, then the
   archive commit — as specified in [§4 Commit](#4-commit). Push both before opening the PR.
+- **Squash every autosquash marker before the merge.** Review and CI fixes may be pushed as
+  `git commit --fixup`, but this repo merges with merge commits, so GitHub never squashes a
+  `fixup!` / `squash!` / `amend!` commit — one that is merged stays on `main` for good. After
+  `git fetch origin main`, this must print nothing both before opening the PR and before asking for
+  the merge:
+  `git log --format='%h %s' origin/main..HEAD | grep -E '^[0-9a-f]+ (fixup|squash|amend)! '`.
+  Otherwise run `git rebase -i --autosquash --keep-base origin/main`, confirm `git diff ORIG_HEAD HEAD`
+  is empty, and push with `--force-with-lease`.
 - **Write the PR body in Traditional Chinese (Taiwan).** This is a house convention, **not** a
   consequence of the Constitution's `[MUST] Language Policy` — that rule is defined over repo *paths*
   (`.prospec/changes/**` and friends), and a PR body is not one. The code, commit messages, and trust
