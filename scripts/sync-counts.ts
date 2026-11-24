@@ -1,17 +1,18 @@
 import path from 'node:path';
-import os from 'node:os';
 import { fileURLToPath } from 'node:url';
-import { existsSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
-import { execSync } from 'node:child_process';
-import { deriveTestCounts } from './counts/derive.js';
+import { localTestCountsFor } from './counts/local-source.js';
+import { countsFrom, readReport } from './counts/report-source.js';
 import { buildTruth, checkFailed, syncCounts, type TestCountResult } from './counts/sync.js';
 import type { CountReport } from './counts/types.js';
 
 /**
  * `pnpm counts` — regenerate every factual count in prospec's docs from a
- * single source of truth (vitest for test counts, the filesystem for the `.hbs`
- * inventory) and rewrite each whitelisted spot in place.
+ * single source of truth (a vitest JSON report for test counts, the filesystem
+ * for the `.hbs` inventory) and rewrite each whitelisted spot in place.
  * `pnpm counts:check` — dry-run: report drift, write nothing, exit 1 on drift.
+ * Without `--from`, test counts come from the report `pnpm test` left while its
+ * work-tree stamp still matches, else from one `pnpm test` run under the
+ * repository test queue (`counts/local-source.ts`).
  *
  * Repo-internal (scripts/ is not shipped). Kills PB-004 manual re-derivation.
  */
@@ -19,10 +20,10 @@ import type { CountReport } from './counts/types.js';
 const REPO_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 
 /**
- * `--from <file>`: bucket an ALREADY-PRODUCED vitest JSON report instead of
- * running the suite again. There is deliberately no implicit discovery — a
- * leftover report from an earlier run would turn a measurement into a stale
- * constant, so the caller names the file it just produced or gets the spawn.
+ * `--from <file>`: bucket the vitest JSON report the caller names, as given —
+ * CI names the one `test:coverage` just wrote. This path never judges the report
+ * against the work tree, so only `--check` accepts it; the local path judges
+ * `pnpm test`'s own stamped report instead.
  */
 function reportArg(): string | null {
   const i = process.argv.indexOf('--from');
@@ -33,38 +34,8 @@ function reportArg(): string | null {
 /** Bucket an existing report; skip (with reason) rather than falling back to a spawn. */
 function readTestCounts(file: string): TestCountResult {
   if (!file || file.startsWith('--')) return { counts: null, reason: '--from needs a file path' };
-  const abs = path.resolve(REPO_ROOT, file);
-  if (!existsSync(abs)) return { counts: null, reason: `no vitest report at ${file}` };
-  try {
-    const counts = deriveTestCounts(JSON.parse(readFileSync(abs, 'utf-8')));
-    return counts !== null ? { counts } : { counts: null, reason: `${file} has no results` };
-  } catch (err) {
-    return { counts: null, reason: `${file} is not a readable vitest report: ${(err as Error).message}` };
-  }
-}
-
-/** Run the suite once and bucket its counts; skip (with reason) if unavailable. */
-function gatherTestCounts(): TestCountResult {
-  const dir = mkdtempSync(path.join(os.tmpdir(), 'prospec-counts-'));
-  const out = path.join(dir, 'vitest.json');
-  try {
-    try {
-      execSync(`npx vitest run --reporter=json --outputFile=${out}`, {
-        cwd: REPO_ROOT,
-        stdio: 'inherit',
-      });
-    } catch {
-      // vitest exits non-zero when tests fail; the JSON report is still written,
-      // and the test *count* stays a valid fact — fall through and parse it.
-    }
-    if (!existsSync(out)) return { counts: null, reason: 'vitest produced no JSON report' };
-    const counts = deriveTestCounts(JSON.parse(readFileSync(out, 'utf-8')));
-    return counts !== null ? { counts } : { counts: null, reason: 'vitest report had no results' };
-  } catch (err) {
-    return { counts: null, reason: `vitest run failed: ${(err as Error).message}` };
-  } finally {
-    rmSync(dir, { recursive: true, force: true });
-  }
+  const read = readReport(REPO_ROOT, file);
+  return 'reason' in read ? { counts: null, reason: read.reason } : countsFrom(read.report, file);
 }
 
 function printReport(report: CountReport, check: boolean): void {
@@ -92,15 +63,28 @@ async function main(): Promise<void> {
   const check = process.argv.includes('--check');
   const from = reportArg();
   // `--from` is a read-only affordance for a caller that JUST produced the
-  // report (CI runs it right after `test:coverage`). Nothing here can tell a
-  // fresh report from yesterday's, so the write mode — which would stamp those
+  // report (CI runs it right after `test:coverage`). It is read as given, never
+  // judged against the work tree, so the write mode — which would stamp those
   // numbers into five docs — refuses it outright rather than trusting the name.
   if (from !== null && !check) {
-    console.error('--from is only valid with --check; `pnpm counts` measures the suite itself');
+    console.error('--from is only valid with --check; `pnpm counts` reads the stamped local report or runs the suite under the test queue');
     process.exitCode = 1;
     return;
   }
-  const { truth, skipped } = buildTruth(REPO_ROOT, from === null ? gatherTestCounts() : readTestCounts(from));
+  let tests: TestCountResult;
+  if (from !== null) {
+    tests = readTestCounts(from);
+  } else {
+    const outcome = await localTestCountsFor(REPO_ROOT);
+    // A stop outcome (busy queue or interrupted run) counts nothing: exit with its code before any doc is touched.
+    if (outcome.kind === 'stop') {
+      for (const line of outcome.lines) console.error(line);
+      process.exitCode = outcome.exitCode;
+      return;
+    }
+    tests = outcome.result;
+  }
+  const { truth, skipped } = buildTruth(REPO_ROOT, tests);
   const report = await syncCounts({ repoRoot: REPO_ROOT, check, truth, skipped });
   printReport(report, check);
   if (check && checkFailed(report)) process.exitCode = 1;
