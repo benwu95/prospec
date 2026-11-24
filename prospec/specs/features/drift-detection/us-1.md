@@ -124,7 +124,12 @@ so that drift checks are enforced in the CI main pipeline without burning any to
 - WHEN an older report without `subjects` is parsed, THEN it still validates; consumers treat the absence as unprovable for per-change adjudication, never as pass
 
 #### REQ-SERVICES-027: Check Service thin orchestration
-`execute()` pattern: collect → evaluate → schema-validate → (--json) atomicWrite the report; `--init-ci` renders the workflow template (rerun-safe, does not overwrite); the Result contains `hasFail`, and the exit-code decision stays in the cli layer.
+`execute()` pattern: collect → evaluate → schema-validate → (--json) atomicWrite the report; `--init-ci` renders the check and comment workflow templates (REQ-TEMPLATES-091), overwrites neither, and returns each file's outcome; the Result contains `hasFail`, and the exit-code decision stays in the cli layer.
+- WHEN neither workflow exists, THEN both are created
+- WHEN the check workflow exists, THEN neither file is written; the comment workflow is reported as existing when present, otherwise as skipped
+- WHEN the check workflow is absent and the comment workflow exists, THEN only the check workflow is created
+- WHEN `--init-ci` runs a second time, THEN no file changes and both files are reported as existing
+- WHEN writing the comment workflow fails, THEN the check workflow has not been written, so a rerun creates both
 
 #### REQ-CLI-011: `prospec check` command
 `prospec check`'s human-readable output lists every check in `DRIFT_CHECK_IDS` with its own status (a skipped check attaches its reason) and renders the `Findings:` block grouped by finding type; untrusted repo strings pass through `sanitizeTerminal()` (C0/C1 control-character filtering) before output. Flags: `--json` / `--strict` / `--init-ci`.
@@ -136,7 +141,20 @@ so that drift checks are enforced in the CI main pipeline without burning any to
 - WHEN a `knowledge-size` finding carries `ratchet_actual`, THEN its line shows that value beside the merge-base value, so the two numbers it pairs share one basis; a finding without it renders exactly as before
 
 #### REQ-TEMPLATES-091: CI Workflow template
-Two jobs: check (checkout `fetch-depth: 0` → `--strict --json` (`shell: bash` enables pipefail, tee must not mask the exit code) → report artifact) + comment (**no checkout**, only downloads the artifact, an off-the-shelf sticky action posts a 4-space-indented code block — no fence can escape, `head -c 60000` cap). Supply-chain hardening is the default: third-party actions are pinned to full commit SHAs, minimal-privilege `permissions:`.
+Two workflows. The check workflow (`prospec-check.yml`): checkout `fetch-depth: 0` → `--strict --json` (`shell: bash` enables pipefail, tee must not mask the exit code) → one report artifact that also carries the PR number on `pull_request` runs; it posts no comment. The comment workflow (`prospec-check-comment.yml`) runs on `workflow_run` completion of a `pull_request` check run with **no checkout**: it downloads that run's artifact and treats it as untrusted, posting only when the PR number is a positive integer and that PR's head commit equals the run's head commit; an off-the-shelf sticky action posts a 4-space-indented code block — no fence can escape, `head -c 60000` cap. Supply-chain hardening is the default: third-party actions are pinned to full commit SHAs, minimal-privilege `permissions:`.
+- WHEN the pull request comes from a fork, THEN the check workflow runs with read-only permissions and the comment workflow posts the comment
+- WHEN the PR number is not a positive integer, the PR cannot be looked up, or the PR head commit differs from the run's head commit, THEN the comment workflow posts nothing and its log names the reason
+- WHEN the triggering run left no PR number, THEN the comment workflow posts nothing and does not fail
+- WHEN the check job failed before producing output, THEN the comment states that the report is unavailable
+
+#### REQ-TESTS-151: PR comment workflows are pinned by executing their verification
+A contract test parses every PR-comment workflow — the repository's own and the rendered `--init-ci` comment template — and asserts that its `workflow_run` trigger names the upstream workflow's `name:`, that it never checks out source, and that it downloads the triggering run's artifact into a directory under `runner.temp`. It runs each workflow's PR-verification step under bash with a stub `gh`. The repository's Prospec Check comment workflow matches the rendered template except for each action's version reference, which uses a version tag where the template pins a commit SHA.
+- WHEN the verification step reads a positive-integer PR number whose PR head commit equals the triggering run's head commit, THEN it outputs that number
+- WHEN the PR number is missing or not a positive integer, the PR lookup fails, or the PR head commit differs, THEN the step outputs no number, logs the reason, and succeeds
+- WHEN the coverage summary carries a metric value that is not a number, THEN that value does not reach the coverage comment body
+- WHEN the verification step looks up the PR, THEN it queries the workflow's own repository by name
+- WHEN the triggering run carries no coverage summary, THEN the coverage comment states that coverage is unavailable
+- WHEN the coverage comment is posted, THEN it uses the `coverage` sticky header, so a pull request's existing coverage comment is updated in place
 
 ---
 

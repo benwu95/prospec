@@ -295,18 +295,18 @@ tests/
 > alphabetically first.
 
 - `tests/fixtures/` — 622 files: `.md`, `.yaml`, `.json`, `.txt`
-- `prospec/` — 413 files: `.md`, `(no extension)`, `.yaml`
+- `prospec/` — 414 files: `.md`, `(no extension)`, `.yaml`
 - `.agents/` — 67 files: `.md`
 - `.claude/` — 67 files: `.md`
 - `planning/` — 10 files: `.md`
 - `docs/guides/` — 6 files: `.md`
+- `.github/` — 5 files: `.yml`
 - `docs/concepts/` — 4 files: `.md`
 - `docs/reference/` — 4 files: `.md`
-- `.github/` — 3 files: `.yml`
 
 ## File Stats
 
 | Metric | Value |
 |--------|-------|
-| Total files | 1951 |
+| Total files | 1956 |
 | Directory Tree depth | 10 |
