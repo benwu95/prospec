@@ -77,7 +77,9 @@ describe('resolveTestQueueRoot (REQ-LIB-113)', () => {
     git(repo, 'init', '-q');
     git(repo, '-c', 'user.name=t', '-c', 'user.email=t@t', 'commit', '-q', '--allow-empty', '-m', 'init');
     git(repo, 'worktree', 'add', '-q', linked, '-b', 'side');
-    const expected = path.join(fs.realpathSync(path.join(repo, '.git')), 'prospec', 'test-queue');
+    // The native form is what git prints: on Windows a temp directory is often reached through
+    // an 8.3 short name, which only the native realpath expands.
+    const expected = path.join(fs.realpathSync.native(path.join(repo, '.git')), 'prospec', 'test-queue');
     expect(resolveTestQueueRoot(repo)).toBe(expected);
     expect(resolveTestQueueRoot(linked)).toBe(expected);
   });

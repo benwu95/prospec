@@ -143,7 +143,7 @@ modules:
       - 漂移檢查
       - 知識讀取
     rationale: Foundational infrastructure shared across services and benchmark scripts
-    last_verified: 2026-11-23T15:24:22.845Z
+    last_verified: 2026-11-24T02:23:15.106Z
     source_digest: source-v1:6d65a216e84073dc33bc54a04fe6aacffca226029451d1a9a0996a068978a5bb
   - name: services
     description: Business logic — one `execute()` service per command — including
@@ -362,5 +362,5 @@ modules:
       - 驗證
       - vitest
     rationale: Quality gate — validates all layers with pyramid coverage
-    last_verified: 2026-11-23T15:24:22.845Z
-    source_digest: source-v1:20dd19f32ec0d2aa6566cc4a33b42c9ad86ce67150aaad4f46f504224a8b6be6
+    last_verified: 2026-11-24T02:23:15.106Z
+    source_digest: source-v1:9a9035266e51072e4c681b2f0066df1f3991ea17c88e3e0a052160c6512021d0

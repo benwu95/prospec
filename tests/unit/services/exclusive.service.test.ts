@@ -7,6 +7,7 @@ import { execute } from '../../../src/services/exclusive.service.js';
 import { captureIdentity } from '../../../src/lib/process-tree.js';
 import { resolveTestQueueRoot, TEST_QUEUE_STATE_FILE } from '../../../src/lib/test-queue.js';
 import { ExclusiveCommandMissing } from '../../../src/types/errors.js';
+import { awaitRegisteredTurn } from '../../helpers/queue-turn.js';
 import type { HoldingTicket, TestQueueState } from '../../../src/types/test-queue.js';
 
 // Real git and real commands (PB-010).
@@ -36,7 +37,7 @@ afterEach(() => rmSync(root, { recursive: true, force: true }));
 describe('exclusive.service (REQ-SERVICES-132)', () => {
   it('runs the argv under the turn and reports its exit code', async () => {
     const marker = path.join(root, 'ran');
-    const script = `const fs=require('node:fs');fs.copyFileSync(${JSON.stringify(queueFile())}, ${JSON.stringify(marker)});fs.writeFileSync(${JSON.stringify(`${marker}.token`)}, process.env.PROSPEC_TEST_QUEUE_TOKEN ?? '');process.exit(4)`;
+    const script = `${awaitRegisteredTurn(queueFile())}const fs=require('node:fs');fs.copyFileSync(${JSON.stringify(queueFile())}, ${JSON.stringify(marker)});fs.writeFileSync(${JSON.stringify(`${marker}.token`)}, process.env.PROSPEC_TEST_QUEUE_TOKEN ?? '');process.exit(4)`;
     const argv = [NODE, '-e', script];
     const result = await execute({ cwd: root, argv });
     expect(result).toMatchObject({ kind: 'ran', exitCode: 4, timedOut: false });
@@ -108,7 +109,7 @@ describe('exclusive.service (REQ-SERVICES-132)', () => {
   });
 
   it('reports a turn it could not release as a warning beside the command\'s exit code', async () => {
-    const result = await execute({ cwd: root, argv: [NODE, '-e', `require('node:fs').writeFileSync(${JSON.stringify(queueFile())}, '{broken'); process.exit(6)`] });
+    const result = await execute({ cwd: root, argv: [NODE, '-e', `${awaitRegisteredTurn(queueFile())}require('node:fs').writeFileSync(${JSON.stringify(queueFile())}, '{broken'); process.exit(6)`] });
     expect(result).toMatchObject({ kind: 'ran', exitCode: 6 });
     expect(result.kind === 'ran' && result.warning).toContain('not released');
   });

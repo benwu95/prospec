@@ -8,6 +8,7 @@ import { captureIdentity } from '../../../src/lib/process-tree.js';
 import { resolveTestQueueRoot, TEST_QUEUE_STATE_FILE } from '../../../src/lib/test-queue.js';
 import { parseYaml } from '../../../src/lib/yaml-utils.js';
 import type { ChangeMetadata } from '../../../src/types/change.js';
+import { awaitRegisteredTurn } from '../../helpers/queue-turn.js';
 import type { HoldingTicket, TestQueueState } from '../../../src/types/test-queue.js';
 
 // Real git, a real suite process and real waits (PB-010).
@@ -54,7 +55,8 @@ describe('record-tests under the repository test queue (REQ-SERVICES-068, REQ-TE
   });
 
   it('reports a turn it could not release as a warning on the recorded result', async () => {
-    put('suite.cjs', `require('node:fs').writeFileSync(${JSON.stringify(path.join(resolveTestQueueRoot(root), TEST_QUEUE_STATE_FILE))}, '{broken');`);
+    const stateFile = path.join(resolveTestQueueRoot(root), TEST_QUEUE_STATE_FILE);
+    put('suite.cjs', `${awaitRegisteredTurn(stateFile)}require('node:fs').writeFileSync(${JSON.stringify(stateFile)}, '{broken');`);
     const result = await record();
     expect(result).toMatchObject({ recorded: true, exitCode: 0 });
     expect(result.warning).toContain('not released');
@@ -63,7 +65,7 @@ describe('record-tests under the repository test queue (REQ-SERVICES-068, REQ-TE
   it('hands the suite the token of its own turn', async () => {
     const stateFile = path.join(resolveTestQueueRoot(root), TEST_QUEUE_STATE_FILE);
     const seen = path.join(resolveTestQueueRoot(root), 'seen.json');
-    put('suite.cjs', `const fs=require('node:fs');fs.writeFileSync(${JSON.stringify(seen)}, JSON.stringify({ token: process.env.PROSPEC_TEST_QUEUE_TOKEN ?? '', state: JSON.parse(fs.readFileSync(${JSON.stringify(stateFile)}, 'utf8')) }));`);
+    put('suite.cjs', `${awaitRegisteredTurn(stateFile)}const fs=require('node:fs');fs.writeFileSync(${JSON.stringify(seen)}, JSON.stringify({ token: process.env.PROSPEC_TEST_QUEUE_TOKEN ?? '', state: JSON.parse(fs.readFileSync(${JSON.stringify(stateFile)}, 'utf8')) }));`);
     expect(await record()).toMatchObject({ recorded: true, exitCode: 0 });
     const { token, state } = JSON.parse(readFileSync(seen, 'utf8')) as { token: string; state: TestQueueState };
     expect(token).not.toBe('');
@@ -125,7 +127,8 @@ describe('record-tests under the repository test queue (REQ-SERVICES-068, REQ-TE
   });
 
   it('holds the turn in phase running, with the suite registered, while the suite runs', async () => {
-    put('suite.cjs', `const fs=require('node:fs');fs.copyFileSync(${JSON.stringify(path.join(resolveTestQueueRoot(root), TEST_QUEUE_STATE_FILE))},'count');`);
+    const stateFile = path.join(resolveTestQueueRoot(root), TEST_QUEUE_STATE_FILE);
+    put('suite.cjs', `${awaitRegisteredTurn(stateFile)}const fs=require('node:fs');fs.copyFileSync(${JSON.stringify(stateFile)},'count');`);
     expect(await record()).toMatchObject({ recorded: true, exitCode: 0 });
     const during = JSON.parse(readFileSync(path.join(root, 'count'), 'utf8')) as TestQueueState;
     expect(during.tickets).toHaveLength(1);

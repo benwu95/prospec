@@ -4,6 +4,7 @@ import { existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync,
 import os from 'node:os';
 import path from 'node:path';
 import { runCliInProcess } from './helpers/run-cli.js';
+import { awaitRegisteredTurn } from '../helpers/queue-turn.js';
 import { captureIdentity } from '../../src/lib/process-tree.js';
 import { resolveTestQueueRoot, TEST_QUEUE_STATE_FILE } from '../../src/lib/test-queue.js';
 import type { HoldingTicket, TestQueueState } from '../../src/types/test-queue.js';
@@ -102,7 +103,8 @@ describe('prospec check --record-tests on a busy queue (REQ-CLI-065, REQ-TESTS-1
   });
 
   it('prints a turn it could not release as a warning beside the record line', async () => {
-    writeFileSync(path.join(root, 'suite.cjs'), `require('node:fs').writeFileSync(${JSON.stringify(path.join(resolveTestQueueRoot(root), TEST_QUEUE_STATE_FILE))}, '{broken');`);
+    const stateFile = path.join(resolveTestQueueRoot(root), TEST_QUEUE_STATE_FILE);
+    writeFileSync(path.join(root, 'suite.cjs'), `${awaitRegisteredTurn(stateFile)}require('node:fs').writeFileSync(${JSON.stringify(stateFile)}, '{broken');`);
     writeFileSync(path.join(root, '.prospec.yaml'), `project:\n  name: fixture\ntech_stack:\n  test_command: ${JSON.stringify(`${NODE} suite.cjs`)}\n`);
     const res = await cli('check', '--record-tests', '--change', 'x');
     expect(res.exitCode).toBe(0);
