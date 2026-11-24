@@ -16,13 +16,21 @@ export function formatExclusiveOutput(result: ExclusiveResult): number {
   }
   if (result.warning !== undefined) console.error(`${pc.yellow('⚠')} ${sanitizeTerminal(result.warning)}`);
   if (result.exitCode !== null) return result.exitCode;
-  const command = `\`${sanitizeTerminal(result.command)}\``;
-  const cause = result.timedOut ? `timed out after ${result.timeoutMs} ms (tech_stack.test_timeout_ms sets the cap)`
+  console.error(exclusiveFailureLine(result));
+  return result.interruptedBy === undefined ? 1 : exitCodeForSignal(result.interruptedBy);
+}
+
+/** The line for a run that produced no exit code: the command, then why it ended. */
+export function exclusiveFailureLine(result: Extract<ExclusiveResult, { kind: 'ran' }>): string {
+  return `${pc.red('✗')} \`${sanitizeTerminal(result.command)}\` ${exclusiveRunCause(result)}`;
+}
+
+/** Why a run that produced no exit code ended, as a predicate after the command's name. */
+export function exclusiveRunCause(result: Extract<ExclusiveResult, { kind: 'ran' }>): string {
+  return result.timedOut ? `timed out after ${result.timeoutMs} ms (tech_stack.test_timeout_ms sets the cap)`
     : result.interruptedBy !== undefined ? `was interrupted by ${sanitizeTerminal(result.interruptedBy)}`
     : result.queueAbort === 'not-started' ? 'was not started: the test queue turn was lost — re-run'
     : result.queueAbort === 'lost' ? 'was killed: the test queue turn was lost while it ran — re-run'
     : result.signal !== undefined ? `was killed by ${sanitizeTerminal(result.signal)}`
     : `could not be run: ${sanitizeTerminal(result.error ?? 'unknown error')}`;
-  console.error(`${pc.red('✗')} ${command} ${cause}`);
-  return result.interruptedBy === undefined ? 1 : exitCodeForSignal(result.interruptedBy);
 }

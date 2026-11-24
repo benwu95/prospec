@@ -16,7 +16,7 @@
   "scripts": {
     "build": "tsc && pnpm run bundle",
     "dev": "tsc --watch",
-    "test": "vitest run",
+    "test": "vitest run --reporter=default --reporter=./scripts/counts/stamped-json-reporter.ts --outputFile.json=vitest-report.json",
     "test:coverage": "vitest run --coverage --reporter=default --reporter=json --outputFile.json=vitest-report.json",
     "test:watch": "vitest",
     "mutate": "stryker run stryker.config.json --mutate",

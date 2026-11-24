@@ -254,8 +254,8 @@ modules:
       - 終端
       - entry point
     rationale: "Thin I/O layer: no business logic, delegates to services"
-    last_verified: 2026-11-23T08:51:29.657Z
-    source_digest: source-v1:ded595d455f7ba9eb2542ad4b0fa5fc459497b5278d2195e224bc9b21fd9aeca
+    last_verified: 2026-11-24T06:55:13.870Z
+    source_digest: source-v1:42d9c0545b61b9ad828d9719c2133e338685aaf95706da9a427f54c019145f7f
   - name: templates
     description: Handlebars template library — 16 skills + host-labelled invocation
       entry guidance, 12 shared partials, 26 references, 1 agent-config, 5
@@ -315,7 +315,7 @@ modules:
     last_verified: 2026-11-23T08:51:29.657Z
     source_digest: source-v1:2af627f8ae882480fcf3a783b96ff9397b387388015d9363131b03d15f4ebc1d
   - name: tests
-    description: 4-layer test suite — 363 files, 9,845 tests (unit 7081 + contract
+    description: 4-layer test suite — 367 files, 9,920 tests (unit 7156 + contract
       2161 + integration 328 + e2e 275). Validates every module — format and
       public-document contracts, the cli-first probe + station-command
       contracts, the drift engine, retained workflow/startup guards, and the MCP
@@ -362,5 +362,5 @@ modules:
       - 驗證
       - vitest
     rationale: Quality gate — validates all layers with pyramid coverage
-    last_verified: 2026-11-24T02:23:15.106Z
-    source_digest: source-v1:9a9035266e51072e4c681b2f0066df1f3991ea17c88e3e0a052160c6512021d0
+    last_verified: 2026-11-24T06:55:13.870Z
+    source_digest: source-v1:17d6df3fe6ff30fbb1693d28b9cbaa32192018d0325e690c46622b3f844378be

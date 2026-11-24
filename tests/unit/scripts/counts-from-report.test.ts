@@ -28,9 +28,9 @@ function run(...args: string[]): { status: number | null; out: string } {
 
 /**
  * `--from` lets CI bucket the vitest report `test:coverage` just wrote instead
- * of running the suite a second time. Nothing can tell a fresh report from a
- * stale one, so the flag is read-only by construction and an unusable report is
- * a skip — never a pass. These are the two ways that could silently invert.
+ * of running the suite a second time. It reads the named report as given and
+ * never judges it against the work tree, so the flag is read-only by construction
+ * and an unusable report is a skip — never a pass. These are the ways that could silently invert.
  */
 describe('sync-counts --from (REQ-TESTS-070)', () => {
   it('refuses the rewrite mode — stale numbers must never be written into the docs', () => {
@@ -43,6 +43,20 @@ describe('sync-counts --from (REQ-TESTS-070)', () => {
       expect(out).toMatch(/only valid with --check/);
       // and it wrote nothing: the working tree's counts are still whatever they were
       expect(out).not.toMatch(/fixed .*:\d+/);
+    } finally {
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it('a parsable report that is not a vitest report is a skip, not a crash', () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'counts-'));
+    try {
+      const report = path.join(dir, 'r.json');
+      fs.writeFileSync(report, 'null');
+      const { status, out } = run('--check', '--from', report);
+      expect(status, 'a non-report passed as verified').toBe(1);
+      expect(out).toMatch(/skipped tests\.total: .*r\.json is not a readable vitest report: expected a JSON object/);
+      expect(out).not.toMatch(/TypeError/);
     } finally {
       fs.rmSync(dir, { recursive: true, force: true });
     }
