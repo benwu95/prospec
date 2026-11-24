@@ -35,16 +35,31 @@ beforeEach(() => {
 afterEach(() => { vi.clearAllMocks(); rmSync(root, { recursive: true, force: true }); });
 it.each(['timeout', 'crash', 'unavailable'])('keeps a real failure through a later %s and clears only on stable success', async (kind) => {
   await run(); expect(await status()).toBe('pass');
-  vi.mocked(runTestCommand).mockReturnValueOnce(outcome(1)); await run();
-  vi.mocked(runTestCommand).mockReturnValueOnce(outcome(null, kind === 'timeout' ? { timed_out: true } : kind === 'crash' ? { signal: 'SIGSEGV' } : { error: 'unavailable' }));
+  vi.mocked(runTestCommand).mockResolvedValueOnce(outcome(1)); await run();
+  vi.mocked(runTestCommand).mockResolvedValueOnce(outcome(null, kind === 'timeout' ? { timed_out: true } : kind === 'crash' ? { signal: 'SIGSEGV' } : { error: 'unavailable' }));
   await run(); expect(await status()).toBe('fail'); expect(meta().test_provenance?.exit_code).toBe(1);
   expect(meta().test_attempt?.outcome).toBe(kind === 'crash' ? 'unprovable' : kind);
   await run(); expect(await status()).toBe('pass');
 });
+it.each([
+  ['a signal that interrupted the runner', { interrupted_by: 'SIGTERM' }, 'test run interrupted by SIGTERM', 'SIGTERM'],
+  ['a turn lost before the suite started', { command: '', queue_abort: 'not-started' as const }, 'lost before the suite started', undefined],
+  ['a turn lost while the suite ran', { queue_abort: 'lost' as const, hook_error: 'the test queue turn was lost' }, 'the suite was killed', undefined],
+])('finalizes a non-passing attempt for %s and certifies nothing (REQ-SERVICES-068)', async (_label, extra, reason, interruptedBy) => {
+  await run(); expect(await status()).toBe('pass');
+  vi.mocked(runTestCommand).mockResolvedValueOnce(outcome(null, extra));
+  const result = await run();
+  expect(result).toMatchObject({ kind: 'record-tests', recorded: false });
+  expect(result.kind === 'record-tests' && result.interruptedBy).toBe(interruptedBy);
+  expect(meta().test_attempt).toMatchObject({ outcome: 'unprovable', command: `${process.execPath} -e process.exit(0)` });
+  expect(meta().test_attempt?.reason).toContain(reason);
+  expect(meta().test_attempt?.exit_code).toBeUndefined();
+  expect(await status()).toBe('fail');
+});
 it('keeps a spawn error reason without the index-input hint even though inputs moved', async () => {
   writeFileSync(path.join(root, 'noise.log'), 'before');
   execFileSync('git', ['add', 'noise.log'], { cwd: root, stdio: 'pipe' });
-  vi.mocked(runTestCommand).mockImplementationOnce(() => {
+  vi.mocked(runTestCommand).mockImplementationOnce(async () => {
     writeFileSync(path.join(root, 'noise.log'), 'x');
     return outcome(null, { error: 'spawn ENOENT' });
   });
@@ -53,13 +68,13 @@ it('keeps a spawn error reason without the index-input hint even though inputs m
 });
 it('leaves running and invalidates older PASS when the runner throws', async () => {
   await run();
-  vi.mocked(runTestCommand).mockImplementationOnce(() => { throw Error('runner crashed'); });
+  vi.mocked(runTestCommand).mockImplementationOnce(async () => { throw Error('runner crashed'); });
   await expect(run()).rejects.toThrow('runner crashed');
   expect(meta().test_attempt?.outcome).toBe('running'); expect(await status()).toBe('fail');
 });
 it('keeps running when final write fails, so older PASS never certifies it', async () => {
   await run();
-  vi.mocked(runTestCommand).mockImplementationOnce(() => {
+  vi.mocked(runTestCommand).mockImplementationOnce(async () => {
     vi.mocked(writeChangeMetadataDoc).mockRejectedValueOnce(Error('write failed'));
     return outcome(0);
   });
@@ -67,7 +82,7 @@ it('keeps running when final write fails, so older PASS never certifies it', asy
   expect(meta().test_attempt?.outcome).toBe('running'); expect(await status()).toBe('fail');
 });
 it('persists actual nonzero exit even when after-capture fails', async () => {
-  vi.mocked(runTestCommand).mockImplementationOnce(() => {
+  vi.mocked(runTestCommand).mockImplementationOnce(async () => {
     vi.mocked(computeTestState).mockReturnValueOnce({ digest: null, clean: null, reason: 'unreadable', identity: { fingerprintVersion: 'snapshot-v2', scope: 'repository-inputs-v2' } });
     return outcome(7);
   });
@@ -142,13 +157,14 @@ describe('tech_stack.test_timeout_ms (REQ-TYPES-116)', () => {
   it('runs the suite under the configured cap', async () => {
     writeConfig(`  test_command: ${command}\n  test_timeout_ms: 4321\n`);
     await run();
-    expect(runTestCommand).toHaveBeenCalledWith(root, command, 4321);
+    // The queue session hands the runner its spawn hook and the child environment.
+    expect(runTestCommand).toHaveBeenCalledWith(root, command, 4321, undefined, expect.objectContaining({ onSpawn: expect.any(Function), env: expect.any(Object) }));
     expect(meta().test_attempt?.outcome).toBe('passed');
   });
 
   it('runs the suite under the shipped default when the key is absent', async () => {
     await run();
-    expect(runTestCommand).toHaveBeenCalledWith(root, command, DEFAULT_TEST_TIMEOUT_MS);
+    expect(runTestCommand).toHaveBeenCalledWith(root, command, DEFAULT_TEST_TIMEOUT_MS, undefined, expect.objectContaining({ onSpawn: expect.any(Function), env: expect.any(Object) }));
   });
 
   it('records an unprovable attempt naming the key and its remedy without running an invalid cap', async () => {

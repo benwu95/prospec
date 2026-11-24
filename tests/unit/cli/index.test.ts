@@ -158,6 +158,7 @@ describe('createProgram', () => {
         'check',
         'config',
         'constitution',
+        'exclusive',
         'history',
         'init',
         'knowledge',

@@ -104,7 +104,7 @@ Choose exactly one path **after the Entry Gate** and final Knowledge/count/gener
 1. **Default** — Unless `test_evidence.exclude_knowledge: true`, execute below.
 2. **Opt-in assessment** — Run `prospec check --json`; read fresh `prospec-report.json`, not stdout. Find `test-provenance` in `structural.checks[]`: omit execution only when the target is enumerated in `subjects` and has certified `test_evidence[<name>]`. Otherwise execute below; skipped or exempt evidence never qualifies. Cite its original ID/date/command/exit code/policy/reason in 5/5 without rewriting records.
 
-**Execution and refresh** — For default or uncertified opt-in, run `prospec check --record-tests --change <name>` once, then **re-run `prospec check --json` and re-read the report**. Certified reuse keeps the fresh assessment report. Explicit `--record-tests` always executes.
+**Execution and refresh** — For default or uncertified opt-in, run `prospec check --record-tests --change <name>` once, then **re-run `prospec check --json` and re-read the report**. Certified reuse keeps the fresh assessment report. Explicit `--record-tests` never reuses certified evidence; on busy nothing ran — re-run it before reading the report.
 
 Reuse preserves full Knowledge-inclusive review/context freshness, Knowledge checks, document review and pre-merge CI.
 

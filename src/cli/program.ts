@@ -36,6 +36,7 @@ import { registerVerifyCommand } from './commands/verify-record.js';
 import { registerLearnCommand } from './commands/learn.js';
 import { registerValidateCommand } from './commands/validate.js';
 import { registerCheckCommand } from './commands/check.js';
+import { registerExclusiveCommand } from './commands/exclusive.js';
 import { registerMcpCommand } from './commands/mcp.js';
 import { PROSPEC_VERSION } from '../types/version.js';
 import type { GlobalOptions } from './index.js';
@@ -147,6 +148,7 @@ export function createProgram(): Command {
   registerLearnCommand(program);
   registerValidateCommand(program);
   registerCheckCommand(program);
+  registerExclusiveCommand(program);
   registerMcpCommand(program);
 
   return program;

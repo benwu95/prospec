@@ -186,4 +186,14 @@ describe('ci.yml quality gates (REQ-TESTS-070)', () => {
     expect(bodies.length, 'windows-smoke has no run steps — parse drift').toBeGreaterThan(0);
     expect(bodies.filter((b) => b.includes('counts'))).toEqual([]);
   });
+
+  it('windows-smoke runs the test-queue unit files, which exist (REQ-TESTS-149)', () => {
+    const vitest = runBodies(job('windows-smoke')).filter((b) => b.includes('vitest run'));
+    expect(vitest).toHaveLength(1);
+    const files = vitest[0]!.split(/\s+/).filter((token) => token.endsWith('.test.ts'));
+    for (const file of ['tests/unit/lib/test-queue-engine.test.ts', 'tests/unit/lib/test-queue.test.ts', 'tests/unit/lib/process-tree.test.ts']) {
+      expect(files, file).toContain(file);
+    }
+    for (const file of files) expect(fs.existsSync(path.resolve(file)), file).toBe(true);
+  });
 });

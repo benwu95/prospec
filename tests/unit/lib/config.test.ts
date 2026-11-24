@@ -2,8 +2,9 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { vol } from 'memfs';
-import { resolveConfigPath, readConfig, validateConfig, writeConfig, resolveBasePaths, isArtifactLanguageUnset, resolveKnowledgeTokenBudget, resolveTestCommand, resolveTestTimeoutMs, resolveMaxStationRetries, resolvePauseAt, resolveAlwaysEscalate } from '../../../src/lib/config.js';
-import { ConfigNotFound, ConfigInvalid, PauseAtInvalid, AlwaysEscalateInvalid, TestTimeoutInvalid } from '../../../src/types/errors.js';
+import { resolveConfigPath, readConfig, validateConfig, writeConfig, resolveBasePaths, isArtifactLanguageUnset, resolveKnowledgeTokenBudget, resolveTestCommand, resolveTestTimeoutMs, resolveTestQueueWaitMs, resolveTestQueueLeaseMs, resolveMaxStationRetries, resolvePauseAt, resolveAlwaysEscalate } from '../../../src/lib/config.js';
+import { ConfigNotFound, ConfigInvalid, PauseAtInvalid, AlwaysEscalateInvalid, TestTimeoutInvalid, TestQueueSettingInvalid } from '../../../src/types/errors.js';
+import { DEFAULT_TEST_QUEUE_LEASE_MS, DEFAULT_TEST_QUEUE_WAIT_MS, MAX_TEST_QUEUE_MS, MIN_TEST_QUEUE_LEASE_MS } from '../../../src/types/test-queue.js';
 import { DEFAULT_TEST_TIMEOUT_MS } from '../../../src/lib/test-runner.js';
 import { DEFAULT_KNOWLEDGE_TOKEN_BUDGET, DEFAULT_MAX_STATION_RETRIES, MAX_TEST_TIMEOUT_MS, ProspecConfigSchema, SHIPPED_BUDGET_FIELDS, isShippedBudgetField, type ProspecConfig } from '../../../src/types/config.js';
 
@@ -285,6 +286,45 @@ describe('resolveTestTimeoutMs (REQ-TYPES-116)', () => {
   it('leaves an invalid value readable by validateConfig, so only the record-tests path refuses it', () => {
     const config = validateConfig('project:\n  name: t\ntech_stack:\n  test_timeout_ms: soon\n');
     expect(config.tech_stack?.test_timeout_ms).toBe('soon');
+  });
+});
+
+describe('test queue settings (REQ-TYPES-119)', () => {
+  const cfg = (tech?: Record<string, unknown>): ProspecConfig =>
+    ({ project: { name: 't' }, ...(tech === undefined ? {} : { tech_stack: tech }) }) as ProspecConfig;
+
+  it('falls back to the shipped defaults when the keys are absent', () => {
+    expect(resolveTestQueueWaitMs(cfg())).toBe(DEFAULT_TEST_QUEUE_WAIT_MS);
+    expect(resolveTestQueueWaitMs(cfg({}))).toBe(DEFAULT_TEST_QUEUE_WAIT_MS);
+    expect(resolveTestQueueLeaseMs(cfg())).toBe(DEFAULT_TEST_QUEUE_LEASE_MS);
+    expect(resolveTestQueueLeaseMs(cfg({}))).toBe(DEFAULT_TEST_QUEUE_LEASE_MS);
+  });
+
+  it('returns a configured integer inside each range, including a zero wait', () => {
+    expect(resolveTestQueueWaitMs(cfg({ test_queue_wait_ms: 0 }))).toBe(0);
+    expect(resolveTestQueueWaitMs(cfg({ test_queue_wait_ms: MAX_TEST_QUEUE_MS }))).toBe(MAX_TEST_QUEUE_MS);
+    expect(resolveTestQueueLeaseMs(cfg({ test_queue_lease_ms: MIN_TEST_QUEUE_LEASE_MS }))).toBe(MIN_TEST_QUEUE_LEASE_MS);
+    expect(resolveTestQueueLeaseMs(cfg({ test_queue_lease_ms: MAX_TEST_QUEUE_MS }))).toBe(MAX_TEST_QUEUE_MS);
+  });
+
+  it.each([['negative', -1], ['fractional', 1.5], ['above the range', MAX_TEST_QUEUE_MS + 1], ['a string', '60000'], ['null', null]])(
+    'throws for a wait that is %s, naming the key', (_label, value) => {
+      const act = () => resolveTestQueueWaitMs(cfg({ test_queue_wait_ms: value }));
+      expect(act).toThrow(TestQueueSettingInvalid);
+      expect(act).toThrow('tech_stack.test_queue_wait_ms');
+    });
+
+  it.each([['below the minimum', MIN_TEST_QUEUE_LEASE_MS - 1], ['zero', 0], ['fractional', 30_000.5], ['above the range', MAX_TEST_QUEUE_MS + 1], ['a string', '5m'], ['null', null]])(
+    'throws for a lease that is %s, naming the key', (_label, value) => {
+      const act = () => resolveTestQueueLeaseMs(cfg({ test_queue_lease_ms: value }));
+      expect(act).toThrow(TestQueueSettingInvalid);
+      expect(act).toThrow('tech_stack.test_queue_lease_ms');
+    });
+
+  it('keeps a mistyped value readable by validateConfig and free of an unknown-field diagnostic', () => {
+    const config = validateConfig('project:\n  name: t\ntech_stack:\n  test_queue_wait_ms: soon\n  test_queue_lease_ms: later\n');
+    expect(config.tech_stack?.test_queue_wait_ms).toBe('soon');
+    expect(config.tech_stack?.test_queue_lease_ms).toBe('later');
   });
 });
 

@@ -168,6 +168,41 @@ export class TestTimeoutInvalid extends ProspecError {
   }
 }
 
+export class TestQueueSettingInvalid extends ProspecError {
+  constructor(key: 'test_queue_wait_ms' | 'test_queue_lease_ms', value: string, min: number, max: number) {
+    super(
+      `Invalid test queue setting in .prospec.yaml tech_stack.${key}: ${value}`,
+      'TEST_QUEUE_SETTING_INVALID',
+      `Use an integer number of milliseconds from ${min} to ${max}, or omit the key to keep the default`,
+    );
+    this.name = 'TestQueueSettingInvalid';
+  }
+}
+
+/** The repository test queue cannot be used. The caller runs nothing: skipping the queue
+ *  silently would give up the one-run-at-a-time guarantee it exists for. */
+export class TestQueueUnavailable extends ProspecError {
+  constructor(readonly queuePath: string, reason: string, suggestion?: string) {
+    super(
+      `Test queue unavailable at ${queuePath}: ${reason}`,
+      'TEST_QUEUE_UNAVAILABLE',
+      suggestion ?? 'Make the path readable and writable, or remove it once no test run of this repository is in progress',
+    );
+    this.name = 'TestQueueUnavailable';
+  }
+}
+
+export class ExclusiveCommandMissing extends ProspecError {
+  constructor() {
+    super(
+      'No command given to run',
+      'EXCLUSIVE_COMMAND_MISSING',
+      'Pass the command after `--`, e.g. `prospec exclusive -- pnpm test`',
+    );
+    this.name = 'ExclusiveCommandMissing';
+  }
+}
+
 // --- File system errors ---
 
 export class ScanError extends ProspecError {

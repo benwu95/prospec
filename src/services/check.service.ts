@@ -1,4 +1,4 @@
-import { existsSync, readFileSync } from 'node:fs';
+import { existsSync, readFileSync, realpathSync } from 'node:fs';
 import path from 'node:path';
 import { readChangeMetadata, writeChangeMetadataDoc } from '../lib/change-metadata.js';
 import { FINGERPRINT_VERSION, EVIDENCE_SCOPE, TestPolicySchema, type TestAttempt, type DimensionGradedBy } from '../types/change.js';
@@ -6,6 +6,8 @@ import { randomUUID } from 'node:crypto';
 import {
   readConfig,
   resolveTestCommand,
+  resolveTestQueueLeaseMs,
+  resolveTestQueueWaitMs,
   resolveTestTimeoutMs,
 } from '../lib/config.js';
 import { atomicWrite } from '../lib/fs-utils.js';
@@ -13,11 +15,13 @@ import { renderTemplate } from '../lib/template.js';
 import { computeChangeDigest, computeTestState, computeDeltaSpecDigest, isGitWorkTree } from '../lib/drift-sources.js';
 import { assessCurrentDrift } from '../lib/drift-assessment.js';
 import { indexInputsHint } from '../lib/drift-checker.js';
-import { runTestCommand } from '../lib/test-runner.js';
+import { withTestQueue, type TestQueueWaitInfo } from '../lib/test-queue.js';
+import { runTestCommand, type TestRunResult } from '../lib/test-runner.js';
 import { resolveChange } from './change-resolver.js';
 import { DRIFT_REPORT_FILENAME, type DriftReport, type TestInputState } from '../types/drift-report.js';
 import { MetadataWriteError, PrerequisiteError, TestTimeoutInvalid } from '../types/errors.js';
 import type { AutoDraftResult } from '../types/auto-draft.js';
+import type { TestQueueBusy } from '../types/test-queue.js';
 import { execute as autoDraftExecute } from './auto-draft.service.js';
 
 export interface CheckOptions {
@@ -41,6 +45,8 @@ export interface CheckOptions {
    *  (`--json`, the record modes) are unaffected, so a bare `dryRun` here would
    *  read as a whole-command promise this flag does not keep. */
   autoDraftDryRun?: boolean;
+  /** With `--record-tests`: called once when the run has to wait for the test queue. */
+  onQueueWait?: (info: TestQueueWaitInfo) => void;
 }
 
 export interface CheckResult {
@@ -90,6 +96,13 @@ export interface RecordTestsResult {
   /** True when the digest changed across the run — an artifact the suite wrote, or
    *  a real edit landing mid-run. Surfaced so the latter is never silently absorbed. */
   treeChangedDuringRun?: boolean;
+  /** Set when the repository test queue did not grant the turn within the wait cap:
+   *  nothing ran and metadata.yaml was not written. */
+  busy?: TestQueueBusy;
+  /** The signal that interrupted the run; the CLI exits with 128 plus its number. */
+  interruptedBy?: string;
+  /** A non-fatal note beside the outcome, e.g. a queue turn that could not be released. */
+  warning?: string;
 }
 
 export const CI_WORKFLOW_PATH = '.github/workflows/prospec-check.yml';
@@ -135,7 +148,11 @@ export async function execute(
   }
 
   if (options.recordTests) {
-    return recordTestProvenance(cwd, options.change);
+    return recordTestProvenance(cwd, options.change, {
+      waitMs: resolveTestQueueWaitMs(config),
+      leaseMs: resolveTestQueueLeaseMs(config),
+      ...(options.onQueueWait === undefined ? {} : { onWait: options.onQueueWait }),
+    });
   }
 
   const { report } = await assessCurrentDrift(cwd);
@@ -262,15 +279,63 @@ function digestFailureReason(cwd: string): string {
  * failed", and `evaluateTestProvenance` turns that into the FAIL. Only cases where
  * uncertified outcomes retain the latest attempt without creating passing provenance.
  */
+interface QueueSettings {
+  waitMs: number;
+  leaseMs: number;
+  onWait?: (info: TestQueueWaitInfo) => void;
+}
+
+/** Runs the suite for one attempt; the queued path routes it through the turn's session. */
+type SuiteRunner = (command: string, timeoutMs: number) => Promise<TestRunResult>;
+
+const QUEUE_ABORT_REASON = {
+  'not-started': 'the test queue turn was lost before the suite started — re-run',
+  lost: 'the test queue turn was lost while the suite ran; the suite was killed — re-run',
+} as const;
+
 async function recordTestProvenance(
   cwd: string,
-  explicitChange?: string,
+  explicitChange: string | undefined,
+  queue: QueueSettings,
 ): Promise<RecordTestsResult> {
   const change = await resolveChange(cwd, explicitChange, true, 'Which change to record the test run for?');
   const metadataPath = path.join(cwd, '.prospec', 'changes', change, 'metadata.yaml');
   if (!existsSync(metadataPath)) {
     return { kind: 'record-tests', change, recorded: false, reason: 'metadata.yaml not found' };
   }
+  // Outside a git work tree there is no repository to share a queue with, and the capture
+  // below refuses before any suite is spawned.
+  if (!isGitWorkTree(cwd)) {
+    return recordUnderTurn(cwd, change, metadataPath, (command, timeoutMs) => runTestCommand(cwd, command, timeoutMs));
+  }
+  const projectRoot = realpathSync(cwd);
+  const outcome = await withTestQueue(
+    {
+      cwd,
+      key: `${projectRoot}\u0000record-tests\u0000${change}`,
+      label: `record-tests ${change}`,
+      worktree: projectRoot,
+      waitMs: queue.waitMs,
+      leaseMs: queue.leaseMs,
+      ...(queue.onWait === undefined ? {} : { onWait: queue.onWait }),
+    },
+    (session) => recordUnderTurn(cwd, change, metadataPath, (command, timeoutMs) => (
+      session.run(timeoutMs, (hooks) => runTestCommand(cwd, command, timeoutMs, undefined, hooks))
+    )),
+  );
+  if (outcome.kind === 'busy') {
+    return { kind: 'record-tests', change, recorded: false, reason: 'the repository test queue is busy — nothing was run', busy: outcome.busy };
+  }
+  return outcome.warning === undefined ? outcome.value : { ...outcome.value, warning: outcome.warning };
+}
+
+/** The record path proper: it runs only while the turn is held (or, outside git, unqueued). */
+async function recordUnderTurn(
+  cwd: string,
+  change: string,
+  metadataPath: string,
+  runSuite: SuiteRunner,
+): Promise<RecordTestsResult> {
   const id = randomUUID();
   const date = new Date().toISOString().slice(0, 10);
   const { doc: initial } = readChangeMetadata(metadataPath, change);
@@ -314,7 +379,7 @@ async function recordTestProvenance(
   }
   if (command === null || timeoutMs === null) return skipped('unavailable', 'no test command — set tech_stack.test_command in .prospec.yaml');
   if (before.digest === null) return skipped('unprovable', before.reason ?? digestFailureReason(cwd), command);
-  const run = runTestCommand(cwd, command, timeoutMs);
+  const run = await runSuite(command, timeoutMs);
   let after: TestInputState;
   let commandStable = false;
   try {
@@ -332,18 +397,23 @@ async function recordTestProvenance(
   const outcome: TestAttempt['outcome'] = run.timed_out ? 'timeout' : run.exit_code === null
     ? (run.error ? 'unavailable' : 'unprovable') : run.exit_code !== 0 ? 'failed' : stable ? 'passed' : 'unprovable';
   const reason = run.timed_out ? `test run timed out after ${run.timeout_ms} ms (tech_stack.test_timeout_ms sets the cap)`
+    : run.interrupted_by ? `test run interrupted by ${run.interrupted_by}`
+    : run.queue_abort ? QUEUE_ABORT_REASON[run.queue_abort]
     : run.signal ? `test run killed by ${run.signal}` : run.error ?? (stable ? undefined
       : `inputs changed during test run or capture is unprovable${indexInputsHint(commandStable && after.digest !== null && after.digest !== before.digest)} — re-run against stable inputs`);
-  const attempt: TestAttempt = { id, date, outcome, ...trace, command: run.command, before_digest: before.digest,
+  // An aborted run carries no command of its own: the one that was resolved is the record.
+  const ran = run.command === '' ? command : run.command;
+  const attempt: TestAttempt = { id, date, outcome, ...trace, command: ran, before_digest: before.digest,
     ...(after.digest !== null ? { after_digest: after.digest } : {}),
     ...(run.exit_code !== null ? { exit_code: run.exit_code } : {}),
     ...(run.signal ? { signal: run.signal } : {}), ...(reason ? { reason } : {}),
   };
   // Nonzero is durable even when after-capture fails; only certified success clears it.
   const recorded = outcome === 'passed' || outcome === 'failed';
-  const provenance = recorded ? { command: run.command, exit_code: run.exit_code, digest: before.digest, date,
+  const provenance = recorded ? { command: ran, exit_code: run.exit_code, digest: before.digest, date,
     ...trace, attempt_id: id } : undefined;
-  return finish(attempt, { kind: 'record-tests', change, recorded, command: run.command,
-    exitCode: run.exit_code, treeChangedDuringRun: !stable, ...(reason ? { reason } : {}) }, provenance);
+  return finish(attempt, { kind: 'record-tests', change, recorded, command: ran,
+    exitCode: run.exit_code, treeChangedDuringRun: !stable, ...(reason ? { reason } : {}),
+    ...(run.interrupted_by ? { interruptedBy: run.interrupted_by } : {}) }, provenance);
 
 }

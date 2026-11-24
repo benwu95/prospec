@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { WriteError } from '../types/errors.js';
@@ -33,6 +34,25 @@ export async function atomicWrite(
       filePath,
       err instanceof Error ? err.message : String(err),
     );
+  }
+}
+
+/**
+ * Create a file whole and without clobbering: `atomicWrite` renames over an existing
+ * file, so the content is written to a temporary file and hard-linked into place, which
+ * fails with EEXIST if the name already exists. The parent directory must exist.
+ */
+export function createFileExclusive(filePath: string, body: string): void {
+  const tmp = `${filePath}.${process.pid}.${randomUUID()}.tmp`;
+  fs.writeFileSync(tmp, body);
+  try {
+    fs.linkSync(tmp, filePath);
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === 'EEXIST') throw error;
+    // A filesystem without hard links: exclusive create keeps the no-clobber half.
+    fs.writeFileSync(filePath, body, { flag: 'wx' });
+  } finally {
+    fs.rmSync(tmp, { force: true });
   }
 }
 

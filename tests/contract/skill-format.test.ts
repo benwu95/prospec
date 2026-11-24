@@ -4563,6 +4563,9 @@ describe('Startup Loading cache-stable prefix ordering (REQ-TEMPLATES-080/081)',
   // align-ratchet-rule-wording: the ratchet rule states the evaluator's per-unit condition and
   // drift-report-format restores the qualifiers earlier compaction dropped, with no offsetting
   // compaction. Reference total 48_201 → 48_276 and cumulative 86_561 → 86_591; anchors unchanged.
+  // serialize-test-runs: project-test-runner gains the queued full-suite section (REQ-TEMPLATES-276)
+  // and verify's sentence on explicit --record-tests now covers a busy result (REQ-TEMPLATES-154); no
+  // offsetting compaction. Reference total 48_276 → 48_379 and cumulative 86_591 → 86_609; anchors unchanged.
   const REFERENCE_CEILING_ANCHOR = 52_315;
   const CUMULATIVE_CEILING_ANCHOR = 91_150;
 

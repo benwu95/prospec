@@ -24,7 +24,8 @@ import {
   isDefaultArtifactLanguage,
 } from '../types/config.js';
 import type { AlwaysEscalateCategory, ProspecConfig, KnowledgeSizeBudget, PauseStation, TokenBudget } from '../types/config.js';
-import { AlwaysEscalateInvalid, ConfigNotFound, ConfigInvalid, KnowledgePathMigrationRequired, PauseAtInvalid, TestTimeoutInvalid } from '../types/errors.js';
+import { AlwaysEscalateInvalid, ConfigNotFound, ConfigInvalid, KnowledgePathMigrationRequired, PauseAtInvalid, TestQueueSettingInvalid, TestTimeoutInvalid } from '../types/errors.js';
+import { DEFAULT_TEST_QUEUE_LEASE_MS, DEFAULT_TEST_QUEUE_WAIT_MS, MAX_TEST_QUEUE_MS, MIN_TEST_QUEUE_LEASE_MS, MIN_TEST_QUEUE_WAIT_MS } from '../types/test-queue.js';
 import { atomicWrite } from './fs-utils.js';
 import { parseYaml, parseYamlDocument, stringifyYamlDocument, mergeIntoDocument } from './yaml-utils.js';
 import { resolveProjectTestCommand } from './project-runner.js';
@@ -354,7 +355,8 @@ export function resolveTestCommand(config: ProspecConfig, cwd: string): string |
 }
 
 /**
- * Resolve the wall-clock cap for `check --record-tests` (REQ-TYPES-116):
+ * Resolve the wall-clock cap for a command run by `check --record-tests` or
+ * `prospec exclusive` (REQ-TYPES-116):
  * `tech_stack.test_timeout_ms`, or DEFAULT_TEST_TIMEOUT_MS when the key is absent.
  * An invalid value throws rather than falling back, so a typo never silently
  * restores the cap the setting was meant to lift.
@@ -368,6 +370,31 @@ export function resolveTestTimeoutMs(config: ProspecConfig): number {
   // inspect, not JSON.stringify: YAML `.nan`/`.inf` would print as null and a self-referencing
   // alias would throw a TypeError instead of naming the key.
   throw new TestTimeoutInvalid(inspect(value, { breakLength: Infinity }));
+}
+
+function resolveQueueSetting(
+  config: ProspecConfig,
+  key: 'test_queue_wait_ms' | 'test_queue_lease_ms',
+  fallback: number,
+  min: number,
+): number {
+  const value = config.tech_stack?.[key];
+  if (value === undefined) return fallback;
+  if (typeof value === 'number' && Number.isInteger(value) && value >= min && value <= MAX_TEST_QUEUE_MS) {
+    return value;
+  }
+  throw new TestQueueSettingInvalid(key, inspect(value, { breakLength: Infinity }), min, MAX_TEST_QUEUE_MS);
+}
+
+/** How long an entry waits for the repository test queue before it reports busy
+ *  (REQ-TYPES-119). An invalid value throws rather than falling back. */
+export function resolveTestQueueWaitMs(config: ProspecConfig): number {
+  return resolveQueueSetting(config, 'test_queue_wait_ms', DEFAULT_TEST_QUEUE_WAIT_MS, MIN_TEST_QUEUE_WAIT_MS);
+}
+
+/** How long a waiting ticket keeps its place after its last poll (REQ-TYPES-119). */
+export function resolveTestQueueLeaseMs(config: ProspecConfig): number {
+  return resolveQueueSetting(config, 'test_queue_lease_ms', DEFAULT_TEST_QUEUE_LEASE_MS, MIN_TEST_QUEUE_LEASE_MS);
 }
 
 /**

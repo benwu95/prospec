@@ -9,7 +9,13 @@ change-and-restore, external services or ignored dependencies.
 
 `test_evidence.exclude_knowledge: true` declares Knowledge is not a test input; absent/false keeps full scope. The CLI excludes `{paths.base_dir}/ai-knowledge`; unsafe paths fail closed. Both records carry `test-inputs-v1` / `repository-inputs-without-knowledge-v1` and `test_policy`. Policy, config bytes, command and retained inputs must match; unknown/missing identity requires a real run.
 
-Certified reuse preserves original run facts; newer nonpassing attempts cannot revive old PASS. Explicit `check --record-tests` always executes. Review/context, Knowledge checks and pre-merge CI retain their scope.
+Certified reuse preserves original run facts; newer nonpassing attempts cannot revive old PASS. Explicit `check --record-tests` never reuses certified evidence. Review/context, Knowledge checks and pre-merge CI retain their scope.
+
+## Queued Full-Suite Runs
+
+Each repository runs a single full suite at a time, across all its worktrees, in ticket order. Run a full suite only through `prospec check --record-tests` or `prospec exclusive -- <command>`; running named test files directly takes no turn.
+
+On a busy result nothing ran: re-run the same command, which keeps its place, and never run the test command directly instead.
 
 ## Test Command Resolution Hierarchy
 

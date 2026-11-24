@@ -51,7 +51,7 @@ import {
   type SnapshotRef,
 } from './delegation-checkpoint.js';
 import { gitProjectPrefix } from './drift-sources.js';
-import { atomicWrite } from './fs-utils.js';
+import { atomicWrite, createFileExclusive } from './fs-utils.js';
 import { withFixedGitEnv } from './git-read.js';
 import {
   captureRepoState,
@@ -439,19 +439,7 @@ export async function transitionTicket(
  * into place, which fails if the name already exists.
  */
 export function createTicketExclusive(changeDir: string, stem: string, ticket: DelegationTicket): void {
-  const final = ticketPath(changeDir, stem);
-  const body = `${JSON.stringify(ticket, null, 2)}\n`;
-  const tmp = path.join(delegationDirOf(changeDir), `.${stem}.${process.pid}.${Date.now()}.tmp`);
-  fs.writeFileSync(tmp, body);
-  try {
-    fs.linkSync(tmp, final);
-  } catch (error) {
-    if ((error as NodeJS.ErrnoException).code === 'EEXIST') throw error;
-    // A filesystem without hard links: exclusive create keeps the no-clobber half.
-    fs.writeFileSync(final, body, { flag: 'wx' });
-  } finally {
-    fs.rmSync(tmp, { force: true });
-  }
+  createFileExclusive(ticketPath(changeDir, stem), `${JSON.stringify(ticket, null, 2)}\n`);
 }
 
 /**

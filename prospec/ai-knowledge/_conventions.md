@@ -66,7 +66,7 @@ All custom errors extend `ProspecError` with:
 - `suggestion`: Actionable fix for the user
 
 ### File Write Pattern
-Use `atomicWrite()` from `lib/fs-utils.ts`, not `fs.writeFileSync()` — except a no-clobber create (`createTicketExclusive`, `lib/delegation.ts`).
+Use `atomicWrite()` from `lib/fs-utils.ts`, not `fs.writeFileSync()` — except a no-clobber create (`createFileExclusive`, same file).
 
 ### Content Regeneration Pattern
 Use `mergeContent()` from `lib/content-merger.ts` when updating files that may have user edits:

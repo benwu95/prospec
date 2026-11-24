@@ -519,6 +519,7 @@ claude mcp add -s user prospec-b -- prospec mcp serve --cwd /path/to/B
 | `prospec check [--json] [--strict]` | 零 LLM 確定性檢查：驗證規格、程式碼、依賴方向與知識庫完整性 |
 | `prospec check --record-tests [options]` | 執行專案測試並將結果與退出碼記錄至變更的 `metadata.yaml` |
 | `prospec check --record-review [options]` | 記錄程式碼 digest 與 `delta-spec.md` 指紋作為審查比對基準 |
+| `prospec exclusive -- <command> [args…]` | 在 repository 測試佇列的執行權下執行一個命令（與 `--record-tests` 共用同一個佇列）；以該命令的 exit code 結束 |
 | `prospec check --init-ci` | 生成 GitHub Actions CI 閘門（`.github/workflows/prospec-check.yml`） |
 | `prospec check --auto-draft [--auto-draft-dry-run]` | 報告產出後，依 finding 分組建立修復變更（絕不覆寫既有變更；起草失敗不改變 check 自身的退出碼，但與非檢查模式併用會在執行前被拒絕） |
 
@@ -556,6 +557,7 @@ claude mcp add -s user prospec-b -- prospec mcp serve --cwd /path/to/B
   - **重點條列**：
     - 測試結果作為 `prospec-verify` 測試維度的客觀裁決依據，防止 Agent 自陳虛報。
     - 指令直接經由 argv 執行（不經 shell）；無法執行時標記為 `skipped` 並說明原因。
+    - 先取得 repository [測試佇列](#測試佇列)的執行權：逾時仍未取得時以 exit code 75 結束，不執行測試，也不寫入任何內容。
     - 若先前已記錄非零退出碼（紅燈），即使事後指令變得無法解析仍判定為 FAIL（事實不被隱藏）。
     - git submodule 以自己 git index 成員的工作樹內容計入 fingerprint，而非 commit pin。一般 untracked 測試／build 產物在該 submodule 執行 `git add` 後才納入；indexed 產物的變動仍改變 fingerprint。Submodule 內的 sparse 或 unmerged entry 會使輸入無法證明。
     - Metadata 發布失敗（`METADATA_WRITE_FAILED`）以非零碼結束；使用 `--json` 時，此類新 typed error 走 structured stderr，`error.publication.metadata` 揭露實際 `metadata_published` 與 target／claim paths。已發布的 attempt／provenance 事實保留，cleanup 失敗亦同。測試行程退出碼與記錄失敗分開判讀。一般 report JSON 與原有 superseded／validation `recorded: false` 結果維持既有行為。
@@ -588,7 +590,16 @@ Knowledge freshness 蓋章或記錄 review／test evidence 前，先用 `git add
 
 啟用 `test_evidence.exclude_knowledge` 的條件與路徑限制見[設定參考](./configuration.zh-TW.md#測試證據)。Opt-in 證據使用 `test-inputs-v1`／`repository-inputs-without-knowledge-v1`，attempt 與 provenance 均記錄 `test_policy: {version: 1, excluded_path: <專案相對路徑>}`。Policy、config bytes、解析後命令或任何保留輸入改變，證據即失效；缺少或未知身分必須真正重跑。
 
-Review、`implemented`、`test-provenance` 與 verify 共用測試閘門。通過認證的重用保留原 attempt ID、日期、命令與 exit code，並回報 policy／reason。Verify 的 opt-in Step 0 讀取新產生的 `prospec check --json` 報告，要求目標列於 `test-provenance` 的 `subjects` 且存在 `test_evidence[<name>]`；skipped／exempt 或缺失證據不符合條件。明確指定 `--record-tests` 一律真正執行測試。較新的失敗或未完成 attempt 不會恢復舊 PASS。Review 與 verification-context snapshots 仍包含 Knowledge；Knowledge 檢查、文件 review 與專案定義的 pre-merge CI 照常執行。
+Review、`implemented`、`test-provenance` 與 verify 共用測試閘門。通過認證的重用保留原 attempt ID、日期、命令與 exit code，並回報 policy／reason。Verify 的 opt-in Step 0 讀取新產生的 `prospec check --json` 報告，要求目標列於 `test-provenance` 的 `subjects` 且存在 `test_evidence[<name>]`；skipped／exempt 或缺失證據不符合條件。明確指定 `--record-tests` 不會重用已認證的證據；[測試佇列](#測試佇列)忙碌時不執行任何測試。較新的失敗或未完成 attempt 不會恢復舊 PASS。Review 與 verification-context snapshots 仍包含 Knowledge；Knowledge 檢查、文件 review 與專案定義的 pre-merge CI 照常執行。
+
+#### 測試佇列
+
+同一個 repository 的完整測試一次只執行一個，涵蓋它的所有 worktree，並依取號順序進行。`prospec check --record-tests` 在寫入任何內容之前先取得執行權。`prospec exclusive -- <command> [args…]` 讓工作流程之外的完整測試（例如 commit 前對齊 CI 的執行）取得同一個執行權：不經 shell 執行該命令，並以該命令的 exit code 結束。與[測試命令](./configuration.zh-TW.md)相同，Windows 的 `.cmd`、`.bat` shim（例如 `pnpm`）會被拒絕，請改用不經 shell 的呼叫方式。只執行指定的測試檔不需要執行權。
+
+- **等待與 busy。** 命令最多等待 `tech_stack.test_queue_wait_ms`，並在 stderr 印一行指出目前持有執行權的號碼。逾時仍未取得執行權時以 exit code **75** 結束，不執行任何命令；`--record-tests` 不會寫入 `metadata.yaml`，所以 busy 不是一次失敗的 attempt。輸出會列出號碼與前方的號碼數。在 `tech_stack.test_queue_lease_ms` 內重新執行同一個命令可保留該號碼；保留期限過後的號碼會重新排到隊尾。不要改為直接執行測試命令。`prospec exclusive` 與被包住的命令共用 exit code，被包住的命令自己以 75 結束時，要靠輸出與 busy 區分。沒有可解析測試命令的專案也會先排隊，取得執行權後才回報該結果。
+- **佇列的位置。** `<git-common-dir>/prospec/test-queue/`；同一個 repository 的每個 worktree 都解析到同一個目錄。該目錄無法讀寫時（例如 sandbox 保護 git 目錄），命令會拒絕執行並指出路徑，不會改為不排隊。手動移除該目錄可重設佇列，但只能在該 repository 沒有任何測試執行中時進行。執行不同 prospec 版本的 worktree 共用這份狀態：不認得它的版本會拒絕執行，早於佇列的版本則完全不排隊。
+- **被中斷的執行。** 命令在自己的 process group 內執行。逾時，或 prospec 收到 SIGINT、SIGTERM、SIGHUP 時，整個 group 會被終止並歸還執行權，`--record-tests` 記錄一次未通過的 attempt。收到訊號時命令以 128 加訊號編號結束；逾時則 `prospec exclusive` 以 1 結束，`--record-tests` 與其他已記錄的執行相同，以 0 結束。prospec 來不及反應就被終止時（包含 host 只終止 prospec 自己的 process group），命令會繼續執行並持有執行權，之後的命令回報 busy 並說明持有者已不在執行。命令結束時執行權即歸還；超過期限（該次執行的逾時加一分鐘）後，由下一個命令終止殘留的部分。因此被放棄的執行權保留多久，會隨 `tech_stack.test_timeout_ms` 增加。
+- **限制。** 程序的身分是 pid 加上 `ps` 回報的啟動時間，其他命令只會終止身分相符的命令。Windows 與無法執行 `ps` 的環境沒有啟動時間：超過期限的殘留命令不會被終止，它的號碼被移除後可能與下一次執行重疊。Windows 上，比該命令活得久的衍生程序也不會被追蹤。在所有平台上，自行建立 session 或 process group 的程序，以及比命令本身活得久的同組成員，都不會被其他命令終止。號碼以 hostname 判定所屬主機：以另一個 hostname 寫入的號碼不會被自動移除；hostname 相同但 process namespace 不同的呼叫者（例如共用 repository 的 container）可能誤判對方的持有者。命令不在終端機的 foreground process group 內，Ctrl-C 只會經由 prospec 傳給它。
 
 #### 檢查結果與驗證裁決
 
@@ -631,7 +642,7 @@ Prospec 採用 **Pragmatic Layered Architecture**（務實分層架構）遵循 
 ```
 src/
 ├── cli/          — Commander.js 命令 + 格式化輸出
-├── services/     — 業務邏輯（33 個 service）
+├── services/     — 業務邏輯（38 個 service）
 ├── lib/          — 純工具函式（config、fs、logger 等）
 ├── types/        — Zod schema + TypeScript 型別
 └── templates/    — Handlebars 範本（76 個 .hbs 檔案）

@@ -30,11 +30,16 @@ const TechStackSchema = z.object({
   // `workflow.pause_at`: a mistyped value must not fail the whole config;
   // `resolveTestTimeoutMs` validates it and names the bad value.
   test_timeout_ms: z.unknown().optional(),
+  // How long an entry waits for the repository test queue, and how long a waiter that
+  // stopped polling keeps its place. Shape-agnostic like `test_timeout_ms`; validated by
+  // `resolveTestQueueWaitMs` / `resolveTestQueueLeaseMs`.
+  test_queue_wait_ms: z.unknown().optional(),
+  test_queue_lease_ms: z.unknown().optional(),
 }).optional();
 
-/** Largest `tech_stack.test_timeout_ms`: the 32-bit signed maximum. The Bun-compiled release
- *  binary's `spawnSync` wraps larger timeouts (measured on Bun 1.4.0: 2^31 kills after ~4 ms),
- *  while Node honours them, so the bound is set by the runtime the CLI ships on. */
+/** Largest `tech_stack.test_timeout_ms`: the 32-bit signed maximum. A larger delay makes the
+ *  runner's timer fire at once (measured on Node 24 and Bun 1.4.0: 2^31 fires within
+ *  milliseconds), which would kill the command as it starts. */
 export const MAX_TEST_TIMEOUT_MS = 2_147_483_647;
 
 /**
