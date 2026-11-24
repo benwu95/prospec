@@ -1,9 +1,9 @@
 ---
 feature: drift-detection
 status: active
-last_updated: 2026-11-18
-story_count: 26
-req_count: 101
+last_updated: 2026-11-24
+story_count: 27
+req_count: 109
 ---
 
 # Deterministic Drift Check
@@ -33,6 +33,7 @@ req_count: 101
 - [US-25: Delta-spec landing fidelity](./drift-detection/us-25.md)
 - [US-26: Unique requirement identities](./drift-detection/us-26.md)
 - [US-27: knowledge-size ratchet fails growth of over-budget L1/L2 files](./drift-detection/us-27.md)
+- [US-28: Full test runs take turns in one repository test queue](./drift-detection/us-28.md)
 
 ---
 
@@ -68,6 +69,7 @@ _(None)_
 
 | Date | Change | Impact | Stories/REQs |
 |------|--------|--------|--------------|
+| 2026-11-24 | serialize-test-runs | ADDED REQ-TYPES-119; ADDED REQ-LIB-112; ADDED REQ-LIB-113; ADDED REQ-LIB-114; ADDED REQ-SERVICES-132; ADDED REQ-CLI-065; ADDED REQ-TEMPLATES-276; ADDED REQ-TESTS-149; MODIFIED REQ-LIB-033; MODIFIED REQ-SERVICES-068 | REQ-TYPES-119, REQ-LIB-112, REQ-LIB-113, REQ-LIB-114, REQ-SERVICES-132, REQ-CLI-065, REQ-TEMPLATES-276, REQ-TESTS-149, REQ-LIB-033, REQ-SERVICES-068 |
 | 2026-11-18 | align-ratchet-rule-wording | MODIFIED REQ-TEMPLATES-275; MODIFIED REQ-TEMPLATES-274 | REQ-TEMPLATES-275, REQ-TEMPLATES-274 |
 | 2026-11-11 | align-ratchet-output-basis | MODIFIED REQ-TYPES-083; MODIFIED REQ-TYPES-118; MODIFIED REQ-LIB-111; MODIFIED REQ-CLI-011; MODIFIED REQ-TEMPLATES-274; MODIFIED REQ-TESTS-148 | REQ-TYPES-083, REQ-TYPES-118, REQ-LIB-111, REQ-CLI-011, REQ-TEMPLATES-274, REQ-TESTS-148 |
 | 2026-11-10 | fix-ratchet-review-findings | MODIFIED REQ-LIB-111; MODIFIED REQ-TESTS-148 | REQ-LIB-111, REQ-TESTS-148 |
