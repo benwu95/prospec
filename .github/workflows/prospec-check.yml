@@ -1,8 +1,7 @@
 # Prospec deterministic drift gate — zero LLM, zero tokens.
-# Supply-chain hardening is the default here:
-#   - every third-party action is pinned to a full commit SHA (tag re-point immunity)
-#   - top-level permissions are read-only; only the comment job may write PR comments
-#   - the comment job never checks out source — it only sees the report artifact
+# Permissions are read-only: a pull request from a fork only ever gets a read-only token,
+# so this workflow posts no comment — prospec-check-comment.yml does, from the report
+# artifact this run uploads.
 name: Prospec Check
 
 on:
@@ -35,6 +34,11 @@ jobs:
         # explicit bash turns on pipefail — without it, tee's exit 0 would mask the gate
         shell: bash
         run: node dist/cli/index.js check --strict --json | tee prospec-check-output.txt
+      - name: Record the pull request number
+        if: always() && github.event_name == 'pull_request'
+        env:
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: echo "$PR_NUMBER" > pr-number.txt
       - name: Upload drift report
         if: always()
         uses: actions/upload-artifact@v7
@@ -43,34 +47,5 @@ jobs:
           path: |
             prospec-report.json
             prospec-check-output.txt
+            pr-number.txt
           if-no-files-found: ignore
-
-  comment:
-    if: always() && github.event_name == 'pull_request'
-    needs: check
-    runs-on: ubuntu-latest
-    permissions:
-      pull-requests: write
-    steps:
-      - name: Download drift report
-        continue-on-error: true
-        uses: actions/download-artifact@v8
-        with:
-          name: prospec-report
-      - name: Compose comment body
-        # output is attacker-influenced on PRs — render as a 4-space indented code
-        # block (no fence to escape) and cap the size; never as raw markdown
-        run: |
-          {
-            echo '## Prospec Check'
-            echo
-            if [ -f prospec-check-output.txt ]; then
-              head -c 60000 prospec-check-output.txt | sed 's/^/    /'
-            else
-              echo '_check job produced no output (it may have failed before running prospec check)_'
-            fi
-          } > comment-body.md
-      - name: Post sticky PR comment
-        uses: marocchino/sticky-pull-request-comment@v3
-        with:
-          path: comment-body.md

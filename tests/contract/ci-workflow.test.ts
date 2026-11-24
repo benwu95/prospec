@@ -50,7 +50,9 @@ const TEST_JOB_STEPS = [
   // The source→knowledge sync gate: a module whose declared source paths changed
   // must bump its last_verified. Same tree-property shape as the two gates above.
   'pnpm run knowledge:check',
-  '|',
+  // Hands ci-comment.yml the pull request to comment on: a fork's run gets a read-only
+  // token, so the comment is posted by that workflow_run workflow, not by this job.
+  'echo "$PR_NUMBER" > pr-number.txt',
   'uses:actions/upload-artifact',
 ];
 

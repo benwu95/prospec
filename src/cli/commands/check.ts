@@ -27,7 +27,7 @@ export function registerCheckCommand(program: Command): void {
     .description('Run the deterministic spec/code/knowledge drift check')
     .option('--json', 'Write the machine-readable report to prospec-report.json')
     .option('--strict', 'Exit with code 1 when any check fails (CI gate)')
-    .option('--init-ci', 'Scaffold .github/workflows/prospec-check.yml and exit')
+    .option('--init-ci', 'Scaffold the Prospec Check workflows (prospec-check.yml + prospec-check-comment.yml) and exit')
     .option('--record-review', "Record the active change's review baseline and exit")
     .option('--record-tests', "Run the project's test command, record the outcome, and exit")
     .option('--auto-draft', 'Auto-draft fix changes for detected FAIL/WARN findings')

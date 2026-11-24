@@ -13,7 +13,7 @@ import {
 import { execFileSync } from 'node:child_process';
 import os from 'node:os';
 import path from 'node:path';
-import { execute, CI_WORKFLOW_PATH } from '../../../src/services/check.service.js';
+import { execute, CI_WORKFLOW_PATH, CI_COMMENT_WORKFLOW_PATH } from '../../../src/services/check.service.js';
 import { collectModuleDigests } from '../../../src/lib/drift-sources.js';
 import { resolveLanguageScope } from '../../../src/lib/language-policy.js';
 import { languagePolicyRule } from '../../../src/lib/constitution-rules.js';
@@ -41,6 +41,21 @@ import {
 // `prospec check --record-tests` does, so the one run whose result is RECORDED was
 // the likeliest to time out. A genuinely hung test still fails here, just later.
 vi.setConfig({ testTimeout: 90_000, hookTimeout: 90_000 });
+
+// Lets one --init-ci case fail a chosen write; every other write passes through.
+const writeFailure = vi.hoisted(() => ({ path: undefined as string | undefined }));
+vi.mock('../../../src/lib/fs-utils.js', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../../../src/lib/fs-utils.js')>();
+  return {
+    ...actual,
+    atomicWrite: (...args: Parameters<typeof actual.atomicWrite>) => {
+      if (writeFailure.path !== undefined && args[0] === writeFailure.path) {
+        return Promise.reject(new Error('simulated write failure'));
+      }
+      return actual.atomicWrite(...args);
+    },
+  };
+});
 
 let tmpDir: string;
 
@@ -602,47 +617,112 @@ describe('check.service metadata-completeness', () => {
   });
 });
 
-describe('check.service --init-ci', () => {
-  it('scaffolds the hardened workflow with the project package manager', async () => {
-    const result = await execute({ cwd: tmpDir, initCi: true });
-    expect(result.kind).toBe('init-ci');
-    if (result.kind !== 'init-ci') return;
-    expect(result.created).toBe(true);
-    const content = readFileSync(path.join(tmpDir, CI_WORKFLOW_PATH), 'utf-8');
-    expect(content).toContain('pnpm exec prospec check --strict --json');
-    expect(content).toContain('permissions:');
-    expect(content).toContain('fetch-depth: 0');
-    // every third-party action pinned to a full commit SHA
-    for (const uses of content.match(/uses: .*/g) ?? []) {
-      expect(uses).toMatch(/@[0-9a-f]{40} # v\d/);
-    }
-    // the strict-gate step pipes through tee — without an explicit bash shell
-    // (pipefail), tee's exit 0 would mask the gate's exit 1
-    const gateStep = content.slice(content.indexOf('Run prospec check (strict gate)'));
-    const shellLine = gateStep.split('\n').find((l) => l.includes('shell:'));
-    expect(shellLine?.trim()).toBe('shell: bash');
-    // comment body must be an indented code block (unescapable), never a fence
-    const composeStep = content.slice(content.indexOf('Compose comment body'));
-    expect(composeStep).toContain("sed 's/^/    /'");
-    expect(composeStep).toContain('head -c 60000');
-    expect(composeStep).not.toContain('```');
+describe('check.service --init-ci (REQ-SERVICES-027, REQ-TEMPLATES-091)', () => {
+  const read = (rel: string) => readFileSync(path.join(tmpDir, rel), 'utf-8');
+  const statuses = (result: Awaited<ReturnType<typeof execute>>) => {
+    if (result.kind !== 'init-ci') throw new Error('expected init-ci');
+    return result.files.map((f) => [f.path, f.status]);
+  };
+  // Absolute, as the service resolves them — a relative form would carry the platform separator.
+  const CHECK = () => path.resolve(tmpDir, CI_WORKFLOW_PATH);
+  const COMMENT = () => path.resolve(tmpDir, CI_COMMENT_WORKFLOW_PATH);
+  // Line-based: a Windows checkout renders the templates with CRLF line endings.
+  const hasBashShell = (step: string) => step.split(/\r?\n/).some((line) => line.trim() === 'shell: bash');
+  const stepFrom = (content: string, name: string) => {
+    const start = content.indexOf(`- name: ${name}`);
+    expect(start, `step "${name}" not found`).toBeGreaterThan(-1);
+    const next = content.indexOf('- name: ', start + 1);
+    return content.slice(start, next === -1 ? undefined : next);
+  };
+  afterEach(() => {
+    writeFailure.path = undefined;
   });
 
-  it('is rerun-safe — never overwrites an existing workflow', async () => {
+  it('scaffolds the hardened check and comment workflows with the project package manager', async () => {
+    const result = await execute({ cwd: tmpDir, initCi: true });
+    expect(statuses(result)).toEqual([
+      [CHECK(), 'created'],
+      [COMMENT(), 'created'],
+    ]);
+    const check = read(CI_WORKFLOW_PATH);
+    const comment = read(CI_COMMENT_WORKFLOW_PATH);
+    // every third-party action in BOTH files pinned to a full commit SHA
+    for (const content of [check, comment]) {
+      const uses = content.match(/uses: .*/g) ?? [];
+      expect(uses.length).toBeGreaterThan(0);
+      for (const line of uses) expect(line).toMatch(/@[0-9a-f]{40} # v\d/);
+    }
+    expect(check).toContain('pnpm exec prospec check --strict --json');
+    expect(check).toContain('permissions:');
+    expect(check).toContain('fetch-depth: 0');
+    expect(check).not.toContain('pull-requests');
+    // the strict-gate step pipes through tee — without an explicit bash shell
+    // (pipefail), tee's exit 0 would mask the gate's exit 1
+    expect(hasBashShell(stepFrom(check, 'Run prospec check (strict gate)'))).toBe(true);
+    // the verification is bash ([[ =~ ]]), and the comment body is an indented code
+    // block (unescapable), never a fence, capped in size
+    expect(hasBashShell(stepFrom(comment, 'Verify the pull request'))).toBe(true);
+    const compose = stepFrom(comment, 'Compose comment body');
+    expect(compose).toContain("sed 's/^/    /'");
+    expect(compose).toContain('head -c 60000');
+    expect(compose).not.toContain('```');
+  });
+
+  it('writes neither file beside an existing check workflow, reporting the comment workflow skipped', async () => {
+    write(CI_WORKFLOW_PATH, 'user-edited\n');
+    expect(statuses(await execute({ cwd: tmpDir, initCi: true }))).toEqual([
+      [CHECK(), 'exists'],
+      [COMMENT(), 'skipped'],
+    ]);
+    expect(read(CI_WORKFLOW_PATH)).toBe('user-edited\n');
+    expect(existsSync(path.join(tmpDir, CI_COMMENT_WORKFLOW_PATH))).toBe(false);
+  });
+
+  it('reports an existing comment workflow as existing beside an existing check workflow', async () => {
+    write(CI_WORKFLOW_PATH, 'check\n');
+    write(CI_COMMENT_WORKFLOW_PATH, 'comment\n');
+    expect(statuses(await execute({ cwd: tmpDir, initCi: true }))).toEqual([
+      [CHECK(), 'exists'],
+      [COMMENT(), 'exists'],
+    ]);
+    expect(read(CI_COMMENT_WORKFLOW_PATH)).toBe('comment\n');
+  });
+
+  it('creates only the check workflow when the comment workflow already exists', async () => {
+    write(CI_COMMENT_WORKFLOW_PATH, 'user-edited\n');
+    expect(statuses(await execute({ cwd: tmpDir, initCi: true }))).toEqual([
+      [CHECK(), 'created'],
+      [COMMENT(), 'exists'],
+    ]);
+    expect(read(CI_COMMENT_WORKFLOW_PATH)).toBe('user-edited\n');
+    expect(read(CI_WORKFLOW_PATH)).toContain('prospec check --strict --json');
+  });
+
+  it('is rerun-safe — a second run changes no file and reports both as existing', async () => {
     await execute({ cwd: tmpDir, initCi: true });
-    const workflowAbs = path.join(tmpDir, CI_WORKFLOW_PATH);
-    writeFileSync(workflowAbs, 'user-edited\n');
-    const second = await execute({ cwd: tmpDir, initCi: true });
-    if (second.kind !== 'init-ci') throw new Error('expected init-ci');
-    expect(second.created).toBe(false);
-    expect(readFileSync(workflowAbs, 'utf-8')).toBe('user-edited\n');
+    const before = [read(CI_WORKFLOW_PATH), read(CI_COMMENT_WORKFLOW_PATH)];
+    expect(statuses(await execute({ cwd: tmpDir, initCi: true }))).toEqual([
+      [CHECK(), 'exists'],
+      [COMMENT(), 'exists'],
+    ]);
+    expect([read(CI_WORKFLOW_PATH), read(CI_COMMENT_WORKFLOW_PATH)]).toEqual(before);
+  });
+
+  it('leaves the check workflow unwritten when the comment write fails, so a rerun creates both', async () => {
+    writeFailure.path = path.resolve(tmpDir, CI_COMMENT_WORKFLOW_PATH);
+    await expect(execute({ cwd: tmpDir, initCi: true })).rejects.toThrow('simulated write failure');
+    expect(existsSync(path.join(tmpDir, CI_WORKFLOW_PATH))).toBe(false);
+    writeFailure.path = undefined;
+    expect(statuses(await execute({ cwd: tmpDir, initCi: true }))).toEqual([
+      [CHECK(), 'created'],
+      [COMMENT(), 'created'],
+    ]);
   });
 
   it('falls back to npx commands for non-pnpm projects', async () => {
     write('.prospec.yaml', 'version: "1.0"\nproject:\n  name: t\n');
-    const result = await execute({ cwd: tmpDir, initCi: true });
-    if (result.kind !== 'init-ci') throw new Error('expected init-ci');
-    const content = readFileSync(path.join(tmpDir, CI_WORKFLOW_PATH), 'utf-8');
+    await execute({ cwd: tmpDir, initCi: true });
+    const content = read(CI_WORKFLOW_PATH);
     expect(content).toContain('npx prospec check --strict --json');
     expect(content).toContain('npm ci');
     expect(content).not.toContain('pnpm/action-setup');

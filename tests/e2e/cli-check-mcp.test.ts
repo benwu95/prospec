@@ -143,18 +143,18 @@ describe('prospec check E2E', () => {
     expect(strip(first)).toBe(strip(second));
   });
 
-  it('--init-ci scaffolds the workflow once and is rerun-safe', async () => {
+  it('--init-ci scaffolds both workflows once and is rerun-safe', async () => {
     scaffoldProject();
     const first = await runCli(['check', '--init-ci']);
     expect(first.exitCode).toBe(0);
-    expect(first.stdout).toContain('Created');
-    const workflow = fs.readFileSync(
-      path.join(tmpDir, '.github/workflows/prospec-check.yml'),
-      'utf-8',
-    );
-    expect(workflow).toContain('permissions:');
+    for (const file of ['prospec-check.yml', 'prospec-check-comment.yml']) {
+      expect(first.stdout).toContain(`Created .github/workflows/${file}`);
+      expect(fs.readFileSync(path.join(tmpDir, '.github/workflows', file), 'utf-8')).toContain('permissions:');
+    }
     const second = await runCli(['check', '--init-ci']);
-    expect(second.stdout).toContain('already exists');
+    expect(second.exitCode).toBe(0);
+    expect(second.stdout).not.toContain('Created');
+    expect(second.stdout.match(/already exists/g)).toHaveLength(2);
   });
 });
 

@@ -526,7 +526,7 @@ deliberately not included in this version.
 | `prospec check --record-tests [options]` | Run test suite and record command, exit code, and digest into `metadata.yaml` |
 | `prospec check --record-review [options]` | Record code digest and `delta-spec.md` fingerprint as review baseline |
 | `prospec exclusive -- <command> [args…]` | Run one command under the repository test queue turn that `--record-tests` also takes; exits with the command's exit code |
-| `prospec check --init-ci` | Scaffold hardened GitHub Actions CI workflow (`.github/workflows/prospec-check.yml`) |
+| `prospec check --init-ci` | Scaffold hardened GitHub Actions CI workflows (`.github/workflows/prospec-check.yml` + `.github/workflows/prospec-check-comment.yml`) |
 | `prospec check --auto-draft [--auto-draft-dry-run]` | After reporting, scaffold a fix change per finding group (never overwrites; a drafting failure never changes the check's own exit code, but combining the flag with a non-check mode is refused up front) |
 
 #### Drift Check Commands Breakdown
@@ -577,7 +577,9 @@ deliberately not included in this version.
 - **Removed flags (breaking)**: `prospec check --escaped-defects`, `prospec review merge --spend` / `--budget`, `prospec verify record --spend` and `prospec change story --introduced-by` no longer exist — each is refused as an unknown option (exit 1, nothing written), so drop them from any wrapper script. Existing records still read: a `metadata.yaml` carrying `introduced_by` or `dimensions[].spend` validates unchanged, and a `review.md` metrics comment carrying `spend_before` / `round_spend` / `cumulative_spend` parses with those attributes ignored and not written back on the next merge. An `escaped-defect-report.json` is an ordinary review/test input only when it is in the git index: indexed content changes require real revalidation, while an untracked copy need not be deleted or ignored.
 
 - **`prospec check --init-ci`**
-  - **Purpose**: Scaffolds supply-chain-hardened GitHub Actions CI gate (`.github/workflows/prospec-check.yml`) with SHA pinning, least privilege, and sticky PR comments.
+  - **Purpose**: Scaffolds a supply-chain-hardened GitHub Actions CI gate (`.github/workflows/prospec-check.yml`) and the workflow that posts its report as a sticky PR comment, both with SHA pinning and least privilege.
+  - **PR comments**: `prospec-check.yml` runs read-only and uploads the report with the pull request number; `.github/workflows/prospec-check-comment.yml` posts the sticky comment on `workflow_run`, so pull requests from forks get it too. It never checks out pull request code, and comments only when the pull request's head is the commit the check ran on.
+  - **Existing files**: Neither file is overwritten. When `prospec-check.yml` already exists, the comment workflow is not added either; to switch to the comment workflow, delete `prospec-check.yml` and rerun.
 
 #### Review and test evidence
 
@@ -650,7 +652,7 @@ src/
 ├── services/     — Business logic (38 services)
 ├── lib/          — Pure utility functions (config, fs, logger, etc.)
 ├── types/        — Zod schemas + TypeScript types
-└── templates/    — Handlebars templates (76 .hbs files)
+└── templates/    — Handlebars templates (77 .hbs files)
     └── skills/   — 16 Skill templates + 26 reference templates
 ```
 

@@ -1,0 +1,94 @@
+# Posts the CI coverage summary as a sticky pull request comment.
+# A pull request from a fork runs CI with a read-only token, so the comment is posted
+# here instead: workflow_run runs this file from the default branch, with this
+# repository's token. `workflows:` must name ci.yml's `name:`.
+# Everything in the coverage artifact comes from the pull request's own run, which a fork
+# controls, so this workflow never checks out or runs pull request code, unpacks the
+# artifact under the runner's temp directory, comments only on a pull request whose head
+# is the commit that run tested, and builds the table from numeric fields only.
+name: CI Comment
+
+on:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+
+permissions: {}
+
+jobs:
+  comment:
+    if: github.event.workflow_run.event == 'pull_request'
+    runs-on: ubuntu-latest
+    permissions:
+      actions: read
+      pull-requests: write
+    steps:
+      - name: Download coverage report
+        continue-on-error: true
+        uses: actions/download-artifact@v8
+        with:
+          name: coverage-report
+          run-id: ${{ github.event.workflow_run.id }}
+          github-token: ${{ github.token }}
+          path: ${{ runner.temp }}/coverage-report
+      - name: Verify the pull request
+        id: pr
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
+          REPORT_DIR: ${{ runner.temp }}/coverage-report
+        run: |
+          file="$REPORT_DIR/pr-number.txt"
+          if [ ! -f "$file" ]; then
+            echo "::notice::The report artifact names no pull request; nothing to comment on"
+            exit 0
+          fi
+          number=$(head -c 32 "$file" | head -n 1)
+          if ! [[ "$number" =~ ^[1-9][0-9]{0,9}$ ]]; then
+            echo "::warning::The pull request number in the report artifact is not a positive integer; not commenting"
+            exit 0
+          fi
+          if ! pr_head=$(gh api "repos/$GITHUB_REPOSITORY/pulls/$number" --jq .head.sha); then
+            echo "::warning::Pull request #$number could not be looked up; not commenting"
+            exit 0
+          fi
+          if [ "$pr_head" != "$HEAD_SHA" ]; then
+            echo "::warning::Pull request #$number is at $pr_head, not the tested commit $HEAD_SHA; not commenting"
+            exit 0
+          fi
+          echo "number=$number" >> "$GITHUB_OUTPUT"
+      - name: Compose coverage comment
+        if: steps.pr.outputs.number != ''
+        # only fixed metric names and values jq confirms are numbers reach the body,
+        # so the fork-built summary carries no markdown-injection vector
+        shell: bash
+        env:
+          REPORT_DIR: ${{ runner.temp }}/coverage-report
+        run: |
+          summary="$REPORT_DIR/coverage/coverage-summary.json"
+          {
+            echo '## Test Coverage'
+            echo
+            if [ -f "$summary" ]; then
+              echo '| Metric | Coverage | Covered / Total |'
+              echo '| --- | --- | --- |'
+              jq -r '
+                .total
+                | to_entries[]
+                | select(.key=="statements" or .key=="branches" or .key=="functions" or .key=="lines")
+                | select((.value | type) == "object")
+                | select((.value.pct | type) == "number" and (.value.covered | type) == "number" and (.value.total | type) == "number")
+                | "| \(.key) | \(.value.pct)% | \(.value.covered) / \(.value.total) |"
+              ' "$summary" || echo '_coverage summary unreadable._'
+            else
+              echo '_coverage report unavailable (the test job may have failed before producing coverage)._'
+            fi
+          } > "$RUNNER_TEMP/coverage-comment.md"
+      - name: Post sticky PR comment
+        if: steps.pr.outputs.number != ''
+        uses: marocchino/sticky-pull-request-comment@v3
+        with:
+          header: coverage
+          number: ${{ steps.pr.outputs.number }}
+          path: ${{ runner.temp }}/coverage-comment.md

@@ -520,7 +520,7 @@ claude mcp add -s user prospec-b -- prospec mcp serve --cwd /path/to/B
 | `prospec check --record-tests [options]` | 執行專案測試並將結果與退出碼記錄至變更的 `metadata.yaml` |
 | `prospec check --record-review [options]` | 記錄程式碼 digest 與 `delta-spec.md` 指紋作為審查比對基準 |
 | `prospec exclusive -- <command> [args…]` | 在 repository 測試佇列的執行權下執行一個命令（與 `--record-tests` 共用同一個佇列）；以該命令的 exit code 結束 |
-| `prospec check --init-ci` | 生成 GitHub Actions CI 閘門（`.github/workflows/prospec-check.yml`） |
+| `prospec check --init-ci` | 生成 GitHub Actions CI 閘門（`.github/workflows/prospec-check.yml` ＋ `.github/workflows/prospec-check-comment.yml`） |
 | `prospec check --auto-draft [--auto-draft-dry-run]` | 報告產出後，依 finding 分組建立修復變更（絕不覆寫既有變更；起草失敗不改變 check 自身的退出碼，但與非檢查模式併用會在執行前被拒絕） |
 
 #### Drift 檢查命令詳解
@@ -571,7 +571,9 @@ claude mcp add -s user prospec-b -- prospec mcp serve --cwd /path/to/B
 - **已移除的旗標（breaking）**：`prospec check --escaped-defects`、`prospec review merge --spend` / `--budget`、`prospec verify record --spend` 與 `prospec change story --introduced-by` 已不存在——每一個都會被當成未知選項拒絕（exit 1、不寫入任何檔案），請從包裝腳本中移除。既有紀錄仍可讀取：帶有 `introduced_by` 或 `dimensions[].spend` 的 `metadata.yaml` 照常通過驗證；`review.md` metrics 註解中的 `spend_before` / `round_spend` / `cumulative_spend` 可正常解析、這些屬性被忽略，下次合併時不再寫回。工作樹中若仍留有 `escaped-defect-report.json`，它在 git index 內時才是 review／test digest 的一般輸入；indexed 內容變動需真正重新驗證，僅有 untracked 檔案則不必刪除或 ignore。
 
 - **`prospec check --init-ci`**
-  - **核心用途**：生成供應鏈強化的 GitHub Actions CI 閘門（`.github/workflows/prospec-check.yml`），採用完整 SHA 固定、最小權限原則與 PR sticky comment。
+  - **核心用途**：生成供應鏈強化的 GitHub Actions CI 閘門（`.github/workflows/prospec-check.yml`），以及把報告張貼成 PR sticky comment 的 workflow，兩者都採用完整 SHA 固定與最小權限原則。
+  - **PR 留言**：`prospec-check.yml` 以唯讀權限執行，把報告連同 PR 編號上傳；`.github/workflows/prospec-check-comment.yml` 在 `workflow_run` 時張貼 sticky comment，因此從 fork 開的 PR 也收得到。它不 checkout PR 的程式碼，且只在 PR 的 head 正是 check 執行的那個 commit 時才留言。
+  - **既有檔案**：兩個檔都不會被覆寫。`prospec-check.yml` 已存在時，也不會新增留言 workflow；要改用留言 workflow，請刪除 `prospec-check.yml` 後重跑。
 
 #### 審查與測試證據
 
@@ -645,7 +647,7 @@ src/
 ├── services/     — 業務邏輯（38 個 service）
 ├── lib/          — 純工具函式（config、fs、logger 等）
 ├── types/        — Zod schema + TypeScript 型別
-└── templates/    — Handlebars 範本（76 個 .hbs 檔案）
+└── templates/    — Handlebars 範本（77 個 .hbs 檔案）
     └── skills/   — 16 個 Skill 範本 + 26 個 reference 範本
 ```
 
