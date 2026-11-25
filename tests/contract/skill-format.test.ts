@@ -3763,8 +3763,9 @@ describe('Mutation testing is an on-demand audit, never a gate (REQ-TEMPLATES-16
     // dependent suite). A gate at that price gets switched off rather than
     // satisfied, so "not in CI" is a design decision — and a decision nothing
     // pins is a sentence in a document that anyone can quietly reverse.
-    const workflow = renderTemplate('init/prospec-check.yml.hbs', TEMPLATE_CONTEXT);
-    expect(workflow).not.toMatch(/stryker|mutation|mutate/i);
+    for (const template of ['init/prospec-check.yml.hbs', 'init/prospec-check-comment.yml.hbs']) {
+      expect(renderTemplate(template, TEMPLATE_CONTEXT), template).not.toMatch(/stryker|mutation|mutate/i);
+    }
 
     // Enumerate the directory rather than naming one file: ci.yml is the actual
     // gate (lint/typecheck/counts:check/build/test:coverage) and so is where a mutation step
@@ -10779,7 +10780,10 @@ describe('shipped templates render no literal Handlebars braces', () => {
     expect(templates.length).toBeGreaterThanOrEqual(60);
   });
   it.each(templates)('%s', (template) => {
-    expect(renderTemplate(template, TEMPLATE_CONTEXT)).not.toMatch(/\{\{[^}]*\}\}/);
+    const rendered = renderTemplate(template, TEMPLATE_CONTEXT);
+    // A GitHub Actions workflow template outputs `${{ … }}` expressions by design.
+    const checked = template.endsWith('.yml.hbs') ? rendered.replace(/\$\{\{ [^}]+ \}\}/g, '') : rendered;
+    expect(checked).not.toMatch(/\{\{[^}]*\}\}/);
   });
 });
 

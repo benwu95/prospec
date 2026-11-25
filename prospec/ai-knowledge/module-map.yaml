@@ -143,7 +143,7 @@ modules:
       - 漂移檢查
       - 知識讀取
     rationale: Foundational infrastructure shared across services and benchmark scripts
-    last_verified: 2026-11-24T02:23:15.106Z
+    last_verified: 2026-11-24T16:54:15.187Z
     source_digest: source-v1:6d65a216e84073dc33bc54a04fe6aacffca226029451d1a9a0996a068978a5bb
   - name: services
     description: Business logic — one `execute()` service per command — including
@@ -208,8 +208,8 @@ modules:
       - 漂移檢查
       - 真相層
     rationale: Isolates business logic from I/O layer, enables testability
-    last_verified: 2026-11-23T08:51:29.657Z
-    source_digest: source-v1:1549fbe773e5c90a63cc1837eae7087aacfdafc49d5a7d882c932ce380eb3490
+    last_verified: 2026-11-24T17:24:56.295Z
+    source_digest: source-v1:76f0700bea8146c54ef65f68f27b272cb38ecf2138f66948fd3f4200b4f3e6d2
   - name: cli
     description: Thin CLI entry — 20 top-level Commander commands + shared
       formatters that parse → call one service → format output; the cli-first
@@ -254,12 +254,12 @@ modules:
       - 終端
       - entry point
     rationale: "Thin I/O layer: no business logic, delegates to services"
-    last_verified: 2026-11-24T06:55:13.870Z
-    source_digest: source-v1:42d9c0545b61b9ad828d9719c2133e338685aaf95706da9a427f54c019145f7f
+    last_verified: 2026-11-24T17:24:56.295Z
+    source_digest: source-v1:d902ddc3a590107d9c291bc31bfabd7ecf3790f5c2bfb6ec0435d6b4a318667b
   - name: templates
     description: Handlebars template library — 16 skills + host-labelled invocation
       entry guidance, 12 shared partials, 26 references, 1 agent-config, 5
-      change, 15 init/knowledge (76 `.hbs` templates) — the source of every
+      change, 16 init/knowledge (77 `.hbs` templates) — the source of every
       generated skill, README, and index; every skill delegates its
       deterministic steps to the CLI behind the shared `_cli-probe` partial.
       Terminal-history guidance uses CLI-reported roots and identities with
@@ -312,11 +312,11 @@ modules:
       - 複雜度適配
       - CI 閘門
     rationale: Pure resources — no logic, consumed by lib/template.ts
-    last_verified: 2026-11-23T08:51:29.657Z
-    source_digest: source-v1:2af627f8ae882480fcf3a783b96ff9397b387388015d9363131b03d15f4ebc1d
+    last_verified: 2026-11-24T17:24:56.295Z
+    source_digest: source-v1:7e92331434f1e1397c160b5792def21a5481c0ef8d698840e78ea665e963a991
   - name: tests
-    description: 4-layer test suite — 367 files, 9,920 tests (unit 7156 + contract
-      2161 + integration 328 + e2e 275). Validates every module — format and
+    description: 4-layer test suite — 368 files, 9,993 tests (unit 7161 + contract
+      2229 + integration 328 + e2e 275). Validates every module — format and
       public-document contracts, the cli-first probe + station-command
       contracts, the drift engine, retained workflow/startup guards, and the MCP
       protocol over in-memory transport. Real-worktree history fixtures cover
@@ -362,5 +362,5 @@ modules:
       - 驗證
       - vitest
     rationale: Quality gate — validates all layers with pyramid coverage
-    last_verified: 2026-11-24T06:55:13.870Z
-    source_digest: source-v1:17d6df3fe6ff30fbb1693d28b9cbaa32192018d0325e690c46622b3f844378be
+    last_verified: 2026-11-24T23:51:13.523Z
+    source_digest: source-v1:33f3285e72bb3739f4d4f7dbc8d751ce4f8580485189864d400b35053d9a80db

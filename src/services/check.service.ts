@@ -28,7 +28,7 @@ export interface CheckOptions {
   cwd?: string;
   /** Write the machine-readable report to prospec-report.json. */
   json?: boolean;
-  /** Scaffold .github/workflows/prospec-check.yml instead of running checks. */
+  /** Scaffold the Prospec Check workflows instead of running checks. */
   initCi?: boolean;
   /** Record the active change's review baseline (digest) instead of running checks. */
   recordReview?: boolean;
@@ -63,10 +63,12 @@ export interface CheckResult {
   autoDraftError?: string;
 }
 
+/** `skipped`: the comment workflow is not added beside an existing check workflow. */
+export type InitCiFileStatus = 'created' | 'exists' | 'skipped';
+
 export interface InitCiResult {
   kind: 'init-ci';
-  workflowPath: string;
-  created: boolean;
+  files: Array<{ path: string; status: InitCiFileStatus }>;
 }
 
 export interface RecordReviewResult {
@@ -106,6 +108,7 @@ export interface RecordTestsResult {
 }
 
 export const CI_WORKFLOW_PATH = '.github/workflows/prospec-check.yml';
+export const CI_COMMENT_WORKFLOW_PATH = '.github/workflows/prospec-check-comment.yml';
 
 /**
  * Execute the drift check — thin orchestration only (REQ-SERVICES-027):
@@ -188,11 +191,26 @@ export async function execute(
   return result;
 }
 
-/** Render the hardened CI workflow template — rerun-safe, never overwrites. */
+/**
+ * Render the hardened check and comment workflow templates — rerun-safe, never
+ * overwrites. The check workflow is written last: it decides whether the pair is
+ * scaffolded, so a failed comment write leaves nothing that stops a rerun.
+ */
 async function initCiWorkflow(cwd: string, packageManager?: string): Promise<InitCiResult> {
   const workflowPath = path.resolve(cwd, CI_WORKFLOW_PATH);
+  const commentPath = path.resolve(cwd, CI_COMMENT_WORKFLOW_PATH);
+  const commentExists = existsSync(commentPath);
   if (existsSync(workflowPath)) {
-    return { kind: 'init-ci', workflowPath, created: false };
+    return {
+      kind: 'init-ci',
+      files: [
+        { path: workflowPath, status: 'exists' },
+        { path: commentPath, status: commentExists ? 'exists' : 'skipped' },
+      ],
+    };
+  }
+  if (!commentExists) {
+    await atomicWrite(commentPath, renderTemplate('init/prospec-check-comment.yml.hbs', {}));
   }
   const usePnpm = packageManager === 'pnpm';
   const content = renderTemplate('init/prospec-check.yml.hbs', {
@@ -203,7 +221,13 @@ async function initCiWorkflow(cwd: string, packageManager?: string): Promise<Ini
       : 'npx prospec check --strict --json',
   });
   await atomicWrite(workflowPath, content);
-  return { kind: 'init-ci', workflowPath, created: true };
+  return {
+    kind: 'init-ci',
+    files: [
+      { path: workflowPath, status: 'created' },
+      { path: commentPath, status: commentExists ? 'exists' : 'created' },
+    ],
+  };
 }
 
 /**

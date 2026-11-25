@@ -95,12 +95,20 @@ export function formatCheckOutput(
   }
 
   if (result.kind === 'init-ci') {
-    const rel = path.relative(process.cwd(), result.workflowPath);
-    if (result.created) {
-      console.log(`${pc.green('✓')} Created ${rel}`);
-      console.log('  → Review the workflow, then commit it to enable the CI drift gate');
-    } else {
-      console.log(`${pc.yellow('●')} ${rel} already exists — left untouched (rerun-safe)`);
+    for (const file of result.files) {
+      const rel = path.relative(process.cwd(), file.path);
+      if (file.status === 'created') {
+        console.log(`${pc.green('✓')} Created ${rel}`);
+      } else if (file.status === 'exists') {
+        console.log(`${pc.yellow('●')} ${rel} already exists — left untouched (rerun-safe)`);
+      } else {
+        console.log(
+          `${pc.yellow('●')} ${rel} not created because the check workflow already exists — delete it and rerun to scaffold both`,
+        );
+      }
+    }
+    if (result.files.some((file) => file.status === 'created')) {
+      console.log('  → Review the workflows, then commit them to enable the CI drift gate');
     }
     return;
   }

@@ -54,28 +54,11 @@ jobs:
       # verify`). Diffs merge-base(origin/main, HEAD)..HEAD — needs fetch-depth: 0 above.
       - run: pnpm run knowledge:check
 
-      - name: Compose coverage comment
-        if: always()
-        # body is built only from .total numeric fields + fixed metric names —
-        # no file paths or user strings, so it carries no markdown-injection vector
-        shell: bash
-        run: |
-          {
-            echo '## Test Coverage'
-            echo
-            if [ -f coverage/coverage-summary.json ]; then
-              echo '| Metric | Coverage | Covered / Total |'
-              echo '| --- | --- | --- |'
-              jq -r '
-                .total
-                | to_entries[]
-                | select(.key=="statements" or .key=="branches" or .key=="functions" or .key=="lines")
-                | "| \(.key) | \(.value.pct)% | \(.value.covered) / \(.value.total) |"
-              ' coverage/coverage-summary.json
-            else
-              echo '_coverage summary not found (the test step may have failed before producing coverage)._'
-            fi
-          } > coverage-comment.md
+      - name: Record the pull request number
+        if: always() && github.event_name == 'pull_request'
+        env:
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: echo "$PR_NUMBER" > pr-number.txt
 
       - name: Upload coverage report
         if: always()
@@ -83,14 +66,14 @@ jobs:
         with:
           name: coverage-report
           path: |
-            coverage-comment.md
             coverage/coverage-summary.json
+            pr-number.txt
           if-no-files-found: ignore
 
   # The Windows binary release.yml ships had never had a single test run on Windows.
-  # Deliberately a separate job rather than an `os` matrix on `test`: that job's coverage
-  # step is bound to `shell: bash` + `jq` and feeds `comment` through a named artifact,
-  # so a matrix would entangle wiring this job has no need for.
+  # Deliberately a separate job rather than an `os` matrix on `test`: that job uploads the
+  # coverage artifact ci-comment.yml reads, so a matrix would entangle wiring this job has
+  # no need for.
   windows-smoke:
     runs-on: windows-latest
     # Observation window only — the suite has never run on Windows, so the first runs are
@@ -131,27 +114,3 @@ jobs:
       # cancelled checkout).
       - if: ${{ !cancelled() }}
         run: pnpm exec tsx scripts/windows-smoke-record-tests.ts
-
-  comment:
-    if: always() && github.event_name == 'pull_request'
-    needs: test
-    runs-on: ubuntu-latest
-    permissions:
-      pull-requests: write
-    steps:
-      - name: Download coverage report
-        continue-on-error: true
-        uses: actions/download-artifact@v8
-        with:
-          name: coverage-report
-      - name: Ensure comment body exists
-        shell: bash
-        run: |
-          if [ ! -f coverage-comment.md ]; then
-            printf '## Test Coverage\n\n_coverage report unavailable (the test job may have failed before producing coverage)._\n' > coverage-comment.md
-          fi
-      - name: Post sticky PR comment
-        uses: marocchino/sticky-pull-request-comment@v3
-        with:
-          header: coverage
-          path: coverage-comment.md

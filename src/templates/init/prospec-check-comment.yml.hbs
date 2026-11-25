@@ -1,0 +1,86 @@
+# Posts the Prospec Check report as a sticky pull request comment.
+# A pull request from a fork runs Prospec Check with a read-only token, so the comment is
+# posted here instead: workflow_run runs this file from the default branch, with this
+# repository's token. `workflows:` must name the check workflow's `name:`.
+# Everything in the report artifact comes from the pull request's own run, which a fork
+# controls, so this workflow:
+#   - never checks out or runs pull request code — it only reads the artifact
+#   - unpacks the artifact under the runner's temp directory, not the workspace
+#   - comments only on a pull request whose head is the commit that run tested
+#   - renders the report as an indented code block, capped in size
+name: Prospec Check Comment
+
+on:
+  workflow_run:
+    workflows: [Prospec Check]
+    types: [completed]
+
+permissions: {}
+
+jobs:
+  comment:
+    if: github.event.workflow_run.event == 'pull_request'
+    runs-on: ubuntu-latest
+    permissions:
+      actions: read
+      pull-requests: write
+    steps:
+      - name: Download drift report
+        continue-on-error: true
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: prospec-report
+          run-id: $\{{ github.event.workflow_run.id }}
+          github-token: $\{{ github.token }}
+          path: $\{{ runner.temp }}/drift-report
+      - name: Verify the pull request
+        id: pr
+        shell: bash
+        env:
+          GH_TOKEN: $\{{ github.token }}
+          HEAD_SHA: $\{{ github.event.workflow_run.head_sha }}
+          REPORT_DIR: $\{{ runner.temp }}/drift-report
+        run: |
+          file="$REPORT_DIR/pr-number.txt"
+          if [ ! -f "$file" ]; then
+            echo "::notice::The report artifact names no pull request; nothing to comment on"
+            exit 0
+          fi
+          number=$(head -c 32 "$file" | head -n 1)
+          if ! [[ "$number" =~ ^[1-9][0-9]{0,9}$ ]]; then
+            echo "::warning::The pull request number in the report artifact is not a positive integer; not commenting"
+            exit 0
+          fi
+          if ! pr_head=$(gh api "repos/$GITHUB_REPOSITORY/pulls/$number" --jq .head.sha); then
+            echo "::warning::Pull request #$number could not be looked up; not commenting"
+            exit 0
+          fi
+          if [ "$pr_head" != "$HEAD_SHA" ]; then
+            echo "::warning::Pull request #$number is at $pr_head, not the tested commit $HEAD_SHA; not commenting"
+            exit 0
+          fi
+          echo "number=$number" >> "$GITHUB_OUTPUT"
+      - name: Compose comment body
+        if: steps.pr.outputs.number != ''
+        # output is attacker-influenced on pull requests — render as a 4-space indented code
+        # block (no fence to escape) and cap the size; never as raw markdown. A CR also ends
+        # a Markdown line, so every CR becomes a newline before each line is indented.
+        shell: bash
+        env:
+          REPORT_DIR: $\{{ runner.temp }}/drift-report
+        run: |
+          {
+            echo '## Prospec Check'
+            echo
+            if [ -f "$REPORT_DIR/prospec-check-output.txt" ]; then
+              head -c 60000 "$REPORT_DIR/prospec-check-output.txt" | tr '\r' '\n' | sed 's/^/    /'
+            else
+              echo '_check job produced no output (it may have failed before running prospec check)_'
+            fi
+          } > "$RUNNER_TEMP/comment-body.md"
+      - name: Post sticky PR comment
+        if: steps.pr.outputs.number != ''
+        uses: marocchino/sticky-pull-request-comment@0ea0beb66eb9baf113663a64ec522f60e49231c0 # v3.0.4
+        with:
+          number: $\{{ steps.pr.outputs.number }}
+          path: $\{{ runner.temp }}/comment-body.md
